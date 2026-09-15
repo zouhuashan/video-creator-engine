@@ -1567,7 +1567,15 @@ Status: PASS
 ---
 
 ## P14-02 生产 10 条
-Status: TODO
+Status: PASS（平台观察待人工发布）
+
+执行记录（2026-09-16）：
+- 第二批五个主题：ChatGPT 记忆、自定义指令、文件上传、数据控制、语音模式；研究资料均引用 OpenAI 官方帮助中心，分批记录见 `validation/p14-second-five-report.json`。
+- 两批合计十条真实成片，均为 56 秒、1080×1920、30fps、H.264/AAC，技术、内容、视觉 QC 和发布包均通过；独立验证报告见 `validation/p14-ten-report.json`，SHA-256 与项目内评估记录一致。
+- 十个项目均处于 `READY_FOR_REVIEW`，尚未发布。按人工发布原则，当前没有可真实记录的平台数据；`validation/p14-metrics.json` 已建立十条空观察记录，均等待人工发布，不填造播放指标。
+- `scripts/pilot_metrics.py record` 仅接受 `PUBLISHED_MANUALLY` 项目，要求平台来源、带时区的观察时间、播放量、完播率、3 秒和 5 秒留存及点赞、评论、收藏、转发、关注数；每次观察保留来源并追加记录。
+- `scripts/check-env.sh`、`scripts/publish_policy.py audit` 均通过；全量测试 158 项通过。
+- 结果：PASS；下一任务：P14-03。
 
 开始观察：
 
@@ -1581,6 +1589,8 @@ Status: TODO
 转发
 关注
 ```
+
+发布前在 `validation/p14-metrics.json` 中保留空记录；人工发布并将项目状态推进至 `PUBLISHED_MANUALLY` 后，按平台后台数据录入带来源的观察值。
 
 ---
 
@@ -2179,12 +2189,12 @@ P7 = V1 OPTIONAL
 # 41. 下一任务
 
 ```text
-NEXT: P14-02
+NEXT: P14-03
 ```
 
 任务：
 
-> 扩展到 10 条真实视频，并开始记录完播率、3 秒留存、5 秒留存、点赞、评论、收藏、转发和关注数据。
+> 扩展到 20 条真实视频，确认局部重跑和制作效率；十条已完成项目的发布后指标须在人工发布后继续记录。
 
 执行完成后：
 
