@@ -449,7 +449,14 @@ PASS: codex available
 ---
 
 ## P0-02 创建统一配置系统
-Status: TODO
+Status: PASS
+
+执行记录（2026-09-15）：
+
+- Git commit: `610df09`（统一 YAML 配置）
+- 五份配置均通过 YAML 解析及字段一致性检查；凭据仅以环境变量名引用，`.env.example` 不含真实密钥。
+- 微信视频号默认规格、Provider 切换和人工发布确认已配置；未定义的品牌及其他平台细节保持待定。
+- 结果：PASS；下一任务：P0-03。
 
 创建：
 
