@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "batch_id": "p14-second-five",
+  "status": "PASS",
+  "ready_projects": 5,
+  "target_projects": 5,
+  "projects": [
+    {
+      "schema_version": 1,
+      "project_id": "20260916-chatgpt-memory-management",
+      "status": "PASS",
+      "checks": {
+        "stable_generation": true,
+        "style": true,
+        "duration": true,
+        "subtitles": true,
+        "voice": true,
+        "hook": true
+      },
+      "duration_seconds": 56.0,
+      "final_sha256": "4fea0d556458e6556f974fd37e34a0f41c73d10e47e9d5e072715e51383bb476",
+      "provider": "macos_say",
+      "published": false
+    },
+    {
+      "schema_version": 1,
+      "project_id": "20260916-chatgpt-custom-instructions",
+      "status": "PASS",
+      "checks": {
+        "stable_generation": true,
+        "style": true,
+        "duration": true,
+        "subtitles": true,
+        "voice": true,
+        "hook": true
+      },
+      "duration_seconds": 56.0,
+      "final_sha256": "72d034f329ef77be22c7364ab1dfd962b9d3b792d7ce244d3f7d0f9ec0194048",
+      "provider": "macos_say",
+      "published": false
+    },
+    {
+      "schema_version": 1,
+      "project_id": "20260916-chatgpt-file-uploads",
+      "status": "PASS",
+      "checks": {
+        "stable_generation": true,
+        "style": true,
+        "duration": true,
+        "subtitles": true,
+        "voice": true,
+        "hook": true
+      },
+      "duration_seconds": 56.0,
+      "final_sha256": "db05b108db672607ae50dcc2338ddf4ec22aeb22d781e2962acbdbab890f4be9",
+      "provider": "macos_say",
+      "published": false
+    },
+    {
+      "schema_version": 1,
+      "project_id": "20260916-chatgpt-data-controls",
+      "status": "PASS",
+      "checks": {
+        "stable_generation": true,
+        "style": true,
+        "duration": true,
+        "subtitles": true,
+        "voice": true,
+        "hook": true
+      },
+      "duration_seconds": 56.0,
+      "final_sha256": "99150643f763741eafa3fce2e2d357587a92566ecdaf1db705ff97c06dd305f5",
+      "provider": "macos_say",
+      "published": false
+    },
+    {
+      "schema_version": 1,
+      "project_id": "20260916-chatgpt-voice-mode",
+      "status": "PASS",
+      "checks": {
+        "stable_generation": true,
+        "style": true,
+        "duration": true,
+        "subtitles": true,
+        "voice": true,
+        "hook": true
+      },
+      "duration_seconds": 56.0,
+      "final_sha256": "a2ba77b4e21c24f2b61af07bc83a4142b8c1a5b905e73c3b347cbf9e0e3240e8",
+      "provider": "macos_say",
+      "published": false
+    }
+  ],
+  "required_validations": [
+    "stable_generation",
+    "style",
+    "duration",
+    "subtitles",
+    "voice",
+    "hook"
+  ]
+}

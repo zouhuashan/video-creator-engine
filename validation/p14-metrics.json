@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "cohort_id": "p14-first-ten",
+  "status": "tracking",
+  "metric_definitions": {
+    "rates": "percentage from 0 to 100",
+    "counts": "non-negative integer platform totals",
+    "views": "positive integer denominator shown by the platform"
+  },
+  "publication_policy": "Only record observations after run.json reaches PUBLISHED_MANUALLY.",
+  "projects": [
+    {
+      "project_id": "20260916-chatgpt-plus-worth-it",
+      "collection_status": "awaiting_manual_publish",
+      "observations": []
+    },
+    {
+      "project_id": "20260916-chatgpt-projects-guide",
+      "collection_status": "awaiting_manual_publish",
+      "observations": []
+    },
+    {
+      "project_id": "20260916-temporary-chat-privacy",
+      "collection_status": "awaiting_manual_publish",
+      "observations": []
+    },
+    {
+      "project_id": "20260916-chatgpt-search-guide",
+      "collection_status": "awaiting_manual_publish",
+      "observations": []
+    },
+    {
+      "project_id": "20260916-deep-research-use-cases",
+      "collection_status": "awaiting_manual_publish",
+      "observations": []
+    },
+    {
+      "project_id": "20260916-chatgpt-memory-management",
+      "collection_status": "awaiting_manual_publish",
+      "observations": []
+    },
+    {
+      "project_id": "20260916-chatgpt-custom-instructions",
+      "collection_status": "awaiting_manual_publish",
+      "observations": []
+    },
+    {
+      "project_id": "20260916-chatgpt-file-uploads",
+      "collection_status": "awaiting_manual_publish",
+      "observations": []
+    },
+    {
+      "project_id": "20260916-chatgpt-data-controls",
+      "collection_status": "awaiting_manual_publish",
+      "observations": []
+    },
+    {
+      "project_id": "20260916-chatgpt-voice-mode",
+      "collection_status": "awaiting_manual_publish",
+      "observations": []
+    }
+  ]
+}

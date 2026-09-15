@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Independently verify the P14 first-five production milestone."""
+"""Independently verify P14 pilot batches and the ten-video milestone."""
 
 from __future__ import annotations
 
@@ -90,13 +90,42 @@ def validate_first_five(
             "required_projects": 5, "projects": verified}
 
 
+def validate_first_ten(
+    first_report: dict[str, Any], second_report: dict[str, Any], projects_dir: Path,
+    inspector: Callable[[Path], dict[str, Any]] = inspect_final_output,
+) -> dict[str, Any]:
+    """Independently verify both five-project batches as one ten-video cohort."""
+    if first_report.get("status") != "PASS" or second_report.get("status") != "PASS":
+        raise PilotValidationError("both P14 batches must report PASS")
+    first = validate_first_five(first_report, projects_dir, inspector)
+    second = validate_first_five(second_report, projects_dir, inspector)
+    projects = first["projects"] + second["projects"]
+    ids = [item["project_id"] for item in projects]
+    if len(ids) != 10 or len(set(ids)) != 10:
+        raise PilotValidationError("P14-02 requires ten unique projects across both batches")
+    return {"schema_version": 1, "status": "PASS", "verified_projects": 10,
+            "required_projects": 10, "batches": [first_report.get("batch_id"), second_report.get("batch_id")],
+            "projects": projects}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--report", type=Path, default=REPORT_PATH)
+    parser.add_argument("--second-report", type=Path)
+    parser.add_argument("--output", type=Path)
     parser.add_argument("--projects-dir", type=Path, default=ROOT / "projects")
     args = parser.parse_args()
     try:
-        result = validate_first_five(_load(args.report, "P14 report"), args.projects_dir)
+        report = _load(args.report, "P14 report")
+        if args.second_report:
+            result = validate_first_ten(report, _load(args.second_report, "P14 second report"), args.projects_dir)
+        else:
+            result = validate_first_five(report, args.projects_dir)
+        if args.output:
+            if args.output.exists():
+                raise PilotValidationError(f"refusing to overwrite validation result: {args.output}")
+            args.output.parent.mkdir(parents=True, exist_ok=True)
+            args.output.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     except PilotValidationError as error:
         print(f"pilot_validation: {error}", file=sys.stderr)
         return 1

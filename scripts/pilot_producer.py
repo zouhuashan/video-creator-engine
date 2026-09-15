@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Produce the first five local pilot videos and run the complete V1 gate."""
+"""Produce a five-video local pilot batch and run the complete V1 gate."""
 
 from __future__ import annotations
 
@@ -309,11 +309,14 @@ def produce_one(spec: dict[str, Any], projects_dir: Path, target: float, voice: 
     return evaluation
 
 
-def produce_batch(batch_file: Path = BATCH_PATH, projects_dir: Path = DEFAULT_PROJECTS_DIR) -> dict[str, Any]:
+def produce_batch(
+    batch_file: Path = BATCH_PATH,
+    projects_dir: Path = DEFAULT_PROJECTS_DIR,
+    report_output: Path = ROOT / "validation" / "p14-first-five-report.json",
+) -> dict[str, Any]:
     config, batch = _load(CONFIG_PATH), _load(batch_file)
-    output = ROOT / "validation" / "p14-first-five-report.json"
-    if output.exists():
-        raise PilotProductionError("refusing to overwrite the completed P14 first-five report")
+    if report_output.exists():
+        raise PilotProductionError(f"refusing to overwrite existing pilot report: {report_output}")
     projects = batch.get("projects")
     if batch.get("schema_version") != 1 or not isinstance(projects, list) or len(projects) != config["batch_size"]:
         raise PilotProductionError("pilot batch must contain exactly five projects")
@@ -321,11 +324,23 @@ def produce_batch(batch_file: Path = BATCH_PATH, projects_dir: Path = DEFAULT_PR
         raise PilotProductionError("configured Chinese font is unavailable")
     results = []
     for spec in projects:
-        results.append(produce_one(spec, projects_dir, float(config["target_duration_seconds"]), config["local_tts"]["voice"]))
+        project_id = f"{date.today().strftime('%Y%m%d')}-{spec['slug']}"
+        existing = projects_dir / project_id
+        evaluation_path = existing / "pilot-evaluation.json"
+        if existing.exists():
+            if not evaluation_path.is_file():
+                raise PilotProductionError(f"incomplete existing pilot project needs review: {project_id}")
+            evaluation = _load(evaluation_path)
+            if evaluation.get("project_id") != project_id or evaluation.get("status") != "PASS":
+                raise PilotProductionError(f"existing pilot project did not pass evaluation: {project_id}")
+            results.append(evaluation)
+        else:
+            results.append(produce_one(spec, projects_dir, float(config["target_duration_seconds"]), config["local_tts"]["voice"]))
     report = {"schema_version": 1, "batch_id": batch["batch_id"], "status": "PASS" if len(results) == 5 and all(item["status"] == "PASS" for item in results) else "FAIL",
               "ready_projects": len(results), "target_projects": 5, "projects": results,
               "required_validations": config["required_validations"]}
-    _write_json(output, report)
+    report_output.parent.mkdir(parents=True, exist_ok=True)
+    _write_json(report_output, report)
     return report
 
 
@@ -333,9 +348,10 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--batch-file", type=Path, default=BATCH_PATH)
     parser.add_argument("--projects-dir", type=Path, default=DEFAULT_PROJECTS_DIR)
+    parser.add_argument("--report-output", type=Path, default=ROOT / "validation" / "p14-first-five-report.json")
     args = parser.parse_args()
     try:
-        report = produce_batch(args.batch_file, args.projects_dir)
+        report = produce_batch(args.batch_file, args.projects_dir, args.report_output)
     except (PilotProductionError, OSError, ValueError) as error:
         print(f"pilot_producer: {error}", file=sys.stderr)
         return 1
