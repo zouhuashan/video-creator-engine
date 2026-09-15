@@ -153,6 +153,10 @@ Run visual review with `python3 scripts/visual_qc.py <project-dir> --analysis-fi
 
 `scripts/auto_fix.py` enforces the automatic-fix boundary before dispatch. Low-risk presentation fixes can reach a replaceable executor; fact, conclusion, recommendation, and sensitive-content changes route the whole batch back to script review. Any applied fix invalidates prior QC. Finalization aggregates the three fresh PASS reports into `qc.json` and `qc-report.md`, then advances an `EDITED` project to `QC_PASS`.
 
+## Publishing package
+
+`./video-creator package <project-id>` accepts only a `QC_PASS` project with a passing aggregate report. It validates and copies the seven required deliverables into `publish-package/`, verifies every copied SHA-256, writes `package.json`, and advances the project to `PACKAGED`. Packaging never uploads or publishes content.
+
 ## Logs
 
 Run a task command through `scripts/run_task.py` to keep the terminal summary compact and capture detailed output under the ignored `logs/` directory:

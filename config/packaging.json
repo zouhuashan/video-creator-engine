@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "platform": "wechat_channels",
+  "package_directory": "publish-package",
+  "required_files": ["final.mp4", "cover.png", "title.md", "caption.md", "hashtags.md", "sources.md", "qc-report.md"],
+  "publish_mode": "human_confirmation",
+  "auto_publish": false
+}

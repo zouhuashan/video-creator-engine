@@ -10,6 +10,7 @@ from pathlib import Path
 
 if __package__:
     from .asset_manifest import write_asset_manifest
+    from .package_project import package_project
     from .project_state import DEFAULT_PROJECTS_DIR, StateError, project_dir, resume_plan
     from .rerun_planner import rerun_plan
     from .research_module import write_research_artifacts
@@ -19,6 +20,7 @@ if __package__:
     from .topic_scoring import score_project
 else:
     from asset_manifest import write_asset_manifest
+    from package_project import package_project
     from project_state import DEFAULT_PROJECTS_DIR, StateError, project_dir, resume_plan
     from rerun_planner import rerun_plan
     from research_module import write_research_artifacts
@@ -65,6 +67,9 @@ def parse_args() -> argparse.Namespace:
     assets_parser.add_argument("project_id")
     assets_parser.add_argument("--input-file", type=Path, required=True)
     assets_parser.add_argument("--projects-dir", type=Path, default=DEFAULT_PROJECTS_DIR, help=argparse.SUPPRESS)
+    package_parser = subparsers.add_parser("package", help="Build the checked publishing package")
+    package_parser.add_argument("project_id")
+    package_parser.add_argument("--projects-dir", type=Path, default=DEFAULT_PROJECTS_DIR, help=argparse.SUPPRESS)
     return parser.parse_args()
 
 
@@ -93,6 +98,8 @@ def main() -> int:
         elif args.command == "assets":
             payload = json.loads(args.input_file.read_text(encoding="utf-8"))
             plan = write_asset_manifest(directory, args.project_id, payload)
+        elif args.command == "package":
+            plan = package_project(directory, args.project_id)
         else:  # pragma: no cover - argparse enforces the available commands
             raise StateError(f"unknown command: {args.command}")
     except (OSError, ValueError, StateError) as error:
