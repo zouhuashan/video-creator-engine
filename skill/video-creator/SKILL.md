@@ -71,6 +71,7 @@ warnings: []
 - 成片完成后读取 `skill/video-creator/qc/SKILL.md`。技术质检必须检查真实媒体流和完整解码结果，并读取字幕布局证据；缺少证据或任一必检项失败时不得推进状态。
 - 三类 QC 全部通过后读取 `skill/video-creator/package/SKILL.md`。只打包七个必需产物并核验复制前后的 SHA-256；发布模式始终为人工确认。
 - 发布包完成后读取 `skill/video-creator/review/SKILL.md`，重新核对清单、校验和及 QC，再推进到 `READY_FOR_REVIEW` 并停止等待人工发布。
+- P14 内容验证读取 `skill/video-creator/validation/SKILL.md`。只统计具有真实成片、完整 QC、发布包及 `READY_FOR_REVIEW` 状态的项目；生产程序和独立批次验证器必须同时通过。
 - 每个阶段产物成功写入并通过该阶段校验后，才用 `python3 scripts/project_state.py transition <project-id> --to <NEXT_STATUS> --note "..."` 推进 `run.json`；不要手工编辑状态文件或跳过阶段。
 - 用户要求继续项目或执行 `resume <project-id>` 时，运行 `./video-creator resume <project-id>` 并以返回的 `resume_stage` 为唯一恢复点。跳过已完成阶段，检查对应产物后从恢复点继续；缺少阶段处理器或产物损坏时说明阻塞，不重置状态或伪造完成记录。
 - 用户要求局部重跑时，运行 `./video-creator rerun <project-id> scene <SCENE_ID>`、`voice`、`cover` 或 `qc`，读取 JSON 计划并严格按 `preserve`、`rebuild`、`checkpoint` 和 `invalidated_stages_after_success` 限定范围。场景 ID 必须能在 `storyboard.json` 或 `storyboard.md` 中找到；项目必须已完成该目标所需阶段。`PUBLISHED_MANUALLY` 项目禁止重跑。

@@ -52,10 +52,11 @@ providers:
       mode: remote
       credentials_required: false
     local:
-      adapter: local_tts
-      enabled: false
+      adapter: macos_say
+      enabled: true
       mode: local
       credentials_required: false
+      voice: Tingting
   image: {}
   video: {}
   motion:

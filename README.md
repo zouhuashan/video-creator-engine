@@ -167,6 +167,10 @@ Cover input contains two or three short question-led candidates. `scripts/cover_
 
 `python3 scripts/publish_policy.py audit` verifies the V1 human-only policy across application, platform, and package configuration. Uploading to WeChat, simulating a publish click, and setting originality or commercial labels are denied capabilities. The manual-record command changes state only after explicit user confirmation that publication already happened outside VideoCreator.
 
+## Pilot production validation
+
+P14 pilot videos can use the credential-free `MacOSSayTTS` adapter with the local `Tingting` voice. `python3 scripts/pilot_producer.py` renders the declared five-topic batch through real FFmpeg output, all three QC layers, cover and copy generation, packaging, and the human review gate without publishing. `python3 scripts/pilot_validation.py` then independently reopens all five projects, media streams, checksums, QC reports, and packages before accepting the milestone.
+
 ## Logs
 
 Run a task command through `scripts/run_task.py` to keep the terminal summary compact and capture detailed output under the ignored `logs/` directory:

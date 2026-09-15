@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "batch_id": "p14-first-five",
+  "projects": [
+    {
+      "slug": "chatgpt-plus-worth-it",
+      "topic": "ChatGPT Plus 每月 20 美元值不值",
+      "keyword": "ChatGPT Plus",
+      "source_title": "What is ChatGPT Plus?",
+      "source_url": "https://help.openai.com/en/articles/6950777-what-is-chatgpt-plus",
+      "core_fact": "ChatGPT Plus 每月收费 20 美元，并提供更高使用限额及更广泛的模型和工具访问。",
+      "sections": [
+        "每月二十美元的 ChatGPT Plus，不是人人都值得买。",
+        "如果你只是偶尔问问题，免费版通常已经能完成很多日常任务。",
+        "官方说明里，Plus 的价格是每月二十美元，重点是更高限额、更广的模型与工具访问，以及高峰期更稳定的体验。",
+        "真正的分界线不是功能列表有多长，而是你会不会高频使用文件分析、图片、语音、复杂推理或深度研究。",
+        "每天工作都依赖这些能力，节省的时间可能覆盖订阅费；一周只用几次，就先留在免费版。",
+        "先记录一周的使用频率，再决定是否订阅。你每天会用 ChatGPT 做什么？"
+      ],
+      "scene_titles": ["先说结论", "偶尔使用", "官方价格", "核心差异", "高频用户", "低频用户", "按需决定"],
+      "cover_core": "Plus值不值",
+      "caption": "ChatGPT Plus 每月二十美元是否值得，关键不是功能数量，而是你的使用频率和实际节省的时间。先观察一周，再按需求决定。",
+      "hashtags": ["#ChatGPT", "#AI工具", "#订阅避坑"]
+    },
+    {
+      "slug": "chatgpt-projects-guide",
+      "topic": "ChatGPT Projects 适合哪些任务",
+      "keyword": "ChatGPT Projects",
+      "source_title": "Projects in ChatGPT",
+      "source_url": "https://help.openai.com/en/articles/10169521-projects-in-chatgpt",
+      "core_fact": "ChatGPT Projects 可把聊天、文件和自定义指令放在同一工作空间，并面向免费和付费账户提供。",
+      "sections": [
+        "资料一多就找不到？ChatGPT Projects 解决的是上下文混乱。",
+        "它不是一个新模型，而是把同一项长期工作的聊天、文件和指令放到一个空间。",
+        "官方说明显示，Projects 面向免费和付费账户提供；项目记忆还能让对话围绕项目内资料保持一致。",
+        "临时问题用普通聊天更快，连续几周的研究、写作、课程或产品规划，更适合放进项目。",
+        "如果内容敏感，可以在创建时考虑项目专用记忆，让项目不引用外部聊天。",
+        "给正在反复推进的一项工作建个项目，看看找资料的时间会不会减少。"
+      ],
+      "scene_titles": ["资料太散？", "不是新模型", "聊天和文件", "长期任务", "项目记忆", "边界设置", "建立项目"],
+      "cover_core": "项目好用吗",
+      "caption": "ChatGPT Projects 适合需要持续迭代的研究、写作和规划任务。把聊天、文件与指令集中起来，比在零散对话中反复补充背景更省事。",
+      "hashtags": ["#ChatGPT", "#效率工具", "#项目管理"]
+    },
+    {
+      "slug": "temporary-chat-privacy",
+      "topic": "ChatGPT 临时聊天能解决什么问题",
+      "keyword": "临时聊天",
+      "source_title": "Temporary Chat FAQ",
+      "source_url": "https://help.openai.com/en/articles/8914046-temporary-chat-faq",
+      "core_fact": "临时聊天不会出现在历史记录中，不会创建记忆，也不会用于改进模型；出于安全原因副本可能保留最多 30 天。",
+      "sections": [
+        "不想让一次对话进入历史记录？先别急着删除，试试临时聊天。",
+        "它适合一次性问题、临时草稿，或者你不希望影响后续个性化体验的内容。",
+        "官方说明里，临时聊天不会出现在历史记录，不会创建记忆，也不会用于改进模型。",
+        "但临时不等于完全不留痕，出于安全原因，系统仍可能保留副本最多三十天。",
+        "如果 GPT 使用第三方动作，发给第三方的数据还要遵循对方的隐私政策。",
+        "所以，一次性内容用临时聊天；真正敏感的信息，依然不要随意输入。"
+      ],
+      "scene_titles": ["不进历史？", "一次性问题", "不会创建记忆", "最多三十天", "第三方动作", "敏感信息", "正确用法"],
+      "cover_core": "临时聊天安全吗",
+      "caption": "临时聊天不会进入历史记录，也不会创建记忆或用于改进模型，但这不等于完全不保留。了解三十天安全留存和第三方动作边界再使用。",
+      "hashtags": ["#ChatGPT", "#隐私设置", "#临时聊天"]
+    },
+    {
+      "slug": "chatgpt-search-guide",
+      "topic": "ChatGPT Search 什么时候更好用",
+      "keyword": "ChatGPT Search",
+      "source_title": "ChatGPT Search",
+      "source_url": "https://help.openai.com/en/articles/9237897-chatgpt-search",
+      "core_fact": "ChatGPT Search 面向各类 ChatGPT 用户提供，可返回带相关网页链接的及时答案。",
+      "sections": [
+        "查最新信息还只靠模型记忆？这时应该打开 ChatGPT Search。",
+        "它适合新闻、价格、赛程、产品更新和本地信息这些会不断变化的问题。",
+        "官方说明显示，ChatGPT Search 面向各类用户提供，并能给出带相关网页链接的及时答案。",
+        "搜索的优势是快，适合明确问题；需要比较很多来源和形成完整报告时，深度研究更合适。",
+        "看到链接别只看标题，打开原页面，确认发布日期、适用地区和原始上下文。",
+        "下次问最新情况时，加上时间范围和来源要求，答案会更容易核验。"
+      ],
+      "scene_titles": ["别靠旧记忆", "适合最新信息", "答案带链接", "搜索更快", "核对原页面", "限定时间", "可核验答案"],
+      "cover_core": "搜索该不该开",
+      "caption": "ChatGPT Search 更适合新闻、价格和产品更新等时效问题。使用时写明时间范围，并打开来源页面核对日期、地区和上下文。",
+      "hashtags": ["#ChatGPT搜索", "#信息检索", "#AI技巧"]
+    },
+    {
+      "slug": "deep-research-use-cases",
+      "topic": "ChatGPT 深度研究什么时候值得用",
+      "keyword": "深度研究",
+      "source_title": "Deep research in ChatGPT",
+      "source_url": "https://help.openai.com/en/articles/10500283-research-faq",
+      "core_fact": "深度研究适合需要组合和分析多个来源的复杂问题，并输出带引用或来源链接的结构化报告。",
+      "sections": [
+        "一个简单问题也开深度研究，可能只是浪费时间。",
+        "它真正适合的是多步骤问题：需要比较方案、读取多个来源，再形成结构化结论。",
+        "官方说明里，深度研究会先形成研究计划，允许调整范围，最终报告带引用或来源链接。",
+        "查一个日期或定义，用普通搜索更快；做采购比较、行业研究或复杂决策，深度研究更有价值。",
+        "开始前写清目标、受众、时间范围和输出格式，还可以指定优先使用的网站。",
+        "先判断问题复杂度，再选择工具。你最想让深度研究帮你比较什么？"
+      ],
+      "scene_titles": ["别滥用工具", "多步骤问题", "先看研究计划", "报告带引用", "搜索或研究", "写清约束", "按复杂度选择"],
+      "cover_core": "深度研究值不值",
+      "caption": "深度研究适合需要比较多个来源并形成结构化报告的问题。简单查询用搜索更快，复杂决策则先写清目标、范围和输出格式。",
+      "hashtags": ["#深度研究", "#ChatGPT", "#研究方法"]
+    }
+  ]
+}

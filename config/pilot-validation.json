@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "batch_size": 5,
+  "target_duration_seconds": 56,
+  "platform": "wechat_channels",
+  "local_tts": {"provider": "macos_say", "voice": "Tingting", "speed": 1.0},
+  "required_validations": ["stable_generation", "style", "duration", "subtitles", "voice", "hook"],
+  "minimum_ready_projects": 5
+}

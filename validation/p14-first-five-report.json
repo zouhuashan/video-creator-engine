@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "batch_id": "p14-first-five",
+  "status": "PASS",
+  "ready_projects": 5,
+  "target_projects": 5,
+  "projects": [
+    {
+      "schema_version": 1,
+      "project_id": "20260916-chatgpt-plus-worth-it",
+      "status": "PASS",
+      "checks": {
+        "stable_generation": true,
+        "style": true,
+        "duration": true,
+        "subtitles": true,
+        "voice": true,
+        "hook": true
+      },
+      "duration_seconds": 56.0,
+      "final_sha256": "0bd4ada44b84c57636e783a1b50386d449812322944ec5cd121e70d9df24382f",
+      "provider": "macos_say",
+      "published": false
+    },
+    {
+      "schema_version": 1,
+      "project_id": "20260916-chatgpt-projects-guide",
+      "status": "PASS",
+      "checks": {
+        "stable_generation": true,
+        "style": true,
+        "duration": true,
+        "subtitles": true,
+        "voice": true,
+        "hook": true
+      },
+      "duration_seconds": 56.0,
+      "final_sha256": "8f888492069b2adb4aca263c01c461797e4b6a5e2ac91e7bb43a548f8469f6ff",
+      "provider": "macos_say",
+      "published": false
+    },
+    {
+      "schema_version": 1,
+      "project_id": "20260916-temporary-chat-privacy",
+      "status": "PASS",
+      "checks": {
+        "stable_generation": true,
+        "style": true,
+        "duration": true,
+        "subtitles": true,
+        "voice": true,
+        "hook": true
+      },
+      "duration_seconds": 56.0,
+      "final_sha256": "71a8ed9304109122ec997c75f21fada12036734e1ea03ff696b863c901c4bf5e",
+      "provider": "macos_say",
+      "published": false
+    },
+    {
+      "schema_version": 1,
+      "project_id": "20260916-chatgpt-search-guide",
+      "status": "PASS",
+      "checks": {
+        "stable_generation": true,
+        "style": true,
+        "duration": true,
+        "subtitles": true,
+        "voice": true,
+        "hook": true
+      },
+      "duration_seconds": 56.0,
+      "final_sha256": "cc300ec01672fe48136658d7a52278fc755896e38c77663e2cd719d2fdcc5444",
+      "provider": "macos_say",
+      "published": false
+    },
+    {
+      "schema_version": 1,
+      "project_id": "20260916-deep-research-use-cases",
+      "status": "PASS",
+      "checks": {
+        "stable_generation": true,
+        "style": true,
+        "duration": true,
+        "subtitles": true,
+        "voice": true,
+        "hook": true
+      },
+      "duration_seconds": 56.0,
+      "final_sha256": "e814ecc2e0097b703517226762526141b4663e32e36053ed551f1d8d810796dd",
+      "provider": "macos_say",
+      "published": false
+    }
+  ],
+  "required_validations": [
+    "stable_generation",
+    "style",
+    "duration",
+    "subtitles",
+    "voice",
+    "hook"
+  ]
+}
