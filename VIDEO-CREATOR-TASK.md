@@ -617,7 +617,14 @@ video-creator resume <project-id>
 ---
 
 ## P1-05 支持局部重跑
-Status: TODO
+Status: PASS
+
+执行记录（2026-09-15）：
+
+- Git commit: `88c79ff`（局部重跑范围规划）
+- CLI 支持 scene、voice、cover、QC 四类计划；校验目标阶段、场景 ID 和人工发布终态，并列出保留产物、重建产物及恢复检查点。计划不修改 `run.json`，单镜头计划保留其它场景和配音。
+- 已验证 11 项单元测试、Python 编译检查和 Skill quick validator。
+- 当前阶段执行器尚未接入，命令只输出计划，不会声称已生成新产物；下一任务：P2-01。
 
 示例：
 
@@ -1915,12 +1922,12 @@ P7 = V1 OPTIONAL
 # 41. 下一任务
 
 ```text
-NEXT: P1-05
+NEXT: P2-01
 ```
 
 任务：
 
-> 支持项目局部重跑（场景、配音、封面、QC），避免重做无关阶段。
+> 实现 Research 模块，为选题收集可核验的事实和来源。
 
 执行完成后：
 
