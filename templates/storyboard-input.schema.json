@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://video-creator.local/schemas/storyboard-input.schema.json",
+  "title": "VideoCreator storyboard input",
+  "type": "object",
+  "required": ["schema_version", "scenes"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "scenes": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/scene" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "scene": {
+      "type": "object",
+      "required": ["scene_id", "start", "end", "spoken_text", "caption", "visual_description", "visual_type", "asset_query", "motion", "transition", "source"],
+      "properties": {
+        "scene_id": { "type": "string", "pattern": "^SC[0-9]{3,}$" },
+        "start": { "type": "number", "minimum": 0 },
+        "end": { "type": "number", "exclusiveMinimum": 0 },
+        "spoken_text": { "type": "string", "minLength": 1 },
+        "caption": { "type": "string", "minLength": 1 },
+        "visual_description": { "type": "string", "minLength": 1 },
+        "visual_type": { "type": "string", "minLength": 1 },
+        "asset_query": { "type": "string", "minLength": 1 },
+        "motion": { "type": "string", "minLength": 1 },
+        "transition": { "type": "string", "minLength": 1 },
+        "source": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^S[0-9]{3,}$" } }
+      },
+      "additionalProperties": false
+    }
+  }
+}

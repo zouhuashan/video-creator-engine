@@ -13,12 +13,14 @@ if __package__:
     from .rerun_planner import rerun_plan
     from .research_module import write_research_artifacts
     from .script_module import write_script_artifacts
+    from .storyboard_module import write_storyboard_artifacts
     from .topic_scoring import score_project
 else:
     from project_state import DEFAULT_PROJECTS_DIR, StateError, project_dir, resume_plan
     from rerun_planner import rerun_plan
     from research_module import write_research_artifacts
     from script_module import write_script_artifacts
+    from storyboard_module import write_storyboard_artifacts
     from topic_scoring import score_project
 
 
@@ -48,6 +50,10 @@ def parse_args() -> argparse.Namespace:
     script_parser.add_argument("project_id")
     script_parser.add_argument("--input-file", type=Path, required=True, help="JSON script draft following the WeChat Channels template")
     script_parser.add_argument("--projects-dir", type=Path, default=DEFAULT_PROJECTS_DIR, help=argparse.SUPPRESS)
+    storyboard_parser = subparsers.add_parser("storyboard", help="Validate a timed storyboard and write project artifacts")
+    storyboard_parser.add_argument("project_id")
+    storyboard_parser.add_argument("--input-file", type=Path, required=True, help="JSON scene plan aligned to script narration")
+    storyboard_parser.add_argument("--projects-dir", type=Path, default=DEFAULT_PROJECTS_DIR, help=argparse.SUPPRESS)
     return parser.parse_args()
 
 
@@ -68,6 +74,9 @@ def main() -> int:
         elif args.command == "script":
             payload = json.loads(args.input_file.read_text(encoding="utf-8"))
             plan = write_script_artifacts(directory, args.project_id, payload)
+        elif args.command == "storyboard":
+            payload = json.loads(args.input_file.read_text(encoding="utf-8"))
+            plan = write_storyboard_artifacts(directory, args.project_id, payload)
         else:  # pragma: no cover - argparse enforces the available commands
             raise StateError(f"unknown command: {args.command}")
     except (OSError, ValueError, StateError) as error:
