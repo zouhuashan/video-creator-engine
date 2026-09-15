@@ -95,6 +95,8 @@ Create a timed storyboard from a completed script with:
 
 The input format is described by [`templates/storyboard-input.schema.json`](templates/storyboard-input.schema.json). Each scene includes timing, spoken text, caption, visual direction, asset query, motion, transition, and source IDs. The command checks that scene timing is continuous, narration covers the script exactly, and cited sources have an evidence visual before writing `storyboard.json` and `storyboard.md` and advancing the project to `STORYBOARDED`.
 
+Review the storyboard before asset work with `./video-creator review-storyboard <project-id>`. It writes `storyboard-review.json` and `storyboard-review.md` with checks for visual pacing, repeated visuals, text-only runs, evidence visuals, Hook matching, and conclusion emphasis. A failed review remains reviewable and does not advance project state.
+
 ## Logs
 
 Run a task command through `scripts/run_task.py` to keep the terminal summary compact and capture detailed output under the ignored `logs/` directory:

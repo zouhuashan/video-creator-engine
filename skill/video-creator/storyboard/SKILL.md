@@ -20,4 +20,4 @@
 
 命令会校验口播覆盖、连续时间、镜头编号、来源追溯和结束时间，生成 `storyboard.json` 与 `storyboard.md`，然后把项目从 `SCRIPTED` 推进到 `STORYBOARDED`。校验失败、写入失败或已有产物时不会推进状态。
 
-自动分镜审查由后续任务处理；本阶段不要擅自缩改脚本或生成素材。
+生成分镜后立即运行 `./video-creator review-storyboard <project-id>`。它会输出 `storyboard-review.json`、`storyboard-review.md`，检查静态画面、重复视觉、纯字幕堆叠、来源证据、前三秒 Hook 和结论视觉强化。若 `passed=false`，先修订分镜，不进入素材阶段。审查只生成报告，不改变项目状态。

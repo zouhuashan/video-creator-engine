@@ -14,6 +14,7 @@ if __package__:
     from .research_module import write_research_artifacts
     from .script_module import write_script_artifacts
     from .storyboard_module import write_storyboard_artifacts
+    from .storyboard_review import write_storyboard_review
     from .topic_scoring import score_project
 else:
     from project_state import DEFAULT_PROJECTS_DIR, StateError, project_dir, resume_plan
@@ -21,6 +22,7 @@ else:
     from research_module import write_research_artifacts
     from script_module import write_script_artifacts
     from storyboard_module import write_storyboard_artifacts
+    from storyboard_review import write_storyboard_review
     from topic_scoring import score_project
 
 
@@ -54,6 +56,9 @@ def parse_args() -> argparse.Namespace:
     storyboard_parser.add_argument("project_id")
     storyboard_parser.add_argument("--input-file", type=Path, required=True, help="JSON scene plan aligned to script narration")
     storyboard_parser.add_argument("--projects-dir", type=Path, default=DEFAULT_PROJECTS_DIR, help=argparse.SUPPRESS)
+    review_parser = subparsers.add_parser("review-storyboard", help="Review storyboard visual pacing and evidence coverage")
+    review_parser.add_argument("project_id")
+    review_parser.add_argument("--projects-dir", type=Path, default=DEFAULT_PROJECTS_DIR, help=argparse.SUPPRESS)
     return parser.parse_args()
 
 
@@ -77,6 +82,8 @@ def main() -> int:
         elif args.command == "storyboard":
             payload = json.loads(args.input_file.read_text(encoding="utf-8"))
             plan = write_storyboard_artifacts(directory, args.project_id, payload)
+        elif args.command == "review-storyboard":
+            plan = write_storyboard_review(directory, args.project_id)
         else:  # pragma: no cover - argparse enforces the available commands
             raise StateError(f"unknown command: {args.command}")
     except (OSError, ValueError, StateError) as error:
