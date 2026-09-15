@@ -1214,7 +1214,15 @@ ASRProvider
 ---
 
 ## P9-03 EDL
-Status: TODO
+Status: PASS
+
+执行记录（2026-09-15）：
+- Git commit: `e775e5e`
+- 新增 `edit/edit-decision-list.json` 管理器，每个保留区间包含稳定 `decision_id` 和非空决策理由。
+- 记录源文件 SHA-256、渲染指纹、revision 与 parent_revision；源文件变化时阻止使用旧决策重渲染。
+- 创建、局部修改和回滚均保存不可覆盖的编号历史；修改和回滚使用 expected_revision 防止并发覆盖。
+- 验证：创建、局部修改、旧版本拒绝、回滚、源变化检测与重复创建拒绝通过；全量 97 项测试通过。
+- 结果：PASS；下一任务：P10-01。
 
 剪辑必须输出可追踪 EDL：
 
@@ -2083,12 +2091,12 @@ P7 = V1 OPTIONAL
 # 41. 下一任务
 
 ```text
-NEXT: P9-03
+NEXT: P10-01
 ```
 
 任务：
 
-> 实现可追踪的 `edit-decision-list.json`，支持回滚、局部修改和重渲染。
+> 实现 FFmpeg Final Merge，覆盖视频合并、音轨混合、音量标准化、转场、编码、尺寸、FPS、码率和封装。
 
 执行完成后：
 
