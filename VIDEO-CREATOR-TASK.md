@@ -737,7 +737,15 @@ risk_score
 # 11. P3 — Script
 
 ## P3-01 视频号脚本模板
-Status: TODO
+Status: PASS
+
+执行记录（2026-09-15）：
+
+- Git commit: `0d80805`（微信视频号六段脚本模板）
+- 新增 `video-creator script`，按 Hook、Problem、Evidence、Comparison、Conclusion、CTA 固定顺序校验输入，要求 Evidence 至少引用一条已核验的非搜索摘要来源。
+- 脚本命令校验项目评分门槛和来源编号，生成 `script.json`、`script.md`，成功后将状态从 `RESEARCHED` 推进到 `SCRIPTED`；校验失败或已有产物时不覆盖、不推进状态。
+- 已验证 31 项单元测试、Draft 2020-12 输入 Schema、Python 编译、CLI 帮助和 Skill quick validator。
+- 结果：PASS；下一任务：P3-02。
 
 默认：
 
@@ -1948,12 +1956,12 @@ P7 = V1 OPTIONAL
 # 41. 下一任务
 
 ```text
-NEXT: P3-01
+NEXT: P3-02
 ```
 
 任务：
 
-> 建立微信视频号脚本模板，按 Hook、Problem、Evidence、Comparison、Conclusion、CTA 输出。
+> 实现微信视频号脚本的口语化规则。
 
 执行完成后：
 
