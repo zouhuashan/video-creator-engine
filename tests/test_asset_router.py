@@ -3,7 +3,7 @@ import json
 import tempfile
 from pathlib import Path
 
-from scripts.asset_router import choose_route, load_config
+from scripts.asset_router import choose_route, load_config, recover_missing_asset
 from scripts.asset_manifest import write_asset_manifest
 from scripts import project_state
 
@@ -16,6 +16,10 @@ class AssetRouterTests(unittest.TestCase):
     def test_routes_hyperframes_and_returns_missing_when_unavailable(self):
         self.assertEqual(choose_route("chart", ["hyperframes", "generative_media"])["route"], "hyperframes")
         self.assertEqual(choose_route("ai_video", ["real_media"])["status"], "MISSING_ASSET")
+
+    def test_missing_asset_recovery_uses_first_available_action(self):
+        self.assertEqual(recover_missing_asset(["generate", "replace_with_infographic"])["next_action"], "generate")
+        self.assertEqual(recover_missing_asset([])["next_action"], "request_user_material")
 
     def test_config_is_complete(self):
         config = load_config()

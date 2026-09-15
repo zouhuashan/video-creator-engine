@@ -1,6 +1,7 @@
 {
   "schema_version": 1,
   "priority": ["real_media", "licensed_media", "hyperframes", "generative_media"],
+  "missing_asset_recovery": ["search", "generate", "replace_with_infographic", "request_user_material"],
   "visual_type_routes": {
     "screen_recording": ["real_media"],
     "screenshot": ["real_media"],
