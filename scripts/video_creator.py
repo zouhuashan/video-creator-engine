@@ -11,9 +11,11 @@ from pathlib import Path
 if __package__:
     from .project_state import DEFAULT_PROJECTS_DIR, StateError, project_dir, resume_plan
     from .rerun_planner import rerun_plan
+    from .research_module import write_research_artifacts
 else:
     from project_state import DEFAULT_PROJECTS_DIR, StateError, project_dir, resume_plan
     from rerun_planner import rerun_plan
+    from research_module import write_research_artifacts
 
 
 def parse_args() -> argparse.Namespace:
@@ -30,6 +32,10 @@ def parse_args() -> argparse.Namespace:
     for target in ("voice", "cover", "qc"):
         rerun_targets.add_parser(target, help=f"Rerun {target}")
     rerun_parser.add_argument("--projects-dir", type=Path, default=DEFAULT_PROJECTS_DIR, help=argparse.SUPPRESS)
+    research_parser = subparsers.add_parser("research", help="Validate sourced research input and create project reports")
+    research_parser.add_argument("project_id")
+    research_parser.add_argument("--input-file", type=Path, required=True, help="JSON research brief with source references")
+    research_parser.add_argument("--projects-dir", type=Path, default=DEFAULT_PROJECTS_DIR, help=argparse.SUPPRESS)
     return parser.parse_args()
 
 
@@ -42,9 +48,12 @@ def main() -> int:
         elif args.command == "rerun":
             scene_id = args.scene_id if args.target == "scene" else None
             plan = rerun_plan(directory, args.project_id, args.target, scene_id)
+        elif args.command == "research":
+            payload = json.loads(args.input_file.read_text(encoding="utf-8"))
+            plan = write_research_artifacts(directory, args.project_id, payload)
         else:  # pragma: no cover - argparse enforces the available commands
             raise StateError(f"unknown command: {args.command}")
-    except (OSError, StateError) as error:
+    except (OSError, ValueError, StateError) as error:
         print(f"video-creator: {error}", file=sys.stderr)
         return 1
 

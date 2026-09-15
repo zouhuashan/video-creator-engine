@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://video-creator.local/schemas/research-input.schema.json",
+  "title": "VideoCreator research input",
+  "type": "object",
+  "required": ["topic", "sources", "core_facts"],
+  "properties": {
+    "topic": { "type": "string", "minLength": 1 },
+    "source_mode": {
+      "type": "string",
+      "enum": ["automatic_research", "user_materials_first", "provided_sources_only", "no_external_research"]
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["source_id", "title", "publisher", "url"],
+        "properties": {
+          "source_id": { "type": "string", "pattern": "^S[0-9]{3,}$" },
+          "title": { "type": "string", "minLength": 1 },
+          "publisher": { "type": "string", "minLength": 1 },
+          "url": { "type": "string", "format": "uri" },
+          "source_type": { "type": "string" },
+          "published_at": { "type": ["string", "null"] },
+          "accessed_at": { "type": ["string", "null"] }
+        },
+        "additionalProperties": false
+      }
+    },
+    "core_facts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "allOf": [
+          { "$ref": "#/$defs/sourcedClaim" },
+          { "type": "object", "required": ["claim"], "properties": { "claim": { "type": "string", "minLength": 1 } } }
+        ]
+      }
+    },
+    "user_faqs": {
+      "type": "array",
+      "items": {
+        "allOf": [
+          { "$ref": "#/$defs/sourcedClaim" },
+          { "type": "object", "required": ["question", "answer"], "properties": {
+            "question": { "type": "string", "minLength": 1 },
+            "answer": { "type": "string", "minLength": 1 }
+          } }
+        ]
+      }
+    },
+    "viewpoints": {
+      "type": "object",
+      "properties": {
+        "positive": { "type": "array", "items": {
+          "allOf": [
+            { "$ref": "#/$defs/sourcedClaim" },
+            { "type": "object", "required": ["claim"], "properties": { "claim": { "type": "string", "minLength": 1 } } }
+          ]
+        } },
+        "negative": { "type": "array", "items": {
+          "allOf": [
+            { "$ref": "#/$defs/sourcedClaim" },
+            { "type": "object", "required": ["claim"], "properties": { "claim": { "type": "string", "minLength": 1 } } }
+          ]
+        } }
+      },
+      "additionalProperties": false
+    },
+    "price_spec_versions": {
+      "type": "array",
+      "items": {
+        "allOf": [
+          { "$ref": "#/$defs/sourcedClaim" },
+          { "type": "object", "required": ["item", "value"], "properties": {
+            "item": { "type": "string", "minLength": 1 },
+            "value": { "type": "string", "minLength": 1 },
+            "checked_at": { "type": "string", "minLength": 1 }
+          } }
+        ]
+      }
+    },
+    "asset_directions": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "risks": {
+      "type": "array",
+      "items": {
+        "allOf": [
+          { "$ref": "#/$defs/sourcedClaim" },
+          { "type": "object", "required": ["risk", "severity"], "properties": {
+            "risk": { "type": "string", "minLength": 1 },
+            "severity": { "type": "string", "minLength": 1 }
+          } }
+        ]
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "sourcedClaim": {
+      "type": "object",
+      "required": ["evidence", "source_ids"],
+      "properties": {
+        "id": { "type": "string" },
+        "claim": { "type": "string", "minLength": 1 },
+        "answer": { "type": "string", "minLength": 1 },
+        "value": { "type": "string", "minLength": 1 },
+        "evidence": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "source_ids": { "type": "array", "minItems": 1, "items": { "type": "string", "pattern": "^S[0-9]{3,}$" } },
+        "checked_at": { "type": "string" },
+        "severity": { "type": "string" },
+        "question": { "type": "string" },
+        "item": { "type": "string" },
+        "risk": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  }
+}
