@@ -546,7 +546,13 @@ asset_strategy
 ---
 
 ## P1-02 创建项目 ID
-Status: TODO
+Status: PASS
+
+执行记录（2026-09-15）：
+
+- Git commit: `b46f7cd`（项目 ID 生成器）
+- 已验证 `YYYYMMDD-slug`、Asia/Shanghai 日期、目录原子创建、同 ID 数字后缀、中文回退 slug、输入清洗和无效日期拒绝。
+- 结果：PASS；下一任务：P1-03。
 
 格式：
 
@@ -1895,12 +1901,12 @@ P7 = V1 OPTIONAL
 # 41. 下一任务
 
 ```text
-NEXT: P1-02
+NEXT: P1-03
 ```
 
 任务：
 
-> 创建符合 `YYYYMMDD-slug` 格式的项目 ID，为每条视频任务建立稳定项目目录。
+> 实现项目制作状态机，按阶段记录从 `CREATED` 到 `PUBLISHED_MANUALLY` 的进度。
 
 执行完成后：
 
