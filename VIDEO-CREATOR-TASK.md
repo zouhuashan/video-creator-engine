@@ -870,7 +870,15 @@ comparison
 ---
 
 ## P4-03 Storyboard Review
-Status: TODO
+Status: PASS
+
+执行记录（2026-09-15）：
+
+- Git commit: `f3baead`（自动分镜视觉审查）
+- 新增 `video-creator review-storyboard`，输出可复跑的 `storyboard-review.json`、`storyboard-review.md`，不改变项目状态。
+- 自动检查连续 8 秒以上无视觉变化、重复画面、连续纯字幕堆叠、来源证据画面、前三秒 Hook 视觉和关键结论视觉强化；失败项以 `NEEDS_REVISION` 留在审查报告中。
+- 已验证 49 项单元测试、Python 编译和 Skill quick validator。
+- 结果：PASS；下一任务：P5-01。
 
 自动检查：
 
@@ -1990,12 +1998,12 @@ P7 = V1 OPTIONAL
 # 41. 下一任务
 
 ```text
-NEXT: P4-03
+NEXT: P5-01
 ```
 
 任务：
 
-> 自动审查分镜的视觉变化、重复画面、字幕堆叠、证据画面、Hook 匹配和结论强化。
+> 建立素材路由优先级：真实素材、授权素材、HyperFrames、Generative Media。
 
 执行完成后：
 
