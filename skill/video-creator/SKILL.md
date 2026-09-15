@@ -19,6 +19,7 @@ description: Turn a topic into a structured short-video production brief and coo
 - `source_mode`：使用 `automatic_research`、`user_materials_first`、`provided_sources_only` 或 `no_external_research`。未指定时依 `app.workflow.auto_research` 选择。
 - `voice`：一个对象，包含 `provider`、`voice_id` 和 `speed`；优先遵循用户指定，否则读取 Provider 和品牌配置，未配置的值保留为 `null`。
 - `asset_strategy`：优先遵循用户指定；否则使用 `real_media_first`，并按平台/品牌配置中的素材优先级路由。
+- `project_id`：仅在用户要求开始实际制作时创建；只做策划时不创建项目目录。
 
 默认值必须来自配置或以上规则。保留用户明确提出的选择，不静默替换平台、时长、配音或素材策略。若平台未启用、时长超出平台范围或 Provider 未配置，在需求单中保留原请求并说明限制；只在主题缺失或信息互相矛盾导致无法继续时提问。
 
@@ -28,6 +29,7 @@ description: Turn a topic into a structured short-video production brief and coo
 
 ```yaml
 topic: ""
+project_id: null
 platform: wechat_channels
 duration_seconds: 60
 tone: "通俗、务实、口语化"
@@ -51,6 +53,8 @@ warnings: []
 ```
 
 将示例值替换为解析结果。没有实质影响的默认值写入 `assumptions`；不可满足的要求写入 `warnings`。用户已明确提供的信息不标为假设。
+
+用户要求实际制作时，从主题提炼简短、语义明确的 ASCII 英文 slug，并调用 `python3 scripts/project_id.py --topic <topic> --slug <slug>` 创建项目目录。ID 格式由配置固定为 `YYYYMMDD-slug`；若目录已存在，脚本会分配数字后缀，禁止覆盖旧目录。把返回的 ID 写入需求单。纯策划请求不分配 ID。
 
 ## 编排与边界
 

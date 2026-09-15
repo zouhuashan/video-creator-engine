@@ -9,7 +9,8 @@ app:
 
 project:
   output_root: projects
-  id_format: "%Y%m%d-%H%M%S"
+  id_format: "{date}-{slug}"
+  date_format: "%Y%m%d"
   default_platform: wechat_channels
   default_duration_seconds: 60
 
