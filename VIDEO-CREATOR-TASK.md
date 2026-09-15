@@ -999,7 +999,14 @@ Status: PASS
 ---
 
 ## P6-02 默认动效
-Status: TODO
+Status: PASS
+
+执行记录（2026-09-15）：
+- Git commit: `bc28923`
+- 新增 `config/hyperframes-motion.json`，为标题、数据、比较表、UI、卡片、价格、排行榜、步骤、流程图和强调文字定义独立默认动效。
+- 新增可校验的动效计划构建器，输出 30 fps、可 seek 的 GSAP 计划，并拒绝未知内容类型与重复元素。
+- 验证：全量 61 项测试通过。
+- 结果：PASS；下一任务：P6-03。
 
 用于：
 
@@ -2029,12 +2036,12 @@ P7 = V1 OPTIONAL
 # 41. 下一任务
 
 ```text
-NEXT: P6-02
+NEXT: P6-03
 ```
 
 任务：
 
-> 为标题、数据、比较表、UI、卡片、价格、排行榜、步骤、流程图和强调文字配置 HyperFrames 默认动效。
+> 创建 minimal、tech、review、warning、comparison、tutorial 六套 HyperFrames Style Presets。
 
 执行完成后：
 
