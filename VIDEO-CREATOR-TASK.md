@@ -1116,7 +1116,15 @@ Local
 ---
 
 ## P8-02 Voice Cache
-Status: TODO
+Status: PASS
+
+执行记录（2026-09-15）：
+- Git commit: `ed2ab72`
+- 新增内容寻址 Voice Cache，以 `text + voice + speed + provider` 为核心身份，并将影响声音的 emotion 作为缓存变体。
+- 每个缓存键使用文件锁并在锁内二次检查，避免并发重复计费；缓存音频与元数据均校验 SHA-256。
+- 损坏或不一致的缓存明确失败，不自动重新生成；命中结果标记 `billable_generation=false`。
+- 验证：全量 71 项测试通过。
+- 结果：PASS；下一任务：P8-03。
 
 相同：
 
@@ -2050,12 +2058,12 @@ P7 = V1 OPTIONAL
 # 41. 下一任务
 
 ```text
-NEXT: P8-02
+NEXT: P8-03
 ```
 
 任务：
 
-> 实现基于 `text + voice + speed + provider` 的 Voice Cache，缓存命中时禁止重复计费生成。
+> 实现中文口播优化，覆盖数字、英文缩写、产品名、停顿、情绪、强调和中英文混读。
 
 执行完成后：
 
