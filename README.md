@@ -118,6 +118,8 @@ Six HyperFrames style presets live under [`brand/motion/`](brand/motion/): `mini
 
 TTS adapters implement `synthesize(text, voice, speed, emotion)` from [`adapters/tts/base.py`](adapters/tts/base.py). Fish Audio is the primary provider; ElevenLabs, EdgeTTS, and local synthesis are the ordered fallbacks declared in `config/providers.yaml`. The Fish Audio adapter uses S2-Pro, MP3 output, provider voice IDs, speed controls, and inline emotion cues. It reads credentials only from `FISH_AUDIO_API_KEY` unless a credential is injected by the caller.
 
+Wrap a provider with `adapters.tts.CachedTTS` to reuse generated voice audio. Cache keys include normalized text, voice, speed, provider, and the sound-affecting emotion variant. A per-key file lock and a second lookup after locking ensure concurrent requests cannot trigger duplicate billable synthesis. Audio and metadata checksums are verified on every hit; a corrupt entry fails explicitly instead of silently generating and charging again.
+
 ## Logs
 
 Run a task command through `scripts/run_task.py` to keep the terminal summary compact and capture detailed output under the ignored `logs/` directory:
