@@ -1,3 +1,4 @@
+import copy
 import json
 import subprocess
 import sys
@@ -6,7 +7,7 @@ import unittest
 from pathlib import Path
 
 from scripts import project_state
-from scripts.script_module import ScriptInputError, write_script_artifacts
+from scripts.script_module import ScriptInputError, _normalize_sections, write_script_artifacts
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -45,7 +46,11 @@ class ScriptModuleTests(unittest.TestCase):
         self.payload = {
             "schema_version": 1,
             "sections": {
-                "hook": {"narration": "开场。", "source_ids": []},
+                "hook": {
+                    "narration": "别急着买，这款产品不值这个价。",
+                    "source_ids": [],
+                    "hook_type": "conclusion",
+                },
                 "problem": {"narration": "问题。", "source_ids": []},
                 "evidence": {"narration": "证据。", "source_ids": ["S001"]},
                 "comparison": {"narration": "对比。", "source_ids": []},
@@ -83,6 +88,7 @@ class ScriptModuleTests(unittest.TestCase):
         markdown = (self.directory / "script.md").read_text(encoding="utf-8")
         self.assertLess(markdown.index("## Hook"), markdown.index("## Problem"))
         self.assertLess(markdown.index("## Problem"), markdown.index("## Evidence"))
+        self.assertIn("开场方向（非口播）：先给结论", markdown)
         self.assertIn("依据（非口播）：[S001]", markdown)
 
     def test_rejects_missing_or_untrusted_evidence_without_mutation(self):
@@ -104,6 +110,45 @@ class ScriptModuleTests(unittest.TestCase):
         del self.payload["sections"]["cta"]
         with self.assertRaisesRegex(ScriptInputError, "exactly"):
             write_script_artifacts(self.directory, self.project_id, self.payload)
+
+    def test_rejects_paper_style_and_mechanical_transitions(self):
+        payload = copy.deepcopy(self.payload)
+        payload["sections"]["problem"]["narration"] = "首先，我们来分析这个问题。综上所述，结论很明显。"
+        with self.assertRaisesRegex(ScriptInputError, "论文式表达|机械连接词"):
+            write_script_artifacts(self.directory, self.project_id, payload)
+
+    def test_rejects_long_and_multi_clause_sentences(self):
+        payload = copy.deepcopy(self.payload)
+        payload["sections"]["problem"]["narration"] = "这" * 36 + "。"
+        with self.assertRaisesRegex(ScriptInputError, "超过上限"):
+            write_script_artifacts(self.directory, self.project_id, payload)
+
+        payload["sections"]["problem"]["narration"] = "一个重点，这里补充第二个重点，这里再说第三个重点。"
+        with self.assertRaisesRegex(ScriptInputError, "逗号"):
+            write_script_artifacts(self.directory, self.project_id, payload)
+
+    def test_hook_type_must_match_the_opening_sentence(self):
+        payload = copy.deepcopy(self.payload)
+        payload["sections"]["hook"]["narration"] = "这款产品的包装很漂亮。"
+        with self.assertRaisesRegex(ScriptInputError, "开场句没有对应"):
+            write_script_artifacts(self.directory, self.project_id, payload)
+
+        payload["sections"]["hook"]["hook_type"] = []
+        with self.assertRaisesRegex(ScriptInputError, "Hook 必须标记"):
+            write_script_artifacts(self.directory, self.project_id, payload)
+
+    def test_counterintuitive_and_conflict_hooks_pass_when_the_first_sentence_matches(self):
+        sources = {"S001": self.research["sources"][0]}
+        for hook_type, narration in (
+            ("counterintuitive", "看起来省钱，其实并不划算。"),
+            ("conflict", "价格看着很低，实际费用却很高。"),
+        ):
+            with self.subTest(hook_type=hook_type):
+                payload = copy.deepcopy(self.payload)
+                payload["sections"]["hook"]["hook_type"] = hook_type
+                payload["sections"]["hook"]["narration"] = narration
+                sections = _normalize_sections(payload, sources)
+                self.assertEqual(sections[0]["hook_type"], hook_type)
 
     def test_rejects_topic_gate_that_did_not_pass(self):
         self.write_eligible_topic(decision="do_not_enter_production")

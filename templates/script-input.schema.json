@@ -10,7 +10,7 @@
       "type": "object",
       "required": ["hook", "problem", "evidence", "comparison", "conclusion", "cta"],
       "properties": {
-        "hook": { "$ref": "#/$defs/section" },
+        "hook": { "$ref": "#/$defs/hookSection" },
         "problem": { "$ref": "#/$defs/section" },
         "evidence": {
           "allOf": [
@@ -27,6 +27,20 @@
   },
   "additionalProperties": false,
   "$defs": {
+    "hookSection": {
+      "type": "object",
+      "required": ["narration", "source_ids", "hook_type"],
+      "properties": {
+        "narration": { "type": "string", "minLength": 1 },
+        "source_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^S[0-9]{3,}$" }
+        },
+        "hook_type": { "enum": ["conclusion", "counterintuitive", "conflict"] }
+      },
+      "additionalProperties": false
+    },
     "section": {
       "type": "object",
       "required": ["narration", "source_ids"],

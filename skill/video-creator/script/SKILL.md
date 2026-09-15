@@ -11,7 +11,9 @@
 
 ## 编写与落盘
 
-按顺序填写 `Hook`、`Problem`、`Evidence`、`Comparison`、`Conclusion`、`CTA`。Evidence 段至少引用一条非搜索摘要来源。口播稿写入 `narration`，来源编号写入 `source_ids`；不要把来源编号写进需要朗读的正文。
+按顺序填写 `Hook`、`Problem`、`Evidence`、`Comparison`、`Conclusion`、`CTA`。Evidence 段至少引用一条非搜索摘要来源。口播稿写入 `narration`，来源编号写入 `source_ids`；不要把来源编号写进需要朗读的正文。Hook 对应开头 3 秒，还要在 `hook_type` 中标记 `conclusion`、`counterintuitive` 或 `conflict`，开场第一句需直接表达相应的结论、反常识或冲突。
+
+所有段落用自然中文口播，避免论文式措辞、“首先、其次、最后”等机械连接词，每句话只表达一个重点。脚本校验会按 [script-style.json](../../../config/script-style.json) 检查禁用表达、句长、逗号数量和 Hook 类型标记；提交前也要通读一遍，确认念出来顺口。
 
 将输入保存为临时 JSON，格式见 [script-input.schema.json](../../../templates/script-input.schema.json)，然后执行：
 
@@ -21,4 +23,4 @@
 
 命令会校验六段内容、评分门槛和所有来源编号，输出项目目录中的 `script.json` 与 `script.md`，再把状态从 `RESEARCHED` 推进到 `SCRIPTED`。已有脚本产物时拒绝覆盖。写入失败或校验失败时不得推进状态。
 
-P3-01 只建立六段模板与有来源的结构化脚本产物；口语表达规则和时长估算分别按 P3-02、P3-03 处理。
+时长估算将在 P3-03 接入；当前阶段不输出估算时长、字数或语速。

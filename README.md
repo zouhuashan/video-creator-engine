@@ -85,7 +85,7 @@ After the topic gate passes, write a six-section WeChat Channels script with:
 ./video-creator script <project-id> --input-file <script-input.json>
 ```
 
-The input format is described by [`templates/script-input.schema.json`](templates/script-input.schema.json), with section guidance in [`templates/wechat-channel/script-template.md`](templates/wechat-channel/script-template.md). The command requires an eligible `topic.json`, validates all cited research sources, writes `script.json` and `script.md`, then advances the project from `RESEARCHED` to `SCRIPTED`.
+The input format is described by [`templates/script-input.schema.json`](templates/script-input.schema.json), with section guidance in [`templates/wechat-channel/script-template.md`](templates/wechat-channel/script-template.md). Style limits and forbidden phrases are configured in [`config/script-style.json`](config/script-style.json). The command requires an eligible `topic.json`, validates the conversational style and cited research sources, writes `script.json` and `script.md`, then advances the project from `RESEARCHED` to `SCRIPTED`.
 
 ## Logs
 

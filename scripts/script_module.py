@@ -4,15 +4,17 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import tempfile
+import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 try:
-    from .project_state import StateError, load_run_state, transition_project
+    from .project_state import ROOT, StateError, load_run_state, transition_project
 except ImportError:
-    from project_state import StateError, load_run_state, transition_project
+    from project_state import ROOT, StateError, load_run_state, transition_project
 
 
 SCHEMA_VERSION = 1
@@ -32,6 +34,14 @@ SOURCE_TYPES = {
     "high_quality_community",
     "search_summary",
 }
+STYLE_CONFIG_PATH = ROOT / "config" / "script-style.json"
+HOOK_TYPES = {"conclusion", "counterintuitive", "conflict"}
+HOOK_TYPE_LABELS = {
+    "conclusion": "先给结论",
+    "counterintuitive": "反常识",
+    "conflict": "明确冲突",
+}
+SENTENCE_BOUNDARY = re.compile(r"(?<=[。！？!?；;])|\n+")
 
 
 class ScriptInputError(ValueError):
@@ -49,6 +59,74 @@ def _read_json(path: Path, label: str) -> Any:
         raise ScriptInputError(f"{label} not found: {path}") from error
     except json.JSONDecodeError as error:
         raise ScriptInputError(f"invalid {label}: {error}") from error
+
+
+def _load_style_config() -> dict[str, Any]:
+    config = _read_json(STYLE_CONFIG_PATH, "script style config")
+    if not isinstance(config, dict) or type(config.get("schema_version")) is not int or config.get("schema_version") != 1:
+        raise ScriptInputError("unsupported script style config schema")
+    max_sentence_characters = config.get("max_sentence_characters")
+    max_commas = config.get("max_commas_per_sentence")
+    if type(max_sentence_characters) is not int or max_sentence_characters < 1:
+        raise ScriptInputError("script style config max_sentence_characters must be a positive integer")
+    if type(max_commas) is not int or max_commas < 0:
+        raise ScriptInputError("script style config max_commas_per_sentence must be a non-negative integer")
+    for field in ("academic_phrases", "mechanical_transitions"):
+        phrases = config.get(field)
+        if not isinstance(phrases, list) or not phrases or any(not isinstance(item, str) or not item for item in phrases):
+            raise ScriptInputError(f"script style config {field} must be a non-empty list of phrases")
+    hook_markers = config.get("hook_markers")
+    if not isinstance(hook_markers, dict) or set(hook_markers) != HOOK_TYPES:
+        raise ScriptInputError("script style config must define markers for all hook types")
+    for hook_type, markers in hook_markers.items():
+        if not isinstance(markers, list) or not markers or any(not isinstance(item, str) or not item for item in markers):
+            raise ScriptInputError(f"script style config hook_markers.{hook_type} must be a non-empty list")
+    return config
+
+
+def _sentence_character_count(sentence: str) -> int:
+    return sum(not character.isspace() and not unicodedata.category(character).startswith("P") for character in sentence)
+
+
+def _validate_script_style(sections: list[dict[str, Any]], config: dict[str, Any]) -> None:
+    issues: list[str] = []
+    speech = "\n".join(section["narration"] for section in sections)
+    for phrase in config["academic_phrases"]:
+        if phrase in speech:
+            issues.append(f"论文式表达：{phrase}")
+    for phrase in config["mechanical_transitions"]:
+        if phrase in speech:
+            issues.append(f"机械连接词：{phrase}")
+
+    for section in sections:
+        for sentence_number, sentence in enumerate(SENTENCE_BOUNDARY.split(section["narration"]), start=1):
+            if not sentence.strip():
+                continue
+            character_count = _sentence_character_count(sentence)
+            if character_count > config["max_sentence_characters"]:
+                issues.append(
+                    f"{section['title']} 第 {sentence_number} 句有 {character_count} 个字符，"
+                    f"超过上限 {config['max_sentence_characters']}"
+                )
+            comma_count = sentence.count("，") + sentence.count(",")
+            if comma_count > config["max_commas_per_sentence"]:
+                issues.append(
+                    f"{section['title']} 第 {sentence_number} 句包含 {comma_count} 个逗号，"
+                    "请拆成更短、单一信息点的句子"
+                )
+
+    hook = next(section for section in sections if section["section"] == "hook")
+    hook_type = hook.get("hook_type")
+    if not isinstance(hook_type, str) or hook_type not in HOOK_TYPES:
+        issues.append("Hook 必须标记为 conclusion、counterintuitive 或 conflict")
+    else:
+        first_sentence = SENTENCE_BOUNDARY.split(hook["narration"], maxsplit=1)[0]
+        markers = config["hook_markers"][hook_type]
+        if not any(marker in first_sentence for marker in markers):
+            issues.append(f"Hook 标记为 {hook_type}，但开场句没有对应的结论、反常识或冲突表达")
+
+    if issues:
+        raise ScriptInputError("脚本口语化检查未通过：" + "；".join(issues))
 
 
 def _load_research_and_topic(directory: Path, project_id: str) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
@@ -116,8 +194,9 @@ def _normalize_sections(payload: Any, sources: dict[str, dict[str, Any]]) -> lis
     normalized: list[dict[str, Any]] = []
     for section_id, title in SECTION_DEFINITIONS:
         raw_section = raw_sections[section_id]
-        if not isinstance(raw_section, dict) or set(raw_section) != {"narration", "source_ids"}:
-            raise ScriptInputError(f"sections.{section_id} must contain narration and source_ids only")
+        expected_fields = {"narration", "source_ids", "hook_type"} if section_id == "hook" else {"narration", "source_ids"}
+        if not isinstance(raw_section, dict) or set(raw_section) != expected_fields:
+            raise ScriptInputError(f"sections.{section_id} must contain {', '.join(sorted(expected_fields))} only")
         narration = raw_section.get("narration")
         if not isinstance(narration, str) or not narration.strip():
             raise ScriptInputError(f"sections.{section_id}.narration must be a non-empty string")
@@ -140,8 +219,10 @@ def _normalize_sections(payload: Any, sources: dict[str, dict[str, Any]]) -> lis
                 "title": title,
                 "narration": narration.strip(),
                 "source_ids": list(source_ids),
+                **({"hook_type": raw_section.get("hook_type")} if section_id == "hook" else {}),
             }
         )
+    _validate_script_style(normalized, _load_style_config())
     return normalized
 
 
@@ -153,7 +234,10 @@ def render_script_markdown(script: dict[str, Any]) -> str:
         "",
     ]
     for section in script["sections"]:
-        lines.extend([f"## {section['title']}", "", section["narration"], ""])
+        lines.extend([f"## {section['title']}", ""])
+        if section.get("hook_type"):
+            lines.extend([f"> 开场方向（非口播）：{HOOK_TYPE_LABELS[section['hook_type']]}", ""])
+        lines.extend([section["narration"], ""])
         if section["source_ids"]:
             citations = "、".join(f"[{source_id}]" for source_id in section["source_ids"])
             lines.extend([f"> 依据（非口播）：{citations}", ""])
