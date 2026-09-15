@@ -783,7 +783,16 @@ Status: PASS
 ---
 
 ## P3-03 时长估算
-Status: TODO
+Status: PASS
+
+执行记录（2026-09-15）：
+
+- Git commit: `e467926`（脚本时长估算与自动压缩）
+- `script.json` 和 `script.md` 输出 `estimated_duration`、`word_count`、`speech_rate` 与目标时长；字数按汉字逐字计数、连续非汉字字母/数字串按一个单位计，估算语速默认为每分钟 220 个口播单位。
+- 默认目标为 60 秒，支持视频号 45～90 秒目标；Hook 估算不得超过开头 3 秒。
+- 超时后按配置顺序自动删除 Problem、Comparison、Conclusion 中明确标记为可删的完整补充句，保留 Hook、Evidence 和 CTA；删减后仍超时则拒绝落盘和状态推进，交由 Script Skill 精简重试。
+- 已验证 39 项单元测试、Draft 2020-12 输入 Schema、Python 编译、JSON 配置和 Skill quick validator。
+- 结果：PASS；下一任务：P4-01。
 
 脚本输出：
 
@@ -1964,12 +1973,12 @@ P7 = V1 OPTIONAL
 # 41. 下一任务
 
 ```text
-NEXT: P3-03
+NEXT: P4-01
 ```
 
 任务：
 
-> 估算脚本时长和语速；超出目标时长时自动压缩。
+> 为脚本生成逐镜头分镜，包含时间、口播、字幕、画面、素材查询、运镜、转场和来源。
 
 执行完成后：
 
