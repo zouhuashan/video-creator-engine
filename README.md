@@ -161,6 +161,10 @@ Cover input contains two or three short question-led candidates. `scripts/cover_
 
 `scripts/publication_copy.py` requires at least one search, conflict, and result title. It validates type-specific wording, blocks unsupported hype, scores every candidate, records one recommended title with reasons, and writes `title.md`, `caption.md`, `hashtags.md`, and `publication-copy.json`.
 
+## Human review gate
+
+`python3 scripts/review_gate.py <project-dir> <project-id>` re-hashes all seven packaged deliverables, confirms aggregate QC PASS and the human-only publish mode, writes `review-gate.json`, and advances `PACKAGED` to `READY_FOR_REVIEW`. The command then displays the final checklist and stops at `WAITING FOR HUMAN PUBLISH`.
+
 ## Logs
 
 Run a task command through `scripts/run_task.py` to keep the terminal summary compact and capture detailed output under the ignored `logs/` directory:
