@@ -7,6 +7,7 @@ import json
 import re
 import subprocess
 from dataclasses import dataclass
+from fractions import Fraction
 from pathlib import Path
 from typing import Any, Callable
 
@@ -58,6 +59,13 @@ def load_finalizer_config(path: Path = CONFIG_PATH) -> dict[str, Any]:
         "integrated_lufs", "true_peak_db", "loudness_range_lu"
     }:
         raise FinalizerError("FFmpeg audio normalization config is incomplete")
+    default_output = config.get("default_output")
+    required_output = {
+        "width", "height", "fps", "video_codec", "expected_video_codec",
+        "audio_codec", "video_bitrate", "audio_bitrate", "container",
+    }
+    if not isinstance(default_output, dict) or set(default_output) != required_output:
+        raise FinalizerError("FFmpeg default output config is incomplete")
     return config
 
 
@@ -181,7 +189,7 @@ def build_final_merge_command(
         filters.append(
             f"{audio_inputs}amix=inputs={len(spec.audio_inputs)}:duration=longest:dropout_transition=0,"
             f"loudnorm=I={normalization['integrated_lufs']}:TP={normalization['true_peak_db']}:"
-            f"LRA={normalization['loudness_range_lu']}[aout]"
+            f"LRA={normalization['loudness_range_lu']},aresample={active['audio_sample_rate']}[aout]"
         )
         audio_label = "aout"
 
@@ -237,3 +245,131 @@ def run_final_merge(spec: FinalMergeSpec) -> dict[str, Any]:
         "size_bytes": output.stat().st_size,
         "sha256": digest,
     }
+
+
+def default_final_merge_spec(
+    video_inputs: tuple[Path, ...],
+    audio_inputs: tuple[AudioTrack, ...],
+    output: Path,
+    *,
+    transition: str = "none",
+    transition_duration: float = 0.0,
+    config: dict[str, Any] | None = None,
+) -> FinalMergeSpec:
+    active = config or load_finalizer_config()
+    defaults = active["default_output"]
+    if not audio_inputs:
+        raise FinalizerError("standard output requires at least one audio track")
+    return FinalMergeSpec(
+        video_inputs=video_inputs,
+        audio_inputs=audio_inputs,
+        output=Path(output),
+        width=defaults["width"],
+        height=defaults["height"],
+        fps=defaults["fps"],
+        video_codec=defaults["video_codec"],
+        audio_codec=defaults["audio_codec"],
+        video_bitrate=defaults["video_bitrate"],
+        audio_bitrate=defaults["audio_bitrate"],
+        container=defaults["container"],
+        transition=transition,
+        transition_duration=transition_duration,
+    )
+
+
+def inspect_final_output(path: Path) -> dict[str, Any]:
+    path = Path(path).resolve()
+    if not path.is_file() or path.stat().st_size == 0:
+        raise FinalizerError(f"final output does not exist or is empty: {path}")
+    ffprobe = _media_tool("ffprobe")
+    if ffprobe is None:
+        raise FinalizerError("ffprobe is required to validate final output")
+    try:
+        completed = subprocess.run(
+            [ffprobe, "-v", "error", "-show_streams", "-show_format", "-of", "json", str(path)],
+            check=True,
+            capture_output=True,
+            text=True,
+            env=video_use_environment(),
+        )
+        payload = json.loads(completed.stdout)
+    except (OSError, subprocess.CalledProcessError, json.JSONDecodeError) as error:
+        raise FinalizerError("cannot inspect final output") from error
+    streams = payload.get("streams") or []
+    video = next((stream for stream in streams if stream.get("codec_type") == "video"), None)
+    audio = next((stream for stream in streams if stream.get("codec_type") == "audio"), None)
+    if video is None or audio is None:
+        raise FinalizerError("standard output requires one video stream and one audio stream")
+    try:
+        frame_rate = float(Fraction(video.get("avg_frame_rate") or video["r_frame_rate"]))
+        duration = float(payload["format"]["duration"])
+        metadata = {
+            "width": int(video["width"]),
+            "height": int(video["height"]),
+            "fps": frame_rate,
+            "video_codec": video["codec_name"],
+            "audio_codec": audio["codec_name"],
+            "sample_rate": int(audio["sample_rate"]),
+            "container": payload["format"]["format_name"],
+            "duration_seconds": duration,
+            "size_bytes": path.stat().st_size,
+        }
+    except (KeyError, TypeError, ValueError, ZeroDivisionError) as error:
+        raise FinalizerError("final output metadata is incomplete") from error
+    return metadata
+
+
+def validate_standard_metadata(
+    metadata: dict[str, Any], config: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    active = config or load_finalizer_config()
+    expected = active["default_output"]
+    try:
+        checks = {
+            "resolution": (
+                int(metadata.get("width", 0)) == expected["width"]
+                and int(metadata.get("height", 0)) == expected["height"]
+            ),
+            "fps": abs(float(metadata.get("fps", 0)) - expected["fps"]) < 0.001,
+            "video_codec": metadata.get("video_codec") == expected["expected_video_codec"],
+            "audio_codec": metadata.get("audio_codec") == expected["audio_codec"],
+            "audio_sample_rate": int(metadata.get("sample_rate", 0)) == active["audio_sample_rate"],
+            "container": expected["container"] in str(metadata.get("container", "")).split(","),
+            "duration": float(metadata.get("duration_seconds", 0)) > 0,
+            "file_size": int(metadata.get("size_bytes", 0)) > 0,
+        }
+    except (TypeError, ValueError) as error:
+        raise FinalizerError("final output metadata values are invalid") from error
+    failed = [name for name, passed in checks.items() if not passed]
+    if failed:
+        raise FinalizerError(f"final output standard failed: {', '.join(failed)}")
+    return {"status": "PASS", "checks": checks, "metadata": metadata}
+
+
+def validate_standard_output(
+    path: Path, config: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    return validate_standard_metadata(inspect_final_output(path), config)
+
+
+def run_standard_final_merge(spec: FinalMergeSpec) -> dict[str, Any]:
+    active = load_finalizer_config()
+    if not spec.audio_inputs:
+        raise FinalizerError("standard merge requires at least one audio track")
+    expected = active["default_output"]
+    expected_fields = {
+        "width": expected["width"],
+        "height": expected["height"],
+        "fps": expected["fps"],
+        "video_codec": expected["video_codec"],
+        "audio_codec": expected["audio_codec"],
+        "video_bitrate": expected["video_bitrate"],
+        "audio_bitrate": expected["audio_bitrate"],
+        "container": expected["container"],
+    }
+    mismatched = [field for field, value in expected_fields.items() if getattr(spec, field) != value]
+    if mismatched:
+        raise FinalizerError(f"standard merge spec mismatch: {', '.join(mismatched)}")
+    render = run_final_merge(spec)
+    validation = validate_standard_output(Path(render["output"]), active)
+    return {**render, "output_standard": validation}

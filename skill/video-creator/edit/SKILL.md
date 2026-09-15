@@ -18,3 +18,5 @@ description: Build and render a short-video edit through the pinned video-use ch
 剪辑决策必须用 `scripts/edit_decision_list.py` 写入项目 `edit/edit-decision-list.json`，每段保留稳定 `decision_id` 和非空 `reason`。创建、局部修改与回滚都会写入 `edit/edl-history/`，禁止直接覆盖当前文件或历史文件。局部修改和回滚必须携带当前 `expected_revision`；重渲染前运行 `rerender-plan`，源文件校验和变化时重新审查剪辑决策。
 
 最终合并使用 `adapters.video.ffmpeg_finalizer`，不要拼接未经校验的 shell 字符串。Finalizer 统一处理视频合并和转场、音轨延迟与混音、-14 LUFS 响度标准化、尺寸、FPS、H.264/AAC 编码、码率及 MP4 faststart 封装。所有输入路径、参数和输出扩展名通过校验后再执行。
+
+正式成片必须用 `default_final_merge_spec` 创建规格并通过 `run_standard_final_merge` 输出。唯一默认标准为 1080×1920、30fps、H.264、AAC、MP4；渲染完成后读取实际媒体流重新校验分辨率、FPS、视频编码、音频编码、容器、时长和文件大小，不能只根据 FFmpeg 参数宣告通过。

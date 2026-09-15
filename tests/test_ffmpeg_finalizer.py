@@ -7,7 +7,10 @@ from adapters.video import (
     FinalizerError,
     FinalMergeSpec,
     build_final_merge_command,
+    default_final_merge_spec,
     load_finalizer_config,
+    run_standard_final_merge,
+    validate_standard_metadata,
 )
 
 
@@ -50,6 +53,7 @@ class FFmpegFinalizerTests(unittest.TestCase):
         self.assertIn("adelay=500:all=1,volume=0.2", filter_graph)
         self.assertIn("amix=inputs=2", filter_graph)
         self.assertIn("loudnorm=I=-14:TP=-1:LRA=11", filter_graph)
+        self.assertIn("aresample=48000[aout]", filter_graph)
         self.assertEqual(command[command.index("-c:v") + 1], "libx264")
         self.assertEqual(command[command.index("-c:a") + 1], "aac")
         self.assertIn("+faststart", command)
@@ -89,6 +93,66 @@ class FFmpegFinalizerTests(unittest.TestCase):
         self.assertEqual(config["audio_normalization"]["integrated_lufs"], -14)
         self.assertEqual(config["pixel_format"], "yuv420p")
         self.assertTrue(config["faststart"])
+
+    def test_default_output_spec_is_vertical_h264_aac_mp4(self):
+        spec = default_final_merge_spec(
+            (self.video_a,),
+            (AudioTrack(self.audio_a),),
+            self.root / "standard.mp4",
+        )
+
+        self.assertEqual((spec.width, spec.height, spec.fps), (1080, 1920, 30))
+        self.assertEqual((spec.video_codec, spec.audio_codec, spec.container), ("libx264", "aac", "mp4"))
+
+    def test_default_output_requires_audio(self):
+        with self.assertRaisesRegex(FinalizerError, "audio track"):
+            default_final_merge_spec((self.video_a,), (), self.root / "silent.mp4")
+
+    def test_standard_merge_rejects_manually_constructed_silent_spec(self):
+        spec = default_final_merge_spec(
+            (self.video_a,), (AudioTrack(self.audio_a),), self.root / "standard.mp4"
+        )
+        spec = FinalMergeSpec(**{**spec.__dict__, "audio_inputs": ()})
+
+        with self.assertRaisesRegex(FinalizerError, "audio track"):
+            run_standard_final_merge(spec)
+
+    def test_validates_actual_output_metadata_against_standard(self):
+        metadata = {
+            "width": 1080,
+            "height": 1920,
+            "fps": 30.0,
+            "video_codec": "h264",
+            "audio_codec": "aac",
+            "sample_rate": 48000,
+            "container": "mov,mp4,m4a,3gp,3g2,mj2",
+            "duration_seconds": 60.0,
+            "size_bytes": 1000,
+        }
+
+        result = validate_standard_metadata(metadata)
+        self.assertEqual(result["status"], "PASS")
+        self.assertTrue(all(result["checks"].values()))
+
+    def test_reports_specific_output_standard_failure(self):
+        metadata = {
+            "width": 1920,
+            "height": 1080,
+            "fps": 25.0,
+            "video_codec": "hevc",
+            "audio_codec": "mp3",
+            "sample_rate": 48000,
+            "container": "matroska",
+            "duration_seconds": 1.0,
+            "size_bytes": 100,
+        }
+
+        with self.assertRaisesRegex(FinalizerError, "resolution, fps, video_codec, audio_codec, container"):
+            validate_standard_metadata(metadata)
+
+    def test_rejects_invalid_output_metadata_values(self):
+        with self.assertRaisesRegex(FinalizerError, "metadata values are invalid"):
+            validate_standard_metadata({"width": None, "fps": "unknown"})
 
 
 if __name__ == "__main__":

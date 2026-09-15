@@ -141,6 +141,8 @@ python3 scripts/edit_decision_list.py --edit-dir <project>/edit <project-id> rer
 
 The FFmpeg final merge boundary is implemented in [`adapters/video/ffmpeg_finalizer.py`](adapters/video/ffmpeg_finalizer.py). A `FinalMergeSpec` explicitly declares video inputs, audio tracks with volume and delay, transition, geometry, frame rate, codecs, bitrates, container, and output path. The command builder scales and pads each video, concatenates or crossfades clips, mixes delayed tracks, normalizes to -14 LUFS, encodes, and writes a fast-start MP4 without invoking a shell.
 
+The default delivery standard in [`config/ffmpeg-finalizer.json`](config/ffmpeg-finalizer.json) is 1080×1920 at 30 fps with H.264 video, AAC audio, and an MP4 container. `default_final_merge_spec` creates this exact specification, while `run_standard_final_merge` probes the rendered file and verifies its real streams, geometry, frame rate, container, duration, and size before reporting PASS.
+
 ## Logs
 
 Run a task command through `scripts/run_task.py` to keep the terminal summary compact and capture detailed output under the ignored `logs/` directory:
