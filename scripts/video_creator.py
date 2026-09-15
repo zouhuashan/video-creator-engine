@@ -12,10 +12,12 @@ if __package__:
     from .project_state import DEFAULT_PROJECTS_DIR, StateError, project_dir, resume_plan
     from .rerun_planner import rerun_plan
     from .research_module import write_research_artifacts
+    from .topic_scoring import score_project
 else:
     from project_state import DEFAULT_PROJECTS_DIR, StateError, project_dir, resume_plan
     from rerun_planner import rerun_plan
     from research_module import write_research_artifacts
+    from topic_scoring import score_project
 
 
 def parse_args() -> argparse.Namespace:
@@ -36,6 +38,10 @@ def parse_args() -> argparse.Namespace:
     research_parser.add_argument("project_id")
     research_parser.add_argument("--input-file", type=Path, required=True, help="JSON research brief with source references")
     research_parser.add_argument("--projects-dir", type=Path, default=DEFAULT_PROJECTS_DIR, help=argparse.SUPPRESS)
+    score_parser = subparsers.add_parser("score", help="Score a researched topic and write topic.json")
+    score_parser.add_argument("project_id")
+    score_parser.add_argument("--assessment-file", type=Path, required=True, help="JSON topic ratings with rationales")
+    score_parser.add_argument("--projects-dir", type=Path, default=DEFAULT_PROJECTS_DIR, help=argparse.SUPPRESS)
     return parser.parse_args()
 
 
@@ -51,6 +57,8 @@ def main() -> int:
         elif args.command == "research":
             payload = json.loads(args.input_file.read_text(encoding="utf-8"))
             plan = write_research_artifacts(directory, args.project_id, payload)
+        elif args.command == "score":
+            plan = score_project(args.project_id, args.assessment_file, args.projects_dir)
         else:  # pragma: no cover - argparse enforces the available commands
             raise StateError(f"unknown command: {args.command}")
     except (OSError, ValueError, StateError) as error:

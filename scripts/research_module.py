@@ -33,6 +33,7 @@ SOURCE_POLICY = {
     "search_summary": {"rank": 5, "label": "搜索摘要"},
 }
 OUTPUT_NAMES = ("research.json", "research.md", "sources.md")
+RISK_SEVERITIES = {"low", "medium", "high", "critical"}
 
 
 class ResearchInputError(ValueError):
@@ -91,6 +92,8 @@ def _evidence_item(
     normalized: dict[str, Any] = {}
     for key in extra_keys:
         normalized[key] = _text(item.get(key), f"{label}.{key}")
+        if key == "severity" and normalized[key] not in RISK_SEVERITIES:
+            raise ResearchInputError(f"{label}.severity must be one of: {', '.join(sorted(RISK_SEVERITIES))}")
     normalized[claim_key] = _text(item.get(claim_key), f"{label}.{claim_key}")
     evidence = _text(item.get("evidence"), f"{label}.evidence")
     if len(evidence) > 500:

@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://video-creator.local/schemas/topic-assessment.schema.json",
+  "title": "VideoCreator topic assessment",
+  "type": "object",
+  "required": ["schema_version", "ratings"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "ratings": {
+      "type": "object",
+      "required": [
+        "traffic_value",
+        "commercial_value",
+        "evergreen_score",
+        "production_cost",
+        "originality"
+      ],
+      "properties": {
+        "traffic_value": { "$ref": "#/$defs/rating" },
+        "commercial_value": { "$ref": "#/$defs/rating" },
+        "evergreen_score": { "$ref": "#/$defs/rating" },
+        "production_cost": { "$ref": "#/$defs/rating" },
+        "originality": { "$ref": "#/$defs/rating" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "rating": {
+      "type": "object",
+      "required": ["score", "rationale"],
+      "properties": {
+        "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "rationale": { "type": "string", "minLength": 1, "maxLength": 500 }
+      },
+      "additionalProperties": false
+    }
+  }
+}

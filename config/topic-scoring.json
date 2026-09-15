@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "score_scale": { "minimum": 0, "maximum": 100 },
+  "weights_percent": {
+    "traffic_value": 20,
+    "commercial_value": 20,
+    "evergreen_score": 20,
+    "evidence_strength": 15,
+    "originality": 15,
+    "production_cost": 10
+  },
+  "production_cost_transform": "100 - production_cost",
+  "minimum_total_score": 60,
+  "action_below_threshold": "do_not_enter_production",
+  "evidence_source_scores": {
+    "official": 100,
+    "primary_document": 90,
+    "authoritative_media": 80,
+    "high_quality_community": 60,
+    "search_summary": 0
+  },
+  "independent_source_bonus": 5,
+  "risk_severity_scores": {
+    "low": 20,
+    "medium": 45,
+    "high": 75,
+    "critical": 95
+  },
+  "risk_count_increment": 5,
+  "risk_filter_threshold": 70
+}

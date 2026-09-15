@@ -1,9 +1,5 @@
 schema_version: 1
 
-topic_gate:
-  minimum_total_score: 60
-  action_below_threshold: do_not_enter_production
-
 technical_qc:
   enabled: true
   required_checks:

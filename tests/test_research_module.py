@@ -130,6 +130,11 @@ class ResearchModuleTests(unittest.TestCase):
         with self.assertRaisesRegex(research_module.ResearchInputError, "at least one source-backed"):
             research_module.normalize_research_input(payload)
 
+        payload = research_payload()
+        payload["risks"][0]["severity"] = "urgent"
+        with self.assertRaisesRegex(research_module.ResearchInputError, "severity must be one of"):
+            research_module.normalize_research_input(payload)
+
     def test_source_priority_orders_citations_and_is_recorded(self):
         payload = research_payload()
         payload["sources"].insert(
