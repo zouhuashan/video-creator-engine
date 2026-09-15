@@ -811,7 +811,15 @@ speech_rate
 # 12. P4 — Storyboard
 
 ## P4-01 逐镜头分镜
-Status: TODO
+Status: PASS
+
+执行记录（2026-09-15）：
+
+- Git commit: `1da673c`（逐镜头分镜生成与校验）
+- 新增 `video-creator storyboard`，将完成脚本拆为带时间、口播、字幕、画面说明、画面类型、素材查询、运镜、转场和来源的 `storyboard.json`、`storyboard.md`。
+- 校验镜头从 `SC001` 连续编号、时间从 0 秒无缝衔接到脚本目标时长、口播完整覆盖已审定脚本；已引用来源必须出现在至少一个证据画面中。通过后状态从 `SCRIPTED` 推进到 `STORYBOARDED`。
+- 已验证 45 项单元测试、Draft 2020-12 输入 Schema、Python 编译、CLI 和 Skill quick validator。
+- 结果：PASS；下一任务：P4-02。
 
 每个镜头：
 
@@ -1973,12 +1981,12 @@ P7 = V1 OPTIONAL
 # 41. 下一任务
 
 ```text
-NEXT: P4-01
+NEXT: P4-02
 ```
 
 任务：
 
-> 为脚本生成逐镜头分镜，包含时间、口播、字幕、画面、素材查询、运镜、转场和来源。
+> 限定分镜可用的 Visual Type 枚举并校验输入。
 
 执行完成后：
 
