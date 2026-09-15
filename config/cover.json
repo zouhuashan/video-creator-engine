@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "width": 1080,
+  "height": 1920,
+  "candidate_count": {"min": 2, "max": 3},
+  "core_text_characters": {"min": 3, "max": 10},
+  "supporting_text_max_characters": 18,
+  "core_font_size": {"preferred": 196, "minimum": 120},
+  "supporting_font_size": 54,
+  "safe_margin_px": 96,
+  "question_patterns": ["?", "？", "吗", "么", "为何", "为什么", "怎么", "是不是", "值不值", "能不能", "该不该", "要不要", "哪个好", "多少"],
+  "font_candidates": [
+    "/System/Library/Fonts/Hiragino Sans GB.ttc",
+    "/System/Library/Fonts/STHeiti Medium.ttc",
+    "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+  ]
+}

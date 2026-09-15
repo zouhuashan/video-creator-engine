@@ -25,6 +25,13 @@ else
 fi
 check_exact "Python" "$(cat "$root_dir/.python-version")" "$python_actual"
 
+if command -v python3 >/dev/null 2>&1; then
+  pillow_actual="$(python3 -c 'import PIL; print(PIL.__version__)' 2>/dev/null || true)"
+else
+  pillow_actual=""
+fi
+check_exact "Pillow" "$(cat "$root_dir/.pillow-version")" "$pillow_actual"
+
 if command -v node >/dev/null 2>&1; then
   node_actual="$(node --version 2>/dev/null | sed 's/^v//')"
 else

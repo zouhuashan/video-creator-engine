@@ -157,6 +157,8 @@ Run visual review with `python3 scripts/visual_qc.py <project-dir> --analysis-fi
 
 `./video-creator package <project-id>` accepts only a `QC_PASS` project with a passing aggregate report. It validates and copies the seven required deliverables into `publish-package/`, verifies every copied SHA-256, writes `package.json`, and advances the project to `PACKAGED`. Packaging never uploads or publishes content.
 
+Cover input contains two or three short question-led candidates. `scripts/cover_candidates.py create` renders 1080×1920 PNG previews with a minimum mobile-readable core font size and rejects dense supporting copy. `select` verifies the candidate checksum before copying the chosen image to `cover.png`.
+
 ## Logs
 
 Run a task command through `scripts/run_task.py` to keep the terminal summary compact and capture detailed output under the ignored `logs/` directory:

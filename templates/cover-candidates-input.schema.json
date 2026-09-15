@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "VideoCreator cover candidates",
+  "type": "object",
+  "required": ["schema_version", "project_id", "candidates"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "project_id": {"type": "string"},
+    "candidates": {
+      "type": "array", "minItems": 2, "maxItems": 3,
+      "items": {
+        "type": "object",
+        "required": ["candidate_id", "core_text", "supporting_text", "background", "foreground", "accent"],
+        "properties": {
+          "candidate_id": {"type": "string", "pattern": "^COVER_[A-C]$"},
+          "core_text": {"type": "string", "minLength": 3, "maxLength": 10},
+          "supporting_text": {"type": "string", "maxLength": 18},
+          "background": {"type": "string", "pattern": "^#[0-9A-Fa-f]{6}$"},
+          "foreground": {"type": "string", "pattern": "^#[0-9A-Fa-f]{6}$"},
+          "accent": {"type": "string", "pattern": "^#[0-9A-Fa-f]{6}$"}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
