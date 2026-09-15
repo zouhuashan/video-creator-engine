@@ -128,6 +128,37 @@ def load_run_state(directory: Path, project_id: str) -> dict[str, Any]:
     return state
 
 
+def resume_plan(directory: Path, project_id: str) -> dict[str, Any]:
+    """Return the first incomplete stage without mutating project state."""
+    state = load_run_state(directory, project_id)
+    status = state["status"]
+    index = STAGES.index(status)
+
+    if status == "PUBLISHED_MANUALLY":
+        action = "complete"
+        next_stage = None
+    elif status == "READY_FOR_REVIEW":
+        action = "await_human_review"
+        next_stage = None
+    else:
+        action = "continue"
+        next_stage = STAGES[index + 1]
+
+    try:
+        run_file = (directory / "run.json").relative_to(ROOT).as_posix()
+    except ValueError:
+        run_file = (directory / "run.json").as_posix()
+
+    return {
+        "project_id": project_id,
+        "status": status,
+        "completed_stages": list(STAGES[: index + 1]),
+        "resume_stage": next_stage,
+        "action": action,
+        "run_file": run_file,
+    }
+
+
 def transition_project(
     directory: Path,
     project_id: str,

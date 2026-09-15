@@ -60,6 +60,8 @@ warnings: []
 
 - 按 Research → Topic → Script → Storyboard → Assets → Voice → Edit/Motion → QC → Packaging 的顺序协调已有模块；读取相关模块说明和配置后再调用。
 - 每个阶段产物成功写入并通过该阶段校验后，才用 `python3 scripts/project_state.py transition <project-id> --to <NEXT_STATUS> --note "..."` 推进 `run.json`；不要手工编辑状态文件或跳过阶段。
+- 用户要求继续项目或执行 `resume <project-id>` 时，运行 `./video-creator resume <project-id>` 并以返回的 `resume_stage` 为唯一恢复点。跳过已完成阶段，检查对应产物后从恢复点继续；缺少阶段处理器或产物损坏时说明阻塞，不重置状态或伪造完成记录。
+- 若恢复动作是 `await_human_review`，展示发布包并等待用户在平台人工发布；若为 `complete`，报告项目已完成。不得将这两种状态当作继续制作的入口。
 - 只报告实际完成的阶段和产物。若所需模块、Provider 或平台配置尚未实现，说明具体缺项，交付已解析的需求单，不伪造研究、素材、视频或质检结果。
 - 使用 `automatic_research` 时为事实性主张保留可核验来源；使用 `provided_sources_only` 或 `no_external_research` 时，不把未核实内容写成事实。
 - API 凭据只从环境变量读取；不要读取、回显或写入日志中的密钥值。

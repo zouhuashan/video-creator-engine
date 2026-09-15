@@ -44,6 +44,14 @@ python3 scripts/project_state.py transition <project-id> --to RESEARCHED --note 
 
 Transitions must follow the configured lifecycle in order. Recording `PUBLISHED_MANUALLY` additionally requires `--record-manual-publication` after the user confirms publication.
 
+Inspect the resume checkpoint with:
+
+```bash
+./video-creator resume <project-id>
+```
+
+The command reads `run.json` and prints a machine-readable checkpoint. In a Codex `video-creator` session, the Skill uses that checkpoint to continue with the matching implemented stage; `READY_FOR_REVIEW` waits for a human, and `PUBLISHED_MANUALLY` is terminal.
+
 ## Logs
 
 Run a task command through `scripts/run_task.py` to keep the terminal summary compact and capture detailed output under the ignored `logs/` directory:
