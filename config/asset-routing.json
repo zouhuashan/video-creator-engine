@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "priority": ["real_media", "licensed_media", "hyperframes", "generative_media"],
+  "visual_type_routes": {
+    "screen_recording": ["real_media"],
+    "screenshot": ["real_media"],
+    "real_video": ["real_media", "licensed_media"],
+    "real_image": ["real_media", "licensed_media"],
+    "stock": ["licensed_media"],
+    "hyperframes": ["hyperframes"],
+    "remotion": ["hyperframes"],
+    "ai_image": ["generative_media"],
+    "ai_video": ["generative_media"],
+    "text_only": ["hyperframes"],
+    "chart": ["hyperframes"],
+    "comparison": ["hyperframes"]
+  }
+}
