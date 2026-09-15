@@ -418,7 +418,13 @@ total_score < 60
 # 8. P0 — 项目初始化
 
 ## P0-01 创建项目骨架
-Status: TODO
+Status: PASS
+
+执行记录（2026-09-15）：
+
+- Git commit: `821f58a`（项目骨架）
+- 环境检查：Python 3.10.2、Node.js 22.23.1、FFmpeg 9.0、Codex CLI 0.153.4 全部通过。
+- 结果：PASS；下一任务：P0-02。
 
 任务：
 
