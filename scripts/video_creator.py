@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 if __package__:
+    from .asset_manifest import write_asset_manifest
     from .project_state import DEFAULT_PROJECTS_DIR, StateError, project_dir, resume_plan
     from .rerun_planner import rerun_plan
     from .research_module import write_research_artifacts
@@ -17,6 +18,7 @@ if __package__:
     from .storyboard_review import write_storyboard_review
     from .topic_scoring import score_project
 else:
+    from asset_manifest import write_asset_manifest
     from project_state import DEFAULT_PROJECTS_DIR, StateError, project_dir, resume_plan
     from rerun_planner import rerun_plan
     from research_module import write_research_artifacts
@@ -59,6 +61,10 @@ def parse_args() -> argparse.Namespace:
     review_parser = subparsers.add_parser("review-storyboard", help="Review storyboard visual pacing and evidence coverage")
     review_parser.add_argument("project_id")
     review_parser.add_argument("--projects-dir", type=Path, default=DEFAULT_PROJECTS_DIR, help=argparse.SUPPRESS)
+    assets_parser = subparsers.add_parser("assets", help="Validate local assets and write asset-manifest.json")
+    assets_parser.add_argument("project_id")
+    assets_parser.add_argument("--input-file", type=Path, required=True)
+    assets_parser.add_argument("--projects-dir", type=Path, default=DEFAULT_PROJECTS_DIR, help=argparse.SUPPRESS)
     return parser.parse_args()
 
 
@@ -84,6 +90,9 @@ def main() -> int:
             plan = write_storyboard_artifacts(directory, args.project_id, payload)
         elif args.command == "review-storyboard":
             plan = write_storyboard_review(directory, args.project_id)
+        elif args.command == "assets":
+            payload = json.loads(args.input_file.read_text(encoding="utf-8"))
+            plan = write_asset_manifest(directory, args.project_id, payload)
         else:  # pragma: no cover - argparse enforces the available commands
             raise StateError(f"unknown command: {args.command}")
     except (OSError, ValueError, StateError) as error:
