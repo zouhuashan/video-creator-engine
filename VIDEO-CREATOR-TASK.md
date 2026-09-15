@@ -597,7 +597,14 @@ PUBLISHED_MANUALLY
 ---
 
 ## P1-04 支持 Resume
-Status: TODO
+Status: PASS
+
+执行记录（2026-09-15）：
+
+- Git commit: `7f7c556`（项目恢复点命令）
+- Resume 读取 `run.json`，跳过已完成阶段并返回首个未完成阶段；`READY_FOR_REVIEW` 停在人审，`PUBLISHED_MANUALLY` 返回完成状态。
+- 已验证恢复点计算、终态处理、命令行读取及状态不被 Resume 修改；单元测试 6 项通过。
+- 结果：PASS；下一任务：P1-05。
 
 例如：
 
@@ -1908,12 +1915,12 @@ P7 = V1 OPTIONAL
 # 41. 下一任务
 
 ```text
-NEXT: P1-04
+NEXT: P1-05
 ```
 
 任务：
 
-> 支持读取 `run.json`，从项目上次未完成的阶段继续执行。
+> 支持项目局部重跑（场景、配音、封面、QC），避免重做无关阶段。
 
 执行完成后：
 
