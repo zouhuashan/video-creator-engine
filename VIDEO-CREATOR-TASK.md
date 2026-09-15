@@ -508,7 +508,13 @@ NEXT
 # 9. P1 — video-creator 总编排 Skill
 
 ## P1-01 创建 SKILL.md
-Status: TODO
+Status: PASS
+
+执行记录（2026-09-15）：
+
+- Git commit: `b4f85c7`（video-creator 主编排 Skill）
+- `skill-creator` quick validator 通过；Skill 覆盖 topic、platform、duration、tone、target_audience、source_mode、voice、asset_strategy 八个必需字段。
+- 结果：PASS；下一任务：P1-02。
 
 Skill 入口：
 
@@ -1889,12 +1895,12 @@ P7 = V1 OPTIONAL
 # 41. 下一任务
 
 ```text
-NEXT: P1-01
+NEXT: P1-02
 ```
 
 任务：
 
-> 创建 `video-creator` Skill 主入口，解析自然语言任务并组织后续制作流程。
+> 创建符合 `YYYYMMDD-slug` 格式的项目 ID，为每条视频任务建立稳定项目目录。
 
 执行完成后：
 
