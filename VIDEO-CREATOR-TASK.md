@@ -949,7 +949,15 @@ checksum
 ---
 
 ## P5-03 Missing Asset
-Status: TODO
+Status: PASS
+
+执行记录（2026-09-15）：
+
+- Git commit: `cdf28cc`（缺失素材恢复路由）
+- 素材缺失统一返回 `MISSING_ASSET`，按搜索、生成、信息图替代、请求用户材料选择首个可用恢复动作。
+- 没有自动恢复能力时回退到请求用户材料，保留项目而不报废任务。
+- 已验证 54 项单元测试和 Python 编译。
+- 结果：PASS；下一任务：P6-01。
 
 缺失素材不得直接报废任务。
 
@@ -2014,12 +2022,12 @@ P7 = V1 OPTIONAL
 # 41. 下一任务
 
 ```text
-NEXT: P5-03
+NEXT: P6-01
 ```
 
 任务：
 
-> 为缺失素材返回 MISSING_ASSET，并按搜索、生成、信息图替代、请求用户材料依次恢复。
+> 安装 HyperFrames，固定 Git commit/tag 并写入依赖清单。
 
 执行完成后：
 
