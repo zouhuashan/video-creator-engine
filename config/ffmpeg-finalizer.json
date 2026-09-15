@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "engine": "ffmpeg",
+  "allowed_video_codecs": ["libx264"],
+  "allowed_audio_codecs": ["aac"],
+  "allowed_containers": ["mp4"],
+  "allowed_transitions": ["none", "fade", "fadeblack", "fadewhite", "wipeleft", "wiperight", "slideleft", "slideright"],
+  "audio_normalization": {
+    "integrated_lufs": -14,
+    "true_peak_db": -1,
+    "loudness_range_lu": 11
+  },
+  "audio_sample_rate": 48000,
+  "pixel_format": "yuv420p",
+  "faststart": true
+}

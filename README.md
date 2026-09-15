@@ -139,6 +139,8 @@ python3 scripts/edit_decision_list.py --edit-dir <project>/edit <project-id> rol
 python3 scripts/edit_decision_list.py --edit-dir <project>/edit <project-id> rerender-plan
 ```
 
+The FFmpeg final merge boundary is implemented in [`adapters/video/ffmpeg_finalizer.py`](adapters/video/ffmpeg_finalizer.py). A `FinalMergeSpec` explicitly declares video inputs, audio tracks with volume and delay, transition, geometry, frame rate, codecs, bitrates, container, and output path. The command builder scales and pads each video, concatenates or crossfades clips, mixes delayed tracks, normalizes to -14 LUFS, encodes, and writes a fast-start MP4 without invoking a shell.
+
 ## Logs
 
 Run a task command through `scripts/run_task.py` to keep the terminal summary compact and capture detailed output under the ignored `logs/` directory:
