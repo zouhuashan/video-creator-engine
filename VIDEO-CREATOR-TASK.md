@@ -1162,7 +1162,16 @@ Status: PASS
 # 17. P9 — video-use 剪辑核心
 
 ## P9-01 集成 video-use
-Status: TODO
+Status: PASS
+
+执行记录（2026-09-15）：
+- Git commit: `122356a`
+- video-use 固定到官方仓库提交 `9575612f066aa517354790a645fd90f9f95a743b`，使用隔离 Python 环境；项目本地 `ffprobe 9.0.1` 固定下载地址与 SHA-256。
+- 新增配置和 Adapter，覆盖原始视频理解、停顿删除、口癖删除、裁切、字幕、音频同步、B-roll、Overlay 与基础自评。
+- 固定字幕最后叠加、词边界剪切、30–200ms 剪点边距、30ms 音频淡入淡出、Overlay 时间偏移、转录缓存和最多三轮自评规则。
+- 真实媒体验证：2 秒 H.264/AAC 测试素材经 EDL 裁为约 1.5 秒，成功生成预览与时间线检查图；未调用付费转录。
+- 验证：依赖提交、媒体工具、隔离环境和 helpers 全部通过；全量 85 项测试通过。
+- 结果：PASS；下一任务：P9-02。
 
 负责：
 
@@ -2066,12 +2075,12 @@ P7 = V1 OPTIONAL
 # 41. 下一任务
 
 ```text
-NEXT: P9-01
+NEXT: P9-02
 ```
 
 任务：
 
-> 集成 video-use，覆盖原始视频理解、停顿和口癖删除、裁切、字幕、音频同步、B-roll、Overlay 与基础自评。
+> 为 video-use 的 ASR 依赖封装 Adapter，解除 ElevenLabs 强耦合，并支持 ElevenLabs、Whisper API、Local Whisper 与其它 Provider。
 
 执行完成后：
 
