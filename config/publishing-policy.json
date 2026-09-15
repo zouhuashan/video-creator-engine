@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "version": "V1",
+  "mode": "human_only",
+  "forbidden_actions": [
+    "wechat_auto_upload",
+    "simulate_publish_click",
+    "automatic_originality_declaration",
+    "automatic_commercial_label"
+  ],
+  "allowed_action": "record_confirmed_manual_publication"
+}

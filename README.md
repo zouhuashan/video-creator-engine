@@ -165,6 +165,8 @@ Cover input contains two or three short question-led candidates. `scripts/cover_
 
 `python3 scripts/review_gate.py <project-dir> <project-id>` re-hashes all seven packaged deliverables, confirms aggregate QC PASS and the human-only publish mode, writes `review-gate.json`, and advances `PACKAGED` to `READY_FOR_REVIEW`. The command then displays the final checklist and stops at `WAITING FOR HUMAN PUBLISH`.
 
+`python3 scripts/publish_policy.py audit` verifies the V1 human-only policy across application, platform, and package configuration. Uploading to WeChat, simulating a publish click, and setting originality or commercial labels are denied capabilities. The manual-record command changes state only after explicit user confirmation that publication already happened outside VideoCreator.
+
 ## Logs
 
 Run a task command through `scripts/run_task.py` to keep the terminal summary compact and capture detailed output under the ignored `logs/` directory:
