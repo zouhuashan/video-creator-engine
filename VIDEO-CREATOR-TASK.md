@@ -894,7 +894,15 @@ Status: PASS
 # 13. P5 — Asset Router
 
 ## P5-01 素材优先级
-Status: TODO
+Status: PASS
+
+执行记录（2026-09-15）：
+
+- Git commit: `1927241`（素材优先级路由）
+- 新增可校验的素材路由配置和选择器，按真实素材、授权素材、HyperFrames、生成式媒体固定顺序选择首个可用路由。
+- 路由不能跳过高优先级的可用素材；没有可用候选时返回 `MISSING_ASSET`，由后续缺失素材流程处理。
+- 已验证 52 项单元测试、Python 编译和 Skill quick validator。
+- 结果：PASS；下一任务：P5-02。
 
 必须按照：
 
@@ -1998,12 +2006,12 @@ P7 = V1 OPTIONAL
 # 41. 下一任务
 
 ```text
-NEXT: P5-01
+NEXT: P5-02
 ```
 
 任务：
 
-> 建立素材路由优先级：真实素材、授权素材、HyperFrames、Generative Media。
+> 创建并校验包含来源、授权、生成者和校验和的 asset-manifest.json。
 
 执行完成后：
 
