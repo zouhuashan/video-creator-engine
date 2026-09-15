@@ -1243,7 +1243,15 @@ edit-decision-list.json
 # 18. P10 — FFmpeg Finalizer
 
 ## P10-01 Final Merge
-Status: TODO
+Status: PASS
+
+执行记录（2026-09-15）：
+- Git commit: `3efd9c6`
+- 新增独立 FFmpeg Finalizer，统一处理视频合并、转场、音轨延迟与混音、-14 LUFS 音量标准化、尺寸、FPS、码率、编码和 faststart MP4 封装。
+- 使用结构化 FinalMergeSpec 构建参数列表，不执行未校验的 shell 字符串；限制受支持的编码器、容器和转场。
+- 真实媒体验证：两段不同尺寸视频与两条音轨成功输出 360×640、30fps、H.264/AAC、2.2 秒 MP4，并生成文件 SHA-256。
+- 验证：全量 102 项测试通过。
+- 结果：PASS；下一任务：P10-02。
 
 FFmpeg 负责：
 
@@ -2091,12 +2099,12 @@ P7 = V1 OPTIONAL
 # 41. 下一任务
 
 ```text
-NEXT: P10-01
+NEXT: P10-02
 ```
 
 任务：
 
-> 实现 FFmpeg Final Merge，覆盖视频合并、音轨混合、音量标准化、转场、编码、尺寸、FPS、码率和封装。
+> 固定默认输出为 1080×1920、30fps、H.264、AAC、MP4，并提供输出校验。
 
 执行完成后：
 
