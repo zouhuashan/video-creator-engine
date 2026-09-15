@@ -406,6 +406,8 @@ production_cost     10%
 
 风险单独作为过滤条件。
 
+所有分数为 0～100；`production_cost` 原始分越高代表制作代价越高，总分按 `100 - production_cost` 计入。风险分不参与加权总分，默认达到 70 时单独拦截。权重和门槛配置在 `config/topic-scoring.json`。
+
 默认：
 
 ```text
@@ -708,7 +710,15 @@ Status: PASS
 ---
 
 ## P2-03 Topic Scoring
-Status: TODO
+Status: PASS
+
+执行记录（2026-09-15）：
+
+- Git commit: `8043f4b`（主题评分与风险过滤）
+- 新增 `video-creator score`，读取已完成的 `research.json` 和带理由的五项 Skill 评估，生成 `topic.json`；证据强度按事实来源等级及不同发布方交叉支持情况计算，风险分按已记录风险严重度计算。
+- 总分使用本节权重，制作成本反向计入；总分低于 60 或风险分达到 70 时分别触发制作门禁和风险过滤。评分不推进项目生命周期。
+- 已验证 23 项单元测试、输入 Schema、编译检查和 Skill quick validator。
+- 结果：PASS；下一任务：P3-01。
 
 自动计算：
 
@@ -1938,12 +1948,12 @@ P7 = V1 OPTIONAL
 # 41. 下一任务
 
 ```text
-NEXT: P2-03
+NEXT: P3-01
 ```
 
 任务：
 
-> 为选题自动计算流量、商业价值、常青度、制作成本、证据强度、原创性和风险分数。
+> 建立微信视频号脚本模板，按 Hook、Problem、Evidence、Comparison、Conclusion、CTA 输出。
 
 执行完成后：
 
