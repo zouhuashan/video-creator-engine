@@ -66,6 +66,7 @@ warnings: []
 - Storyboard 审查通过后读取 `skill/video-creator/assets/SKILL.md`，按真实素材、授权素材、HyperFrames、生成式媒体的固定优先级选择每个镜头的素材路由；缺失时返回 `MISSING_ASSET`，不要伪造素材。
 - 素材路由选择 HyperFrames 时，从 `config/hyperframes-motion.json` 为标题、数据、比较表、UI、卡片、价格、排行榜、步骤、流程图或强调文字选择对应默认动效，并用 `scripts.hyperframes_motion.build_motion_plan` 生成 30 fps、可 seek 的 GSAP 动效计划。未知内容类型必须显式补充配置，不能静默套用通用动画。
 - 根据内容意图从 `brand/motion/` 选择且只选择一套 HyperFrames 风格：通用克制用 `minimal`，技术展示用 `tech`，产品评测用 `review`，风险避坑用 `warning`，参数对比用 `comparison`，操作教学用 `tutorial`。使用 `apply_style_preset` 将色彩、中文字体、形状、节奏和转场写入动效计划；用户提供的品牌设计规范优先于这些默认预设。
+- 配音阶段读取 `skill/video-creator/voice/SKILL.md`，先完成中文读法、停顿、情绪、强调和中英文混读优化，再通过统一 Provider 接口及 Voice Cache 合成。音色未配置或缓存损坏时明确停止，不猜测音色，也不自动再次调用付费接口。
 - 每个阶段产物成功写入并通过该阶段校验后，才用 `python3 scripts/project_state.py transition <project-id> --to <NEXT_STATUS> --note "..."` 推进 `run.json`；不要手工编辑状态文件或跳过阶段。
 - 用户要求继续项目或执行 `resume <project-id>` 时，运行 `./video-creator resume <project-id>` 并以返回的 `resume_stage` 为唯一恢复点。跳过已完成阶段，检查对应产物后从恢复点继续；缺少阶段处理器或产物损坏时说明阻塞，不重置状态或伪造完成记录。
 - 用户要求局部重跑时，运行 `./video-creator rerun <project-id> scene <SCENE_ID>`、`voice`、`cover` 或 `qc`，读取 JSON 计划并严格按 `preserve`、`rebuild`、`checkpoint` 和 `invalidated_stages_after_success` 限定范围。场景 ID 必须能在 `storyboard.json` 或 `storyboard.md` 中找到；项目必须已完成该目标所需阶段。`PUBLISHED_MANUALLY` 项目禁止重跑。

@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "locale": "zh-CN",
+  "acronyms": {
+    "AI": "A I",
+    "API": "A P I",
+    "ASR": "A S R",
+    "CPU": "C P U",
+    "GPU": "G P U",
+    "GPT": "G P T",
+    "TTS": "T T S",
+    "USB": "U S B"
+  },
+  "products": {
+    "ChatGPT": "Chat G P T",
+    "DeepSeek": "Deep Seek",
+    "AirPods": "Air Pods",
+    "Wi-Fi": "Wi Fi",
+    "iPhone": "iPhone"
+  },
+  "pause_markers": {
+    "fish_audio": {"short": "[pause]", "long": "[long pause]"},
+    "generic": {"short": "，", "long": "。"}
+  },
+  "emphasis_markers": {
+    "fish_audio": "[emphasis]{text}",
+    "generic": "“{text}”"
+  }
+}

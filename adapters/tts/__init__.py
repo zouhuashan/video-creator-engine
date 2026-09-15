@@ -4,17 +4,21 @@ from .base import SynthesisResult, TTSProvider, TTSProviderError, validate_synth
 from .cache import CachedTTS, VoiceCacheError, voice_cache_key
 from .fish_audio import FishAudioTTS
 from .router import FALLBACK_PROVIDERS, PRIMARY_PROVIDER, choose_provider
+from .zh_speech import ChineseSpeechError, SpeechPlan, optimize_chinese_speech
 
 __all__ = [
     "FALLBACK_PROVIDERS",
     "PRIMARY_PROVIDER",
     "FishAudioTTS",
     "CachedTTS",
+    "ChineseSpeechError",
     "SynthesisResult",
+    "SpeechPlan",
     "TTSProvider",
     "TTSProviderError",
     "VoiceCacheError",
     "choose_provider",
+    "optimize_chinese_speech",
     "validate_synthesis_request",
     "voice_cache_key",
 ]
