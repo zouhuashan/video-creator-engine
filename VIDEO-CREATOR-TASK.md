@@ -981,7 +981,14 @@ search
 # 14. P6 — HyperFrames
 
 ## P6-01 安装与固定版本
-Status: TODO
+Status: PASS
+
+执行记录（2026-09-15）：
+- Git commit: `5012a10`
+- HyperFrames 固定为 `v0.8.40` / `cfe5dcfad310ced2a5844998628daa2b8a0f53d7`，安装到忽略提交的 `.dependencies/hyperframes`。
+- 新增 `dependency-manifest.json` 和依赖安装/校验脚本，升级策略固定为手动更新 tag 与 commit。
+- 验证：实际安装与来源校验通过；全量 57 项测试通过。
+- 结果：PASS；下一任务：P6-02。
 
 要求：
 
@@ -2022,12 +2029,12 @@ P7 = V1 OPTIONAL
 # 41. 下一任务
 
 ```text
-NEXT: P6-01
+NEXT: P6-02
 ```
 
 任务：
 
-> 安装 HyperFrames，固定 Git commit/tag 并写入依赖清单。
+> 为标题、数据、比较表、UI、卡片、价格、排行榜、步骤、流程图和强调文字配置 HyperFrames 默认动效。
 
 执行完成后：
 
