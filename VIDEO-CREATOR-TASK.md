@@ -1084,7 +1084,14 @@ Status: TODO
 # 16. P8 — Voice
 
 ## P8-01 TTS Provider
-Status: TODO
+Status: PASS
+
+执行记录（2026-09-15）：
+- Git commit: `0d82bf6`
+- 新增统一 `synthesize(text, voice, speed, emotion)` 接口和 Fish Audio S2-Pro 适配器，支持 Provider voice ID、语速与情绪提示。
+- Provider 顺序固定为 Fish Audio → ElevenLabs → EdgeTTS → Local；未配置可用 Provider 时明确失败，不进行隐藏计费回退。
+- 验证：模拟请求覆盖鉴权、请求体、输入校验和路由优先级；全量 67 项测试通过。
+- 结果：PASS；下一任务：P8-02。
 
 接口：
 
@@ -2043,12 +2050,12 @@ P7 = V1 OPTIONAL
 # 41. 下一任务
 
 ```text
-NEXT: P8-01
+NEXT: P8-02
 ```
 
 任务：
 
-> 实现 TTS Provider 接口 `synthesize(text, voice, speed, emotion)`，首选 Fish Audio，并配置备选 Provider。
+> 实现基于 `text + voice + speed + provider` 的 Voice Cache，缓存命中时禁止重复计费生成。
 
 执行完成后：
 
