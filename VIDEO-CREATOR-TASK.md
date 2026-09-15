@@ -1411,7 +1411,14 @@ Status: PASS
 # 20. P12 — Packaging
 
 ## P12-01 视频号发布包
-Status: TODO
+Status: PASS
+
+执行记录（2026-09-15）：
+- Git commit: `beb7ad9`
+- 新增视频号发布包构建器，只接受 `QC_PASS` 且汇总质检通过的项目；七个必需产物缺失、空白、符号链接或封面格式错误时中止。
+- 产物复制到独立 `publish-package/`，逐文件校验复制前后 SHA-256，并生成 `package.json`；成功后推进到 `PACKAGED`。
+- 发布模式固定为人工确认，构建器不包含上传或发布动作；全量 131 项测试通过。
+- 结果：PASS；下一任务：P12-02。
 
 输出：
 
@@ -2135,12 +2142,12 @@ P7 = V1 OPTIONAL
 # 41. 下一任务
 
 ```text
-NEXT: P12-01
+NEXT: P12-02
 ```
 
 任务：
 
-> 生成视频号发布包，必须包含 final.mp4、cover.png、title.md、caption.md、hashtags.md、sources.md 和 qc-report.md。
+> 实现视频号封面候选，核心字为 3～10 个、移动端可读、问题清晰、禁止密集小字，并支持 2～3 个候选。
 
 执行完成后：
 
