@@ -1024,7 +1024,14 @@ Status: PASS
 ---
 
 ## P6-03 Style Presets
-Status: TODO
+Status: PASS
+
+执行记录（2026-09-15）：
+- Git commit: `ccfa9f8`
+- 在 `brand/motion/` 新增 `minimal`、`tech`、`review`、`warning`、`comparison`、`tutorial` 六套预设。
+- 每套预设固定调色板、中文字体、表面样式、动效节奏与转场；预设应用器在不修改基础计划的前提下生成风格化计划。
+- 验证：六套 JSON 均通过解析与结构校验；全量 64 项测试通过。
+- 结果：PASS；下一任务：P8-01（P7 为 V1 OPTIONAL，本轮未触发）。
 
 创建：
 
@@ -2036,12 +2043,12 @@ P7 = V1 OPTIONAL
 # 41. 下一任务
 
 ```text
-NEXT: P6-03
+NEXT: P8-01
 ```
 
 任务：
 
-> 创建 minimal、tech、review、warning、comparison、tutorial 六套 HyperFrames Style Presets。
+> 实现 TTS Provider 接口 `synthesize(text, voice, speed, emotion)`，首选 Fish Audio，并配置备选 Provider。
 
 执行完成后：
 
