@@ -478,7 +478,13 @@ config/brand.yaml
 ---
 
 ## P0-03 建立日志规范
-Status: TODO
+Status: PASS
+
+执行记录（2026-09-15）：
+
+- Git commit: `cc7937d`（安静终端与详细日志 runner）
+- 已验证成功/失败摘要、详细日志落盘、常见凭据脱敏、退出码传递及日志文件 Git 忽略规则。
+- 结果：PASS；下一任务：P1-01。
 
 目录：
 
@@ -1883,12 +1889,12 @@ P7 = V1 OPTIONAL
 # 41. 下一任务
 
 ```text
-NEXT: P0-01
+NEXT: P1-01
 ```
 
 任务：
 
-> 创建 VideoCreator Engine 项目骨架、Git 仓库、目录、基础配置与环境检查，为后续所有模块提供稳定底座。
+> 创建 `video-creator` Skill 主入口，解析自然语言任务并组织后续制作流程。
 
 执行完成后：
 
