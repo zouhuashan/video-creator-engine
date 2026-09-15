@@ -646,7 +646,15 @@ video-creator rerun <project-id> qc
 # 10. P2 — Research / Topic
 
 ## P2-01 Research 模块
-Status: TODO
+Status: PASS
+
+执行记录（2026-09-15）：
+
+- Git commit: `5e0a5a7`（带来源引用的研究产物生成）
+- 新增 Research 输入 Schema 和 CLI；校验来源 URL、核心事实、证据摘要及 source reference，生成 `research.json`、`research.md`、`sources.md`，成功后推进状态至 `RESEARCHED`。
+- 内容覆盖核心事实、FAQ、正反观点、价格/规格/版本、素材方向和风险；不接受没有来源支持的核心事实。
+- 已验证 16 项单元测试、Schema 与样例一致性、Python 编译检查和 Skill quick validator。
+- 当前 Search Provider 尚未配置，采集由 VideoCreator Skill/Codex 搜索能力完成，再交给模块校验和落盘；下一任务：P2-02。
 
 输入：
 
@@ -1922,12 +1930,12 @@ P7 = V1 OPTIONAL
 # 41. 下一任务
 
 ```text
-NEXT: P2-01
+NEXT: P2-02
 ```
 
 任务：
 
-> 实现 Research 模块，为选题收集可核验的事实和来源。
+> 实施事实来源优先级，并确保每个关键事实保留来源引用。
 
 执行完成后：
 
