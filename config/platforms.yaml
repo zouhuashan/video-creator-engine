@@ -1,0 +1,39 @@
+schema_version: 1
+default_platform: wechat_channels
+
+platforms:
+  wechat_channels:
+    enabled: true
+    template_dir: templates/wechat-channel
+    output:
+      container: mp4
+      aspect_ratio: "9:16"
+      width: 1080
+      height: 1920
+      duration_seconds:
+        min: 45
+        target: 60
+        max: 90
+      fps: 30
+      video_codec: h264
+      audio_codec: aac
+    standard_timeline:
+      - {name: hook, start_seconds: 0, end_seconds: 3}
+      - {name: problem, start_seconds: 3, end_seconds: 10}
+      - {name: evidence_or_demo, start_seconds: 10, end_seconds: 35}
+      - {name: comparison_or_truth, start_seconds: 35, end_seconds: 50}
+      - {name: conclusion_and_cta, start_seconds: 50, end_seconds: 60}
+    visual_source_priority:
+      - real_screen_recording
+      - real_screenshot
+      - real_footage_or_product_image
+      - licensed_media
+      - hyperframes_infographic
+      - ai_generated_image_or_video
+    safe_area_insets_px: null # Calibrate against the target account's actual UI before final layout tuning.
+    publish_mode: human_confirmation
+
+planned_platforms:
+  - douyin
+  - xiaohongshu
+  - youtube_shorts

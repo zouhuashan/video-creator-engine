@@ -1,0 +1,66 @@
+schema_version: 1
+
+topic_gate:
+  minimum_total_score: 60
+  action_below_threshold: do_not_enter_production
+
+technical_qc:
+  enabled: true
+  required_checks:
+    - resolution
+    - aspect_ratio
+    - fps
+    - codec
+    - duration
+    - black_frames
+    - frozen_frames
+    - silence
+    - clipping
+    - audio_video_sync
+    - subtitle_bounds
+    - subtitle_occlusion
+    - encoding_success
+    - file_integrity
+
+content_qc:
+  enabled: true
+  required_checks:
+    - typos
+    - factual_accuracy
+    - numeric_accuracy
+    - brand_names
+    - platform_sensitive_language
+    - duplicate_content
+    - unsupported_absolute_claims
+    - first_three_seconds_hook
+    - conclusion_clarity
+    - call_to_action
+
+visual_qc:
+  enabled: true
+  max_static_visual_seconds: 8
+  required_checks:
+    - shot_too_long
+    - repeated_visuals
+    - subtitle_density
+    - abnormal_empty_space
+    - incorrect_crop
+    - key_information_ui_occlusion
+    - text_background_contrast
+    - evidence_visual_coverage
+    - hook_visual_match
+
+auto_fix:
+  enabled: true
+  allowed:
+    - subtitle_position
+    - audio_volume
+    - blank_shot
+    - transcoding
+    - minor_duration
+    - subtitle_segmentation
+  forbidden:
+    - core_facts
+    - conclusion
+    - commercial_recommendation
+    - sensitive_content

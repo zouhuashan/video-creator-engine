@@ -21,7 +21,11 @@ Check the environment with:
 ./scripts/check-env.sh
 ```
 
-Copy `.env.example` to `.env` when provider configuration is introduced. Keep real secrets out of Git.
+Copy `.env.example` to `.env` and enter credentials only for the providers selected in `config/providers.yaml`. Keep real secrets out of Git.
+
+## Configuration
+
+The YAML files in `config/` define application defaults, provider selection, platform output profiles, quality checks, and channel identity. The active profile targets WeChat Channels; other platform profiles remain planned until their specifications are defined.
 
 ## Project layout
 

@@ -1,0 +1,64 @@
+# Select adapters here; credentials are read from environment variables only.
+schema_version: 1
+
+selection:
+  # These providers are intentionally unset until their adapters are selected.
+  llm: null
+  search: null
+  asr: null
+  tts: fish_audio
+  image: null
+  video: null
+  motion: hyperframes
+  publish: manual
+
+fallback:
+  tts: [edge_tts]
+  motion: static_infographic
+  video_generation: [stock, screenshot, image_pan]
+
+providers:
+  llm: {}
+  search: {}
+  asr:
+    elevenlabs:
+      adapter: elevenlabs
+      enabled: false
+      api_key_env: ELEVENLABS_API_KEY
+    whisper:
+      adapter: whisper
+      enabled: false
+      mode: local
+  tts:
+    fish_audio:
+      adapter: fish_audio
+      enabled: true
+      api_key_env: FISH_AUDIO_API_KEY
+    elevenlabs:
+      adapter: elevenlabs
+      enabled: false
+      api_key_env: ELEVENLABS_API_KEY
+    edge_tts:
+      adapter: edge_tts
+      enabled: true
+      mode: remote
+      credentials_required: false
+    local:
+      adapter: local_tts
+      enabled: false
+      mode: local
+      credentials_required: false
+  image: {}
+  video: {}
+  motion:
+    hyperframes:
+      adapter: hyperframes
+      enabled: true
+    remotion:
+      adapter: remotion
+      enabled: false
+  publish:
+    manual:
+      adapter: manual_review
+      enabled: true
+      automatic_upload: false

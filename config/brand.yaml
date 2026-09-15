@@ -1,0 +1,41 @@
+schema_version: 1
+
+channel:
+  account_name: null # Set after the publishing account is selected.
+  platform: wechat_channels
+  locale: zh-CN
+  positioning: 普通人的 AI + 数码工具避坑
+  content_mix:
+    ai_hands_on: 0.50
+    practical_tutorials: 0.30
+    consumer_advice: 0.20
+
+identity:
+  logo: null
+  palette: null # Intentionally unset until the channel's visual identity is approved.
+  fonts: null
+  intro_asset: null
+  outro_asset: null
+
+visual_guidance:
+  source_priority:
+    - real_screen_recording
+    - real_screenshot
+    - real_footage_or_product_image
+    - licensed_media
+    - hyperframes_infographic
+    - ai_generated_image_or_video
+  avoid_full_video_ai_generation: true
+
+voice:
+  provider: from_provider_selection
+  default_voice: null
+  speed: null
+
+subtitles:
+  language: zh-CN
+  font_family: null
+  text_color: "#FFFFFF"
+  outline_color: "#111111"
+  background_color: null
+  safe_area_source: platform_profile

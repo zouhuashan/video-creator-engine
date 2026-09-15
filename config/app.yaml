@@ -1,0 +1,27 @@
+# Application-level defaults. Secrets and provider credentials belong in .env.
+schema_version: 1
+
+app:
+  name: VideoCreator Engine
+  version: 1.0
+  locale: zh-CN
+  timezone: Asia/Shanghai
+
+project:
+  output_root: projects
+  id_format: "%Y%m%d-%H%M%S"
+  default_platform: wechat_channels
+  default_duration_seconds: 60
+
+workflow:
+  auto_research: true
+  auto_fix: true
+  resume_enabled: true
+  scene_rerun_enabled: true
+  auto_publish: false
+  require_human_publish_confirmation: true
+
+paths:
+  logs: logs
+  cache: cache
+  archive: archive
