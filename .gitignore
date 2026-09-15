@@ -1,0 +1,29 @@
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+
+# Python / Node tooling
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+node_modules/
+
+# Editor and OS files
+.DS_Store
+.idea/
+.vscode/
+
+# Generated runtime data; keep the directory skeleton in Git
+/logs/*
+!/logs/.gitkeep
+/cache/*
+!/cache/.gitkeep
+/archive/*
+!/archive/.gitkeep
+/projects/*
+!/projects/.gitkeep
+
+# Temporary files
+*.tmp
