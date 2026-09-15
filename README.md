@@ -79,6 +79,14 @@ Score a researched topic with:
 
 The assessment format is described by [`templates/topic-assessment.schema.json`](templates/topic-assessment.schema.json), and weights, evidence scores, risk levels, and gates are configured in [`config/topic-scoring.json`](config/topic-scoring.json). The command writes `topic.json` without advancing the project lifecycle. Low total scores and high risk scores independently block automatic production.
 
+After the topic gate passes, write a six-section WeChat Channels script with:
+
+```bash
+./video-creator script <project-id> --input-file <script-input.json>
+```
+
+The input format is described by [`templates/script-input.schema.json`](templates/script-input.schema.json), with section guidance in [`templates/wechat-channel/script-template.md`](templates/wechat-channel/script-template.md). The command requires an eligible `topic.json`, validates all cited research sources, writes `script.json` and `script.md`, then advances the project from `RESEARCHED` to `SCRIPTED`.
+
 ## Logs
 
 Run a task command through `scripts/run_task.py` to keep the terminal summary compact and capture detailed output under the ignored `logs/` directory:

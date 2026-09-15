@@ -61,6 +61,7 @@ warnings: []
 - 按 Research → Topic → Script → Storyboard → Assets → Voice → Edit/Motion → QC → Packaging 的顺序协调已有模块；读取相关模块说明和配置后再调用。
 - Research 阶段先读取 `skill/video-creator/research/SKILL.md`，按 `source_mode` 和来源等级调查并整理带引用的 brief，然后运行 `./video-creator research <project-id> --input-file <JSON>` 生成三个研究产物。CLI 校验来源等级和引用、按优先级整理引用并推进至 `RESEARCHED`；未配置 Search Provider 时由 Codex 搜索能力完成采集，不得假装本地 CLI 已搜索网页。
 - Research 完成后读取 `skill/video-creator/topic/SKILL.md`，依据研究结果为流量、商业价值、常青度、制作成本和原创性评分并给出理由，随后运行 `./video-creator score <project-id> --assessment-file <JSON>` 生成 `topic.json`。证据强度和风险分由程序从研究来源及风险条目计算；总分低于门槛或风险过滤未通过时，不得继续自动进入制作。
+- Topic gate 通过后读取 `skill/video-creator/script/SKILL.md`，按微信视频号 `Hook → Problem → Evidence → Comparison → Conclusion → CTA` 顺序撰写口播稿，为事实性段落关联研究来源编号，再运行 `./video-creator script <project-id> --input-file <JSON>` 生成 `script.json` 和 `script.md`。校验成功后由命令推进 `RESEARCHED → SCRIPTED`；评分未通过、引用无效或脚本结构不完整时停止，不推进状态。
 - 每个阶段产物成功写入并通过该阶段校验后，才用 `python3 scripts/project_state.py transition <project-id> --to <NEXT_STATUS> --note "..."` 推进 `run.json`；不要手工编辑状态文件或跳过阶段。
 - 用户要求继续项目或执行 `resume <project-id>` 时，运行 `./video-creator resume <project-id>` 并以返回的 `resume_stage` 为唯一恢复点。跳过已完成阶段，检查对应产物后从恢复点继续；缺少阶段处理器或产物损坏时说明阻塞，不重置状态或伪造完成记录。
 - 用户要求局部重跑时，运行 `./video-creator rerun <project-id> scene <SCENE_ID>`、`voice`、`cover` 或 `qc`，读取 JSON 计划并严格按 `preserve`、`rebuild`、`checkpoint` 和 `invalidated_stages_after_success` 限定范围。场景 ID 必须能在 `storyboard.json` 或 `storyboard.md` 中找到；项目必须已完成该目标所需阶段。`PUBLISHED_MANUALLY` 项目禁止重跑。

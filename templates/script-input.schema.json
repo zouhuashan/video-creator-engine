@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://video-creator.local/schemas/script-input.schema.json",
+  "title": "VideoCreator WeChat Channels script input",
+  "type": "object",
+  "required": ["schema_version", "sections"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "sections": {
+      "type": "object",
+      "required": ["hook", "problem", "evidence", "comparison", "conclusion", "cta"],
+      "properties": {
+        "hook": { "$ref": "#/$defs/section" },
+        "problem": { "$ref": "#/$defs/section" },
+        "evidence": {
+          "allOf": [
+            { "$ref": "#/$defs/section" },
+            { "type": "object", "properties": { "source_ids": { "minItems": 1 } } }
+          ]
+        },
+        "comparison": { "$ref": "#/$defs/section" },
+        "conclusion": { "$ref": "#/$defs/section" },
+        "cta": { "$ref": "#/$defs/section" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "section": {
+      "type": "object",
+      "required": ["narration", "source_ids"],
+      "properties": {
+        "narration": { "type": "string", "minLength": 1 },
+        "source_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^S[0-9]{3,}$" }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

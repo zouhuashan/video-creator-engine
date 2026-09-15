@@ -12,11 +12,13 @@ if __package__:
     from .project_state import DEFAULT_PROJECTS_DIR, StateError, project_dir, resume_plan
     from .rerun_planner import rerun_plan
     from .research_module import write_research_artifacts
+    from .script_module import write_script_artifacts
     from .topic_scoring import score_project
 else:
     from project_state import DEFAULT_PROJECTS_DIR, StateError, project_dir, resume_plan
     from rerun_planner import rerun_plan
     from research_module import write_research_artifacts
+    from script_module import write_script_artifacts
     from topic_scoring import score_project
 
 
@@ -42,6 +44,10 @@ def parse_args() -> argparse.Namespace:
     score_parser.add_argument("project_id")
     score_parser.add_argument("--assessment-file", type=Path, required=True, help="JSON topic ratings with rationales")
     score_parser.add_argument("--projects-dir", type=Path, default=DEFAULT_PROJECTS_DIR, help=argparse.SUPPRESS)
+    script_parser = subparsers.add_parser("script", help="Validate a six-section script and write project artifacts")
+    script_parser.add_argument("project_id")
+    script_parser.add_argument("--input-file", type=Path, required=True, help="JSON script draft following the WeChat Channels template")
+    script_parser.add_argument("--projects-dir", type=Path, default=DEFAULT_PROJECTS_DIR, help=argparse.SUPPRESS)
     return parser.parse_args()
 
 
@@ -59,6 +65,9 @@ def main() -> int:
             plan = write_research_artifacts(directory, args.project_id, payload)
         elif args.command == "score":
             plan = score_project(args.project_id, args.assessment_file, args.projects_dir)
+        elif args.command == "script":
+            payload = json.loads(args.input_file.read_text(encoding="utf-8"))
+            plan = write_script_artifacts(directory, args.project_id, payload)
         else:  # pragma: no cover - argparse enforces the available commands
             raise StateError(f"unknown command: {args.command}")
     except (OSError, ValueError, StateError) as error:
