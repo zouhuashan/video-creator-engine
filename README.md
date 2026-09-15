@@ -149,6 +149,8 @@ Run `python3 scripts/technical_qc.py <project-dir>` after rendering. It probes t
 
 Run content review with `python3 scripts/content_qc.py <project-dir> --assessment-file <content-qc-input.json>`. The assessment must provide a decision and evidence for every required criterion, with known research source IDs for cited facts. Deterministic checks can still reject duplicate narration, unsupported absolute claims, sensitive phrases, or missing Hook, conclusion, and CTA. The report is written to `qc/content-qc.json`.
 
+Run visual review with `python3 scripts/visual_qc.py <project-dir> --analysis-file <visual-qc-analysis.json>`. The analysis must cover every rendered scene with a visual fingerprint, empty-space ratio, crop result, minimum text contrast, and normalized key-information boxes. The report combines that evidence with storyboard timing and captions to detect all seven configured visual defects.
+
 ## Logs
 
 Run a task command through `scripts/run_task.py` to keep the terminal summary compact and capture detailed output under the ignored `logs/` directory:
