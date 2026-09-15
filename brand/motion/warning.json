@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "name": "warning",
+  "purpose": "风险、避坑与注意事项",
+  "palette": {
+    "background": "#FFF5DF",
+    "surface": "#FFFCF5",
+    "foreground": "#321E08",
+    "muted": "#765D3D",
+    "accent": "#C95700"
+  },
+  "typography": {
+    "display": "Noto Sans SC, PingFang SC, sans-serif",
+    "body": "Noto Sans SC, PingFang SC, sans-serif",
+    "headline_weight": 900,
+    "body_weight": 500
+  },
+  "shape": {"radius_px": 4, "border_px": 2, "shadow": "4px 4px 0 #321E08"},
+  "motion": {"duration_scale": 0.75, "stagger_scale": 0.7, "transition": "impact_cut"}
+}

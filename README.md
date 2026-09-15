@@ -112,6 +112,8 @@ The checkout lives under the ignored `.dependencies/` directory. Dependency upgr
 
 HyperFrames motion defaults live in [`config/hyperframes-motion.json`](config/hyperframes-motion.json). They provide seekable GSAP patterns at 30 fps for titles, data, comparison tables, UI states, cards, prices, rankings, steps, flowcharts, and emphasis text. `scripts.hyperframes_motion.build_motion_plan` turns typed elements into a deterministic renderer plan and rejects unsupported element types.
 
+Six HyperFrames style presets live under [`brand/motion/`](brand/motion/): `minimal`, `tech`, `review`, `warning`, `comparison`, and `tutorial`. Each preset fixes its palette, Chinese typography stack, surface treatment, motion timing scale, and scene transition. Apply one with `scripts.hyperframes_motion.apply_style_preset`; the function returns a styled copy and leaves the base motion plan unchanged.
+
 ## Logs
 
 Run a task command through `scripts/run_task.py` to keep the terminal summary compact and capture detailed output under the ignored `logs/` directory:

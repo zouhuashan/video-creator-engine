@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "name": "minimal",
+  "purpose": "克制的通用信息表达",
+  "palette": {
+    "background": "#F4F6F2",
+    "surface": "#FFFFFF",
+    "foreground": "#17211B",
+    "muted": "#657168",
+    "accent": "#2D6A4F"
+  },
+  "typography": {
+    "display": "Noto Sans SC, PingFang SC, sans-serif",
+    "body": "Noto Sans SC, PingFang SC, sans-serif",
+    "headline_weight": 700,
+    "body_weight": 400
+  },
+  "shape": {"radius_px": 8, "border_px": 1, "shadow": "none"},
+  "motion": {"duration_scale": 0.9, "stagger_scale": 0.8, "transition": "soft_cut"}
+}

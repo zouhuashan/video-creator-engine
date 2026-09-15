@@ -3,8 +3,11 @@ import unittest
 from scripts.hyperframes_motion import (
     CONTENT_TYPES,
     HyperFramesMotionError,
+    STYLE_PRESET_NAMES,
+    apply_style_preset,
     build_motion_plan,
     load_motion_config,
+    load_style_preset,
     motion_for,
 )
 
@@ -47,6 +50,25 @@ class HyperFramesMotionTests(unittest.TestCase):
                     {"id": "same", "content_type": "data"},
                 ]
             )
+
+    def test_loads_all_six_style_presets(self):
+        loaded = [load_style_preset(name) for name in STYLE_PRESET_NAMES]
+
+        self.assertEqual([preset["name"] for preset in loaded], list(STYLE_PRESET_NAMES))
+        self.assertTrue(all(preset["palette"]["accent"].startswith("#") for preset in loaded))
+
+    def test_applies_preset_without_mutating_base_plan(self):
+        base = build_motion_plan([{"id": "headline", "content_type": "title"}])
+        styled = apply_style_preset(base, "warning")
+
+        self.assertEqual(styled["style_preset"], "warning")
+        self.assertEqual(styled["elements"][0]["motion"]["duration_frames"], 14)
+        self.assertEqual(base["elements"][0]["motion"]["duration_frames"], 18)
+        self.assertEqual(styled["style"]["transition"], "impact_cut")
+
+    def test_rejects_unknown_style_preset(self):
+        with self.assertRaisesRegex(HyperFramesMotionError, "unsupported"):
+            load_style_preset("cinematic")
 
 
 if __name__ == "__main__":

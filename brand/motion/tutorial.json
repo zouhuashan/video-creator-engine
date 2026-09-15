@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "name": "tutorial",
+  "purpose": "操作步骤与流程教学",
+  "palette": {
+    "background": "#F2F6FA",
+    "surface": "#FFFFFF",
+    "foreground": "#172638",
+    "muted": "#607186",
+    "accent": "#4B55C5"
+  },
+  "typography": {
+    "display": "Noto Sans SC, PingFang SC, sans-serif",
+    "body": "Noto Sans SC, PingFang SC, sans-serif",
+    "headline_weight": 750,
+    "body_weight": 400
+  },
+  "shape": {"radius_px": 12, "border_px": 1, "shadow": "0 10px 30px #243B531F"},
+  "motion": {"duration_scale": 1.05, "stagger_scale": 1.0, "transition": "guided_push"}
+}

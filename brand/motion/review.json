@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "name": "review",
+  "purpose": "产品评测与优缺点说明",
+  "palette": {
+    "background": "#F7F2E8",
+    "surface": "#FFFDF8",
+    "foreground": "#26221C",
+    "muted": "#70675C",
+    "accent": "#D9552D"
+  },
+  "typography": {
+    "display": "Noto Serif SC, Songti SC, serif",
+    "body": "Noto Sans SC, PingFang SC, sans-serif",
+    "headline_weight": 700,
+    "body_weight": 400
+  },
+  "shape": {"radius_px": 6, "border_px": 1, "shadow": "0 8px 24px #51351A1F"},
+  "motion": {"duration_scale": 1.0, "stagger_scale": 1.0, "transition": "editorial_wipe"}
+}

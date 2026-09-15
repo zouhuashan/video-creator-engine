@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "name": "comparison",
+  "purpose": "选项、参数与价格对比",
+  "palette": {
+    "background": "#F1F4F8",
+    "surface": "#FFFFFF",
+    "foreground": "#182333",
+    "muted": "#647287",
+    "accent": "#235F9C",
+    "positive": "#287A55",
+    "negative": "#B94736"
+  },
+  "typography": {
+    "display": "Noto Sans SC, PingFang SC, sans-serif",
+    "body": "Noto Sans SC, PingFang SC, sans-serif",
+    "headline_weight": 800,
+    "body_weight": 400
+  },
+  "shape": {"radius_px": 8, "border_px": 1, "shadow": "0 6px 18px #17324D1A"},
+  "motion": {"duration_scale": 0.95, "stagger_scale": 0.85, "transition": "split_wipe"}
+}
