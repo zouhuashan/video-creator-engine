@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "renderer": "hyperframes",
+  "runtime": "gsap",
+  "defaults": {
+    "fps": 30,
+    "seekable": true,
+    "reduced_motion": "final_state"
+  },
+  "motions": {
+    "title": {
+      "pattern": "mask_reveal_up",
+      "duration_frames": 18,
+      "easing": "power3.out",
+      "properties": ["yPercent", "autoAlpha"]
+    },
+    "data": {
+      "pattern": "count_up",
+      "duration_frames": 24,
+      "easing": "power2.out",
+      "properties": ["value", "scale", "autoAlpha"]
+    },
+    "comparison_table": {
+      "pattern": "row_stagger",
+      "duration_frames": 20,
+      "stagger_frames": 3,
+      "easing": "power2.out",
+      "properties": ["x", "autoAlpha"]
+    },
+    "ui": {
+      "pattern": "state_transition",
+      "duration_frames": 15,
+      "easing": "power2.inOut",
+      "properties": ["scale", "autoAlpha"]
+    },
+    "card": {
+      "pattern": "card_lift",
+      "duration_frames": 16,
+      "stagger_frames": 3,
+      "easing": "back.out(1.2)",
+      "properties": ["y", "scale", "autoAlpha"]
+    },
+    "price": {
+      "pattern": "digit_roll",
+      "duration_frames": 21,
+      "easing": "power3.out",
+      "properties": ["yPercent", "autoAlpha"]
+    },
+    "ranking": {
+      "pattern": "ordered_bar_growth",
+      "duration_frames": 22,
+      "stagger_frames": 4,
+      "easing": "power2.out",
+      "properties": ["scaleX", "autoAlpha"]
+    },
+    "steps": {
+      "pattern": "sequential_reveal",
+      "duration_frames": 16,
+      "stagger_frames": 5,
+      "easing": "power2.out",
+      "properties": ["x", "autoAlpha"]
+    },
+    "flowchart": {
+      "pattern": "path_then_nodes",
+      "duration_frames": 30,
+      "stagger_frames": 4,
+      "easing": "power1.inOut",
+      "properties": ["strokeDashoffset", "scale", "autoAlpha"]
+    },
+    "emphasis_text": {
+      "pattern": "word_pop",
+      "duration_frames": 12,
+      "stagger_frames": 2,
+      "easing": "back.out(1.4)",
+      "properties": ["scale", "autoAlpha"]
+    }
+  }
+}
