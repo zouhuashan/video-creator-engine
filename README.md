@@ -52,6 +52,17 @@ Inspect the resume checkpoint with:
 
 The command reads `run.json` and prints a machine-readable checkpoint. In a Codex `video-creator` session, the Skill uses that checkpoint to continue with the matching implemented stage; `READY_FOR_REVIEW` waits for a human, and `PUBLISHED_MANUALLY` is terminal.
 
+Inspect the scope for a local rerun with:
+
+```bash
+./video-creator rerun <project-id> scene SC007
+./video-creator rerun <project-id> voice
+./video-creator rerun <project-id> cover
+./video-creator rerun <project-id> qc
+```
+
+These commands validate the target and print a machine-readable plan with preserved outputs, rebuilt outputs, and the recovery checkpoint. They do not modify `run.json` or execute production stages; rerun executors are not wired yet.
+
 ## Logs
 
 Run a task command through `scripts/run_task.py` to keep the terminal summary compact and capture detailed output under the ignored `logs/` directory:

@@ -61,6 +61,8 @@ warnings: []
 - 按 Research → Topic → Script → Storyboard → Assets → Voice → Edit/Motion → QC → Packaging 的顺序协调已有模块；读取相关模块说明和配置后再调用。
 - 每个阶段产物成功写入并通过该阶段校验后，才用 `python3 scripts/project_state.py transition <project-id> --to <NEXT_STATUS> --note "..."` 推进 `run.json`；不要手工编辑状态文件或跳过阶段。
 - 用户要求继续项目或执行 `resume <project-id>` 时，运行 `./video-creator resume <project-id>` 并以返回的 `resume_stage` 为唯一恢复点。跳过已完成阶段，检查对应产物后从恢复点继续；缺少阶段处理器或产物损坏时说明阻塞，不重置状态或伪造完成记录。
+- 用户要求局部重跑时，运行 `./video-creator rerun <project-id> scene <SCENE_ID>`、`voice`、`cover` 或 `qc`，读取 JSON 计划并严格按 `preserve`、`rebuild`、`checkpoint` 和 `invalidated_stages_after_success` 限定范围。场景 ID 必须能在 `storyboard.json` 或 `storyboard.md` 中找到；项目必须已完成该目标所需阶段。`PUBLISHED_MANUALLY` 项目禁止重跑。
+- 当前 rerun CLI 只生成计划（`action=plan_only`、`execution_ready=false`），不执行生成，也不更改 `run.json`。若目标执行器或下游处理器尚未实现，说明具体缺项并保留项目状态；不要声称已重跑。执行器可用后，只重建计划列出的目标和下游产物，不要重新研究、写脚本或生成无关场景。精确匹配 text、voice、speed、provider 时复用配音缓存。
 - 若恢复动作是 `await_human_review`，展示发布包并等待用户在平台人工发布；若为 `complete`，报告项目已完成。不得将这两种状态当作继续制作的入口。
 - 只报告实际完成的阶段和产物。若所需模块、Provider 或平台配置尚未实现，说明具体缺项，交付已解析的需求单，不伪造研究、素材、视频或质检结果。
 - 使用 `automatic_research` 时为事实性主张保留可核验来源；使用 `provided_sources_only` 或 `no_external_research` 时，不把未核实内容写成事实。
@@ -68,6 +70,17 @@ warnings: []
 - `config/app.yaml` 中 `auto_publish` 必须保持关闭。最终发布包只能交给用户人工确认，不能自动上传或发布。
 - 只有用户明确确认已在线下/平台界面完成发布后，才可将状态推进至 `PUBLISHED_MANUALLY`，并使用 `--record-manual-publication` 标记。`READY_FOR_REVIEW` 之后默认停住等待人工发布。
 - 仅在对应能力真实可用时承诺 Resume、局部重跑或其他状态管理行为；修改单个镜头时避免无必要地重做已完成阶段。
+
+## 局部重跑计划
+
+```text
+./video-creator rerun <project-id> scene SC007
+./video-creator rerun <project-id> voice
+./video-creator rerun <project-id> cover
+./video-creator rerun <project-id> qc
+```
+
+命令返回机器可读的范围计划，不会自行触发付费 Provider 或修改项目文件。场景重跑保留其它场景、配音和字幕，只重建目标场景及最终渲染、QC、发布包；配音重跑保留视觉素材并重做配音、字幕、最终渲染及其下游；封面重跑只更新封面和发布包；QC 重跑保留成片和封面，只重做 QC 与发布包。若 `execution_ready` 为 `false`，先报告执行器尚未接入，不要把计划当作已完成工作。
 
 ## 示例
 

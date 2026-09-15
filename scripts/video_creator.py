@@ -10,8 +10,10 @@ from pathlib import Path
 
 if __package__:
     from .project_state import DEFAULT_PROJECTS_DIR, StateError, project_dir, resume_plan
+    from .rerun_planner import rerun_plan
 else:
     from project_state import DEFAULT_PROJECTS_DIR, StateError, project_dir, resume_plan
+    from rerun_planner import rerun_plan
 
 
 def parse_args() -> argparse.Namespace:
@@ -20,6 +22,14 @@ def parse_args() -> argparse.Namespace:
     resume_parser = subparsers.add_parser("resume", help="Find the next incomplete stage for a project")
     resume_parser.add_argument("project_id")
     resume_parser.add_argument("--projects-dir", type=Path, default=DEFAULT_PROJECTS_DIR, help=argparse.SUPPRESS)
+    rerun_parser = subparsers.add_parser("rerun", help="Plan a scoped project rerun without changing project state")
+    rerun_parser.add_argument("project_id")
+    rerun_targets = rerun_parser.add_subparsers(dest="target", required=True)
+    scene_parser = rerun_targets.add_parser("scene", help="Rerun one storyboard scene")
+    scene_parser.add_argument("scene_id")
+    for target in ("voice", "cover", "qc"):
+        rerun_targets.add_parser(target, help=f"Rerun {target}")
+    rerun_parser.add_argument("--projects-dir", type=Path, default=DEFAULT_PROJECTS_DIR, help=argparse.SUPPRESS)
     return parser.parse_args()
 
 
@@ -27,7 +37,13 @@ def main() -> int:
     args = parse_args()
     try:
         directory = project_dir(args.project_id, args.projects_dir)
-        plan = resume_plan(directory, args.project_id)
+        if args.command == "resume":
+            plan = resume_plan(directory, args.project_id)
+        elif args.command == "rerun":
+            scene_id = args.scene_id if args.target == "scene" else None
+            plan = rerun_plan(directory, args.project_id, args.target, scene_id)
+        else:  # pragma: no cover - argparse enforces the available commands
+            raise StateError(f"unknown command: {args.command}")
     except (OSError, StateError) as error:
         print(f"video-creator: {error}", file=sys.stderr)
         return 1
