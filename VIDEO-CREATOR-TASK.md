@@ -840,6 +840,15 @@ source
 ---
 
 ## P4-02 Visual Type
+Status: PASS
+
+执行记录（2026-09-15）：
+
+- Git commit: `0efc2ef`（分镜画面类型枚举校验）
+- `visual_type` 现在只接受 screen_recording、screenshot、real_video、real_image、stock、hyperframes、remotion、ai_image、ai_video、text_only、chart、comparison。
+- 命令、输入 Schema、模板与 Storyboard Skill 一致校验，阻止资产路由无法处理的画面类型。
+- 已验证 46 项单元测试、Draft 2020-12 输入 Schema、Python 编译和 Skill quick validator。
+- 结果：PASS；下一任务：P4-03。
 
 允许：
 
@@ -1981,12 +1990,12 @@ P7 = V1 OPTIONAL
 # 41. 下一任务
 
 ```text
-NEXT: P4-02
+NEXT: P4-03
 ```
 
 任务：
 
-> 限定分镜可用的 Visual Type 枚举并校验输入。
+> 自动审查分镜的视觉变化、重复画面、字幕堆叠、证据画面、Hook 匹配和结论强化。
 
 执行完成后：
 
