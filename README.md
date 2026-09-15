@@ -159,6 +159,8 @@ Run visual review with `python3 scripts/visual_qc.py <project-dir> --analysis-fi
 
 Cover input contains two or three short question-led candidates. `scripts/cover_candidates.py create` renders 1080×1920 PNG previews with a minimum mobile-readable core font size and rejects dense supporting copy. `select` verifies the candidate checksum before copying the chosen image to `cover.png`.
 
+`scripts/publication_copy.py` requires at least one search, conflict, and result title. It validates type-specific wording, blocks unsupported hype, scores every candidate, records one recommended title with reasons, and writes `title.md`, `caption.md`, `hashtags.md`, and `publication-copy.json`.
+
 ## Logs
 
 Run a task command through `scripts/run_task.py` to keep the terminal summary compact and capture detailed output under the ignored `logs/` directory:

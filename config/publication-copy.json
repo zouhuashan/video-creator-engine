@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "candidate_count": {"min": 3, "max": 6},
+  "required_types": ["search", "conflict", "result"],
+  "title_characters": {"min": 6, "max": 30, "preferred_min": 10, "preferred_max": 24},
+  "conflict_patterns": ["到底", "还是", "反而", "真相", "别", "不", "？", "?", "VS", "vs"],
+  "result_patterns": ["结论", "答案", "实测", "结果", "值", "省", "避坑", "适合"],
+  "forbidden_hype": ["百分之百", "100%", "绝对", "唯一", "最好", "最强", "必买", "稳赚", "保证"],
+  "caption_characters": {"min": 20, "max": 500},
+  "hashtag_count": {"min": 3, "max": 8},
+  "hashtag_characters": {"min": 2, "max": 15}
+}

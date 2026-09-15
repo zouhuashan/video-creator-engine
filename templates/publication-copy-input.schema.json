@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "VideoCreator publication copy",
+  "type": "object",
+  "required": ["schema_version", "project_id", "topic_keyword", "candidates", "caption", "hashtags"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "project_id": {"type": "string"},
+    "topic_keyword": {"type": "string", "minLength": 1},
+    "candidates": {
+      "type": "array", "minItems": 3, "maxItems": 6,
+      "items": {
+        "type": "object",
+        "required": ["candidate_id", "type", "text"],
+        "properties": {
+          "candidate_id": {"type": "string", "pattern": "^TITLE_[A-F]$"},
+          "type": {"enum": ["search", "conflict", "result"]},
+          "text": {"type": "string", "minLength": 6, "maxLength": 30}
+        },
+        "additionalProperties": false
+      }
+    },
+    "caption": {"type": "string", "minLength": 20, "maxLength": 500},
+    "hashtags": {"type": "array", "minItems": 3, "maxItems": 8, "uniqueItems": true, "items": {"type": "string", "pattern": "^#[^#\\s]+$"}}
+  },
+  "additionalProperties": false
+}

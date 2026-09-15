@@ -10,3 +10,5 @@ description: Build an integrity-checked WeChat Channels publishing package after
 发布包只供人工检查和上传。配置中的 `auto_publish` 必须为 false，禁止在打包步骤调用微信、浏览器自动化或任何发布接口。
 
 封面先准备 2～3 个候选 JSON，再运行 `python3 scripts/cover_candidates.py create <project-dir> --input-file <JSON>`。核心文案必须 3～10 个可见字符并明确表达问题，辅助文案只允许一行短句；渲染器固定输出 1080×1920 PNG，核心字号不低于移动端阈值。检查候选后运行 `python3 scripts/cover_candidates.py select <project-dir> COVER_A`，只有明确选择的候选可成为 `cover.png`。
+
+发布文案使用 `python3 scripts/publication_copy.py <project-dir> --input-file <JSON>`。至少提供搜索型、冲突型和结果型各一个标题，搜索型必须含主题关键词，冲突型明确提出矛盾或问题，结果型给出结论预期。程序拒绝绝对化营销词，按关键词、移动端长度和类型表达评分并选出唯一推荐，同时写入 `title.md`、`caption.md`、`hashtags.md` 和可追溯的 `publication-copy.json`。
