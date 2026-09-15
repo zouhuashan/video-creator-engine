@@ -14,6 +14,13 @@ class DependencyManagerTests(unittest.TestCase):
         self.assertEqual(dependency["commit"], "cfe5dcfad310ced2a5844998628daa2b8a0f53d7")
         self.assertEqual(dependency["update_policy"], "manual")
 
+    def test_manifest_pins_video_use_ref_and_full_commit(self):
+        dependency = select_dependencies(load_manifest(), "video-use")[0]
+
+        self.assertEqual(dependency["ref"], "main")
+        self.assertEqual(dependency["commit"], "9575612f066aa517354790a645fd90f9f95a743b")
+        self.assertNotIn("tag", dependency)
+
     def test_manifest_rejects_floating_commit(self):
         manifest = {
             "schema_version": 1,

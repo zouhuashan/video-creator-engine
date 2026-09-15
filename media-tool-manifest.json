@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "tools": [
+    {
+      "name": "ffprobe",
+      "version": "9.0.1",
+      "platforms": ["darwin-x86_64", "darwin-arm64"],
+      "source": "https://evermeet.cx/ffmpeg/ffprobe-9.0.1.zip",
+      "archive_sha256": "d13f35db03456b7f65b7edb6437c86e23810fbfe91795e571f5b77211343b4f1",
+      "install_path": ".dependencies/bin/ffprobe"
+    }
+  ]
+}

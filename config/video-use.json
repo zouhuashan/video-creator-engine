@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "dependency": "video-use",
+  "capabilities": {
+    "source_understanding": "ffprobe + timeline_view.py",
+    "pause_removal": "word-boundary EDL ranges",
+    "filler_removal": "verbatim transcript + EDL ranges",
+    "crop": "render.py per-segment extraction",
+    "subtitles": "render.py --build-subtitles",
+    "audio_sync": "output-timeline offsets + boundary fades",
+    "b_roll": "additional EDL sources and ranges",
+    "overlay": "EDL overlays with PTS shift",
+    "self_evaluation": "timeline_view.py + ffprobe"
+  },
+  "production_rules": {
+    "subtitles_last": true,
+    "cut_on_word_boundaries": true,
+    "cut_edge_padding_ms": [30, 200],
+    "audio_fade_ms": 30,
+    "overlay_pts_shift": true,
+    "transcript_cache_per_source": true,
+    "max_self_eval_passes": 3
+  },
+  "helpers": {
+    "transcribe": "helpers/transcribe.py",
+    "transcribe_batch": "helpers/transcribe_batch.py",
+    "pack_transcripts": "helpers/pack_transcripts.py",
+    "timeline_view": "helpers/timeline_view.py",
+    "render": "helpers/render.py",
+    "grade": "helpers/grade.py"
+  }
+}

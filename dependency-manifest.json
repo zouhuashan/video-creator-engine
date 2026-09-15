@@ -8,6 +8,14 @@
       "commit": "cfe5dcfad310ced2a5844998628daa2b8a0f53d7",
       "install_path": ".dependencies/hyperframes",
       "update_policy": "manual"
+    },
+    {
+      "name": "video-use",
+      "source": "https://github.com/browser-use/video-use.git",
+      "ref": "main",
+      "commit": "9575612f066aa517354790a645fd90f9f95a743b",
+      "install_path": ".dependencies/video-use",
+      "update_policy": "manual"
     }
   ]
 }

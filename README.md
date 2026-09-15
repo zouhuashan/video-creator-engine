@@ -101,7 +101,7 @@ Record resolved project assets with `./video-creator assets <project-id> --input
 
 ## Pinned dependencies
 
-External rendering dependencies are declared in [`dependency-manifest.json`](dependency-manifest.json) with both an immutable Git tag and full commit SHA. Install and verify the pinned HyperFrames checkout with:
+External dependencies are declared in [`dependency-manifest.json`](dependency-manifest.json) with an immutable full commit SHA and a release tag when one exists. Install and verify the pinned HyperFrames checkout with:
 
 ```bash
 python3 scripts/dependency_manager.py install hyperframes
@@ -109,6 +109,8 @@ python3 scripts/dependency_manager.py verify hyperframes
 ```
 
 The checkout lives under the ignored `.dependencies/` directory. Dependency upgrades are manual changes to the manifest and must update the tag and commit together.
+
+Dependencies without a release tag declare their tracked branch for provenance and still install from the immutable full commit SHA. Install the pinned video-use checkout with `python3 scripts/dependency_manager.py install video-use`; its Python environment is managed inside that ignored checkout.
 
 HyperFrames motion defaults live in [`config/hyperframes-motion.json`](config/hyperframes-motion.json). They provide seekable GSAP patterns at 30 fps for titles, data, comparison tables, UI states, cards, prices, rankings, steps, flowcharts, and emphasis text. `scripts.hyperframes_motion.build_motion_plan` turns typed elements into a deterministic renderer plan and rejects unsupported element types.
 
@@ -121,6 +123,10 @@ TTS adapters implement `synthesize(text, voice, speed, emotion)` from [`adapters
 Wrap a provider with `adapters.tts.CachedTTS` to reuse generated voice audio. Cache keys include normalized text, voice, speed, provider, and the sound-affecting emotion variant. A per-key file lock and a second lookup after locking ensure concurrent requests cannot trigger duplicate billable synthesis. Audio and metadata checksums are verified on every hit; a corrupt entry fails explicitly instead of silently generating and charging again.
 
 Chinese narration rules live in [`config/zh-voice.json`](config/zh-voice.json). `adapters.tts.optimize_chinese_speech` normalizes cardinal numbers, years, percentages, currency, English initials, product names, and Chinese/English boundaries. Authors can mark `{pause:short}`, `{pause:long}`, and `**emphasis**`; the optimizer emits Fish Audio S2-Pro cues or a punctuation-only fallback before the text reaches the voice cache.
+
+## video-use editing core
+
+The pinned video-use checkout provides source inspection, transcript packing, EDL rendering, subtitles, overlays, grading, and timeline review. Install it with `python3 scripts/dependency_manager.py install video-use`, then create its isolated environment with `uv sync --project .dependencies/video-use`. If `ffprobe` is not already on `PATH`, `python3 scripts/install_media_tools.py install ffprobe` installs the version and archive checksum pinned in [`media-tool-manifest.json`](media-tool-manifest.json) under `.dependencies/bin/`. [`config/video-use.json`](config/video-use.json) records the nine required editing capabilities and production safeguards. The `adapters.video.video_use` boundary verifies the install, probes sources, validates EDL timing and files, builds render commands, and selects self-evaluation windows around every cut.
 
 ## Logs
 

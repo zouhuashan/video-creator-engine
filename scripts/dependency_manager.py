@@ -15,7 +15,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST_PATH = ROOT / "dependency-manifest.json"
 COMMIT_PATTERN = re.compile(r"^[0-9a-f]{40}$")
-REQUIRED_FIELDS = {"name", "source", "tag", "commit", "install_path", "update_policy"}
+REQUIRED_FIELDS = {"name", "source", "commit", "install_path", "update_policy"}
 
 
 class DependencyError(RuntimeError):
@@ -56,8 +56,14 @@ def load_manifest(path: Path = MANIFEST_PATH) -> dict[str, Any]:
         names.add(name)
         if not COMMIT_PATTERN.fullmatch(str(dependency["commit"])):
             raise DependencyError(f"{name}: commit must be a full 40-character SHA")
-        if not isinstance(dependency["tag"], str) or not dependency["tag"]:
-            raise DependencyError(f"{name}: tag must be pinned")
+        tag = dependency.get("tag")
+        ref = dependency.get("ref")
+        if bool(tag) == bool(ref):
+            raise DependencyError(f"{name}: declare exactly one tag or ref")
+        if tag is not None and not isinstance(tag, str):
+            raise DependencyError(f"{name}: tag must be a string")
+        if ref is not None and not isinstance(ref, str):
+            raise DependencyError(f"{name}: ref must be a string")
         if dependency["update_policy"] != "manual":
             raise DependencyError(f"{name}: update_policy must be manual")
         _install_path(dependency)
@@ -109,18 +115,12 @@ def install_dependency(dependency: dict[str, Any]) -> str:
     environment = os.environ.copy()
     environment["GIT_LFS_SKIP_SMUDGE"] = "1"
     try:
+        target.mkdir()
+        _run("git", "init", "--quiet", cwd=target, env=environment)
+        _run("git", "remote", "add", "origin", dependency["source"], cwd=target, env=environment)
         _run(
-            "git",
-            "clone",
-            "--quiet",
-            "--no-checkout",
-            "--depth",
-            "1",
-            "--branch",
-            dependency["tag"],
-            dependency["source"],
-            str(target),
-            env=environment,
+            "git", "fetch", "--quiet", "--depth", "1", "origin", dependency["commit"],
+            cwd=target, env=environment,
         )
         _run(
             "git",
@@ -158,7 +158,8 @@ def main() -> int:
                 if args.action == "install"
                 else verify_dependency(dependency)
             )
-            print(f"{dependency['name']} {dependency['tag']} {commit} PASS")
+            selector = dependency.get("tag") or dependency.get("ref")
+            print(f"{dependency['name']} {selector} {commit} PASS")
     except DependencyError as error:
         print(f"FAIL: {error}")
         return 1
