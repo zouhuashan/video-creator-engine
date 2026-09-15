@@ -147,6 +147,8 @@ The default delivery standard in [`config/ffmpeg-finalizer.json`](config/ffmpeg-
 
 Run `python3 scripts/technical_qc.py <project-dir>` after rendering. It probes the real video and audio streams, fully decodes the file while detecting black and frozen frames, silence, and clipping, compares audio/video timing, and validates normalized subtitle boxes against the configured safe area and WeChat UI zones. Evidence is stored in `qc/technical-qc.json`; missing layout evidence and failed checks remain explicit failures.
 
+Run content review with `python3 scripts/content_qc.py <project-dir> --assessment-file <content-qc-input.json>`. The assessment must provide a decision and evidence for every required criterion, with known research source IDs for cited facts. Deterministic checks can still reject duplicate narration, unsupported absolute claims, sensitive phrases, or missing Hook, conclusion, and CTA. The report is written to `qc/content-qc.json`.
+
 ## Logs
 
 Run a task command through `scripts/run_task.py` to keep the terminal summary compact and capture detailed output under the ignored `logs/` directory:

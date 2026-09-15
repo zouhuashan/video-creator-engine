@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "VideoCreator content QC assessment",
+  "type": "object",
+  "required": ["schema_version", "assessments"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "assessments": {
+      "type": "array",
+      "minItems": 10,
+      "items": {
+        "type": "object",
+        "required": ["check", "status", "evidence"],
+        "properties": {
+          "check": {"type": "string"},
+          "status": {"enum": ["PASS", "FAIL"]},
+          "evidence": {"type": "string", "minLength": 1},
+          "source_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "required_checks": [
+    "typos",
+    "factual_accuracy",
+    "numeric_accuracy",
+    "brand_names",
+    "platform_sensitive_language",
+    "duplicate_content",
+    "unsupported_absolute_claims",
+    "first_three_seconds_hook",
+    "conclusion_clarity",
+    "call_to_action"
+  ],
+  "absolute_claim_patterns": ["绝对", "百分之百", "100%", "一定", "永远", "从不", "唯一", "最好", "最差", "零风险", "稳赚", "保证"],
+  "platform_sensitive_patterns": ["私下转账", "加微信返现", "稳赚不赔", "保本保收益", "包治百病"]
+}
