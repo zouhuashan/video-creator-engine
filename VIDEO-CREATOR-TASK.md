@@ -916,7 +916,15 @@ Status: PASS
 ---
 
 ## P5-02 Asset Manifest
-Status: TODO
+Status: PASS
+
+执行记录（2026-09-15）：
+
+- Git commit: `6e06222`（可追溯资产清单）
+- 新增 `video-creator assets`，校验项目内真实文件及分镜编号，记录素材类型、路径、来源、授权、生成标记和 Provider，并计算 SHA-256 校验和。
+- 生成 `asset-manifest.json`；拒绝目录穿越、缺失文件、重复资产编号和缺失生成 Provider。
+- 已验证 53 项单元测试、Draft 2020-12 输入 Schema 和 Python 编译。
+- 结果：PASS；下一任务：P5-03。
 
 创建：
 
@@ -2006,12 +2014,12 @@ P7 = V1 OPTIONAL
 # 41. 下一任务
 
 ```text
-NEXT: P5-02
+NEXT: P5-03
 ```
 
 任务：
 
-> 创建并校验包含来源、授权、生成者和校验和的 asset-manifest.json。
+> 为缺失素材返回 MISSING_ASSET，并按搜索、生成、信息图替代、请求用户材料依次恢复。
 
 执行完成后：
 
