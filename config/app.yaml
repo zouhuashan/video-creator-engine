@@ -25,3 +25,11 @@ paths:
   logs: logs
   cache: cache
   archive: archive
+
+logging:
+  terminal_mode: quiet
+  terminal_fields: [RUN, PASS_OR_FAIL, RESULT, NEXT]
+  file_directory: logs
+  file_format: timestamped_text
+  timestamp_timezone: UTC
+  redact_common_secret_patterns: true

@@ -27,6 +27,16 @@ Copy `.env.example` to `.env` and enter credentials only for the providers selec
 
 The YAML files in `config/` define application defaults, provider selection, platform output profiles, quality checks, and channel identity. The active profile targets WeChat Channels; other platform profiles remain planned until their specifications are defined.
 
+## Logs
+
+Run a task command through `scripts/run_task.py` to keep the terminal summary compact and capture detailed output under the ignored `logs/` directory:
+
+```bash
+python3 scripts/run_task.py --task P1-01 --next P1-02 -- <command> [arguments...]
+```
+
+The terminal prints `RUN`, `PASS` or `FAIL`, `RESULT`, and `NEXT`. Log lines use UTC timestamps; common credential assignments and Bearer tokens are redacted. Do not print secrets in command output.
+
 ## Project layout
 
 The directories under `skill/`, `adapters/`, `templates/`, `brand/`, `config/`, and `projects/` reserve the boundaries described in the task specification. Empty directories are retained with `.gitkeep` until their corresponding task adds implementation files.
