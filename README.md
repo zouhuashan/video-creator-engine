@@ -69,7 +69,7 @@ Create research artifacts from a source-backed JSON brief with:
 ./video-creator research <project-id> --input-file <research-input.json>
 ```
 
-The brief format is described by [`templates/research-input.schema.json`](templates/research-input.schema.json). The command validates each claim's source references, writes `research.json`, `research.md`, and `sources.md`, then advances the project from `CREATED` to `RESEARCHED`. Search-provider adapters are not configured yet, so the VideoCreator Skill gathers and verifies source material before calling this command.
+The brief format is described by [`templates/research-input.schema.json`](templates/research-input.schema.json). The command validates each claim's source references and source tier, orders citations by `official > primary_document > authoritative_media > high_quality_community > search_summary`, writes `research.json`, `research.md`, and `sources.md`, then advances the project from `CREATED` to `RESEARCHED`. Search summaries are discovery leads only and cannot support factual claims by themselves. Search-provider adapters are not configured yet, so the VideoCreator Skill gathers and verifies source material before calling this command.
 
 ## Logs
 

@@ -25,6 +25,13 @@ SOURCE_MODES = {
     "provided_sources_only",
     "no_external_research",
 }
+SOURCE_POLICY = {
+    "official": {"rank": 1, "label": "官方来源"},
+    "primary_document": {"rank": 2, "label": "原始文档"},
+    "authoritative_media": {"rank": 3, "label": "权威媒体"},
+    "high_quality_community": {"rank": 4, "label": "高质量社区"},
+    "search_summary": {"rank": 5, "label": "搜索摘要"},
+}
 OUTPUT_NAMES = ("research.json", "research.md", "sources.md")
 
 
@@ -48,16 +55,27 @@ def _list_field(value: Any, field: str) -> list[Any]:
     return value
 
 
-def _source_ids(value: Any, field: str, known_sources: set[str]) -> list[str]:
+def _source_ids(value: Any, field: str, sources_by_id: dict[str, dict[str, Any]]) -> list[str]:
     if not isinstance(value, list) or not value:
         raise ResearchInputError(f"{field} must contain at least one source ID")
     result: list[str] = []
     for source_id in value:
-        if not isinstance(source_id, str) or source_id not in known_sources:
+        if not isinstance(source_id, str) or source_id not in sources_by_id:
             raise ResearchInputError(f"{field} refers to unknown source ID: {source_id}")
         if source_id not in result:
             result.append(source_id)
-    return result
+    search_leads = [
+        source_id for source_id in result
+        if sources_by_id[source_id]["source_type"] == "search_summary"
+    ]
+    if search_leads:
+        raise ResearchInputError(
+            f"{field} cites search summary {', '.join(search_leads)}; open a source page before using it as evidence"
+        )
+    return sorted(
+        result,
+        key=lambda source_id: (SOURCE_POLICY[sources_by_id[source_id]["source_type"]]["rank"], source_id),
+    )
 
 
 def _evidence_item(
@@ -65,7 +83,7 @@ def _evidence_item(
     *,
     label: str,
     claim_key: str,
-    known_sources: set[str],
+    sources_by_id: dict[str, dict[str, Any]],
     extra_keys: tuple[str, ...] = (),
 ) -> dict[str, Any]:
     if not isinstance(item, dict):
@@ -78,7 +96,7 @@ def _evidence_item(
     if len(evidence) > 500:
         raise ResearchInputError(f"{label}.evidence must be 500 characters or fewer")
     normalized["evidence"] = evidence
-    normalized["source_ids"] = _source_ids(item.get("source_ids"), f"{label}.source_ids", known_sources)
+    normalized["source_ids"] = _source_ids(item.get("source_ids"), f"{label}.source_ids", sources_by_id)
     for key in ("id", "checked_at", "severity"):
         if key in item and item[key] is not None:
             normalized[key] = _text(item[key], f"{label}.{key}")
@@ -98,7 +116,7 @@ def normalize_research_input(payload: Any, *, now: str | None = None) -> dict[st
     if not source_items:
         raise ResearchInputError("sources must contain at least one verifiable source")
     sources: list[dict[str, Any]] = []
-    source_ids: set[str] = set()
+    sources_by_id: dict[str, dict[str, Any]] = {}
     timestamp = now or utc_timestamp()
     for index, item in enumerate(source_items, start=1):
         label = f"sources[{index - 1}]"
@@ -107,9 +125,8 @@ def normalize_research_input(payload: Any, *, now: str | None = None) -> dict[st
         source_id = _text(item.get("source_id"), f"{label}.source_id")
         if not SOURCE_ID_PATTERN.fullmatch(source_id):
             raise ResearchInputError(f"{label}.source_id must match S001")
-        if source_id in source_ids:
+        if source_id in sources_by_id:
             raise ResearchInputError(f"duplicate source ID: {source_id}")
-        source_ids.add(source_id)
         url = _text(item.get("url"), f"{label}.url")
         try:
             parsed_url = urlsplit(url)
@@ -124,17 +141,22 @@ def normalize_research_input(payload: Any, *, now: str | None = None) -> dict[st
             "title": _text(item.get("title"), f"{label}.title"),
             "publisher": _text(item.get("publisher"), f"{label}.publisher"),
             "url": url,
-            "source_type": item.get("source_type", "other"),
+            "source_type": _text(item.get("source_type"), f"{label}.source_type"),
             "published_at": item.get("published_at"),
             "accessed_at": item.get("accessed_at") or timestamp,
         }
-        if not isinstance(source["source_type"], str) or not source["source_type"].strip():
-            raise ResearchInputError(f"{label}.source_type must be a non-empty string")
+        if source["source_type"] not in SOURCE_POLICY:
+            raise ResearchInputError(
+                f"{label}.source_type must be one of: {', '.join(SOURCE_POLICY)}"
+            )
+        source["priority_rank"] = SOURCE_POLICY[source["source_type"]]["rank"]
+        source["priority_label"] = SOURCE_POLICY[source["source_type"]]["label"]
         for date_key in ("published_at", "accessed_at"):
             date_value = source[date_key]
             if date_value is not None and (not isinstance(date_value, str) or not date_value.strip()):
                 raise ResearchInputError(f"{label}.{date_key} must be a non-empty string or null")
         sources.append(source)
+        sources_by_id[source_id] = source
 
     raw_facts = _list_field(payload.get("core_facts", []), "core_facts")
     if not raw_facts:
@@ -143,12 +165,12 @@ def normalize_research_input(payload: Any, *, now: str | None = None) -> dict[st
     raw_specs = _list_field(payload.get("price_spec_versions", []), "price_spec_versions")
     raw_risks = _list_field(payload.get("risks", []), "risks")
     facts = [
-        _evidence_item(item, label=f"core_facts[{index}]", claim_key="claim", known_sources=source_ids)
+        _evidence_item(item, label=f"core_facts[{index}]", claim_key="claim", sources_by_id=sources_by_id)
         for index, item in enumerate(raw_facts)
     ]
 
     faqs = [
-        _evidence_item(item, label=f"user_faqs[{index}]", claim_key="answer", extra_keys=("question",), known_sources=source_ids)
+        _evidence_item(item, label=f"user_faqs[{index}]", claim_key="answer", extra_keys=("question",), sources_by_id=sources_by_id)
         for index, item in enumerate(raw_faqs)
     ]
     raw_viewpoints = payload.get("viewpoints", {})
@@ -158,7 +180,7 @@ def normalize_research_input(payload: Any, *, now: str | None = None) -> dict[st
     raw_negative = _list_field(raw_viewpoints.get("negative", []), "viewpoints.negative")
     viewpoints = {
         side: [
-            _evidence_item(item, label=f"viewpoints.{side}[{index}]", claim_key="claim", known_sources=source_ids)
+            _evidence_item(item, label=f"viewpoints.{side}[{index}]", claim_key="claim", sources_by_id=sources_by_id)
             for index, item in enumerate(raw_positive if side == "positive" else raw_negative)
         ]
         for side in ("positive", "negative")
@@ -169,7 +191,7 @@ def normalize_research_input(payload: Any, *, now: str | None = None) -> dict[st
             label=f"price_spec_versions[{index}]",
             claim_key="value",
             extra_keys=("item",),
-            known_sources=source_ids,
+            sources_by_id=sources_by_id,
         )
         for index, item in enumerate(raw_specs)
     ]
@@ -179,17 +201,22 @@ def normalize_research_input(payload: Any, *, now: str | None = None) -> dict[st
             label=f"risks[{index}]",
             claim_key="risk",
             extra_keys=("severity",),
-            known_sources=source_ids,
+            sources_by_id=sources_by_id,
         )
         for index, item in enumerate(raw_risks)
     ]
     directions = _list_field(payload.get("asset_directions", []), "asset_directions")
     normalized_directions = [_text(direction, f"asset_directions[{index}]") for index, direction in enumerate(directions)]
+    sources.sort(key=lambda source: (source["priority_rank"], source["source_id"]))
 
     return {
         "schema_version": SCHEMA_VERSION,
         "topic": topic,
         "source_mode": source_mode,
+        "source_policy": [
+            {"rank": details["rank"], "source_type": source_type, "label": details["label"]}
+            for source_type, details in SOURCE_POLICY.items()
+        ],
         "research_status": "complete",
         "created_at": timestamp,
         "core_facts": facts,
@@ -226,6 +253,10 @@ def render_research_markdown(research: dict[str, Any]) -> str:
         f"- 研究状态：{research['research_status']}",
         f"- 来源模式：`{research['source_mode']}`",
         f"- 生成时间：{research['created_at']}",
+        "",
+        "## 来源优先级",
+        "",
+        "官方来源 > 原始文档 > 权威媒体 > 高质量社区 > 搜索摘要。引用按优先级排序；搜索摘要只作检索线索，不能单独支撑事实。",
         "",
     ]
     lines.extend(_render_evidence_section("核心事实", research["core_facts"], lambda item: item["claim"]))
@@ -270,10 +301,15 @@ def render_sources_markdown(research: dict[str, Any]) -> str:
                 f"## [{source['source_id']}] {source['title']}",
                 "",
                 f"- 发布方：{source['publisher']}",
-                f"- 类型：{source['source_type']}",
+                f"- 类型：{source['priority_label']}（优先级 {source['priority_rank']}）",
                 f"- 链接：<{source['url']}>",
                 f"- 发布/更新日期：{source['published_at'] or '未提供'}",
                 f"- 查阅时间：{source['accessed_at']}",
+                *(
+                    ["- 用途：仅作检索线索，不能单独支撑事实"]
+                    if source["source_type"] == "search_summary"
+                    else ["- 用途：可用于事实引用"]
+                ),
                 "",
             ]
         )

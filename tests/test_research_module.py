@@ -130,6 +130,46 @@ class ResearchModuleTests(unittest.TestCase):
         with self.assertRaisesRegex(research_module.ResearchInputError, "at least one source-backed"):
             research_module.normalize_research_input(payload)
 
+    def test_source_priority_orders_citations_and_is_recorded(self):
+        payload = research_payload()
+        payload["sources"].insert(
+            0,
+            {
+                "source_id": "S002",
+                "title": "Community test report",
+                "publisher": "Example Community",
+                "url": "https://community.example.com/test",
+                "source_type": "high_quality_community",
+            },
+        )
+        payload["core_facts"][0]["source_ids"] = ["S002", "S001"]
+
+        normalized = research_module.normalize_research_input(payload)
+
+        self.assertEqual(normalized["core_facts"][0]["source_ids"], ["S001", "S002"])
+        self.assertEqual(
+            [(item["source_type"], item["priority_rank"]) for item in normalized["sources"]],
+            [("official", 1), ("high_quality_community", 4)],
+        )
+        self.assertEqual([item["source_id"] for item in normalized["sources"]], ["S001", "S002"])
+        self.assertEqual([item["rank"] for item in normalized["source_policy"]], [1, 2, 3, 4, 5])
+        report = research_module.render_research_markdown(normalized)
+        self.assertIn("官方来源 > 原始文档 > 权威媒体 > 高质量社区 > 搜索摘要", report)
+        self.assertLess(report.index("[S001]"), report.index("[S002]"))
+        source_list = research_module.render_sources_markdown(normalized)
+        self.assertLess(source_list.index("官方来源"), source_list.index("高质量社区"))
+
+    def test_search_summary_cannot_support_claims_and_unknown_tier_is_rejected(self):
+        payload = research_payload()
+        payload["sources"][0]["source_type"] = "search_summary"
+        with self.assertRaisesRegex(research_module.ResearchInputError, "open a source page"):
+            research_module.normalize_research_input(payload)
+
+        payload = research_payload()
+        payload["sources"][0]["source_type"] = "personal_blog"
+        with self.assertRaisesRegex(research_module.ResearchInputError, "source_type must be one of"):
+            research_module.normalize_research_input(payload)
+
     def test_existing_outputs_and_wrong_stage_are_not_overwritten(self):
         self.advance_to("RESEARCHED")
         with self.assertRaisesRegex(project_state.StateError, "requires status CREATED"):

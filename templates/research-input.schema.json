@@ -15,13 +15,16 @@
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["source_id", "title", "publisher", "url"],
+        "required": ["source_id", "title", "publisher", "url", "source_type"],
         "properties": {
           "source_id": { "type": "string", "pattern": "^S[0-9]{3,}$" },
           "title": { "type": "string", "minLength": 1 },
           "publisher": { "type": "string", "minLength": 1 },
           "url": { "type": "string", "format": "uri" },
-          "source_type": { "type": "string" },
+          "source_type": {
+            "type": "string",
+            "enum": ["official", "primary_document", "authoritative_media", "high_quality_community", "search_summary"]
+          },
           "published_at": { "type": ["string", "null"] },
           "accessed_at": { "type": ["string", "null"] }
         },
