@@ -13,7 +13,7 @@ selection:
   publish: manual
 
 fallback:
-  tts: [edge_tts]
+  tts: [elevenlabs, edge_tts, local]
   motion: static_infographic
   video_generation: [stock, screenshot, image_pan]
 
