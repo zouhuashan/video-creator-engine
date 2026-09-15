@@ -6,6 +6,8 @@
 
 Hook 对应开头 3 秒，另需填写 `hook_type`：`conclusion`（先给结论）、`counterintuitive`（反常识）或 `conflict`（明确冲突）。开场第一句要让观众立刻听到对应内容。用短句和常用中文表达，每句只说一个重点；避免论文式措辞和“首先、其次、最后”的机械连接。
 
+输入还可设置 `target_duration_seconds`（默认 60 秒）。Problem、Comparison、Conclusion 中可用 `optional_sentences` 标记确认可以删去的完整补充句；超时后系统按配置顺序删除这些句子，保留 Hook、Evidence 和 CTA。不要把关键结论或独有证据标成可删内容。
+
 ## Hook
 
 用一句开场抓住注意力。

@@ -85,7 +85,7 @@ After the topic gate passes, write a six-section WeChat Channels script with:
 ./video-creator script <project-id> --input-file <script-input.json>
 ```
 
-The input format is described by [`templates/script-input.schema.json`](templates/script-input.schema.json), with section guidance in [`templates/wechat-channel/script-template.md`](templates/wechat-channel/script-template.md). Style limits and forbidden phrases are configured in [`config/script-style.json`](config/script-style.json). The command requires an eligible `topic.json`, validates the conversational style and cited research sources, writes `script.json` and `script.md`, then advances the project from `RESEARCHED` to `SCRIPTED`.
+The input format is described by [`templates/script-input.schema.json`](templates/script-input.schema.json), with section guidance in [`templates/wechat-channel/script-template.md`](templates/wechat-channel/script-template.md). Style rules and duration estimates are configured in [`config/script-style.json`](config/script-style.json) and [`config/script-duration.json`](config/script-duration.json). The command reports `estimated_duration` in seconds, `word_count` (Han characters plus Latin/number tokens), and the assumed `speech_rate`. If the draft is over target, it removes explicitly marked optional sentences in order; if that is insufficient, the Script Skill rewrites the narration and retries. Only a script that fits the target and passes style and source checks advances the project to `SCRIPTED`.
 
 ## Logs
 

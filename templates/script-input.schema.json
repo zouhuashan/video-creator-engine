@@ -6,20 +6,26 @@
   "required": ["schema_version", "sections"],
   "properties": {
     "schema_version": { "const": 1 },
+    "target_duration_seconds": {
+      "description": "Requested video duration; defaults to 60 seconds when omitted.",
+      "type": "integer",
+      "minimum": 45,
+      "maximum": 90
+    },
     "sections": {
       "type": "object",
       "required": ["hook", "problem", "evidence", "comparison", "conclusion", "cta"],
       "properties": {
         "hook": { "$ref": "#/$defs/hookSection" },
-        "problem": { "$ref": "#/$defs/section" },
+        "problem": { "$ref": "#/$defs/compressibleSection" },
         "evidence": {
           "allOf": [
             { "$ref": "#/$defs/section" },
             { "type": "object", "properties": { "source_ids": { "minItems": 1 } } }
           ]
         },
-        "comparison": { "$ref": "#/$defs/section" },
-        "conclusion": { "$ref": "#/$defs/section" },
+        "comparison": { "$ref": "#/$defs/compressibleSection" },
+        "conclusion": { "$ref": "#/$defs/compressibleSection" },
         "cta": { "$ref": "#/$defs/section" }
       },
       "additionalProperties": false
@@ -37,7 +43,10 @@
           "uniqueItems": true,
           "items": { "type": "string", "pattern": "^S[0-9]{3,}$" }
         },
-        "hook_type": { "enum": ["conclusion", "counterintuitive", "conflict"] }
+        "hook_type": {
+          "description": "The type of message delivered in the opening three seconds.",
+          "enum": ["conclusion", "counterintuitive", "conflict"]
+        }
       },
       "additionalProperties": false
     },
@@ -50,6 +59,25 @@
           "type": "array",
           "uniqueItems": true,
           "items": { "type": "string", "pattern": "^S[0-9]{3,}$" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "compressibleSection": {
+      "type": "object",
+      "required": ["narration", "source_ids"],
+      "properties": {
+        "narration": { "type": "string", "minLength": 1 },
+        "source_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^S[0-9]{3,}$" }
+        },
+        "optional_sentences": {
+          "description": "Complete, non-essential sentences that may be removed to meet the target duration.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
         }
       },
       "additionalProperties": false

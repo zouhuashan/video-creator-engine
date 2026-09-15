@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import re
 import tempfile
@@ -35,6 +36,7 @@ SOURCE_TYPES = {
     "search_summary",
 }
 STYLE_CONFIG_PATH = ROOT / "config" / "script-style.json"
+DURATION_CONFIG_PATH = ROOT / "config" / "script-duration.json"
 HOOK_TYPES = {"conclusion", "counterintuitive", "conflict"}
 HOOK_TYPE_LABELS = {
     "conclusion": "先给结论",
@@ -84,8 +86,132 @@ def _load_style_config() -> dict[str, Any]:
     return config
 
 
+def _load_duration_config() -> dict[str, Any]:
+    config = _read_json(DURATION_CONFIG_PATH, "script duration config")
+    if not isinstance(config, dict) or type(config.get("schema_version")) is not int or config.get("schema_version") != 1:
+        raise ScriptInputError("unsupported script duration config schema")
+    for field in (
+        "minimum_target_duration_seconds",
+        "default_target_duration_seconds",
+        "maximum_target_duration_seconds",
+        "hook_duration_seconds",
+        "speech_rate_units_per_minute",
+    ):
+        if type(config.get(field)) is not int or config[field] < 1:
+            raise ScriptInputError(f"script duration config {field} must be a positive integer")
+    if not (
+        config["minimum_target_duration_seconds"]
+        <= config["default_target_duration_seconds"]
+        <= config["maximum_target_duration_seconds"]
+    ):
+        raise ScriptInputError("script duration config target must fall within its platform duration range")
+    compression_order = config.get("compression_section_priority")
+    if (
+        not isinstance(compression_order, list)
+        or any(not isinstance(section, str) for section in compression_order)
+        or len(compression_order) != len(set(compression_order))
+        or any(section not in {"problem", "comparison", "conclusion"} for section in compression_order)
+    ):
+        raise ScriptInputError("script duration config has an invalid compression section priority")
+    return config
+
+
+def _target_duration(payload: Any, config: dict[str, Any]) -> int:
+    if not isinstance(payload, dict):
+        raise ScriptInputError("script input must contain an object")
+    target = payload.get("target_duration_seconds", config["default_target_duration_seconds"])
+    if (
+        type(target) is not int
+        or not config["minimum_target_duration_seconds"] <= target <= config["maximum_target_duration_seconds"]
+    ):
+        raise ScriptInputError(
+            "target_duration_seconds must be an integer from "
+            f"{config['minimum_target_duration_seconds']} to {config['maximum_target_duration_seconds']}"
+        )
+    return target
+
+
 def _sentence_character_count(sentence: str) -> int:
     return sum(not character.isspace() and not unicodedata.category(character).startswith("P") for character in sentence)
+
+
+def _is_han(character: str) -> bool:
+    name = unicodedata.name(character, "")
+    return name.startswith(("CJK UNIFIED IDEOGRAPH", "CJK COMPATIBILITY IDEOGRAPH"))
+
+
+def _script_unit_count(sections: list[dict[str, Any]]) -> int:
+    """Count each Han character and each contiguous non-Han alphanumeric token once."""
+    count = 0
+    for section in sections:
+        text = section["narration"]
+        index = 0
+        while index < len(text):
+            character = text[index]
+            if _is_han(character):
+                count += 1
+                index += 1
+            elif character.isalnum():
+                count += 1
+                index += 1
+                while index < len(text) and text[index].isalnum() and not _is_han(text[index]):
+                    index += 1
+            else:
+                index += 1
+    return count
+
+
+def _estimate_duration(sections: list[dict[str, Any]], speech_rate: int) -> dict[str, Any]:
+    word_count = _script_unit_count(sections)
+    if word_count < 1:
+        raise ScriptInputError("script must contain at least one spoken character or word")
+    # Round up to tenths so an estimate just above the target cannot be rounded down to a pass.
+    estimated_duration = math.ceil(word_count * 600 / speech_rate) / 10
+    return {
+        "estimated_duration": estimated_duration,
+        "word_count": word_count,
+        "speech_rate": speech_rate,
+    }
+
+
+def _compress_to_target(
+    sections: list[dict[str, Any]], target_seconds: int, duration_config: dict[str, Any]
+) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, str]]]:
+    speech_rate = duration_config["speech_rate_units_per_minute"]
+    original_metrics = _estimate_duration(sections, speech_rate)
+    current_metrics = original_metrics
+    removed_sentences: list[dict[str, str]] = []
+
+    hook = next(section for section in sections if section["section"] == "hook")
+    hook_duration = math.ceil(_script_unit_count([hook]) * 600 / speech_rate) / 10
+    if hook_duration > duration_config["hook_duration_seconds"]:
+        raise ScriptInputError(
+            f"Hook estimated_duration {hook_duration:.1f}s exceeds its "
+            f"{duration_config['hook_duration_seconds']}s opening window; shorten the opening and retry"
+        )
+
+    if current_metrics["estimated_duration"] > target_seconds:
+        sections_by_id = {section["section"]: section for section in sections}
+        for section_id in duration_config["compression_section_priority"]:
+            section = sections_by_id[section_id]
+            for candidate in list(section.get("optional_sentences", [])):
+                if current_metrics["estimated_duration"] <= target_seconds:
+                    break
+                section["narration"] = section["narration"].replace(candidate, "", 1)
+                section["optional_sentences"].remove(candidate)
+                removed_sentences.append({"section": section_id, "text": candidate})
+                current_metrics = _estimate_duration(sections, speech_rate)
+            if current_metrics["estimated_duration"] <= target_seconds:
+                break
+
+    if current_metrics["estimated_duration"] > target_seconds:
+        compressed_count = len(removed_sentences)
+        raise ScriptInputError(
+            f"estimated_duration {current_metrics['estimated_duration']:.1f}s exceeds target "
+            f"{target_seconds}s after removing {compressed_count} marked optional sentence(s); "
+            "rewrite the remaining narration more concisely and retry"
+        )
+    return original_metrics, current_metrics, removed_sentences
 
 
 def _validate_script_style(sections: list[dict[str, Any]], config: dict[str, Any]) -> None:
@@ -186,6 +312,10 @@ def _load_research_and_topic(directory: Path, project_id: str) -> tuple[dict[str
 def _normalize_sections(payload: Any, sources: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
     if not isinstance(payload, dict) or type(payload.get("schema_version")) is not int or payload.get("schema_version") != SCHEMA_VERSION:
         raise ScriptInputError("script input must use schema_version 1")
+    if not {"schema_version", "sections"} <= set(payload) or not set(payload) <= {
+        "schema_version", "sections", "target_duration_seconds"
+    }:
+        raise ScriptInputError("script input contains missing or unsupported fields")
     raw_sections = payload.get("sections")
     expected_ids = [section_id for section_id, _ in SECTION_DEFINITIONS]
     if not isinstance(raw_sections, dict) or set(raw_sections) != set(expected_ids):
@@ -194,9 +324,10 @@ def _normalize_sections(payload: Any, sources: dict[str, dict[str, Any]]) -> lis
     normalized: list[dict[str, Any]] = []
     for section_id, title in SECTION_DEFINITIONS:
         raw_section = raw_sections[section_id]
-        expected_fields = {"narration", "source_ids", "hook_type"} if section_id == "hook" else {"narration", "source_ids"}
-        if not isinstance(raw_section, dict) or set(raw_section) != expected_fields:
-            raise ScriptInputError(f"sections.{section_id} must contain {', '.join(sorted(expected_fields))} only")
+        required_fields = {"narration", "source_ids", "hook_type"} if section_id == "hook" else {"narration", "source_ids"}
+        allowed_fields = required_fields | ({"optional_sentences"} if section_id in {"problem", "comparison", "conclusion"} else set())
+        if not isinstance(raw_section, dict) or not required_fields <= set(raw_section) or not set(raw_section) <= allowed_fields:
+            raise ScriptInputError(f"sections.{section_id} must contain required fields and only supported optional fields")
         narration = raw_section.get("narration")
         if not isinstance(narration, str) or not narration.strip():
             raise ScriptInputError(f"sections.{section_id}.narration must be a non-empty string")
@@ -205,6 +336,20 @@ def _normalize_sections(payload: Any, sources: dict[str, dict[str, Any]]) -> lis
             raise ScriptInputError(f"sections.{section_id}.source_ids must be a list of source IDs")
         if len(source_ids) != len(set(source_ids)):
             raise ScriptInputError(f"sections.{section_id}.source_ids must not contain duplicates")
+        optional_sentences = raw_section.get("optional_sentences", [])
+        if not isinstance(optional_sentences, list) or any(not isinstance(item, str) or not item.strip() for item in optional_sentences):
+            raise ScriptInputError(f"sections.{section_id}.optional_sentences must be a list of complete sentences")
+        if len(optional_sentences) != len(set(optional_sentences)):
+            raise ScriptInputError(f"sections.{section_id}.optional_sentences must not contain duplicates")
+        if optional_sentences:
+            sentence_parts = [part.strip() for part in SENTENCE_BOUNDARY.split(narration) if part.strip()]
+            if len(optional_sentences) >= len(sentence_parts):
+                raise ScriptInputError(f"sections.{section_id} must retain at least one required sentence")
+            for optional_sentence in optional_sentences:
+                if sentence_parts.count(optional_sentence) != 1 or not re.search(r"[。！？!?；;]$", optional_sentence):
+                    raise ScriptInputError(
+                        f"sections.{section_id}.optional_sentences entries must match one complete, punctuated sentence in narration"
+                    )
         if section_id == "evidence" and not source_ids:
             raise ScriptInputError("sections.evidence must cite at least one research source")
         for source_id in source_ids:
@@ -220,9 +365,9 @@ def _normalize_sections(payload: Any, sources: dict[str, dict[str, Any]]) -> lis
                 "narration": narration.strip(),
                 "source_ids": list(source_ids),
                 **({"hook_type": raw_section.get("hook_type")} if section_id == "hook" else {}),
+                **({"optional_sentences": list(optional_sentences)} if section_id in {"problem", "comparison", "conclusion"} else {}),
             }
         )
-    _validate_script_style(normalized, _load_style_config())
     return normalized
 
 
@@ -230,9 +375,16 @@ def render_script_markdown(script: dict[str, Any]) -> str:
     lines = [
         f"# 视频号脚本：{script['topic']}",
         "",
+        (
+            f"- 目标时长：{script['target_duration_seconds']} 秒；预计时长：{script['estimated_duration']} 秒；"
+            f"字数：{script['word_count']}；预计语速：{script['speech_rate']} 个口播单位/分钟"
+        ),
+        "",
         "脚本中的来源标注仅供核验，不作为口播内容。来源详情见同目录 `sources.md`。",
         "",
     ]
+    if script["compression"]["applied"]:
+        lines.extend([f"- 已自动压缩 {len(script['compression']['removed_sentences'])} 句可删补充内容。", ""])
     for section in script["sections"]:
         lines.extend([f"## {section['title']}", ""])
         if section.get("hook_type"):
@@ -272,13 +424,30 @@ def write_script_artifacts(directory: Path, project_id: str, payload: Any) -> di
             raise StateError(f"refusing to overwrite existing script artifact: {output_path}")
 
     research, sources_by_id = _load_research_and_topic(directory, project_id)
+    duration_config = _load_duration_config()
+    target_duration_seconds = _target_duration(payload, duration_config)
     sections = _normalize_sections(payload, sources_by_id)
+    original_metrics, metrics, removed_sentences = _compress_to_target(
+        sections, target_duration_seconds, duration_config
+    )
+    _validate_script_style(sections, _load_style_config())
     referenced_ids = {source_id for section in sections for source_id in section["source_ids"]}
     script = {
         "schema_version": SCHEMA_VERSION,
         "project_id": project_id,
         "topic": research["topic"].strip(),
         "platform": "wechat_channels",
+        "target_duration_seconds": target_duration_seconds,
+        "estimated_duration": metrics["estimated_duration"],
+        "word_count": metrics["word_count"],
+        "word_count_basis": "CJK characters plus contiguous non-Han alphanumeric tokens",
+        "speech_rate": metrics["speech_rate"],
+        "speech_rate_unit": "script_units_per_minute",
+        "compression": {
+            "applied": bool(removed_sentences),
+            "original_estimated_duration": original_metrics["estimated_duration"],
+            "removed_sentences": removed_sentences,
+        },
         "created_at": utc_timestamp(),
         "sections": sections,
         "sources": [
@@ -318,5 +487,10 @@ def write_script_artifacts(directory: Path, project_id: str, payload: Any) -> di
         "topic": script["topic"],
         "sections": [section["section"] for section in sections],
         "outputs": list(OUTPUT_NAMES),
+        "target_duration_seconds": target_duration_seconds,
+        "estimated_duration": metrics["estimated_duration"],
+        "word_count": metrics["word_count"],
+        "speech_rate": metrics["speech_rate"],
+        "compression": script["compression"],
         "state": "SCRIPTED",
     }

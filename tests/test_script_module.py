@@ -47,11 +47,11 @@ class ScriptModuleTests(unittest.TestCase):
             "schema_version": 1,
             "sections": {
                 "hook": {
-                    "narration": "别急着买，这款产品不值这个价。",
+                    "narration": "别买，真的不值。",
                     "source_ids": [],
                     "hook_type": "conclusion",
                 },
-                "problem": {"narration": "问题。", "source_ids": []},
+                "problem": {"narration": "GPT贵。", "source_ids": []},
                 "evidence": {"narration": "证据。", "source_ids": ["S001"]},
                 "comparison": {"narration": "对比。", "source_ids": []},
                 "conclusion": {"narration": "结论。", "source_ids": []},
@@ -85,11 +85,73 @@ class ScriptModuleTests(unittest.TestCase):
             "Hook", "Problem", "Evidence", "Comparison", "Conclusion", "CTA"
         ])
         self.assertEqual(script["sources"][0]["source_id"], "S001")
+        self.assertEqual(script["target_duration_seconds"], 60)
+        self.assertEqual(script["word_count"], 16)
+        self.assertEqual(script["estimated_duration"], 4.4)
+        self.assertEqual(script["speech_rate"], 220)
         markdown = (self.directory / "script.md").read_text(encoding="utf-8")
         self.assertLess(markdown.index("## Hook"), markdown.index("## Problem"))
         self.assertLess(markdown.index("## Problem"), markdown.index("## Evidence"))
         self.assertIn("开场方向（非口播）：先给结论", markdown)
         self.assertIn("依据（非口播）：[S001]", markdown)
+
+    def test_compresses_marked_optional_sentences_to_fit_target(self):
+        payload = copy.deepcopy(self.payload)
+        payload["target_duration_seconds"] = 45
+        optional_problem = "那" * 30 + "。"
+        optional_comparison = "坏" * 30 + "。"
+        optional_conclusion = "比" * 30 + "。"
+        payload["sections"]["problem"] = {
+            "narration": "这" * 30 + "。" + optional_problem,
+            "source_ids": [],
+            "optional_sentences": [optional_problem],
+        }
+        payload["sections"]["comparison"] = {
+            "narration": "好" * 30 + "。" + optional_comparison,
+            "source_ids": [],
+            "optional_sentences": [optional_comparison],
+        }
+        payload["sections"]["conclusion"] = {
+            "narration": "对" * 30 + "。" + optional_conclusion,
+            "source_ids": [],
+            "optional_sentences": [optional_conclusion],
+        }
+
+        write_script_artifacts(self.directory, self.project_id, payload)
+
+        script = json.loads((self.directory / "script.json").read_text(encoding="utf-8"))
+        self.assertTrue(script["compression"]["applied"])
+        self.assertEqual(
+            [item["section"] for item in script["compression"]["removed_sentences"]],
+            ["problem"],
+        )
+        self.assertLessEqual(script["estimated_duration"], 45)
+        self.assertEqual(script["sections"][2]["narration"], "证据。")
+        self.assertEqual(script["sections"][2]["source_ids"], ["S001"])
+        markdown = (self.directory / "script.md").read_text(encoding="utf-8")
+        self.assertNotIn(optional_problem, markdown)
+        self.assertIn("已自动压缩 1 句", markdown)
+
+    def test_over_target_without_safe_optional_sentences_does_not_advance(self):
+        payload = copy.deepcopy(self.payload)
+        payload["target_duration_seconds"] = 45
+        payload["sections"]["problem"]["narration"] = ("这" * 30 + "。") * 6
+        with self.assertRaisesRegex(ScriptInputError, "exceeds target 45s"):
+            write_script_artifacts(self.directory, self.project_id, payload)
+        self.assertEqual(project_state.load_run_state(self.directory, self.project_id)["status"], "RESEARCHED")
+        self.assertFalse((self.directory / "script.json").exists())
+
+    def test_rejects_target_outside_platform_range(self):
+        payload = copy.deepcopy(self.payload)
+        payload["target_duration_seconds"] = 30
+        with self.assertRaisesRegex(ScriptInputError, "from 45 to 90"):
+            write_script_artifacts(self.directory, self.project_id, payload)
+
+    def test_hook_must_fit_the_three_second_opening_window(self):
+        payload = copy.deepcopy(self.payload)
+        payload["sections"]["hook"]["narration"] = "这款产品看起来很省钱但实际上并不值得购买。"
+        with self.assertRaisesRegex(ScriptInputError, "exceeds its 3s opening window"):
+            write_script_artifacts(self.directory, self.project_id, payload)
 
     def test_rejects_missing_or_untrusted_evidence_without_mutation(self):
         self.payload["sections"]["evidence"]["source_ids"] = []
@@ -193,7 +255,10 @@ class ScriptModuleTests(unittest.TestCase):
             capture_output=True,
             check=True,
         )
-        self.assertEqual(json.loads(result.stdout)["state"], "SCRIPTED")
+        summary = json.loads(result.stdout)
+        self.assertEqual(summary["state"], "SCRIPTED")
+        self.assertEqual(summary["estimated_duration"], 4.4)
+        self.assertEqual(summary["speech_rate"], 220)
         self.assertTrue((self.directory / "script.json").is_file())
         self.assertTrue((self.directory / "script.md").is_file())
 

@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "minimum_target_duration_seconds": 45,
+  "default_target_duration_seconds": 60,
+  "maximum_target_duration_seconds": 90,
+  "hook_duration_seconds": 3,
+  "speech_rate_units_per_minute": 220,
+  "compression_section_priority": [
+    "problem",
+    "comparison",
+    "conclusion"
+  ]
+}
