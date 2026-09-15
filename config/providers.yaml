@@ -13,6 +13,7 @@ selection:
   publish: manual
 
 fallback:
+  asr: [whisper_api, local_whisper, other]
   tts: [elevenlabs, edge_tts, local]
   motion: static_infographic
   video_generation: [stock, screenshot, image_pan]
@@ -26,9 +27,16 @@ providers:
       enabled: false
       api_key_env: ELEVENLABS_API_KEY
     whisper:
-      adapter: whisper
+      adapter: local_whisper
       enabled: false
       mode: local
+    whisper_api:
+      adapter: whisper_api
+      enabled: false
+      api_key_env: OPENAI_API_KEY
+    other:
+      adapter: other
+      enabled: false
   tts:
     fish_audio:
       adapter: fish_audio

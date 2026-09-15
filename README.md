@@ -128,6 +128,8 @@ Chinese narration rules live in [`config/zh-voice.json`](config/zh-voice.json). 
 
 The pinned video-use checkout provides source inspection, transcript packing, EDL rendering, subtitles, overlays, grading, and timeline review. Install it with `python3 scripts/dependency_manager.py install video-use`, then create its isolated environment with `uv sync --project .dependencies/video-use`. If `ffprobe` is not already on `PATH`, `python3 scripts/install_media_tools.py install ffprobe` installs the version and archive checksum pinned in [`media-tool-manifest.json`](media-tool-manifest.json) under `.dependencies/bin/`. [`config/video-use.json`](config/video-use.json) records the nine required editing capabilities and production safeguards. The `adapters.video.video_use` boundary verifies the install, probes sources, validates EDL timing and files, builds render commands, and selects self-evaluation windows around every cut.
 
+video-use transcription is routed through the provider-neutral [`adapters/asr/`](adapters/asr/) boundary. ElevenLabs, Whisper API, Local Whisper, and custom providers normalize to the same verbatim word-timestamp format consumed by video-use. Cloud providers expose `uploads_media=true` and the bridge refuses to call them without explicit media-upload authorization. Transcript caches bind the source checksum, provider, language, and speaker count so a changed source cannot reuse stale timestamps.
+
 ## Logs
 
 Run a task command through `scripts/run_task.py` to keep the terminal summary compact and capture detailed output under the ignored `logs/` directory:
