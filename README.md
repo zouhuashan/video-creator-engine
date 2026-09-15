@@ -99,6 +99,17 @@ Review the storyboard before asset work with `./video-creator review-storyboard 
 
 Record resolved project assets with `./video-creator assets <project-id> --input-file <asset-manifest-input.json>`. The command validates scene IDs and project-local files, requires source/license/provider metadata, calculates SHA-256 checksums, and writes `asset-manifest.json`.
 
+## Pinned dependencies
+
+External rendering dependencies are declared in [`dependency-manifest.json`](dependency-manifest.json) with both an immutable Git tag and full commit SHA. Install and verify the pinned HyperFrames checkout with:
+
+```bash
+python3 scripts/dependency_manager.py install hyperframes
+python3 scripts/dependency_manager.py verify hyperframes
+```
+
+The checkout lives under the ignored `.dependencies/` directory. Dependency upgrades are manual changes to the manifest and must update the tag and commit together.
+
 ## Logs
 
 Run a task command through `scripts/run_task.py` to keep the terminal summary compact and capture detailed output under the ignored `logs/` directory:
