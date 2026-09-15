@@ -10,7 +10,7 @@
 
 ## 编写与落盘
 
-为每个镜头填写 `scene_id`、`start`、`end`、`spoken_text`、`caption`、`visual_description`、`visual_type`、`asset_query`、`motion`、`transition`、`source`。从 `SC001` 连续编号，时间从 0 秒无缝衔接至脚本的目标时长。`source` 是来源编号数组，无来源时填写空数组。
+为每个镜头填写 `scene_id`、`start`、`end`、`spoken_text`、`caption`、`visual_description`、`visual_type`、`asset_query`、`motion`、`transition`、`source`。从 `SC001` 连续编号，时间从 0 秒无缝衔接至脚本的目标时长。`source` 是来源编号数组，无来源时填写空数组。`visual_type` 只能使用 `screen_recording`、`screenshot`、`real_video`、`real_image`、`stock`、`hyperframes`、`remotion`、`ai_image`、`ai_video`、`text_only`、`chart`、`comparison`。
 
 将 JSON 输入保存到临时文件后运行：
 
@@ -20,4 +20,4 @@
 
 命令会校验口播覆盖、连续时间、镜头编号、来源追溯和结束时间，生成 `storyboard.json` 与 `storyboard.md`，然后把项目从 `SCRIPTED` 推进到 `STORYBOARDED`。校验失败、写入失败或已有产物时不会推进状态。
 
-Visual Type 枚举和自动分镜审查由后续任务处理；本阶段不要擅自缩改脚本或生成素材。
+自动分镜审查由后续任务处理；本阶段不要擅自缩改脚本或生成素材。

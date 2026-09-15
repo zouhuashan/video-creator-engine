@@ -51,12 +51,12 @@ class StoryboardModuleTests(unittest.TestCase):
         self.payload = {
             "schema_version": 1,
             "scenes": [
-                self.scene("SC001", 0, 3, spoken[0], "别买", "价格标签被划掉", "opening", "产品价格", "快速推近", "硬切", []),
+                self.scene("SC001", 0, 3, spoken[0], "别买", "价格标签被划掉", "text_only", "产品价格", "快速推近", "硬切", []),
                 self.scene("SC002", 3, 10, spoken[1], "GPT贵", "账单金额出现", "screenshot", "订阅账单", "轻微平移", "叠化", []),
                 self.scene("SC003", 10, 35, spoken[2], "官方价格", "官方价格页高亮", "screenshot", "官方定价页面", "局部放大", "擦除", ["S001"]),
                 self.scene("SC004", 35, 50, spoken[3], "免费版够用", "两栏对比", "comparison", "免费版与付费版", "左右滑动", "叠化", []),
-                self.scene("SC005", 50, 55, spoken[4], "按需决定", "按需决定", "text", "结论文字", "缓慢推近", "淡入", []),
-                self.scene("SC006", 55, 60, spoken[5], "说说你的用法", "留言告诉我", "text", "评论引导", "静止", "淡出", []),
+                self.scene("SC005", 50, 55, spoken[4], "按需决定", "按需决定", "text_only", "结论文字", "缓慢推近", "淡入", []),
+                self.scene("SC006", 55, 60, spoken[5], "说说你的用法", "留言告诉我", "text_only", "评论引导", "静止", "淡出", []),
             ],
         }
 
@@ -119,6 +119,12 @@ class StoryboardModuleTests(unittest.TestCase):
         payload = copy.deepcopy(self.payload)
         payload["scenes"][1]["scene_id"] = "SC009"
         with self.assertRaisesRegex(StoryboardInputError, "sequential"):
+            write_storyboard_artifacts(self.directory, self.project_id, payload)
+
+    def test_rejects_visual_types_outside_the_supported_catalog(self):
+        payload = copy.deepcopy(self.payload)
+        payload["scenes"][0]["visual_type"] = "animated_gif"
+        with self.assertRaisesRegex(StoryboardInputError, "visual_type must be one of"):
             write_storyboard_artifacts(self.directory, self.project_id, payload)
 
     def test_refuses_to_overwrite_and_requires_scripted_state(self):

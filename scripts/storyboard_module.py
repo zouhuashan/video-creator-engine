@@ -19,6 +19,20 @@ except ImportError:
 SCHEMA_VERSION = 1
 OUTPUT_NAMES = ("storyboard.json", "storyboard.md")
 SCENE_ID_PATTERN = re.compile(r"SC\d{3,}\Z")
+VISUAL_TYPES = {
+    "screen_recording",
+    "screenshot",
+    "real_video",
+    "real_image",
+    "stock",
+    "hyperframes",
+    "remotion",
+    "ai_image",
+    "ai_video",
+    "text_only",
+    "chart",
+    "comparison",
+}
 SCENE_FIELDS = {
     "scene_id",
     "start",
@@ -133,6 +147,10 @@ def _normalize_scenes(payload: Any, script: dict[str, Any]) -> list[dict[str, An
         unknown_sources = set(source) - script_source_ids
         if unknown_sources:
             raise StoryboardInputError(f"scenes[{index - 1}] references unknown script source: {', '.join(sorted(unknown_sources))}")
+        visual_type = _text(raw_scene.get("visual_type"), f"scenes[{index - 1}].visual_type")
+        if visual_type not in VISUAL_TYPES:
+            choices = ", ".join(sorted(VISUAL_TYPES))
+            raise StoryboardInputError(f"scenes[{index - 1}].visual_type must be one of: {choices}")
         normalized.append(
             {
                 "scene_id": scene_id,
@@ -141,7 +159,7 @@ def _normalize_scenes(payload: Any, script: dict[str, Any]) -> list[dict[str, An
                 "spoken_text": _text(raw_scene.get("spoken_text"), f"scenes[{index - 1}].spoken_text"),
                 "caption": _text(raw_scene.get("caption"), f"scenes[{index - 1}].caption"),
                 "visual_description": _text(raw_scene.get("visual_description"), f"scenes[{index - 1}].visual_description"),
-                "visual_type": _text(raw_scene.get("visual_type"), f"scenes[{index - 1}].visual_type"),
+                "visual_type": visual_type,
                 "asset_query": _text(raw_scene.get("asset_query"), f"scenes[{index - 1}].asset_query"),
                 "motion": _text(raw_scene.get("motion"), f"scenes[{index - 1}].motion"),
                 "transition": _text(raw_scene.get("transition"), f"scenes[{index - 1}].transition"),

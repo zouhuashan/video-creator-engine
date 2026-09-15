@@ -24,7 +24,22 @@
         "spoken_text": { "type": "string", "minLength": 1 },
         "caption": { "type": "string", "minLength": 1 },
         "visual_description": { "type": "string", "minLength": 1 },
-        "visual_type": { "type": "string", "minLength": 1 },
+        "visual_type": {
+          "enum": [
+            "screen_recording",
+            "screenshot",
+            "real_video",
+            "real_image",
+            "stock",
+            "hyperframes",
+            "remotion",
+            "ai_image",
+            "ai_video",
+            "text_only",
+            "chart",
+            "comparison"
+          ]
+        },
         "asset_query": { "type": "string", "minLength": 1 },
         "motion": { "type": "string", "minLength": 1 },
         "transition": { "type": "string", "minLength": 1 },
