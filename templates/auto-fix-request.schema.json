@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "VideoCreator automatic fix request",
+  "type": "object",
+  "required": ["schema_version", "issues"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["issue_id", "category", "target", "reason", "parameters"],
+        "properties": {
+          "issue_id": {"type": "string", "pattern": "^FIX[0-9]{3,}$"},
+          "category": {"type": "string"},
+          "target": {"type": "string", "minLength": 1},
+          "reason": {"type": "string", "minLength": 1},
+          "parameters": {"type": "object"}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

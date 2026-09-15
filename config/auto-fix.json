@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "allowed": ["subtitle_position", "audio_volume", "blank_shot", "transcoding", "minor_duration", "subtitle_segmentation"],
+  "forbidden": ["core_facts", "conclusion", "commercial_recommendation", "sensitive_content"],
+  "forbidden_route": "SCRIPT_REVIEW",
+  "post_fix_requirement": "RERUN_ALL_QC"
+}

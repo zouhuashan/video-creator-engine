@@ -12,3 +12,5 @@ description: Validate rendered VideoCreator outputs and produce traceable QC evi
 内容质检由 `python3 scripts/content_qc.py <project-dir> --assessment-file <JSON>` 执行。审查文件必须覆盖配置中的十项检查，每项写明 PASS/FAIL、具体证据及使用到的研究来源编号。程序会再次检查重复口播、无来源绝对化词语、敏感表达、Hook、结论和 CTA；人工或自动规则任一失败即为失败。
 
 视觉质检由 `python3 scripts/visual_qc.py <project-dir> --analysis-file <JSON>` 执行。分析文件必须逐镜头提供画面指纹、留白占比、裁切结论、最低文字对比度和关键信息框；缺少任何镜头都失败。程序结合 `storyboard.json` 检查镜头时长、相邻重复画面、字幕密度、异常留白、裁切、视频号 UI 遮挡和文字背景对比度。
+
+自动修复先运行 `python3 scripts/auto_fix.py plan <project-dir> --request-file <JSON>`。只有字幕位置、音量、空镜、转码、轻微时长和字幕断句可派发给编辑执行器；涉及核心事实、结论、商业推荐或敏感内容时整批转回脚本审核，不执行其中任何一项。执行修复后必须重跑全部 QC。三份报告都通过且晚于最近修复，才运行 `python3 scripts/auto_fix.py finalize <project-dir> <project-id>` 生成 `qc.json`、`qc-report.md` 并推进到 `QC_PASS`。

@@ -8,6 +8,7 @@ import json
 import re
 import subprocess
 import sys
+from datetime import datetime, timezone
 from fractions import Fraction
 from pathlib import Path
 from typing import Any
@@ -212,6 +213,7 @@ def run_project_technical_qc(project_dir: Path, video: str = "final.mp4", layout
     )
     report["video"] = video
     report["subtitle_layout"] = layout
+    report["generated_at"] = datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
     output = project_dir / "qc" / "technical-qc.json"
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

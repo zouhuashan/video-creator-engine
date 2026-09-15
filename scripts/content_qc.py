@@ -7,6 +7,7 @@ import argparse
 import json
 import re
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -142,6 +143,7 @@ def run_project_content_qc(project_dir: Path, assessment_file: Path) -> dict[str
         _load_json(directory / "research.json", "research.json"),
         _load_json(assessment_file, "content QC assessment"),
     )
+    report["generated_at"] = datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
     output = directory / "qc" / "content-qc.json"
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

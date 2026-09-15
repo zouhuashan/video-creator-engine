@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -145,6 +146,7 @@ def run_project_visual_qc(project_dir: Path, analysis_file: Path) -> dict[str, A
         _load_json(directory / "storyboard.json", "storyboard.json"),
         _load_json(analysis_file, "visual QC analysis"),
     )
+    report["generated_at"] = datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
     output = directory / "qc" / "visual-qc.json"
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

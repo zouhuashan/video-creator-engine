@@ -151,6 +151,8 @@ Run content review with `python3 scripts/content_qc.py <project-dir> --assessmen
 
 Run visual review with `python3 scripts/visual_qc.py <project-dir> --analysis-file <visual-qc-analysis.json>`. The analysis must cover every rendered scene with a visual fingerprint, empty-space ratio, crop result, minimum text contrast, and normalized key-information boxes. The report combines that evidence with storyboard timing and captions to detect all seven configured visual defects.
 
+`scripts/auto_fix.py` enforces the automatic-fix boundary before dispatch. Low-risk presentation fixes can reach a replaceable executor; fact, conclusion, recommendation, and sensitive-content changes route the whole batch back to script review. Any applied fix invalidates prior QC. Finalization aggregates the three fresh PASS reports into `qc.json` and `qc-report.md`, then advances an `EDITED` project to `QC_PASS`.
+
 ## Logs
 
 Run a task command through `scripts/run_task.py` to keep the terminal summary compact and capture detailed output under the ignored `logs/` directory:
