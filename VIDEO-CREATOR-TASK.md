@@ -1188,7 +1188,15 @@ Status: PASS
 ---
 
 ## P9-02 禁止强耦合 ElevenLabs
-Status: TODO
+Status: PASS
+
+执行记录（2026-09-15）：
+- Git commit: `cf7059d`
+- 新增统一 ASRProvider 契约，ElevenLabs、Whisper API、Local Whisper 与自定义 Provider 均输出 video-use 可用的逐词时间戳。
+- 云端 Provider 在接口层强制要求媒体上传授权；Local Whisper 明确不上传媒体。
+- 转录缓存绑定源文件 SHA-256、Provider、语言和说话人数，元数据不进入 video-use 的转录 JSON 扫描范围。
+- 验证：ASR 契约、路由、授权、缓存和逐词格式通过；全量 91 项测试通过。
+- 结果：PASS；下一任务：P9-03。
 
 如果 video-use 默认依赖特定 ASR：
 
@@ -2075,12 +2083,12 @@ P7 = V1 OPTIONAL
 # 41. 下一任务
 
 ```text
-NEXT: P9-02
+NEXT: P9-03
 ```
 
 任务：
 
-> 为 video-use 的 ASR 依赖封装 Adapter，解除 ElevenLabs 强耦合，并支持 ElevenLabs、Whisper API、Local Whisper 与其它 Provider。
+> 实现可追踪的 `edit-decision-list.json`，支持回滚、局部修改和重渲染。
 
 执行完成后：
 
