@@ -12,6 +12,11 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+if __package__:
+    from .project_state import initialize_run_state
+else:
+    from project_state import initialize_run_state
+
 
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG_PATH = ROOT / "config" / "app.yaml"
@@ -104,11 +109,21 @@ def reserve_project_id(
     suffix = 1
     while True:
         candidate = base_id if suffix == 1 else f"{base_id}-{suffix}"
+        candidate_dir = projects_dir / candidate
         try:
-            (projects_dir / candidate).mkdir()
-            return candidate
+            candidate_dir.mkdir()
         except FileExistsError:
             suffix += 1
+            continue
+        try:
+            initialize_run_state(candidate_dir, candidate)
+        except Exception:
+            try:
+                candidate_dir.rmdir()
+            except OSError:
+                pass
+            raise
+        return candidate
 
 
 def parse_args() -> argparse.Namespace:

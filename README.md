@@ -35,6 +35,15 @@ python3 scripts/project_id.py --topic "ChatGPT Plus 一个月 20 美元值不值
 
 The command prints the ID and creates `projects/<project-id>/`. If that ID already exists, it appends a numeric suffix rather than reusing the directory. For Chinese-only topics, pass a short semantic English `--slug`; without one, the helper uses a stable topic hash.
 
+New projects start at `CREATED` in `run.json`. Inspect or advance the state with:
+
+```bash
+python3 scripts/project_state.py status <project-id>
+python3 scripts/project_state.py transition <project-id> --to RESEARCHED --note "Research validated"
+```
+
+Transitions must follow the configured lifecycle in order. Recording `PUBLISHED_MANUALLY` additionally requires `--record-manual-publication` after the user confirms publication.
+
 ## Logs
 
 Run a task command through `scripts/run_task.py` to keep the terminal summary compact and capture detailed output under the ignored `logs/` directory:
