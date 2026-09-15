@@ -130,6 +130,15 @@ The pinned video-use checkout provides source inspection, transcript packing, ED
 
 video-use transcription is routed through the provider-neutral [`adapters/asr/`](adapters/asr/) boundary. ElevenLabs, Whisper API, Local Whisper, and custom providers normalize to the same verbatim word-timestamp format consumed by video-use. Cloud providers expose `uploads_media=true` and the bridge refuses to call them without explicit media-upload authorization. Transcript caches bind the source checksum, provider, language, and speaker count so a changed source cannot reuse stale timestamps.
 
+Traceable edit decisions are stored at `edit/edit-decision-list.json` by [`scripts/edit_decision_list.py`](scripts/edit_decision_list.py). Every kept range has a stable decision ID and reason; source checksums and a render fingerprint bind decisions to their inputs. Each create, range update, and rollback writes an immutable numbered snapshot under `edit/edl-history/`. Updates use an expected revision to reject stale changes, and rollback restores old content as a new revision so the audit trail remains complete.
+
+```bash
+python3 scripts/edit_decision_list.py --edit-dir <project>/edit <project-id> create --input-file <edl-input.json>
+python3 scripts/edit_decision_list.py --edit-dir <project>/edit <project-id> update-range EDL002 --patch-file <patch.json> --expected-revision 1
+python3 scripts/edit_decision_list.py --edit-dir <project>/edit <project-id> rollback 1 --expected-revision 2
+python3 scripts/edit_decision_list.py --edit-dir <project>/edit <project-id> rerender-plan
+```
+
 ## Logs
 
 Run a task command through `scripts/run_task.py` to keep the terminal summary compact and capture detailed output under the ignored `logs/` directory:

@@ -14,3 +14,5 @@ description: Build and render a short-video edit through the pinned video-use ch
 先用 `verify_video_use_installation` 检查固定提交、Python 环境、ffmpeg、ffprobe 和 helpers。用 `probe_source` 读取真实媒体信息，以 `validate_edl` 检查 EDL，再运行 `render_command` 返回的命令。预览生成后按 `build_self_eval_plan` 检查开头、结尾和每个剪点附近的画面、波形、字幕遮挡、Overlay 时序及总时长；三轮后仍有问题时停止并报告。
 
 转录统一通过 `adapters.asr.transcribe_for_video_use` 写入 video-use 格式。ElevenLabs、Whisper API 和其它会上传媒体的 Provider 必须先获得用户明确授权；Local Whisper 不上传。所有 Provider 必须返回逐词时间戳，短语级结果不能用于剪点。相同源文件、Provider、语言和说话人数命中转录缓存；缓存损坏时停止，禁止用自动重试绕过潜在计费。
+
+剪辑决策必须用 `scripts/edit_decision_list.py` 写入项目 `edit/edit-decision-list.json`，每段保留稳定 `decision_id` 和非空 `reason`。创建、局部修改与回滚都会写入 `edit/edl-history/`，禁止直接覆盖当前文件或历史文件。局部修改和回滚必须携带当前 `expected_revision`；重渲染前运行 `rerender-plan`，源文件校验和变化时重新审查剪辑决策。
