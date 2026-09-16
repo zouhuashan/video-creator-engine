@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://videocreator.local/schemas/novel-series-plan.schema.json",
+  "title": "Novel anime series, season, and character arc plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "project_id", "ip_id", "series_id", "revision", "story_bible_revision", "created_at", "updated_at", "series_plan", "season_plans", "character_arcs"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "project_id": {"type": "string"},
+    "ip_id": {"type": "string", "pattern": "^IP-[A-Z0-9]{2,12}$"},
+    "series_id": {"type": "string", "pattern": "^SER-[A-Z0-9]{2,12}-[0-9]{2}$"},
+    "revision": {"type": "integer", "minimum": 1},
+    "story_bible_revision": {"type": "integer", "minimum": 1},
+    "created_at": {"type": "string", "format": "date-time"},
+    "updated_at": {"type": "string", "format": "date-time"},
+    "series_plan": {"$ref": "#/$defs/series_plan"},
+    "season_plans": {"type": "array", "items": {"$ref": "#/$defs/season_plan"}},
+    "character_arcs": {"type": "array", "items": {"$ref": "#/$defs/character_arc"}}
+  },
+  "$defs": {
+    "review": {
+      "type": "object", "additionalProperties": false,
+      "required": ["required", "status", "reviewed_at", "reviewed_by", "note"],
+      "properties": {"required": {"const": true}, "status": {"enum": ["PENDING", "APPROVED", "CHANGES_REQUESTED"]}, "reviewed_at": {"type": ["string", "null"]}, "reviewed_by": {"type": ["string", "null"]}, "note": {"type": "string"}}
+    },
+    "provenance": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "source_refs", "story_refs", "note"],
+      "properties": {
+        "kind": {"enum": ["UNSET", "SOURCE", "ORIGINAL"]},
+        "source_refs": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^(CH|LOC)-[A-Z0-9-]+$"}},
+        "story_refs": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "note": {"type": "string", "maxLength": 2000}
+      }
+    },
+    "series_plan": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "status", "title", "logline", "themes", "audience", "format", "ending", "adaptation_strategy", "season_ids", "character_arc_ids", "provenance", "human_review"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^SERPLAN-[A-Z0-9]{2,12}-[0-9]{2}$"}, "status": {"enum": ["DRAFT", "READY"]}, "title": {"type": "string", "minLength": 1},
+        "logline": {"type": "string"}, "themes": {"type": "array", "items": {"type": "string"}}, "audience": {"type": "string"}, "format": {"type": "string"}, "ending": {"type": "string"}, "adaptation_strategy": {"type": "string"},
+        "season_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^S[0-9]{2}$"}}, "character_arc_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "provenance": {"$ref": "#/$defs/provenance"}, "human_review": {"$ref": "#/$defs/review"}
+      }
+    },
+    "turn": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "episode_id", "label", "description", "provenance"],
+      "properties": {"id": {"type": "string", "pattern": "^TURN-S[0-9]{2}-[0-9]{2}$"}, "episode_id": {"type": "string", "pattern": "^S[0-9]{2}E[0-9]{3}$"}, "label": {"type": "string", "minLength": 1}, "description": {"type": "string"}, "provenance": {"$ref": "#/$defs/provenance"}}
+    },
+    "season_plan": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "season_id", "status", "episode_ids", "premise", "dramatic_question", "start_state", "end_state", "major_turns", "character_arc_ids", "provenance", "human_review"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^SEASONPLAN-S[0-9]{2}$"}, "season_id": {"type": "string", "pattern": "^S[0-9]{2}$"}, "status": {"enum": ["DRAFT", "READY"]},
+        "episode_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^S[0-9]{2}E[0-9]{3}$"}},
+        "premise": {"type": "string"}, "dramatic_question": {"type": "string"}, "start_state": {"type": "string"}, "end_state": {"type": "string"},
+        "major_turns": {"type": "array", "items": {"$ref": "#/$defs/turn"}}, "character_arc_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "provenance": {"$ref": "#/$defs/provenance"}, "human_review": {"$ref": "#/$defs/review"}
+      }
+    },
+    "milestone": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "episode_id", "change", "provenance"],
+      "properties": {"id": {"type": "string", "pattern": "^MILE-[A-Z0-9-]+$"}, "episode_id": {"type": "string", "pattern": "^S[0-9]{2}E[0-9]{3}$"}, "change": {"type": "string", "minLength": 1}, "provenance": {"$ref": "#/$defs/provenance"}}
+    },
+    "character_arc": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "character_id", "season_id", "status", "start_state", "want", "need", "internal_conflict", "milestones", "end_state", "provenance", "human_review"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^CARC-[A-Z0-9-]+$"}, "character_id": {"type": "string", "pattern": "^CHR-[A-Z0-9-]+$"}, "season_id": {"type": "string", "pattern": "^S[0-9]{2}$"}, "status": {"enum": ["DRAFT", "READY"]},
+        "start_state": {"type": "string"}, "want": {"type": "string"}, "need": {"type": "string"}, "internal_conflict": {"type": "string"}, "milestones": {"type": "array", "items": {"$ref": "#/$defs/milestone"}}, "end_state": {"type": "string"},
+        "provenance": {"$ref": "#/$defs/provenance"}, "human_review": {"$ref": "#/$defs/review"}
+      }
+    }
+  }
+}

@@ -66,6 +66,15 @@ python3 scripts/novel_story_bible.py record-snapshot projects/jinghua-yuan-serie
 
 人物、关系、地点、道具、规则、时间线和伏笔必须指向已登记章节/定位，或明确标记为原创增补并说明原因。连续性快照记录位置、服装、携带物、伤势、知识、关系、道具归属和未回收伏笔；后续单集若缺少上一集结束快照，系统会阻止继续写作。
 
+创建全剧、季度和角色成长弧规划骨架：
+
+```bash
+python3 scripts/novel_series_plan.py create projects/jinghua-yuan-series
+python3 scripts/novel_series_plan.py validate projects/jinghua-yuan-series
+```
+
+规划文件固定引用当前故事圣经修订号；故事圣经变化后，旧规划会被标记为过期。全剧和季度规划必须覆盖项目中的全部季与集，主要转折和角色弧里程碑必须位于对应季度，并追溯到来源章节、故事圣经实体或明确的原创增补。
+
 ## Environment
 
 Pinned local tool versions:
