@@ -185,6 +185,15 @@ python3 scripts/novel_voice_profiles.py validate projects/jinghua-yuan-series
 
 每个故事角色拥有独立音色、音高、语速和 Provider/voice ID；每句对白绑定角色 profile，旁白保持独立，情绪与发音备注保存在逐句记录中。脚本修订后旧配音计划自动失效，Web 项目卡片及 `/api/novel-anime/projects/<id>/voice-profiles` 显示角色与台词覆盖。
 
+创建混音、响度和声画同步计划：
+
+```bash
+python3 scripts/novel_audio_mix.py create projects/jinghua-yuan-series
+python3 scripts/novel_audio_mix.py validate projects/jinghua-yuan-series
+```
+
+每集混音计划固定引用音轨、配音和 Animatic 修订，记录目标响度、真峰值、对白 Cue、输出文件和同步偏移；同步偏移超过 100ms 或缺少人工审核时不能 READY。Web 项目卡片及 `/api/novel-anime/projects/<id>/audio-mix` 显示混音集数、输出和最大偏移。
+
 ## Environment
 
 Pinned local tool versions:

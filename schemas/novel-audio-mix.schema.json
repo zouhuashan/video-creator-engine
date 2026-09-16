@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://videocreator.local/schemas/novel-audio-mix.schema.json",
+  "type": "object", "additionalProperties": false,
+  "required": ["schema_version", "project_id", "ip_id", "audio_assets_revision", "voice_profiles_revision", "animatic_revision", "revision", "created_at", "updated_at", "episodes"],
+  "properties": {"schema_version": {"const": 1}, "project_id": {"type": "string"}, "ip_id": {"type": "string"}, "audio_assets_revision": {"type": "integer", "minimum": 1}, "voice_profiles_revision": {"type": "integer", "minimum": 1}, "animatic_revision": {"type": "integer", "minimum": 1}, "revision": {"type": "integer", "minimum": 1}, "created_at": {"type": "string", "format": "date-time"}, "updated_at": {"type": "string", "format": "date-time"}, "episodes": {"type": "array", "items": {"$ref": "#/$defs/episode"}}},
+  "$defs": {"review": {"type": "object", "additionalProperties": false, "required": ["required", "status", "reviewed_at", "reviewed_by", "note"], "properties": {"required": {"const": true}, "status": {"enum": ["PENDING", "APPROVED", "CHANGES_REQUESTED"]}, "reviewed_at": {"type": ["string", "null"]}, "reviewed_by": {"type": ["string", "null"]}, "note": {"type": "string"}}}, "episode": {"type": "object", "additionalProperties": false, "required": ["episode_id", "dialogue_line_ids", "cue_ids", "target_lufs", "true_peak_db", "sync_offset_ms", "status", "output_path", "human_review"], "properties": {"episode_id": {"type": "string"}, "dialogue_line_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}, "cue_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}, "target_lufs": {"type": "number"}, "true_peak_db": {"type": "number"}, "sync_offset_ms": {"type": "number"}, "status": {"enum": ["DRAFT", "READY"]}, "output_path": {"type": ["string", "null"]}, "human_review": {"$ref": "#/$defs/review"}}}
+  }
+}
