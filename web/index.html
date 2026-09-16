@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0b0d12" />
+    <title>VideoCreator · 国风动漫工作台</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand-mark"><span class="brand-orb">V</span><div><strong>VideoCreator</strong><small>国风动漫工作台</small></div></div>
+        <nav class="nav" aria-label="主导航">
+          <button class="nav-item active" data-view="workspace"><span>✦</span>创作工作台</button>
+          <button class="nav-item" data-view="projects"><span>▦</span>项目资产</button>
+          <button class="nav-item" data-view="providers"><span>◇</span>生成 Provider</button>
+        </nav>
+        <div class="sidebar-foot"><span class="pulse"></span><span>本地服务已连接</span><span id="serverVersion">v1.0</span></div>
+      </aside>
+
+      <main class="main-content">
+        <header class="topbar"><div><p class="eyebrow">STORY → MOTION → REVIEW</p><h1>把故事变成连续的国风镜头</h1><p class="lede">从角色参考图开始，选择生成路线，先看效果，再决定长期 Provider。</p></div><div class="top-actions"><button class="ghost-button" id="refreshButton">↻ 刷新</button><span class="avatar">Z</span></div></header>
+
+        <section class="stats-grid" aria-label="工作台状态">
+          <div class="stat-card"><span class="stat-label">当前项目</span><strong id="statProject">—</strong><small id="statProjectHint">等待载入</small></div>
+          <div class="stat-card"><span class="stat-label">参考素材</span><strong id="statAssets">—</strong><small>可用于镜头生成</small></div>
+          <div class="stat-card"><span class="stat-label">可用路线</span><strong id="statProviders">—</strong><small>含本地零成本回退</small></div>
+          <div class="stat-card accent"><span class="stat-label">人工确认</span><strong>开启</strong><small>远程生成需要明确确认</small></div>
+        </section>
+
+        <section class="workspace-grid" id="workspaceView">
+          <div class="panel project-panel">
+            <div class="panel-heading"><div><span class="section-kicker">01 / PROJECT</span><h2>选择试制项目</h2></div><span class="status-dot">LIVE</span></div>
+            <label class="field-label" for="projectSelect">项目</label><select id="projectSelect" class="select-field"></select>
+            <div class="project-summary"><div class="project-cover"><span>镜</span></div><div><strong id="projectTitle">—</strong><p id="projectDescription">—</p><div class="tag-row"><span class="tag">小说试制</span><span class="tag">9:16</span><span class="tag">人工审核</span></div></div></div>
+            <div class="divider"></div>
+            <div class="panel-heading compact"><div><span class="section-kicker">REFERENCE FRAME</span><h2>选一张角色或场景图</h2></div><span id="imageCount" class="muted">—</span></div>
+            <div class="asset-grid" id="assetGrid"><div class="empty-state">正在载入素材…</div></div>
+          </div>
+
+          <div class="panel generate-panel">
+            <div class="panel-heading"><div><span class="section-kicker">02 / MOTION</span><h2>生成动态镜头</h2></div><span class="cost-note">按 Provider 计费</span></div>
+            <div class="provider-grid" id="providerGrid"></div>
+            <label class="field-label" for="promptInput">镜头描述</label><textarea id="promptInput" class="prompt-field" rows="4">国风动漫人物轻轻转身，衣袂随风，镜头缓慢推进，保持角色设计与服饰细节一致。</textarea>
+            <div class="form-row"><div><label class="field-label" for="modelInput">模型</label><select id="modelInput" class="select-field"><option value="sora-2">sora-2</option><option value="sora-2-pro">sora-2-pro</option><option value="gen4.5">gen4.5</option></select></div><div><label class="field-label" for="durationInput">时长</label><select id="durationInput" class="select-field"><option value="4">4 秒</option><option value="8">8 秒</option><option value="12">12 秒</option></select></div></div>
+            <label class="confirm-row"><input type="checkbox" id="billableConfirm" /><span>我确认在远程 Provider 已配置密钥后发起一次生成</span></label>
+            <button class="primary-button" id="generateButton"><span>✦</span>生成镜头</button>
+            <p class="helper-text" id="generateHint">本地路线无需密钥；OpenAI、Runway、Wan 需要配置对应环境变量。</p>
+          </div>
+        </section>
+
+        <section class="panel output-panel" id="outputPanel">
+          <div class="panel-heading"><div><span class="section-kicker">03 / REVIEW</span><h2>最近生成</h2></div><span id="outputStatus" class="muted">暂无输出</span></div>
+          <div class="output-empty" id="outputEmpty"><div class="empty-icon">◌</div><div><strong>还没有生成镜头</strong><p>选一张图和一条 Provider，生成结果会显示在这里。</p></div></div>
+          <div class="output-result hidden" id="outputResult"><video id="outputVideo" controls playsinline></video><div class="output-meta"><span class="result-chip" id="resultProvider">—</span><strong id="resultPath">—</strong><p id="resultDuration">—</p></div></div>
+        </section>
+
+        <section class="panel log-panel"><div class="panel-heading"><div><span class="section-kicker">ACTIVITY</span><h2>运行记录</h2></div><button class="text-button" id="clearLog">清空</button></div><div class="log-list" id="logList"><div class="log-entry"><span class="log-time">现在</span><span>工作台就绪，等待你的第一个镜头。</span></div></div></section>
+      </main>
+    </div>
+    <script src="/app.js" defer></script>
+  </body>
+</html>

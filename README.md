@@ -170,6 +170,16 @@ python3 scripts/video_generate.py <frame.png> --provider openai_sora --model sor
 
 The OpenAI Videos API is currently documented for `sora-2` and `sora-2-pro`, but the official reference marks it deprecated and schedules shutdown for September 24, 2026. It is therefore used here for short-lived pilot validation behind an adapter, with Runway and Wan retained for later migration.
 
+## Local web console
+
+The same adapters are available through a dependency-free local web console. Start it with:
+
+```bash
+python3 scripts/web_server.py --port 8765
+```
+
+Open `http://127.0.0.1:8765`. The console lists projects and local reference frames, shows which Provider keys are configured, requires an explicit confirmation before remote generation, and previews the generated MP4. It does not publish content or expose credential values.
+
 ## video-use editing core
 
 The pinned video-use checkout provides source inspection, transcript packing, EDL rendering, subtitles, overlays, grading, and timeline review. Install it with `python3 scripts/dependency_manager.py install video-use`, then create its isolated environment with `uv sync --project .dependencies/video-use`. If `ffprobe` is not already on `PATH`, `python3 scripts/install_media_tools.py install ffprobe` installs the version and archive checksum pinned in [`media-tool-manifest.json`](media-tool-manifest.json) under `.dependencies/bin/`. [`config/video-use.json`](config/video-use.json) records the nine required editing capabilities and production safeguards. The `adapters.video.video_use` boundary verifies the install, probes sources, validates EDL timing and files, builds render commands, and selects self-evaluation windows around every cut.
