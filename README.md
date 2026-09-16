@@ -176,6 +176,15 @@ python3 scripts/novel_animatic_review.py validate projects/jinghua-yuan-series
 
 审核报告检查节奏、动作可读性、角色/场景/道具连续性和集级输入；阻断项、上游修订过期或人工审核未通过时不能进入下一阶段。报告会显示在 Web 国漫项目卡片和 `/api/novel-anime/projects/<id>/animatic-review`。
 
+创建角色 voice profile 和逐句配音计划：
+
+```bash
+python3 scripts/novel_voice_profiles.py create projects/jinghua-yuan-series
+python3 scripts/novel_voice_profiles.py validate projects/jinghua-yuan-series
+```
+
+每个故事角色拥有独立音色、音高、语速和 Provider/voice ID；每句对白绑定角色 profile，旁白保持独立，情绪与发音备注保存在逐句记录中。脚本修订后旧配音计划自动失效，Web 项目卡片及 `/api/novel-anime/projects/<id>/voice-profiles` 显示角色与台词覆盖。
+
 ## Environment
 
 Pinned local tool versions:

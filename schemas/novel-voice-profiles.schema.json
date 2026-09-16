@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://videocreator.local/schemas/novel-voice-profiles.schema.json",
+  "type": "object", "additionalProperties": false,
+  "required": ["schema_version", "project_id", "ip_id", "script_revision", "revision", "created_at", "updated_at", "profiles", "line_assignments"],
+  "properties": {"schema_version": {"const": 1}, "project_id": {"type": "string"}, "ip_id": {"type": "string"}, "script_revision": {"type": "integer", "minimum": 1}, "revision": {"type": "integer", "minimum": 1}, "created_at": {"type": "string", "format": "date-time"}, "updated_at": {"type": "string", "format": "date-time"}, "profiles": {"type": "array", "items": {"$ref": "#/$defs/profile"}}, "line_assignments": {"type": "array", "items": {"$ref": "#/$defs/line"}}},
+  "$defs": {
+    "review": {"type": "object", "additionalProperties": false, "required": ["required", "status", "reviewed_at", "reviewed_by", "note"], "properties": {"required": {"const": true}, "status": {"enum": ["PENDING", "APPROVED", "CHANGES_REQUESTED"]}, "reviewed_at": {"type": ["string", "null"]}, "reviewed_by": {"type": ["string", "null"]}, "note": {"type": "string"}}},
+    "profile": {"type": "object", "additionalProperties": false, "required": ["id", "character_id", "language", "gender", "age_range", "timbre", "pitch", "speed", "provider", "voice_id", "status", "human_review"], "properties": {"id": {"type": "string", "pattern": "^VOICE-[A-Z0-9-]+$"}, "character_id": {"type": "string"}, "language": {"type": "string"}, "gender": {"type": "string"}, "age_range": {"type": "string"}, "timbre": {"type": "string"}, "pitch": {"type": "string"}, "speed": {"type": "number", "exclusiveMinimum": 0}, "provider": {"enum": ["local", "openai", "custom"]}, "voice_id": {"type": "string"}, "status": {"enum": ["DRAFT", "READY"]}, "human_review": {"$ref": "#/$defs/review"}}},
+    "line": {"type": "object", "additionalProperties": false, "required": ["unit_id", "episode_id", "kind", "speaker_character_id", "profile_id", "text", "emotion", "pronunciation_note", "status"], "properties": {"unit_id": {"type": "string"}, "episode_id": {"type": "string"}, "kind": {"enum": ["DIALOGUE", "NARRATION"]}, "speaker_character_id": {"type": ["string", "null"]}, "profile_id": {"type": ["string", "null"]}, "text": {"type": "string"}, "emotion": {"type": "string"}, "pronunciation_note": {"type": "string"}, "status": {"enum": ["PLANNED", "READY"]}}}
+  }
+}

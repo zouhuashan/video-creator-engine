@@ -2340,7 +2340,7 @@ P18 架构与数据底座
 # 41. 当前方向与下一任务
 
 ```text
-NEXT: P23-01 角色 voice profile、逐句对白、旁白、情绪与发音版本
+NEXT: P23-02 音乐、环境声、动作音效、来源授权、混音、响度和声画同步
 ```
 
 任务：
@@ -2530,6 +2530,12 @@ P22-04 执行记录（2026-09-16）：
 - 实际《镜花缘》项目已创建并验证 `animatic/review.json`：11 个阻断项，准确反映当前 0 镜头、0 音频、0 字幕的空骨架，没有把技术结构误判为可审片成品。
 - Web 项目卡片新增 Animatic 审核摘要，并新增 Animatic Review API；2 项专项测试、Web 回归通过，P22 分镜与 Animatic 阶段完成，下一步进入 P23 音频制作。
 
+P23-01 执行记录（2026-09-16）：
+- 新增 `schemas/novel-voice-profiles.schema.json` 与 `scripts/novel_voice_profiles.py`，建立角色音色 profile、Provider/voice ID、音高、语速、逐句对白/旁白、情绪与发音备注。
+- 每个正式角色必须有唯一 voice profile；对白必须绑定对应角色，旁白不能误绑角色；脚本修订后旧配音计划自动失效。
+- 实际《镜花缘》项目已创建并验证 `audio/voice-profiles.json`；当前角色和对白仍为 0，因此保持空的本地配音计划，不调用远程 TTS。
+- Web 项目卡片新增配音角色/台词摘要，并新增 Voice Profiles API；2 项专项测试、Web 回归通过，下一步进入音乐、环境声、动作音效和混音计划。
+
 ### P22 分镜与 Animatic
 
 状态：TODO
@@ -2543,7 +2549,7 @@ P22-04 执行记录（2026-09-16）：
 
 状态：TODO
 
-- 角色 voice profile、逐句对白、旁白、情绪与发音版本。
+- P23-01：PASS。角色 voice profile、逐句对白、旁白、情绪与发音版本。
 - 音乐、环境声、动作音效、来源授权、混音、响度和声画同步。
 
 ### P24 动态镜头
