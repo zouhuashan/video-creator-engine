@@ -23,6 +23,7 @@ if str(ROOT) not in sys.path:
 
 from scripts.novel_anime_project import NovelAnimeProjectError, load_project, utc_timestamp  # noqa: E402
 from scripts.novel_anime_repository import NovelAnimeRepository, NovelAnimeRepositoryError  # noqa: E402
+from scripts.novel_source_catalog import CATALOG_RELATIVE_PATH, NovelSourceCatalogError, load_catalog  # noqa: E402
 
 
 RUNTIME_SCHEMA_VERSION = 1
@@ -324,6 +325,13 @@ class NovelAnimeRuntime:
         reason = reason.strip()
         if to_status not in STATE_SEQUENCE or not reason:
             raise NovelAnimeRuntimeError("transition status or reason is invalid")
+        if to_status == "SOURCE_READY":
+            try:
+                catalog = load_catalog(self.project_dir / CATALOG_RELATIVE_PATH)
+            except NovelSourceCatalogError as error:
+                raise NovelAnimeRuntimeError(f"SOURCE_READY requires a valid source catalog: {error}") from error
+            if catalog["adaptation_policy"]["script_adaptation_allowed"] is not True or catalog["rights_assessment"]["human_review"]["status"] != "APPROVED":
+                raise NovelAnimeRuntimeError("SOURCE_READY requires approved source rights and script adaptation permission")
         now = utc_timestamp()
         with self._connect() as connection:
             row = connection.execute("SELECT * FROM entities WHERE entity_id = ?", (target_id,)).fetchone()
@@ -512,7 +520,7 @@ def main() -> int:
             result = runtime.queue_rerun(args.root, args.reason)
         else:
             result = runtime.migrate_legacy_pilot(args.source)
-    except (NovelAnimeProjectError, NovelAnimeRepositoryError, NovelAnimeRuntimeError, OSError, sqlite3.DatabaseError, json.JSONDecodeError) as error:
+    except (NovelAnimeProjectError, NovelAnimeRepositoryError, NovelAnimeRuntimeError, NovelSourceCatalogError, OSError, sqlite3.DatabaseError, json.JSONDecodeError) as error:
         print(f"novel_anime_runtime: {error}", file=sys.stderr)
         return 1
     print(json.dumps({"status": "PASS", "result": result}, ensure_ascii=False))

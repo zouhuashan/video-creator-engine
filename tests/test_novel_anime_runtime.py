@@ -5,6 +5,7 @@ from pathlib import Path
 from scripts.novel_anime_project import build_project, write_project
 from scripts.novel_anime_repository import NovelAnimeRepository
 from scripts.novel_anime_runtime import NovelAnimeRuntime, NovelAnimeRuntimeError
+from scripts.novel_source_catalog import build_catalog, write_catalog
 
 
 class NovelAnimeRuntimeTests(unittest.TestCase):
@@ -74,6 +75,18 @@ class NovelAnimeRuntimeTests(unittest.TestCase):
     def test_state_transition_requires_matching_approved_gate(self):
         with tempfile.TemporaryDirectory() as directory:
             runtime = self.make_runtime(Path(directory))
+            with self.assertRaisesRegex(NovelAnimeRuntimeError, "source catalog"):
+                runtime.transition("IP-JHY", "SOURCE_READY", "source checked")
+            catalog = build_catalog("jinghua-yuan-series", "IP-JHY", "镜花缘")
+            catalog["status"] = "LICENSED"
+            catalog["rights_assessment"].update({
+                "status": "LICENSED", "basis": "runtime test license", "jurisdictions": ["test"],
+                "territories": ["CN"], "publication_allowed": True,
+                "human_review": {"required": True, "status": "APPROVED", "reviewed_at": "2026-09-16T00:00:00Z", "reviewed_by": "reviewer", "note": "test fixture"},
+                "evidence": [{"id": "EVD-JHY-001", "type": "license", "title": "test license", "url": "https://example.org/license", "accessed_at": "2026-09-16", "note": "test fixture"}],
+            })
+            catalog["adaptation_policy"].update({"script_adaptation_allowed": True, "publication_allowed": True})
+            write_catalog(runtime.project_dir, catalog)
             with self.assertRaisesRegex(NovelAnimeRuntimeError, "source_rights"):
                 runtime.transition("IP-JHY", "SOURCE_READY", "source checked")
             runtime.record_review("IP-JHY", "source_rights", "APPROVED", "human-reviewer", "local test approval")

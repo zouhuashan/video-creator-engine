@@ -1,0 +1,145 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://videocreator.local/schemas/novel-source-catalog.schema.json",
+  "title": "VideoCreator Novel Source Catalog",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "project_id", "ip_id", "title", "revision", "status", "created_at", "updated_at", "target_regions", "rights_assessment", "adaptation_policy", "editions", "chapters", "locators"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "project_id": {"type": "string", "minLength": 1},
+    "ip_id": {"type": "string", "pattern": "^IP-[A-Z0-9]{2,12}$"},
+    "title": {"type": "string", "minLength": 1},
+    "revision": {"type": "integer", "minimum": 1},
+    "status": {"$ref": "#/$defs/rights_status"},
+    "created_at": {"type": "string", "format": "date-time"},
+    "updated_at": {"type": "string", "format": "date-time"},
+    "target_regions": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^[A-Z]{2}$"}},
+    "rights_assessment": {"$ref": "#/$defs/rights_assessment"},
+    "adaptation_policy": {"$ref": "#/$defs/adaptation_policy"},
+    "editions": {"type": "array", "items": {"$ref": "#/$defs/edition"}},
+    "chapters": {"type": "array", "items": {"$ref": "#/$defs/chapter"}},
+    "locators": {"type": "array", "items": {"$ref": "#/$defs/locator"}}
+  },
+  "$defs": {
+    "rights_status": {"type": "string", "enum": ["UNASSESSED", "RESEARCHING", "PUBLIC_DOMAIN_VERIFIED", "LICENSED", "BLOCKED"]},
+    "human_review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required", "status", "reviewed_at", "reviewed_by", "note"],
+      "properties": {
+        "required": {"const": true},
+        "status": {"type": "string", "enum": ["PENDING", "APPROVED", "CHANGES_REQUESTED"]},
+        "reviewed_at": {"type": ["string", "null"], "format": "date-time"},
+        "reviewed_by": {"type": ["string", "null"]},
+        "note": {"type": "string"}
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "title", "url", "accessed_at", "note"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^EVD-[A-Z0-9]{2,12}-[0-9]{3}$"},
+        "type": {"type": "string", "enum": ["author_death_record", "publication_record", "statute", "license", "institution_catalog", "scan"]},
+        "title": {"type": "string", "minLength": 1},
+        "url": {"type": "string", "format": "uri"},
+        "accessed_at": {"type": "string", "format": "date"},
+        "note": {"type": "string"}
+      }
+    },
+    "rights_assessment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "basis", "jurisdictions", "territories", "evidence", "publication_allowed", "human_review"],
+      "properties": {
+        "status": {"$ref": "#/$defs/rights_status"},
+        "basis": {"type": "string"},
+        "jurisdictions": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "territories": {"type": "array", "items": {"type": "string", "pattern": "^[A-Z]{2}$"}, "uniqueItems": true},
+        "evidence": {"type": "array", "items": {"$ref": "#/$defs/evidence"}},
+        "publication_allowed": {"type": "boolean"},
+        "human_review": {"$ref": "#/$defs/human_review"}
+      }
+    },
+    "adaptation_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["local_technical_test_allowed", "script_adaptation_allowed", "publication_allowed", "allowed_transformations", "forbidden_material", "requires_human_review"],
+      "properties": {
+        "local_technical_test_allowed": {"type": "boolean"},
+        "script_adaptation_allowed": {"type": "boolean"},
+        "publication_allowed": {"type": "boolean"},
+        "allowed_transformations": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "forbidden_material": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "requires_human_review": {"const": true}
+      }
+    },
+    "modern_contribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "rights_status", "note"],
+      "properties": {
+        "type": {"type": "string", "enum": ["annotation", "translation", "illustration", "layout", "preface", "typesetting"]},
+        "rights_status": {"type": "string", "enum": ["NOT_PRESENT", "UNASSESSED", "PUBLIC_DOMAIN_VERIFIED", "LICENSED", "EXCLUDED"]},
+        "note": {"type": "string"}
+      }
+    },
+    "edition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "edition_label", "author", "language", "publication_year", "publisher", "source_url", "file_checksum", "rights_status", "chapter_ids", "modern_contributions"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^SRC-[A-Z0-9]{2,12}-[0-9]{3}$"},
+        "title": {"type": "string", "minLength": 1},
+        "edition_label": {"type": "string", "minLength": 1},
+        "author": {"type": "string", "minLength": 1},
+        "language": {"type": "string", "minLength": 1},
+        "publication_year": {"type": ["integer", "null"], "minimum": 1, "maximum": 9999},
+        "publisher": {"type": ["string", "null"]},
+        "source_url": {"type": "string", "format": "uri"},
+        "file_checksum": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
+        "rights_status": {"$ref": "#/$defs/rights_status"},
+        "chapter_ids": {"type": "array", "items": {"type": "string", "pattern": "^CH-[A-Z0-9]{2,12}-[0-9]{4}$"}, "uniqueItems": true},
+        "modern_contributions": {"type": "array", "items": {"$ref": "#/$defs/modern_contribution"}}
+      }
+    },
+    "chapter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "edition_id", "sequence", "title", "volume", "locator_ids"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^CH-[A-Z0-9]{2,12}-[0-9]{4}$"},
+        "edition_id": {"type": "string", "pattern": "^SRC-[A-Z0-9]{2,12}-[0-9]{3}$"},
+        "sequence": {"type": "integer", "minimum": 1},
+        "title": {"type": "string", "minLength": 1},
+        "volume": {"type": ["string", "null"]},
+        "locator_ids": {"type": "array", "items": {"type": "string", "pattern": "^LOC-[A-Z0-9]{2,12}-[0-9]{4}$"}, "uniqueItems": true}
+      }
+    },
+    "locator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "chapter_id", "source_url", "location", "excerpt_sha256", "text_storage_allowed"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^LOC-[A-Z0-9]{2,12}-[0-9]{4}$"},
+        "chapter_id": {"type": "string", "pattern": "^CH-[A-Z0-9]{2,12}-[0-9]{4}$"},
+        "source_url": {"type": "string", "format": "uri"},
+        "location": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["page_start", "page_end", "paragraph_start", "paragraph_end", "label"],
+          "properties": {
+            "page_start": {"type": ["integer", "null"], "minimum": 1},
+            "page_end": {"type": ["integer", "null"], "minimum": 1},
+            "paragraph_start": {"type": ["integer", "null"], "minimum": 1},
+            "paragraph_end": {"type": ["integer", "null"], "minimum": 1},
+            "label": {"type": "string"}
+          }
+        },
+        "excerpt_sha256": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
+        "text_storage_allowed": {"const": false}
+      }
+    }
+  }
+}

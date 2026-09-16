@@ -38,6 +38,7 @@ from scripts.local_storyboard_pipeline import LocalStoryboardError, run_local_st
 from scripts.novel_anime_project import MANIFEST_NAME as NOVEL_ANIME_MANIFEST, NovelAnimeProjectError, load_project as load_novel_anime_project  # noqa: E402
 from scripts.novel_anime_repository import NovelAnimeRepository, NovelAnimeRepositoryError, repository_stats  # noqa: E402
 from scripts.novel_anime_runtime import NovelAnimeRuntime, NovelAnimeRuntimeError, runtime_stats  # noqa: E402
+from scripts.novel_source_catalog import CATALOG_RELATIVE_PATH, NovelSourceCatalogError, load_catalog  # noqa: E402
 
 
 PROVIDER_TYPES = {
@@ -141,8 +142,28 @@ def _novel_anime_projects(projects_root: Path = PROJECTS_ROOT) -> list[dict[str,
             "episode_ids": [episode["id"] for episode in project["episodes"]],
             "repository": repository_stats(manifest.parent),
             "runtime": runtime_stats(manifest.parent),
+            "source_catalog": _source_catalog_summary(manifest.parent),
         })
     return projects
+
+
+def _source_catalog_summary(project: Path) -> dict[str, object] | None:
+    path = project / CATALOG_RELATIVE_PATH
+    if not path.is_file():
+        return None
+    try:
+        catalog = load_catalog(path)
+    except NovelSourceCatalogError:
+        return None
+    return {
+        "status": catalog["rights_assessment"]["status"],
+        "target_regions": catalog["target_regions"],
+        "edition_count": len(catalog["editions"]),
+        "chapter_count": len(catalog["chapters"]),
+        "locator_count": len(catalog["locators"]),
+        "script_adaptation_allowed": catalog["adaptation_policy"]["script_adaptation_allowed"],
+        "publication_allowed": catalog["rights_assessment"]["publication_allowed"],
+    }
 
 
 def _provider_status() -> list[dict[str, object]]:
@@ -180,6 +201,17 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
             return self._json({"projects": self._projects()})
         if parsed.path == "/api/novel-anime/projects":
             return self._json({"projects": _novel_anime_projects()})
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/sources", parsed.path)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                path = project / CATALOG_RELATIVE_PATH
+                if not path.is_file():
+                    raise ValueError("novel source catalog not found")
+                catalog = load_catalog(path)
+            except (ValueError, NovelSourceCatalogError) as error:
+                return self._error(HTTPStatus.NOT_FOUND, str(error))
+            return self._json(catalog)
         match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/repository", parsed.path)
         if match:
             try:

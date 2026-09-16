@@ -38,6 +38,15 @@ python3 scripts/novel_anime_runtime.py migrate-legacy projects/jinghua-yuan-seri
 
 任务队列使用实体锁防止同一目标并发写入，支持幂等提交、失败重试、取消和租约过期恢复。状态迁移必须按顺序并具有对应人工审核门；旧五集迁移后只登记为 `publication_allowed=false` 的参考资产。
 
+创建和校验底本、章节定位与权利目录：
+
+```bash
+python3 scripts/novel_source_catalog.py create projects/jinghua-yuan-series --region CN
+python3 scripts/novel_source_catalog.py validate projects/jinghua-yuan-series/sources/source-catalog.json
+```
+
+新目录默认 `UNASSESSED`，只允许本地技术测试，禁止正式剧本改编和发布。只有指定底本、目标地区、来源证据、现代校注/插图处理和人工审核同时通过，才允许进入 `SOURCE_READY`。
+
 ## Environment
 
 Pinned local tool versions:
