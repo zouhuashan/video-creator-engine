@@ -1805,7 +1805,7 @@ follows
 - 起点官方荣誉页取得 2026-06 至 2026-08 连续三期《夜无疆》月票名次；番茄仅有 09-14、09-15 两个不同细分路由的日榜页面；晋江只取得当前 09 月古代言情月榜，未找到此前同口径月榜归档。三平台连续榜单要求未通过，跨期稳定性不作结论，P17-03 保持 IN_PROGRESS。
 - 题材匹配分是编辑优先级启发式，不是热度预测或法律结论；短名单始终标记 `production_allowed=false`、`publication_allowed=false`。
 - 新增 P17-03 专项测试 6 项；全量测试结果与下一步记录见本次执行日志。
-- 验证：Provider 接入前全量测试 190 项通过；接入后全量测试 200 项通过；`scripts/check-env.sh` 与 `python3 scripts/publish_policy.py audit` 均通过。
+- 验证：Provider 接入前全量测试 190 项通过；Web 控制台首版接入后 205 项通过；`scripts/check-env.sh` 与 `python3 scripts/publish_policy.py audit` 均通过。
 - Git commit：`61e539c`（公版原作与热门题材匹配框架及证据短名单）。
 
 本地试制执行记录（2026-09-16）：
@@ -1819,7 +1819,7 @@ follows
 - 用户要求优先使用 OpenAI 视频能力，同时保留 Runway 与 Wan 作为后续可替换的收费 Provider；新增 `OpenAISoraVideo`（`sora-2`/`sora-2-pro`）和 `WanImageToVideo`（fal.ai Wan 2.1）适配器，统一支持单张参考图、提示词、任务轮询和 MP4 下载。三类远程 Provider 都只在显式提供对应密钥时上传素材；没有密钥时会在本地失败并保持零调用。
 - `scripts/video_generate.py` 已支持 `local_ken_burns`、`openai_sora`、`runway`、`wan` 四条路由，并将提示词与模型参数传入 Provider；本地三场景动态分镜回归成功，OpenAI/Wan/Runway 的创建、轮询、下载链路使用模拟响应验证通过。
 - 用户补充要求整套系统提供 Web 端；新增依赖无关的本地控制台 `scripts/web_server.py` 与 `web/` 静态前端。页面可选择项目、预览角色/场景图、切换 Provider、填写镜头描述、显式确认远程计费调用并预览生成 MP4；接口复用同一组 Provider，不读取或回显密钥，也不提供发布动作。
-- Web 端已通过本地服务启动、`/api/health`、`/api/projects`、本地生成 POST 和媒体预览接口检查；前端 JavaScript 语法检查通过。
+- Web 端已通过本地服务启动、`/api/health`、`/api/projects`、本地生成 POST 和媒体预览接口检查；前端 JavaScript 语法检查通过。根据使用反馈，左侧菜单已改为真正的工作台/项目资产/Provider 设置视图，Provider 设置页支持把密钥临时写入当前服务进程内存并只返回配置状态，绝不落盘或回显密钥。
 - OpenAI 官方 API 文档当前仍列出 `sora-2` 与 `sora-2-pro`，但 Videos API 页面标记为 Deprecated，并计划于 2026-09-24 永久关闭；因此本阶段只把它作为短期试制 Provider，核心流程保持可替换。
 - 试制说明和音频台词见 `projects/jinghua-yuan-local-pilot/README.md`。所有素材只用于本地验证；未完成指定古籍版本的权利核验，也没有公开发布。
 - 两个 MP4 均可完整解码，动态分镜抽帧检查通过；本地故事连续性子目标完成。视频 Provider 接入与本地回退链路完成，P17-03 总状态保持 IN_PROGRESS，原榜单连续快照和权利证据研究按当前方向暂缓。

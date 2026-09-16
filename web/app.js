@@ -1,4 +1,4 @@
-const state = { projects: [], project: null, providers: [], selectedProvider: 'local_ken_burns', selectedImage: null };
+const state = { projects: [], project: null, providers: [], selectedProvider: 'local_ken_burns', selectedImage: null, currentView: 'workspace' };
 
 const $ = (selector) => document.querySelector(selector);
 const escapeHtml = (value) => String(value).replace(/[&<>'"]/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
@@ -19,7 +19,7 @@ async function api(path, options = {}) {
 }
 
 function renderStats() {
-  $('#statProject').textContent = state.project?.name || '—';
+  $('#statProject').textContent = state.project?.name || state.project?.id || '—';
   $('#statProjectHint').textContent = state.project ? '本地试制项目' : '等待载入';
   $('#statAssets').textContent = state.project ? state.project.files.filter((file) => file.kind === 'image').length : '—';
   $('#statProviders').textContent = state.providers.filter((provider) => provider.configured).length + ' / ' + state.providers.length;
@@ -42,6 +42,52 @@ function renderProviders() {
   }));
 }
 
+function renderProviderSettings() {
+  const remoteProviders = state.providers.filter((provider) => provider.remote);
+  $('#providerSettings').innerHTML = remoteProviders.map((provider) => {
+    const ready = provider.configured;
+    const status = ready ? (provider.source === 'session' ? '本次服务已配置' : '环境变量已配置') : '尚未配置';
+    return `<div class="provider-setting"><div class="provider-setting-head"><div><strong>${escapeHtml(provider.label)}</strong><small>环境变量：${escapeHtml(provider.env)} · 输入后只保存在当前服务进程内</small></div><span class="key-status${ready ? ' ready' : ''}">● ${escapeHtml(status)}</span></div><div class="key-form"><input type="password" autocomplete="off" data-key-input="${escapeHtml(provider.id)}" placeholder="粘贴 ${escapeHtml(provider.label)} API Key"><button data-save-key="${escapeHtml(provider.id)}">保存密钥</button></div></div>`;
+  }).join('');
+  document.querySelectorAll('[data-save-key]').forEach((button) => button.addEventListener('click', async () => {
+    const providerId = button.dataset.saveKey;
+    const input = document.querySelector(`[data-key-input="${providerId}"]`);
+    button.disabled = true;
+    try {
+      const result = await api('/api/settings/keys', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: providerId, key: input.value }) });
+      const provider = state.providers.find((item) => item.id === providerId);
+      if (provider) { provider.configured = result.configured; provider.source = result.source; }
+      input.value = '';
+      renderProviderSettings();
+      renderProviders();
+      renderStats();
+      log(`${provider?.label || providerId} 密钥已更新（仅当前服务进程）`);
+    } catch (error) { log(error.message, true); }
+    finally { button.disabled = false; }
+  }));
+}
+
+function renderProjectTable() {
+  $('#projectLibraryCount').textContent = `${state.projects.length} 个项目`;
+  $('#projectTable').innerHTML = state.projects.map((project) => `<div class="project-row"><strong>${escapeHtml(project.name)}</strong><small>${project.media_count} 个媒体文件</small><small>${project.id === state.project?.id ? '当前打开' : '可切换'}</small><button data-open-project="${escapeHtml(project.id)}">打开项目</button></div>`).join('');
+  document.querySelectorAll('[data-open-project]').forEach((button) => button.addEventListener('click', async () => {
+    const projectId = button.dataset.openProject;
+    $('#projectSelect').value = projectId;
+    try { await loadProject(projectId); setView('workspace'); log(`已打开项目：${projectId}`); } catch (error) { log(error.message, true); }
+  }));
+}
+
+function setView(view) {
+  state.currentView = view;
+  document.querySelectorAll('.nav-item').forEach((nav) => nav.classList.toggle('active', nav.dataset.view === view));
+  ['workspace', 'projects', 'providers'].forEach((name) => $(`#${name}View`).classList.toggle('hidden', name !== view));
+  $('#outputPanel').classList.toggle('hidden', view !== 'workspace');
+  $('#logPanel')?.classList.toggle('hidden', view !== 'workspace');
+  if (view === 'projects') renderProjectTable();
+  if (view === 'providers') renderProviderSettings();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 function renderAssets() {
   const images = (state.project?.files || []).filter((file) => file.kind === 'image');
   $('#imageCount').textContent = `${images.length} 张图片`;
@@ -62,10 +108,12 @@ function updateGenerateButton() {
 
 async function loadProject(projectId) {
   state.project = await api(`/api/projects/${encodeURIComponent(projectId)}`);
+  $('#projectSelect').value = state.project.id;
   renderStats();
   renderAssets();
   $('#projectTitle').textContent = state.project.id === 'jinghua-yuan-local-pilot' ? '《镜花缘》·唐小山试制' : state.project.id;
   $('#projectDescription').textContent = state.project.id === 'jinghua-yuan-local-pilot' ? '角色、场景、连续剧情与动态镜头的本地验证项目。' : 'VideoCreator Engine 项目资产。';
+  if ($('#projectTable')) renderProjectTable();
   updateGenerateButton();
 }
 
@@ -76,6 +124,8 @@ async function load() {
     state.providers = health.providers;
     $('#projectSelect').innerHTML = state.projects.map((project) => `<option value="${escapeHtml(project.id)}">${escapeHtml(project.name)}</option>`).join('');
     renderProviders();
+    renderProviderSettings();
+    renderProjectTable();
     if (state.projects.length) await loadProject(state.projects.find((project) => project.id === 'jinghua-yuan-local-pilot')?.id || state.projects[0].id);
     log(`已载入 ${state.projects.length} 个项目和 ${state.providers.length} 条 Provider 路线`);
   } catch (error) { log(error.message, true); }
@@ -107,11 +157,5 @@ $('#billableConfirm').addEventListener('change', updateGenerateButton);
 $('#generateButton').addEventListener('click', generate);
 $('#refreshButton').addEventListener('click', () => load());
 $('#clearLog').addEventListener('click', () => { $('#logList').innerHTML = ''; });
-document.querySelectorAll('.nav-item').forEach((item) => item.addEventListener('click', () => {
-  document.querySelectorAll('.nav-item').forEach((nav) => nav.classList.remove('active'));
-  item.classList.add('active');
-  if (item.dataset.view === 'workspace') window.scrollTo({ top: 0, behavior: 'smooth' });
-  if (item.dataset.view === 'projects') $('#projectSelect').focus();
-  if (item.dataset.view === 'providers') $('#providerGrid').scrollIntoView({ behavior: 'smooth', block: 'center' });
-}));
+document.querySelectorAll('.nav-item').forEach((item) => item.addEventListener('click', () => setView(item.dataset.view)));
 load();

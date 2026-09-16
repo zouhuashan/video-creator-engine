@@ -49,6 +49,9 @@ KEY_ENV = {
 }
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
 VIDEO_EXTENSIONS = {".mp4", ".webm", ".mov"}
+# Keys entered in the console live only for this server process.  They are
+# intentionally never written to disk, returned by the API, or put in logs.
+RUNTIME_KEYS: dict[str, str] = {}
 
 
 def _safe_project(project_id: str) -> Path:
@@ -92,8 +95,9 @@ def _provider_status() -> list[dict[str, object]]:
             "id": provider_id,
             "label": label,
             "remote": True,
-            "configured": bool(os.environ.get(env_name)),
+            "configured": bool(RUNTIME_KEYS.get(provider_id) or os.environ.get(env_name)),
             "env": env_name,
+            "source": "session" if RUNTIME_KEYS.get(provider_id) else ("environment" if os.environ.get(env_name) else "none"),
         })
     return status
 
@@ -133,7 +137,13 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
         return self._error(HTTPStatus.NOT_FOUND, "route not found")
 
     def do_POST(self) -> None:  # noqa: N802
-        if urlparse(self.path).path != "/api/generate":
+        route = urlparse(self.path).path
+        if route == "/api/settings/keys":
+            try:
+                return self._save_key()
+            except (ValueError, KeyError, TypeError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+        if route != "/api/generate":
             return self._error(HTTPStatus.NOT_FOUND, "route not found")
         try:
             payload = self._read_json()
@@ -183,8 +193,25 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
             prompt_text=str(payload.get("prompt") or ""),
             model=str(payload.get("model") or ("sora-2" if provider_id == "openai_sora" else "gen4.5")),
         )
-        result = PROVIDER_TYPES[provider_id]().generate(request)
+        provider_kwargs = {}
+        if provider_id in KEY_ENV and RUNTIME_KEYS.get(provider_id):
+            provider_kwargs["api_key"] = RUNTIME_KEYS[provider_id]
+        result = PROVIDER_TYPES[provider_id](**provider_kwargs).generate(request)
         return {"provider": result.provider, "task_id": result.task_id, "duration_seconds": result.duration_seconds, "output_path": _relative(project, result.output_path), "media_url": f"/media/{project.name}/{_relative(project, result.output_path)}"}
+
+    def _save_key(self) -> None:
+        payload = self._read_json()
+        provider_id = str(payload.get("provider") or "")
+        key = str(payload.get("key") or "").strip()
+        if provider_id not in KEY_ENV:
+            raise ValueError("only remote providers accept a key")
+        if key and (len(key) < 8 or len(key) > 512):
+            raise ValueError("key length must be between 8 and 512 characters")
+        if key:
+            RUNTIME_KEYS[provider_id] = key
+        else:
+            RUNTIME_KEYS.pop(provider_id, None)
+        self._json({"provider": provider_id, "configured": bool(key or os.environ.get(KEY_ENV[provider_id])), "source": "session" if key else ("environment" if os.environ.get(KEY_ENV[provider_id]) else "none")})
 
     def _read_json(self) -> dict[str, object]:
         try:

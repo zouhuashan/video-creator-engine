@@ -1,5 +1,8 @@
 import os
 import unittest
+import json
+import threading
+import urllib.request
 
 import scripts.web_server as web_server
 
@@ -32,6 +35,23 @@ class WebServerTests(unittest.TestCase):
         self.assertTrue((web_server.WEB_ROOT / "index.html").is_file())
         self.assertTrue((web_server.WEB_ROOT / "app.js").is_file())
         self.assertTrue((web_server.WEB_ROOT / "styles.css").is_file())
+
+    def test_key_settings_endpoint_returns_status_without_secret(self):
+        web_server.RUNTIME_KEYS.pop("openai_sora", None)
+        server = web_server.ThreadingHTTPServer(("127.0.0.1", 0), web_server.VideoCreatorHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            url = f"http://127.0.0.1:{server.server_port}/api/settings/keys"
+            request = urllib.request.Request(url, data=json.dumps({"provider": "openai_sora", "key": "test-key-123456"}).encode(), method="POST", headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(request) as response:
+                result = json.loads(response.read().decode())
+            self.assertEqual(result, {"provider": "openai_sora", "configured": True, "source": "session"})
+            self.assertNotIn("test-key-123456", json.dumps(result))
+        finally:
+            web_server.RUNTIME_KEYS.pop("openai_sora", None)
+            server.shutdown()
+            server.server_close()
 
 
 if __name__ == "__main__":

@@ -178,7 +178,7 @@ The same adapters are available through a dependency-free local web console. Sta
 python3 scripts/web_server.py --port 8765
 ```
 
-Open `http://127.0.0.1:8765`. The console lists projects and local reference frames, shows which Provider keys are configured, requires an explicit confirmation before remote generation, and previews the generated MP4. It does not publish content or expose credential values.
+Open `http://127.0.0.1:8765`. The console lists projects and local reference frames, shows which Provider keys are configured, and the **生成 Provider** menu lets you enter a key for the current server session. Session keys are held in memory only; use `OPENAI_API_KEY`, `RUNWAY_API_KEY`, or `FAL_KEY` when persistent local configuration is preferred. Remote generation still requires an explicit confirmation, and the console previews the generated MP4 without publishing content.
 
 ## video-use editing core
 
