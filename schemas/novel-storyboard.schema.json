@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://videocreator.local/schemas/novel-storyboard.schema.json",
+  "type": "object", "additionalProperties": false,
+  "required": ["schema_version", "project_id", "ip_id", "shot_breakdown_revision", "asset_review_revision", "revision", "created_at", "updated_at", "frames"],
+  "properties": {"schema_version": {"const": 1}, "project_id": {"type": "string"}, "ip_id": {"type": "string"}, "shot_breakdown_revision": {"type": "integer", "minimum": 1}, "asset_review_revision": {"type": "integer", "minimum": 1}, "revision": {"type": "integer", "minimum": 1}, "created_at": {"type": "string", "format": "date-time"}, "updated_at": {"type": "string", "format": "date-time"}, "frames": {"type": "array", "items": {"$ref": "#/$defs/frame"}}},
+  "$defs": {
+    "frame": {"type": "object", "additionalProperties": false, "required": ["shot_id", "duration_seconds", "start", "end", "continuity_signature", "human_review"], "properties": {"shot_id": {"type": "string"}, "duration_seconds": {"type": "number", "exclusiveMinimum": 0}, "start": {"$ref": "#/$defs/keyframe"}, "end": {"$ref": "#/$defs/keyframe"}, "continuity_signature": {"type": "string", "pattern": "^[a-f0-9]{64}$"}, "human_review": {"$ref": "#/$defs/review"}}},
+    "keyframe": {"type": "object", "additionalProperties": false, "required": ["id", "status", "asset_id", "reference_ids", "state_signature", "note"], "properties": {"id": {"type": "string", "pattern": "^FRAME-[A-Z0-9-]+$"}, "status": {"enum": ["PLANNED", "SELECTED", "REJECTED"]}, "asset_id": {"type": ["string", "null"]}, "reference_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}, "state_signature": {"type": "string", "pattern": "^[a-f0-9]{64}$"}, "note": {"type": "string"}}},
+    "review": {"type": "object", "additionalProperties": false, "required": ["required", "status", "reviewed_at", "reviewed_by", "note"], "properties": {"required": {"const": true}, "status": {"enum": ["PENDING", "APPROVED", "CHANGES_REQUESTED"]}, "reviewed_at": {"type": ["string", "null"]}, "reviewed_by": {"type": ["string", "null"]}, "note": {"type": "string"}}}
+  }
+}

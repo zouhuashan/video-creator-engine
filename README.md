@@ -149,6 +149,15 @@ python3 scripts/novel_shot_breakdown.py validate projects/jinghua-yuan-series
 
 每个剧本场对应稳定的 Scene ID 和 Shot ID；镜头记录景别、角度、运动、焦段、时长、首状态、尾状态和参考包引用，并对首尾状态生成连续性签名。剧本或参考包修订后旧分镜会失效，Web 项目卡片及 `/api/novel-anime/projects/<id>/shot-breakdown` 显示场/镜头覆盖与审核进度。
 
+创建静态 storyboard 与首尾帧槽位：
+
+```bash
+python3 scripts/novel_storyboard.py create projects/jinghua-yuan-series
+python3 scripts/novel_storyboard.py validate projects/jinghua-yuan-series
+```
+
+每个 Shot 必须对应首帧和尾帧，帧槽位记录状态、资产、参考包、连续性状态签名和备注；Storyboard 时长必须与 Shot 一致，剧本或参考包修订后会自动失效。Web 项目卡片及 `/api/novel-anime/projects/<id>/storyboard` 显示首尾帧选择和审核进度。
+
 ## Environment
 
 Pinned local tool versions:
