@@ -170,6 +170,14 @@ python3 scripts/local_storyboard_pipeline.py projects/jinghua-yuan-local-pilot -
 
 This produces a 1080×1920 H.264/AAC MP4 without a network call. The local provider uses deterministic Ken Burns motion and crossfades; it validates story timing and audio/subtitle wiring, but it does not create new character movement.
 
+Render the first five connected 《镜花缘》 pilot episodes with the shared 唐小山 character, local Chinese voice, SRT captions, and local storyboard motion:
+
+```bash
+python3 scripts/jinghua_yuan_episode_batch.py projects/jinghua-yuan-local-pilot --episode-count 5
+```
+
+Each episode is written under `projects/jinghua-yuan-local-pilot/episodes/episode-01` through `episode-05` with `script.md`, `storyboard.md`, `assets/scenes/`, `voice/narration.wav`, `subtitles.srt`, `episode.json`, and `final.mp4`. The web console exposes the five manifests as clickable local preview cards. The narration is original pilot text and the files remain local review material until a human completes source, rights, and publication checks.
+
 Use OpenAI for an explicit image-to-video run after setting `OPENAI_API_KEY`:
 
 ```bash
@@ -186,7 +194,7 @@ The same adapters are available through a dependency-free local web console. Sta
 python3 scripts/web_server.py --port 8765
 ```
 
-Open `http://127.0.0.1:8765`. The console lists projects and local reference frames, shows which Provider keys are configured, and the **生成 Provider** menu lets you enter a key for the current server session. Session keys are held in memory only; use `OPENAI_API_KEY`, `RUNWAY_API_KEY`, or `FAL_KEY` when persistent local configuration is preferred. The workspace has both single-shot generation and **生成完整本地分镜** (three scenes plus local voice and captions); remote generation still requires an explicit confirmation, and the console previews the generated MP4 without publishing content.
+Open `http://127.0.0.1:8765`. The console lists projects and local reference frames, shows which Provider keys are configured, and the **生成 Provider** menu lets you enter a key for the current server session. Session keys are held in memory only; use `OPENAI_API_KEY`, `RUNWAY_API_KEY`, or `FAL_KEY` when persistent local configuration is preferred. The workspace has both single-shot generation and **生成完整本地分镜** (three scenes plus local voice and captions), plus clickable cards for the five rendered pilot episodes; remote generation still requires an explicit confirmation, and the console previews the generated MP4 without publishing content.
 
 ## video-use editing core
 

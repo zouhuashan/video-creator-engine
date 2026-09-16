@@ -101,6 +101,20 @@ function renderAssets() {
   document.querySelectorAll('.asset-card').forEach((button) => button.addEventListener('click', () => { state.selectedImage = button.dataset.image; renderAssets(); updateGenerateButton(); }));
 }
 
+function renderEpisodes() {
+  const episodes = state.project?.episodes || [];
+  $('#episodeCount').textContent = `${episodes.length} 集`;
+  if (!episodes.length) {
+    $('#episodeList').innerHTML = '<div class="empty-state">还没有本地试播集。</div>';
+    return;
+  }
+  $('#episodeList').innerHTML = episodes.map((episode) => `<button class="episode-card" data-episode-media="${escapeHtml(episode.media_url)}" data-episode-title="${escapeHtml(episode.episode_id + '｜' + episode.title)}"><span class="episode-index">${escapeHtml(episode.episode_id.replace('episode-', 'EP'))}</span><span><strong>${escapeHtml(episode.title)}</strong><small>本地分镜 · 配音 · 字幕</small></span><span class="episode-arrow">▶</span></button>`).join('');
+  document.querySelectorAll('[data-episode-media]').forEach((button) => button.addEventListener('click', () => {
+    showOutput(button.dataset.episodeMedia, 'local_ken_burns', button.dataset.episodeTitle, 8.5);
+    log(`已载入试播集：${button.dataset.episodeTitle}`);
+  }));
+}
+
 function updateGenerateButton() {
   const remote = state.providers.find((provider) => provider.id === state.selectedProvider)?.remote;
   $('#generateButton').disabled = !state.project || !state.selectedImage || (remote && !$('#billableConfirm').checked);
@@ -111,6 +125,7 @@ async function loadProject(projectId) {
   $('#projectSelect').value = state.project.id;
   renderStats();
   renderAssets();
+  renderEpisodes();
   $('#projectTitle').textContent = state.project.id === 'jinghua-yuan-local-pilot' ? '《镜花缘》·唐小山试制' : state.project.id;
   $('#projectDescription').textContent = state.project.id === 'jinghua-yuan-local-pilot' ? '角色、场景、连续剧情与动态镜头的本地验证项目。' : 'VideoCreator Engine 项目资产。';
   if ($('#projectTable')) renderProjectTable();

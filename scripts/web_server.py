@@ -88,6 +88,35 @@ def _media_files(project: Path) -> list[dict[str, str]]:
     return files
 
 
+def _episode_metadata(project: Path) -> list[dict[str, object]]:
+    """Expose locally rendered episode manifests without exposing filesystem paths."""
+    episodes = []
+    episode_root = project / "episodes"
+    if not episode_root.is_dir():
+        return episodes
+    for manifest in sorted(episode_root.glob("episode-*/episode.json")):
+        try:
+            data = json.loads(manifest.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(data, dict):
+            continue
+        output = str(data.get("output") or "")
+        output_path = (manifest.parent / output).resolve()
+        if project.resolve() not in output_path.parents or not output_path.is_file():
+            continue
+        relative = _relative(project, output_path)
+        episodes.append({
+            "episode_id": str(data.get("episode_id") or manifest.parent.name),
+            "title": str(data.get("title") or manifest.parent.name),
+            "status": str(data.get("status") or "LOCAL_REVIEW"),
+            "provider": str(data.get("provider") or "local_ken_burns"),
+            "output": relative,
+            "media_url": f"/media/{project.name}/{relative}",
+        })
+    return episodes
+
+
 def _provider_status() -> list[dict[str, object]]:
     status = [{"id": "local_ken_burns", "label": "本地动态分镜", "remote": False, "configured": True}]
     for provider_id, label in (("openai_sora", "OpenAI Sora"), ("runway", "Runway"), ("wan", "Wan 2.1")):
@@ -127,7 +156,7 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                 project = _safe_project(match.group(1))
             except ValueError as error:
                 return self._error(HTTPStatus.NOT_FOUND, str(error))
-            return self._json({"id": project.name, "files": _media_files(project), "providers": _provider_status()})
+            return self._json({"id": project.name, "files": _media_files(project), "episodes": _episode_metadata(project), "providers": _provider_status()})
         match = re.fullmatch(r"/media/([^/]+)/(.+)", parsed.path)
         if match:
             try:

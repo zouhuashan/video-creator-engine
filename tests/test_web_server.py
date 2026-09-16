@@ -31,6 +31,11 @@ class WebServerTests(unittest.TestCase):
         path = web_server._safe_project_file("jinghua-yuan-local-pilot", "assets/characters/tang-xiaoshan-portrait.png")
         self.assertTrue(path.is_file())
 
+    def test_project_detail_exposes_local_episode_manifests(self):
+        episodes = web_server._episode_metadata(web_server._safe_project("jinghua-yuan-local-pilot"))
+        self.assertEqual([episode["episode_id"] for episode in episodes], [f"episode-{index:02d}" for index in range(1, 6)])
+        self.assertTrue(all(str(episode["media_url"]).endswith("/final.mp4") for episode in episodes))
+
     def test_web_entrypoints_are_tracked_assets(self):
         self.assertTrue((web_server.WEB_ROOT / "index.html").is_file())
         self.assertTrue((web_server.WEB_ROOT / "app.js").is_file())
