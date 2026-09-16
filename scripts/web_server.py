@@ -39,6 +39,7 @@ from scripts.novel_anime_project import MANIFEST_NAME as NOVEL_ANIME_MANIFEST, N
 from scripts.novel_anime_repository import NovelAnimeRepository, NovelAnimeRepositoryError, repository_stats  # noqa: E402
 from scripts.novel_anime_runtime import NovelAnimeRuntime, NovelAnimeRuntimeError, runtime_stats  # noqa: E402
 from scripts.novel_source_catalog import CATALOG_RELATIVE_PATH, NovelSourceCatalogError, load_catalog  # noqa: E402
+from scripts.novel_story_bible import NovelStoryBibleError, continuity_input, load_bible, summary as story_bible_summary  # noqa: E402
 
 
 PROVIDER_TYPES = {
@@ -143,6 +144,7 @@ def _novel_anime_projects(projects_root: Path = PROJECTS_ROOT) -> list[dict[str,
             "repository": repository_stats(manifest.parent),
             "runtime": runtime_stats(manifest.parent),
             "source_catalog": _source_catalog_summary(manifest.parent),
+            "story_bible": story_bible_summary(manifest.parent),
         })
     return projects
 
@@ -257,6 +259,22 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
             except ValueError as error:
                 return self._error(HTTPStatus.NOT_FOUND, str(error))
             return self._json({"project_id": project.name, "imports": _source_import_summaries(project)})
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/story-bible", parsed.path)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                bible = load_bible(project)
+            except (ValueError, NovelStoryBibleError) as error:
+                return self._error(HTTPStatus.NOT_FOUND, str(error))
+            return self._json(bible)
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/continuity-input/(S\d{2}E\d{3})", parsed.path)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                result = continuity_input(project, match.group(2))
+            except (ValueError, NovelStoryBibleError) as error:
+                return self._error(HTTPStatus.NOT_FOUND, str(error))
+            return self._json(result)
         match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/repository", parsed.path)
         if match:
             try:

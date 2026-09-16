@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://videocreator.local/schemas/novel-story-bible.schema.json",
+  "title": "Novel anime story bible and continuity ledger",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "project_id", "ip_id", "revision", "created_at", "updated_at", "world", "characters", "relationships", "locations", "props", "rules", "timeline", "foreshadowing", "continuity_ledger"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "project_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,63}$"},
+    "ip_id": {"type": "string", "pattern": "^IP-[A-Z0-9]{2,12}$"},
+    "revision": {"type": "integer", "minimum": 1},
+    "created_at": {"type": "string", "format": "date-time"},
+    "updated_at": {"type": "string", "format": "date-time"},
+    "world": {"$ref": "#/$defs/world"},
+    "characters": {"type": "array", "items": {"$ref": "#/$defs/character"}},
+    "relationships": {"type": "array", "items": {"$ref": "#/$defs/relationship"}},
+    "locations": {"type": "array", "items": {"$ref": "#/$defs/location"}},
+    "props": {"type": "array", "items": {"$ref": "#/$defs/prop"}},
+    "rules": {"type": "array", "items": {"$ref": "#/$defs/rule"}},
+    "timeline": {"type": "array", "items": {"$ref": "#/$defs/timeline_event"}},
+    "foreshadowing": {"type": "array", "items": {"$ref": "#/$defs/foreshadowing"}},
+    "continuity_ledger": {"$ref": "#/$defs/ledger"}
+  },
+  "$defs": {
+    "review": {
+      "type": "object", "additionalProperties": false,
+      "required": ["required", "status", "reviewed_at", "reviewed_by", "note"],
+      "properties": {
+        "required": {"const": true},
+        "status": {"enum": ["PENDING", "APPROVED", "CHANGES_REQUESTED"]},
+        "reviewed_at": {"type": ["string", "null"]},
+        "reviewed_by": {"type": ["string", "null"]},
+        "note": {"type": "string", "maxLength": 2000}
+      }
+    },
+    "provenance": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "source_refs", "note"],
+      "properties": {
+        "kind": {"enum": ["UNSET", "SOURCE", "ORIGINAL"]},
+        "source_refs": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^(CH|LOC)-[A-Z0-9-]+$"}},
+        "note": {"type": "string", "maxLength": 2000}
+      },
+      "allOf": [
+        {"if": {"properties": {"kind": {"const": "SOURCE"}}}, "then": {"properties": {"source_refs": {"minItems": 1}}}},
+        {"if": {"properties": {"kind": {"const": "ORIGINAL"}}}, "then": {"properties": {"note": {"minLength": 1}}}}
+      ]
+    },
+    "world": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "status", "title", "premise", "era", "geography", "societies", "cosmology", "tone", "provenance", "human_review"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^WORLD-[A-Z0-9]{2,12}$"},
+        "status": {"enum": ["DRAFT", "READY"]},
+        "title": {"type": "string", "minLength": 1},
+        "premise": {"type": "string", "maxLength": 8000},
+        "era": {"type": "string", "maxLength": 1000},
+        "geography": {"type": "array", "items": {"type": "string"}},
+        "societies": {"type": "array", "items": {"type": "string"}},
+        "cosmology": {"type": "array", "items": {"type": "string"}},
+        "tone": {"type": "string", "maxLength": 2000},
+        "provenance": {"$ref": "#/$defs/provenance"},
+        "human_review": {"$ref": "#/$defs/review"}
+      }
+    },
+    "entity_base": {
+      "type": "object",
+      "required": ["name", "description", "provenance", "human_review"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "description": {"type": "string", "maxLength": 8000},
+        "provenance": {"$ref": "#/$defs/provenance"},
+        "human_review": {"$ref": "#/$defs/review"}
+      }
+    },
+    "character_state": {
+      "type": "object", "additionalProperties": false,
+      "required": ["location_id", "costume_id", "carried_prop_ids", "injuries", "knowledge", "emotional_state"],
+      "properties": {
+        "location_id": {"type": ["string", "null"], "pattern": "^LOCN-[A-Z0-9-]+$"},
+        "costume_id": {"type": ["string", "null"], "pattern": "^AST-[A-Z0-9-]+$"},
+        "carried_prop_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^PROP-[A-Z0-9-]+$"}},
+        "injuries": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "knowledge": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "emotional_state": {"type": "string", "maxLength": 1000}
+      }
+    },
+    "character": {
+      "allOf": [
+        {"$ref": "#/$defs/entity_base"},
+        {"type": "object", "additionalProperties": false,
+         "required": ["id", "name", "aliases", "role", "description", "goals", "traits", "baseline_state", "provenance", "human_review"],
+         "properties": {
+           "id": {"type": "string", "pattern": "^CHR-[A-Z0-9-]+$"}, "name": {}, "aliases": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+           "role": {"type": "string"}, "description": {}, "goals": {"type": "array", "items": {"type": "string"}}, "traits": {"type": "array", "items": {"type": "string"}},
+           "baseline_state": {"$ref": "#/$defs/character_state"}, "provenance": {}, "human_review": {}
+         }}
+      ]
+    },
+    "relationship": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "from_character_id", "to_character_id", "type", "status", "description", "provenance", "human_review"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^REL-[A-Z0-9-]+$"}, "from_character_id": {"type": "string", "pattern": "^CHR-[A-Z0-9-]+$"}, "to_character_id": {"type": "string", "pattern": "^CHR-[A-Z0-9-]+$"},
+        "type": {"type": "string", "minLength": 1}, "status": {"type": "string", "minLength": 1}, "description": {"type": "string"}, "provenance": {"$ref": "#/$defs/provenance"}, "human_review": {"$ref": "#/$defs/review"}
+      }
+    },
+    "location": {
+      "allOf": [{"$ref": "#/$defs/entity_base"}, {"type": "object", "additionalProperties": false, "required": ["id", "name", "description", "region", "visual_traits", "provenance", "human_review"], "properties": {"id": {"type": "string", "pattern": "^LOCN-[A-Z0-9-]+$"}, "name": {}, "description": {}, "region": {"type": "string"}, "visual_traits": {"type": "array", "items": {"type": "string"}}, "provenance": {}, "human_review": {}}}] 
+    },
+    "prop": {
+      "allOf": [{"$ref": "#/$defs/entity_base"}, {"type": "object", "additionalProperties": false, "required": ["id", "name", "description", "owner_character_id", "home_location_id", "story_function", "provenance", "human_review"], "properties": {"id": {"type": "string", "pattern": "^PROP-[A-Z0-9-]+$"}, "name": {}, "description": {}, "owner_character_id": {"type": ["string", "null"], "pattern": "^CHR-[A-Z0-9-]+$"}, "home_location_id": {"type": ["string", "null"], "pattern": "^LOCN-[A-Z0-9-]+$"}, "story_function": {"type": "string"}, "provenance": {}, "human_review": {}}}]
+    },
+    "rule": {
+      "type": "object", "additionalProperties": false, "required": ["id", "name", "description", "scope", "exceptions", "provenance", "human_review"],
+      "properties": {"id": {"type": "string", "pattern": "^RULE-[A-Z0-9-]+$"}, "name": {"type": "string", "minLength": 1}, "description": {"type": "string"}, "scope": {"type": "string"}, "exceptions": {"type": "array", "items": {"type": "string"}}, "provenance": {"$ref": "#/$defs/provenance"}, "human_review": {"$ref": "#/$defs/review"}}
+    },
+    "timeline_event": {
+      "type": "object", "additionalProperties": false, "required": ["id", "order", "label", "description", "character_ids", "location_id", "provenance", "human_review"],
+      "properties": {"id": {"type": "string", "pattern": "^TL-[A-Z0-9-]+$"}, "order": {"type": "integer", "minimum": 1}, "label": {"type": "string", "minLength": 1}, "description": {"type": "string"}, "character_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^CHR-[A-Z0-9-]+$"}}, "location_id": {"type": ["string", "null"], "pattern": "^LOCN-[A-Z0-9-]+$"}, "provenance": {"$ref": "#/$defs/provenance"}, "human_review": {"$ref": "#/$defs/review"}}
+    },
+    "foreshadowing": {
+      "type": "object", "additionalProperties": false, "required": ["id", "label", "setup_timeline_id", "status", "target_episode_id", "payoff_episode_id", "description", "provenance", "human_review"],
+      "properties": {"id": {"type": "string", "pattern": "^FSH-[A-Z0-9-]+$"}, "label": {"type": "string", "minLength": 1}, "setup_timeline_id": {"type": ["string", "null"], "pattern": "^TL-[A-Z0-9-]+$"}, "status": {"enum": ["PLANNED", "OPEN", "PAID_OFF", "DROPPED"]}, "target_episode_id": {"type": ["string", "null"], "pattern": "^S[0-9]{2}E[0-9]{3}$"}, "payoff_episode_id": {"type": ["string", "null"], "pattern": "^S[0-9]{2}E[0-9]{3}$"}, "description": {"type": "string"}, "provenance": {"$ref": "#/$defs/provenance"}, "human_review": {"$ref": "#/$defs/review"}}
+    },
+    "snapshot_character_state": {
+      "type": "object", "additionalProperties": false,
+      "required": ["character_id", "location_id", "costume_id", "carried_prop_ids", "injuries", "knowledge", "emotional_state"],
+      "properties": {
+        "character_id": {"type": "string", "pattern": "^CHR-[A-Z0-9-]+$"},
+        "location_id": {"type": ["string", "null"], "pattern": "^LOCN-[A-Z0-9-]+$"},
+        "costume_id": {"type": ["string", "null"], "pattern": "^AST-[A-Z0-9-]+$"},
+        "carried_prop_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^PROP-[A-Z0-9-]+$"}},
+        "injuries": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "knowledge": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "emotional_state": {"type": "string", "maxLength": 1000}
+      }
+    },
+    "ledger_snapshot": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "episode_id", "sequence", "prior_snapshot_id", "timeline_position_id", "character_states", "relationship_states", "prop_states", "open_foreshadowing_ids", "continuity_delta_ref", "human_review"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^CNT-S[0-9]{2}E[0-9]{3}-END$"}, "episode_id": {"type": ["string", "null"], "pattern": "^S[0-9]{2}E[0-9]{3}$"}, "sequence": {"type": "integer", "minimum": 0}, "prior_snapshot_id": {"type": ["string", "null"]}, "timeline_position_id": {"type": ["string", "null"]},
+        "character_states": {"type": "array", "items": {"$ref": "#/$defs/snapshot_character_state"}},
+        "relationship_states": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["relationship_id", "status", "note"], "properties": {"relationship_id": {"type": "string"}, "status": {"type": "string"}, "note": {"type": "string"}}}},
+        "prop_states": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["prop_id", "location_id", "holder_character_id", "condition"], "properties": {"prop_id": {"type": "string"}, "location_id": {"type": ["string", "null"]}, "holder_character_id": {"type": ["string", "null"]}, "condition": {"type": "string"}}}},
+        "open_foreshadowing_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}, "continuity_delta_ref": {"type": ["string", "null"]}, "human_review": {"$ref": "#/$defs/review"}
+      }
+    },
+    "ledger": {
+      "type": "object", "additionalProperties": false, "required": ["baseline_snapshot_id", "snapshots"],
+      "properties": {"baseline_snapshot_id": {"type": "string"}, "snapshots": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/ledger_snapshot"}}}
+    }
+  }
+}

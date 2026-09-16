@@ -11,6 +11,7 @@ from scripts.novel_anime_project import build_project, write_project
 from scripts.novel_anime_repository import NovelAnimeRepository
 from scripts.novel_anime_runtime import NovelAnimeRuntime
 from scripts.novel_source_catalog import build_catalog, write_catalog
+from scripts.novel_story_bible import build_bible, write_bible
 
 
 class WebServerTests(unittest.TestCase):
@@ -49,6 +50,7 @@ class WebServerTests(unittest.TestCase):
             NovelAnimeRepository(project_dir).initialize()
             NovelAnimeRuntime(project_dir).initialize()
             write_catalog(project_dir, build_catalog("jinghua-yuan-series", "IP-JHY", "镜花缘"))
+            write_bible(project_dir, build_bible(project_dir))
             imports_dir = project_dir / "sources" / "imports"
             imports_dir.mkdir(parents=True)
             (imports_dir / "test.json").write_text(json.dumps({
@@ -71,6 +73,8 @@ class WebServerTests(unittest.TestCase):
         self.assertEqual(projects[0]["source_catalog"]["test_import_count"], 1)
         self.assertEqual(projects[0]["source_catalog"]["event_candidates"], 2)
         self.assertFalse(projects[0]["source_catalog"]["full_text_stored"])
+        self.assertEqual(projects[0]["story_bible"]["world_status"], "DRAFT")
+        self.assertEqual(projects[0]["story_bible"]["continuity_snapshot_count"], 1)
 
     def test_web_entrypoints_are_tracked_assets(self):
         self.assertTrue((web_server.WEB_ROOT / "index.html").is_file())

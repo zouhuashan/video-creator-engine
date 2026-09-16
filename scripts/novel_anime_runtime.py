@@ -24,6 +24,7 @@ if str(ROOT) not in sys.path:
 from scripts.novel_anime_project import NovelAnimeProjectError, load_project, utc_timestamp  # noqa: E402
 from scripts.novel_anime_repository import NovelAnimeRepository, NovelAnimeRepositoryError  # noqa: E402
 from scripts.novel_source_catalog import CATALOG_RELATIVE_PATH, NovelSourceCatalogError, load_catalog  # noqa: E402
+from scripts.novel_story_bible import NovelStoryBibleError, readiness as story_bible_readiness  # noqa: E402
 
 
 RUNTIME_SCHEMA_VERSION = 1
@@ -332,6 +333,13 @@ class NovelAnimeRuntime:
                 raise NovelAnimeRuntimeError(f"SOURCE_READY requires a valid source catalog: {error}") from error
             if catalog["adaptation_policy"]["script_adaptation_allowed"] is not True or catalog["rights_assessment"]["human_review"]["status"] != "APPROVED":
                 raise NovelAnimeRuntimeError("SOURCE_READY requires approved source rights and script adaptation permission")
+        if to_status == "BIBLE_READY":
+            try:
+                bible_state = story_bible_readiness(self.project_dir)
+            except NovelStoryBibleError as error:
+                raise NovelAnimeRuntimeError(f"BIBLE_READY requires a valid story bible: {error}") from error
+            if not bible_state["ready"]:
+                raise NovelAnimeRuntimeError(f"BIBLE_READY is blocked: {'; '.join(bible_state['blockers'])}")
         now = utc_timestamp()
         with self._connect() as connection:
             row = connection.execute("SELECT * FROM entities WHERE entity_id = ?", (target_id,)).fetchone()

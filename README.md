@@ -55,6 +55,17 @@ python3 scripts/novel_source_ingest.py projects/jinghua-yuan-series --edition-id
 
 导入产物只保留文件与章节哈希、行号、提及次数和待人工确认的事件候选，不复制小说全文。`--test-only` 只用于合成文本技术测试，不会把章节写入正式底本目录或核心项目；《镜花缘》当前尚未登记核验底本，因此正式原文保持未导入。
 
+创建故事圣经、九类知识文件和连续性基线，并读取下一集写作所需的上一集结束状态：
+
+```bash
+python3 scripts/novel_story_bible.py create projects/jinghua-yuan-series
+python3 scripts/novel_story_bible.py validate projects/jinghua-yuan-series
+python3 scripts/novel_story_bible.py continuity-input projects/jinghua-yuan-series --episode-id S01E001
+python3 scripts/novel_story_bible.py record-snapshot projects/jinghua-yuan-series --snapshot-file /path/to/S01E001-end.json
+```
+
+人物、关系、地点、道具、规则、时间线和伏笔必须指向已登记章节/定位，或明确标记为原创增补并说明原因。连续性快照记录位置、服装、携带物、伤势、知识、关系、道具归属和未回收伏笔；后续单集若缺少上一集结束快照，系统会阻止继续写作。
+
 ## Environment
 
 Pinned local tool versions:

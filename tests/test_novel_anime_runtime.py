@@ -91,6 +91,9 @@ class NovelAnimeRuntimeTests(unittest.TestCase):
                 runtime.transition("IP-JHY", "SOURCE_READY", "source checked")
             runtime.record_review("IP-JHY", "source_rights", "APPROVED", "human-reviewer", "local test approval")
             transition = runtime.transition("IP-JHY", "SOURCE_READY", "source checked")
+            runtime.record_review("IP-JHY", "story_bible", "APPROVED", "human-reviewer", "local test approval")
+            with self.assertRaisesRegex(NovelAnimeRuntimeError, "valid story bible"):
+                runtime.transition("IP-JHY", "BIBLE_READY", "bible checked")
             with self.assertRaisesRegex(NovelAnimeRuntimeError, "expected BIBLE_READY"):
                 runtime.transition("IP-JHY", "WRITING_READY", "skip")
         self.assertEqual(transition["revision"], 2)
