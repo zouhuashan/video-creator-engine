@@ -203,6 +203,15 @@ python3 scripts/novel_dynamic_shots.py validate projects/jinghua-yuan-series
 
 每个 Shot 可选择本地运镜、图生视频、首尾帧、口型同步或人工导入，并记录 Provider、回退策略、队列重试、预算、上传授权和角色/动作审核。可计费或上传素材的任务必须显式确认；Web 项目卡片及 `/api/novel-anime/projects/<id>/dynamic-shots` 显示队列与预算。
 
+创建集级剪辑时间线和镜头级重渲染计划：
+
+```bash
+python3 scripts/novel_edit_timelines.py create projects/jinghua-yuan-series
+python3 scripts/novel_edit_timelines.py validate projects/jinghua-yuan-series
+```
+
+剪辑时间线固定引用动态镜头和混音修订，按集保存镜头片段、对白/Cue、字幕状态、DIALOGUE/MUSIC/AMBIENCE/SFX 音频总线、转场、特效和调色字段。只有镜头、字幕、输出文件和人工审核齐备时才能进入 READY；`rerender_jobs` 可按镜头替换或整集重渲染，并通过输入修订号阻止过期任务。Web 项目卡片及 `/api/novel-anime/projects/<id>/edit-timelines` 显示集数、就绪集、片段和重渲染任务。
+
 ## Environment
 
 Pinned local tool versions:

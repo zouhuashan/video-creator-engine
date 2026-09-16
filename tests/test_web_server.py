@@ -28,6 +28,7 @@ from scripts.novel_voice_profiles import build_voice_profiles, write_voice_profi
 from scripts.novel_audio_assets import build_audio_assets, write_audio_assets
 from scripts.novel_audio_mix import build_audio_mix, write_audio_mix
 from scripts.novel_dynamic_shots import build_dynamic_shots, write_dynamic_shots
+from scripts.novel_edit_timelines import build_edit_timelines, write_edit_timelines
 
 
 class WebServerTests(unittest.TestCase):
@@ -83,6 +84,7 @@ class WebServerTests(unittest.TestCase):
             write_audio_assets(project_dir, build_audio_assets(project_dir))
             write_audio_mix(project_dir, build_audio_mix(project_dir))
             write_dynamic_shots(project_dir, build_dynamic_shots(project_dir))
+            write_edit_timelines(project_dir, build_edit_timelines(project_dir))
             imports_dir = project_dir / "sources" / "imports"
             imports_dir.mkdir(parents=True)
             (imports_dir / "test.json").write_text(json.dumps({
@@ -130,6 +132,7 @@ class WebServerTests(unittest.TestCase):
         self.assertEqual(projects[0]["audio_assets"]["track_count"], 0)
         self.assertEqual(projects[0]["audio_mix"]["episode_count"], 5)
         self.assertEqual(projects[0]["dynamic_shots"]["shot_count"], 0)
+        self.assertEqual(projects[0]["edit_timelines"]["episode_count"], 5)
 
     def test_web_entrypoints_are_tracked_assets(self):
         self.assertTrue((web_server.WEB_ROOT / "index.html").is_file())

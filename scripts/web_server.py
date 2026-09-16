@@ -56,6 +56,7 @@ from scripts.novel_voice_profiles import NovelVoiceProfileError, load_voice_prof
 from scripts.novel_audio_assets import NovelAudioAssetError, load_audio_assets, summary as audio_asset_summary  # noqa: E402
 from scripts.novel_audio_mix import NovelAudioMixError, load_audio_mix, summary as audio_mix_summary  # noqa: E402
 from scripts.novel_dynamic_shots import NovelDynamicShotError, load_dynamic_shots, summary as dynamic_shot_summary  # noqa: E402
+from scripts.novel_edit_timelines import NovelEditTimelineError, load_edit_timelines, summary as edit_timeline_summary  # noqa: E402
 
 
 PROVIDER_TYPES = {
@@ -177,6 +178,7 @@ def _novel_anime_projects(projects_root: Path = PROJECTS_ROOT) -> list[dict[str,
             "audio_assets": audio_asset_summary(manifest.parent),
             "audio_mix": audio_mix_summary(manifest.parent),
             "dynamic_shots": dynamic_shot_summary(manifest.parent),
+            "edit_timelines": edit_timeline_summary(manifest.parent),
         })
     return projects
 
@@ -433,6 +435,14 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                 project = _safe_project(match.group(1))
                 result = load_dynamic_shots(project)
             except (ValueError, NovelDynamicShotError) as error:
+                return self._error(HTTPStatus.NOT_FOUND, str(error))
+            return self._json(result)
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/edit-timelines", parsed.path)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                result = load_edit_timelines(project)
+            except (ValueError, NovelEditTimelineError) as error:
                 return self._error(HTTPStatus.NOT_FOUND, str(error))
             return self._json(result)
         match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/repository", parsed.path)
