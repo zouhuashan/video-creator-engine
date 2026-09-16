@@ -2340,7 +2340,7 @@ P18 架构与数据底座
 # 41. 当前方向与下一任务
 
 ```text
-NEXT: P18-01 小说 IP 国风动漫核心数据模型
+NEXT: P18-02 小说国漫资产注册表、版本与依赖影响
 ```
 
 任务：
@@ -2369,11 +2369,17 @@ P18 架构与数据底座
 
 状态：TODO
 
-- P18-01：定义 IP、SourceEdition、Series、Season、Arc、Episode、Scene、Shot、Asset、Render Schema 与稳定 ID。
-- P18-02：建立 SQLite Repository、JSON 里程碑快照、资产注册表、版本、输入引用、来源引用、依赖关系和变更影响分析。
-- P18-03：建立持久化作业队列、并发锁、重试、取消、剧集状态机、审核门、局部重跑、失败恢复和旧样片迁移器。
+- P18-01：PASS。定义 IP、SourceEdition、Series、Season、Arc、Episode、Scene、Shot、Asset、Render Schema 与稳定 ID。
+- P18-02：TODO。建立 SQLite Repository、JSON 里程碑快照、资产注册表、版本、输入引用、来源引用、依赖关系和变更影响分析。
+- P18-03：TODO。建立持久化作业队列、并发锁、重试、取消、剧集状态机、审核门、局部重跑、失败恢复和旧样片迁移器。
 
 验收：能够建立一个空白小说动漫项目，保存一季五集结构；所有集、场、镜头和资产通过 ID 关联；修改上游对象后能列出需要重做的下游产物。
+
+P18-01 执行记录（2026-09-16）：
+- 新增 `schemas/novel-anime-project.schema.json` 和 `scripts/novel_anime_project.py`，覆盖十类核心实体、统一审核字段、版本字段、状态和稳定 ID。
+- 创建本地项目 `projects/jinghua-yuan-series/novel-anime-project.json`，层级为 `IP-JHY → SER-JHY-01 → S01 → S01E001…S01E005`，默认保持 `publication_allowed=false`。
+- 新增 `/api/novel-anime/projects` 与详情 API；Web 左侧新增“国漫项目”页面并实际显示一季五集层级。
+- 新增 6 项专项测试，JSON Schema 2020-12 校验、CLI 创建/加载、关系引用、父级作用域、覆盖保护和 Web 摘要均通过；全量 217 项测试通过。
 
 ### P19 IP 来源与故事知识库
 

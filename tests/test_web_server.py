@@ -1,10 +1,13 @@
 import os
 import unittest
 import json
+import tempfile
 import threading
 import urllib.request
+from pathlib import Path
 
 import scripts.web_server as web_server
+from scripts.novel_anime_project import build_project, write_project
 
 
 class WebServerTests(unittest.TestCase):
@@ -35,6 +38,15 @@ class WebServerTests(unittest.TestCase):
         episodes = web_server._episode_metadata(web_server._safe_project("jinghua-yuan-local-pilot"))
         self.assertEqual([episode["episode_id"] for episode in episodes], [f"episode-{index:02d}" for index in range(1, 6)])
         self.assertTrue(all(str(episode["media_url"]).endswith("/final.mp4") for episode in episodes))
+
+    def test_novel_anime_project_summary_uses_p18_manifest(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project_dir = Path(directory) / "jinghua-yuan-series"
+            write_project(project_dir, build_project("jinghua-yuan-series", "JHY", "镜花缘"))
+            projects = web_server._novel_anime_projects(Path(directory))
+        self.assertEqual(len(projects), 1)
+        self.assertEqual(projects[0]["ip_id"], "IP-JHY")
+        self.assertEqual(projects[0]["episode_ids"], [f"S01E{index:03d}" for index in range(1, 6)])
 
     def test_web_entrypoints_are_tracked_assets(self):
         self.assertTrue((web_server.WEB_ROOT / "index.html").is_file())

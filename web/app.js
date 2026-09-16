@@ -1,4 +1,4 @@
-const state = { projects: [], project: null, providers: [], selectedProvider: 'local_ken_burns', selectedImage: null, currentView: 'workspace' };
+const state = { projects: [], animeProjects: [], project: null, providers: [], selectedProvider: 'local_ken_burns', selectedImage: null, currentView: 'workspace' };
 
 const $ = (selector) => document.querySelector(selector);
 const escapeHtml = (value) => String(value).replace(/[&<>'"]/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
@@ -77,13 +77,22 @@ function renderProjectTable() {
   }));
 }
 
+function renderAnimeProjects() {
+  if (!state.animeProjects.length) {
+    $('#animeProjects').innerHTML = '<div class="empty-state">还没有 P18 小说国漫项目。</div>';
+    return;
+  }
+  $('#animeProjects').innerHTML = state.animeProjects.map((project) => `<article class="anime-project-card"><div class="anime-project-head"><div><span class="section-kicker">${escapeHtml(project.ip_id)} · ${escapeHtml(project.series_id)}</span><h3>${escapeHtml(project.title)}</h3></div><span class="result-chip">${escapeHtml(project.status)}</span></div><div class="hierarchy-row"><span>剧集 1</span><span>${project.season_count} 季</span><span>${project.episode_count} 集</span></div><div class="episode-token-row">${project.episode_ids.map((id) => `<span>${escapeHtml(id)}</span>`).join('')}</div><small class="manifest-note">${escapeHtml(project.project_id)} · novel-anime-project.json</small></article>`).join('');
+}
+
 function setView(view) {
   state.currentView = view;
   document.querySelectorAll('.nav-item').forEach((nav) => nav.classList.toggle('active', nav.dataset.view === view));
-  ['workspace', 'projects', 'providers'].forEach((name) => $(`#${name}View`).classList.toggle('hidden', name !== view));
+  ['workspace', 'anime', 'projects', 'providers'].forEach((name) => $(`#${name}View`).classList.toggle('hidden', name !== view));
   $('#outputPanel').classList.toggle('hidden', view !== 'workspace');
   $('#logPanel')?.classList.toggle('hidden', view !== 'workspace');
   if (view === 'projects') renderProjectTable();
+  if (view === 'anime') renderAnimeProjects();
   if (view === 'providers') renderProviderSettings();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -134,13 +143,15 @@ async function loadProject(projectId) {
 
 async function load() {
   try {
-    const [projects, health] = await Promise.all([api('/api/projects'), api('/api/health')]);
+    const [projects, animeProjects, health] = await Promise.all([api('/api/projects'), api('/api/novel-anime/projects'), api('/api/health')]);
     state.projects = projects.projects;
+    state.animeProjects = animeProjects.projects;
     state.providers = health.providers;
     $('#projectSelect').innerHTML = state.projects.map((project) => `<option value="${escapeHtml(project.id)}">${escapeHtml(project.name)}</option>`).join('');
     renderProviders();
     renderProviderSettings();
     renderProjectTable();
+    renderAnimeProjects();
     if (state.projects.length) await loadProject(state.projects.find((project) => project.id === 'jinghua-yuan-local-pilot')?.id || state.projects[0].id);
     log(`已载入 ${state.projects.length} 个项目和 ${state.providers.length} 条 Provider 路线`);
   } catch (error) { log(error.message, true); }

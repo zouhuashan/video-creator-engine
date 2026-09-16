@@ -35,6 +35,7 @@ from adapters.video_generation import (  # noqa: E402
     normalize_image_paths,
 )
 from scripts.local_storyboard_pipeline import LocalStoryboardError, run_local_storyboard  # noqa: E402
+from scripts.novel_anime_project import MANIFEST_NAME as NOVEL_ANIME_MANIFEST, NovelAnimeProjectError, load_project as load_novel_anime_project  # noqa: E402
 
 
 PROVIDER_TYPES = {
@@ -117,6 +118,29 @@ def _episode_metadata(project: Path) -> list[dict[str, object]]:
     return episodes
 
 
+def _novel_anime_projects(projects_root: Path = PROJECTS_ROOT) -> list[dict[str, object]]:
+    projects = []
+    if not projects_root.is_dir():
+        return projects
+    for manifest in sorted(projects_root.glob(f"*/{NOVEL_ANIME_MANIFEST}")):
+        try:
+            project = load_novel_anime_project(manifest)
+        except NovelAnimeProjectError:
+            continue
+        projects.append({
+            "directory_id": manifest.parent.name,
+            "project_id": project["project_id"],
+            "title": project["title"],
+            "status": project["status"],
+            "ip_id": project["ip"]["id"],
+            "series_id": project["series"]["id"],
+            "season_count": len(project["seasons"]),
+            "episode_count": len(project["episodes"]),
+            "episode_ids": [episode["id"] for episode in project["episodes"]],
+        })
+    return projects
+
+
 def _provider_status() -> list[dict[str, object]]:
     status = [{"id": "local_ken_burns", "label": "本地动态分镜", "remote": False, "configured": True}]
     for provider_id, label in (("openai_sora", "OpenAI Sora"), ("runway", "Runway"), ("wan", "Wan 2.1")):
@@ -150,6 +174,19 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
             return self._json({"status": "ok", "providers": _provider_status()})
         if parsed.path == "/api/projects":
             return self._json({"projects": self._projects()})
+        if parsed.path == "/api/novel-anime/projects":
+            return self._json({"projects": _novel_anime_projects()})
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)", parsed.path)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                manifest = project / NOVEL_ANIME_MANIFEST
+                if not manifest.is_file():
+                    raise ValueError("novel-anime project manifest not found")
+                payload = load_novel_anime_project(manifest)
+            except (ValueError, NovelAnimeProjectError) as error:
+                return self._error(HTTPStatus.NOT_FOUND, str(error))
+            return self._json(payload)
         match = re.fullmatch(r"/api/projects/([^/]+)", parsed.path)
         if match:
             try:

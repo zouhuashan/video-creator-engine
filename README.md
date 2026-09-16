@@ -6,6 +6,15 @@
 
 当前正在从早期的单条知识短视频架构迁移到连续剧情国漫架构。任务状态与执行顺序以 [`VIDEO-CREATOR-TASK.md`](VIDEO-CREATOR-TASK.md) 为唯一依据，完整的系统分层、数据模型和 P18～P28 路线见 [`docs/NOVEL-ANIME-SYSTEM.md`](docs/NOVEL-ANIME-SYSTEM.md)。现有《镜花缘》五集是本地 animatic 技术样片，正式五集将在新数据模型和连续性工作流完成后重新验收。
 
+P18 小说国漫项目使用稳定的 IP、剧集、季、集、场、镜头、资产和渲染 ID。创建并校验一季五集的项目骨架：
+
+```bash
+python3 scripts/novel_anime_project.py create projects/jinghua-yuan-series --project-id jinghua-yuan-series --ip-code JHY --title 镜花缘 --episodes 5
+python3 scripts/novel_anime_project.py validate projects/jinghua-yuan-series/novel-anime-project.json
+```
+
+Web 控制台的“国漫项目”页面读取同一份 `novel-anime-project.json`，不维护独立副本。
+
 ## Environment
 
 Pinned local tool versions:
