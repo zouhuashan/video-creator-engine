@@ -97,6 +97,26 @@ The input format is described by [`templates/storyboard-input.schema.json`](temp
 
 Review the storyboard before asset work with `./video-creator review-storyboard <project-id>`. It writes `storyboard-review.json` and `storyboard-review.md` with checks for visual pacing, repeated visuals, text-only runs, evidence visuals, Hook matching, and conclusion emphasis. A failed review remains reviewable and does not advance project state.
 
+## Novel adaptation pilot
+
+The novel path is separate from the six-section factual explainer flow. Build a rights-aware candidate pool from a dated catalog with:
+
+```bash
+python3 scripts/novel_candidate_pool.py validation/novel-candidate-catalog.json --output-dir projects/novel-candidate-pool-20260916
+```
+
+The bundle contains the normalized trend snapshot, P16 topic pool, novel candidate JSON, and a human-readable review report. Rank positions are normalized only within their own chart; raw reader counts and ambiguous rankings remain evidence and do not enter the numeric pool. Unknown adaptation rights block the adaptation gate, and the tool never selects a main IP automatically.
+
+The current catalog is refreshed from public pages as a reviewed JSON snapshot; the command automates normalization, ranking, and rights filtering after import. It does not crawl novel sites or claim live platform API access.
+
+Run a test-only story adaptation through script, storyboard, cards, silent animatic, and rights review with:
+
+```bash
+python3 scripts/novel_adaptation.py validation/fiction-workflow-pilot.json --output-dir projects/fiction-workflow-pilot-20260916
+```
+
+The current fixture uses `聊斋志异·种梨` only to test the workflow. Its silent 540×960 output is a storyboard preview, not a finished animation; publication remains disabled and a human must review source rights and the adaptation.
+
 Record resolved project assets with `./video-creator assets <project-id> --input-file <asset-manifest-input.json>`. The command validates scene IDs and project-local files, requires source/license/provider metadata, calculates SHA-256 checksums, and writes `asset-manifest.json`.
 
 ## Pinned dependencies
