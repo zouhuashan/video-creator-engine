@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://videocreator.local/schemas/novel-episode-planning.schema.json",
+  "type": "object", "additionalProperties": false,
+  "required": ["schema_version", "project_id", "ip_id", "series_plan_revision", "revision", "created_at", "updated_at", "story_arcs", "episode_cards"],
+  "properties": {
+    "schema_version": {"const": 1}, "project_id": {"type": "string"}, "ip_id": {"type": "string"}, "series_plan_revision": {"type": "integer", "minimum": 1}, "revision": {"type": "integer", "minimum": 1}, "created_at": {"type": "string", "format": "date-time"}, "updated_at": {"type": "string", "format": "date-time"},
+    "story_arcs": {"type": "array", "items": {"$ref": "#/$defs/arc"}}, "episode_cards": {"type": "array", "items": {"$ref": "#/$defs/card"}}
+  },
+  "$defs": {
+    "review": {"type": "object", "additionalProperties": false, "required": ["required", "status", "reviewed_at", "reviewed_by", "note"], "properties": {"required": {"const": true}, "status": {"enum": ["PENDING", "APPROVED", "CHANGES_REQUESTED"]}, "reviewed_at": {"type": ["string", "null"]}, "reviewed_by": {"type": ["string", "null"]}, "note": {"type": "string"}}},
+    "provenance": {"type": "object", "additionalProperties": false, "required": ["kind", "source_refs", "story_refs", "note"], "properties": {"kind": {"enum": ["UNSET", "SOURCE", "ORIGINAL"]}, "source_refs": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}, "story_refs": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}, "note": {"type": "string"}}},
+    "arc": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "season_id", "status", "title", "objective", "escalation", "climax", "resolution", "episode_ids", "character_arc_ids", "foreshadowing_ids", "provenance", "human_review"],
+      "properties": {"id": {"type": "string", "pattern": "^S[0-9]{2}-ARC[0-9]{2}$"}, "season_id": {"type": "string", "pattern": "^S[0-9]{2}$"}, "status": {"enum": ["DRAFT", "READY"]}, "title": {"type": "string", "minLength": 1}, "objective": {"type": "string"}, "escalation": {"type": "string"}, "climax": {"type": "string"}, "resolution": {"type": "string"}, "episode_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}, "character_arc_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}, "foreshadowing_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}, "provenance": {"$ref": "#/$defs/provenance"}, "human_review": {"$ref": "#/$defs/review"}}
+    },
+    "beat": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "type", "description", "provenance"],
+      "properties": {"id": {"type": "string", "pattern": "^BEAT-S[0-9]{2}E[0-9]{3}-[0-9]{2}$"}, "type": {"enum": ["HOOK", "GOAL", "OBSTACLE", "ESCALATION", "TURN", "CLIMAX", "ENDING_HOOK"]}, "description": {"type": "string", "minLength": 1}, "provenance": {"$ref": "#/$defs/provenance"}}
+    },
+    "card": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "episode_id", "arc_id", "status", "premise", "hook", "goal", "obstacle", "turn", "climax", "ending_hook", "beats", "character_ids", "location_ids", "prop_ids", "foreshadowing_setup_ids", "foreshadowing_payoff_ids", "provenance", "human_review"],
+      "properties": {"id": {"type": "string", "pattern": "^CARD-S[0-9]{2}E[0-9]{3}$"}, "episode_id": {"type": "string", "pattern": "^S[0-9]{2}E[0-9]{3}$"}, "arc_id": {"type": ["string", "null"]}, "status": {"enum": ["DRAFT", "READY"]}, "premise": {"type": "string"}, "hook": {"type": "string"}, "goal": {"type": "string"}, "obstacle": {"type": "string"}, "turn": {"type": "string"}, "climax": {"type": "string"}, "ending_hook": {"type": "string"}, "beats": {"type": "array", "items": {"$ref": "#/$defs/beat"}}, "character_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}, "location_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}, "prop_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}, "foreshadowing_setup_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}, "foreshadowing_payoff_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}, "provenance": {"$ref": "#/$defs/provenance"}, "human_review": {"$ref": "#/$defs/review"}}
+    }
+  }
+}

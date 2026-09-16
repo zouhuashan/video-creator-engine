@@ -75,6 +75,15 @@ python3 scripts/novel_series_plan.py validate projects/jinghua-yuan-series
 
 规划文件固定引用当前故事圣经修订号；故事圣经变化后，旧规划会被标记为过期。全剧和季度规划必须覆盖项目中的全部季与集，主要转折和角色弧里程碑必须位于对应季度，并追溯到来源章节、故事圣经实体或明确的原创增补。
 
+创建故事弧和每集一张的单集卡骨架：
+
+```bash
+python3 scripts/novel_episode_planning.py create projects/jinghua-yuan-series
+python3 scripts/novel_episode_planning.py validate projects/jinghua-yuan-series
+```
+
+故事弧必须覆盖同一季度内连续规划的 3～8 集。就绪的单集卡必须包含开场钩子、目标、阻碍、转折、高潮和结尾钩子，并至少具有可追溯的 `HOOK` 与 `ENDING_HOOK` 节拍；故事弧与单集归属会同步到核心项目 manifest。
+
 ## Environment
 
 Pinned local tool versions:
