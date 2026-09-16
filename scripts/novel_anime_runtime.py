@@ -25,6 +25,7 @@ from scripts.novel_anime_project import NovelAnimeProjectError, load_project, ut
 from scripts.novel_anime_repository import NovelAnimeRepository, NovelAnimeRepositoryError  # noqa: E402
 from scripts.novel_source_catalog import CATALOG_RELATIVE_PATH, NovelSourceCatalogError, load_catalog  # noqa: E402
 from scripts.novel_story_bible import NovelStoryBibleError, readiness as story_bible_readiness  # noqa: E402
+from scripts.novel_story_review import NovelStoryReviewError, audit_story, load_report as load_story_review  # noqa: E402
 
 
 RUNTIME_SCHEMA_VERSION = 1
@@ -352,6 +353,16 @@ class NovelAnimeRuntime:
                 raise NovelAnimeRuntimeError(f"cannot advance terminal or unknown state: {current}") from error
             if to_status != expected:
                 raise NovelAnimeRuntimeError(f"invalid transition {current} -> {to_status}; expected {expected}")
+            if to_status == "WRITING_READY":
+                try:
+                    report = load_story_review(self.project_dir)
+                    current_review = audit_story(self.project_dir)
+                except (NovelStoryReviewError, ValueError) as error:
+                    raise NovelAnimeRuntimeError(f"WRITING_READY requires a current story review: {error}") from error
+                if report["input_revisions"] != current_review["input_revisions"]:
+                    raise NovelAnimeRuntimeError("WRITING_READY requires a non-stale story review")
+                if report["overall_status"] != "PASS" or report["human_review"]["status"] != "APPROVED":
+                    raise NovelAnimeRuntimeError("WRITING_READY requires a PASS story review and explicit human approval")
             gate = REQUIRED_GATE[to_status]
             review = connection.execute("SELECT status FROM reviews WHERE target_id = ? AND gate = ?", (target_id, gate)).fetchone()
             if review is None or review[0] != "APPROVED":

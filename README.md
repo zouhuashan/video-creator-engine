@@ -94,6 +94,16 @@ python3 scripts/novel_episode_script.py preview-delta projects/jinghua-yuan-seri
 
 剧本单元明确区分动作、对白、旁白、声效和画面信息；对白必须绑定场内角色与表演情绪，旁白必须带情绪但不冒充角色，声效必须带触发时机和混音提示。continuity delta 记录位置、服装、携带物、伤势、知识、情绪、关系、道具、伏笔与时间线变化；前一集快照缺失时，后续剧本不能进入 READY。
 
+生成剧情与跨集连续性审核报告：
+
+```bash
+python3 scripts/novel_story_review.py audit projects/jinghua-yuan-series
+python3 scripts/novel_story_review.py validate projects/jinghua-yuan-series
+python3 scripts/novel_story_review.py approve projects/jinghua-yuan-series --reviewer <name> --note <review-note>
+```
+
+审核覆盖因果链、节奏、人物动机、伏笔设置/回收、跨集状态和来源标记。含阻断项或警告的报告不能批准；报告输入修订过期后也不能批准。`WRITING_READY` 同时要求最新报告为 PASS、人工审核明确通过，并保留运行时 `season_plan` 审核门。
+
 ## Environment
 
 Pinned local tool versions:

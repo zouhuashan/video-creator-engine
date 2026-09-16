@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://videocreator.local/schemas/novel-story-review.schema.json",
+  "type": "object", "additionalProperties": false,
+  "required": ["schema_version", "project_id", "input_revisions", "generated_at", "overall_status", "category_status", "findings", "human_review"],
+  "properties": {
+    "schema_version": {"const": 1}, "project_id": {"type": "string"}, "generated_at": {"type": "string", "format": "date-time"},
+    "overall_status": {"enum": ["BLOCKED", "REVIEW_REQUIRED", "PASS"]},
+    "input_revisions": {"type": "object", "additionalProperties": false, "required": ["story_bible", "series_plan", "episode_planning", "script_package"], "properties": {"story_bible": {"type": "integer"}, "series_plan": {"type": "integer"}, "episode_planning": {"type": "integer"}, "script_package": {"type": "integer"}}},
+    "category_status": {"type": "object", "additionalProperties": false, "required": ["causality", "pacing", "motivation", "foreshadowing", "continuity", "provenance"], "properties": {"causality": {"enum": ["PASS", "BLOCKED", "REVIEW_REQUIRED"]}, "pacing": {"enum": ["PASS", "BLOCKED", "REVIEW_REQUIRED"]}, "motivation": {"enum": ["PASS", "BLOCKED", "REVIEW_REQUIRED"]}, "foreshadowing": {"enum": ["PASS", "BLOCKED", "REVIEW_REQUIRED"]}, "continuity": {"enum": ["PASS", "BLOCKED", "REVIEW_REQUIRED"]}, "provenance": {"enum": ["PASS", "BLOCKED", "REVIEW_REQUIRED"]}}},
+    "findings": {"type": "array", "items": {"$ref": "#/$defs/finding"}},
+    "human_review": {"$ref": "#/$defs/review"}
+  },
+  "$defs": {
+    "finding": {"type": "object", "additionalProperties": false, "required": ["id", "category", "severity", "code", "message", "entity_refs", "status", "resolution"], "properties": {"id": {"type": "string", "pattern": "^FIND-[0-9]{4}$"}, "category": {"enum": ["causality", "pacing", "motivation", "foreshadowing", "continuity", "provenance"]}, "severity": {"enum": ["BLOCKER", "WARNING", "INFO"]}, "code": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]+$"}, "message": {"type": "string", "minLength": 1}, "entity_refs": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}, "status": {"enum": ["OPEN", "RESOLVED", "WAIVED"]}, "resolution": {"type": "string"}}},
+    "review": {"type": "object", "additionalProperties": false, "required": ["required", "status", "reviewed_at", "reviewed_by", "note"], "properties": {"required": {"const": true}, "status": {"enum": ["PENDING", "APPROVED", "CHANGES_REQUESTED"]}, "reviewed_at": {"type": ["string", "null"]}, "reviewed_by": {"type": ["string", "null"]}, "note": {"type": "string"}}}
+  }
+}
