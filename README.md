@@ -1,10 +1,10 @@
 # VideoCreator Engine
 
-Codex-driven semi-automated video production for WeChat Channels. The project produces a reviewable publishing package; a human always confirms final publication.
+以小说 IP 为源头的国风动漫剧集生产系统。系统覆盖底本与权利、故事圣经、季度和单集编剧、角色与场景资产、分镜、配音、动态镜头、剪辑、质量检查和人工发布审核。
 
 ## Current status
 
-The repository is being initialized according to [`VIDEO-CREATOR-TASK.md`](VIDEO-CREATOR-TASK.md). The task file is the source of truth; work proceeds in its listed order.
+当前正在从早期的单条知识短视频架构迁移到连续剧情国漫架构。任务状态与执行顺序以 [`VIDEO-CREATOR-TASK.md`](VIDEO-CREATOR-TASK.md) 为唯一依据，完整的系统分层、数据模型和 P18～P28 路线见 [`docs/NOVEL-ANIME-SYSTEM.md`](docs/NOVEL-ANIME-SYSTEM.md)。现有《镜花缘》五集是本地 animatic 技术样片，正式五集将在新数据模型和连续性工作流完成后重新验收。
 
 ## Environment
 
