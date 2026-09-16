@@ -37,6 +37,7 @@ from adapters.video_generation import (  # noqa: E402
 from scripts.local_storyboard_pipeline import LocalStoryboardError, run_local_storyboard  # noqa: E402
 from scripts.novel_anime_project import MANIFEST_NAME as NOVEL_ANIME_MANIFEST, NovelAnimeProjectError, load_project as load_novel_anime_project  # noqa: E402
 from scripts.novel_anime_repository import NovelAnimeRepository, NovelAnimeRepositoryError, repository_stats  # noqa: E402
+from scripts.novel_anime_runtime import NovelAnimeRuntime, NovelAnimeRuntimeError, runtime_stats  # noqa: E402
 
 
 PROVIDER_TYPES = {
@@ -139,6 +140,7 @@ def _novel_anime_projects(projects_root: Path = PROJECTS_ROOT) -> list[dict[str,
             "episode_count": len(project["episodes"]),
             "episode_ids": [episode["id"] for episode in project["episodes"]],
             "repository": repository_stats(manifest.parent),
+            "runtime": runtime_stats(manifest.parent),
         })
     return projects
 
@@ -188,6 +190,24 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
             except ValueError as error:
                 return self._error(HTTPStatus.NOT_FOUND, str(error))
             return self._json({"project_id": project.name, "stats": stats})
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/runtime", parsed.path)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                stats = runtime_stats(project)
+                if stats is None:
+                    raise ValueError("novel-anime runtime is not initialized")
+            except ValueError as error:
+                return self._error(HTTPStatus.NOT_FOUND, str(error))
+            return self._json({"project_id": project.name, "stats": stats})
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/jobs", parsed.path)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                jobs = NovelAnimeRuntime(project).list_jobs()
+            except (ValueError, NovelAnimeRuntimeError) as error:
+                return self._error(HTTPStatus.NOT_FOUND, str(error))
+            return self._json({"project_id": project.name, "jobs": jobs})
         match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/impact/([A-Za-z0-9-]+)", parsed.path)
         if match:
             try:

@@ -9,6 +9,7 @@ from pathlib import Path
 import scripts.web_server as web_server
 from scripts.novel_anime_project import build_project, write_project
 from scripts.novel_anime_repository import NovelAnimeRepository
+from scripts.novel_anime_runtime import NovelAnimeRuntime
 
 
 class WebServerTests(unittest.TestCase):
@@ -45,11 +46,13 @@ class WebServerTests(unittest.TestCase):
             project_dir = Path(directory) / "jinghua-yuan-series"
             write_project(project_dir, build_project("jinghua-yuan-series", "JHY", "镜花缘"))
             NovelAnimeRepository(project_dir).initialize()
+            NovelAnimeRuntime(project_dir).initialize()
             projects = web_server._novel_anime_projects(Path(directory))
         self.assertEqual(len(projects), 1)
         self.assertEqual(projects[0]["ip_id"], "IP-JHY")
         self.assertEqual(projects[0]["episode_ids"], [f"S01E{index:03d}" for index in range(1, 6)])
         self.assertEqual(projects[0]["repository"], {"entities": 8, "dependencies": 7, "asset_versions": 0, "snapshots": 0})
+        self.assertEqual(projects[0]["runtime"]["migrations"], 0)
 
     def test_web_entrypoints_are_tracked_assets(self):
         self.assertTrue((web_server.WEB_ROOT / "index.html").is_file())

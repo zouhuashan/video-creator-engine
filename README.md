@@ -26,6 +26,18 @@ python3 scripts/novel_anime_repository.py impact projects/jinghua-yuan-series IP
 
 SQLite 保存可查询实体、依赖和资产版本，JSON 快照保留可审阅里程碑；“国漫项目”页面显示仓库统计并能直接运行 IP 影响分析。
 
+初始化持久化任务队列、执行一次本地任务、安排局部重跑或迁移旧技术样片：
+
+```bash
+python3 scripts/novel_anime_runtime.py init projects/jinghua-yuan-series
+python3 scripts/novel_anime_runtime.py submit projects/jinghua-yuan-series --type VALIDATE_PROJECT --target jinghua-yuan-series --idempotency-key validate-v1
+python3 scripts/novel_anime_runtime.py work-once projects/jinghua-yuan-series --worker local-worker
+python3 scripts/novel_anime_runtime.py rerun projects/jinghua-yuan-series --root S01E001 --reason "episode outline changed"
+python3 scripts/novel_anime_runtime.py migrate-legacy projects/jinghua-yuan-series --source projects/jinghua-yuan-local-pilot
+```
+
+任务队列使用实体锁防止同一目标并发写入，支持幂等提交、失败重试、取消和租约过期恢复。状态迁移必须按顺序并具有对应人工审核门；旧五集迁移后只登记为 `publication_allowed=false` 的参考资产。
+
 ## Environment
 
 Pinned local tool versions:

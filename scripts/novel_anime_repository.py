@@ -243,6 +243,9 @@ class NovelAnimeRepository:
             known = {row[0] for row in connection.execute("SELECT entity_id FROM entities WHERE entity_id IN (%s)" % ",".join("?" for _ in sources), sources)} if sources else set()
             if known != set(sources):
                 raise NovelAnimeRepositoryError("asset source references must be registered entities")
+            current_row = connection.execute("SELECT version, asset_type, relative_path, checksum FROM asset_versions WHERE asset_id = ? AND is_current = 1", (asset_id,)).fetchone()
+            if current_row and str(current_row[3]) == checksum and str(current_row[2]) == relative and str(current_row[1]) == asset_type:
+                return {"asset_id": asset_id, "version": int(current_row[0]), "asset_type": asset_type, "relative_path": relative, "checksum": checksum, "reused": True}
             current = connection.execute("SELECT COALESCE(MAX(version), 0) FROM asset_versions WHERE asset_id = ?", (asset_id,)).fetchone()[0]
             version = int(current) + 1
             payload = {"id": asset_id, "title": str(metadata.get("title") or asset_id), "revision": version, "status": "DRAFT", "current_version": version, "asset_type": asset_type, "relative_path": relative, "checksum": checksum}
@@ -257,7 +260,7 @@ class NovelAnimeRepository:
             connection.execute("INSERT INTO asset_versions(asset_id, version, asset_type, relative_path, checksum, metadata_json, created_at, is_current) VALUES(?, ?, ?, ?, ?, ?, ?, 1)", (asset_id, version, asset_type, relative, checksum, _json(metadata), now))
             for source_id in sources:
                 connection.execute("INSERT OR IGNORE INTO dependencies(upstream_id, downstream_id, relation) VALUES(?, ?, 'registered_from')", (source_id, asset_id))
-        return {"asset_id": asset_id, "version": version, "asset_type": asset_type, "relative_path": relative, "checksum": checksum}
+        return {"asset_id": asset_id, "version": version, "asset_type": asset_type, "relative_path": relative, "checksum": checksum, "reused": False}
 
     def impact(self, entity_ids: Iterable[str]) -> list[dict[str, Any]]:
         self._require_initialized()
