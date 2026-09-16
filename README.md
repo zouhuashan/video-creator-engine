@@ -122,6 +122,15 @@ python3 scripts/novel_character_designs.py validate projects/jinghua-yuan-series
 
 每名故事角色必须有唯一 CharacterDesign，并记录头身比、体型、脸型、肤色、发型、眼型、固定特征、禁改特征和固定配色。READY 角色至少需要正面、侧面、背面、近景以及中性、喜、怒、哀、惊五类已选表情，并具有已登记的默认服装资产；所有子资产携带同一 identity signature，结构化观察偏差会生成具体字段问题。
 
+创建地点、机位、天气/昼夜/光线变体、道具状态和场景绑定：
+
+```bash
+python3 scripts/novel_environment_assets.py create projects/jinghua-yuan-series
+python3 scripts/novel_environment_assets.py validate projects/jinghua-yuan-series
+```
+
+地点设计固定布局、地标和连续性签名；每个机位与环境变体必须引用同一签名。道具设计固定尺寸、材质、显著标记、交互规则和状态，选中的环境/道具资产必须先登记到项目资产库。每个带地点的剧本场景都要绑定天气、时间、光线和道具状态，Web 国漫项目卡片及 `/api/novel-anime/projects/<id>/environment-assets` 会显示覆盖与就绪情况。
+
 ## Environment
 
 Pinned local tool versions:
