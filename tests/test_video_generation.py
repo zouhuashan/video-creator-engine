@@ -50,6 +50,20 @@ class VideoGenerationTests(unittest.TestCase):
             self.assertAlmostEqual(result.duration_seconds, 3.75)
             self.assertTrue(output.is_file())
 
+    def test_local_provider_offsets_chained_crossfades_from_accumulated_duration(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            images = []
+            for index in range(3):
+                image = root / f"{index}.png"
+                image.write_bytes(b"png")
+                images.append(image)
+            request = VideoGenerationRequest(tuple(images), root / "out.mp4", shot_duration_seconds=3.1, transition_seconds=0.4)
+            command = LocalKenBurnsVideo()._command(request, root / "out.mp4")
+            filter_complex = command[command.index("-filter_complex") + 1]
+            self.assertIn("xfade=transition=fade:duration=0.4:offset=2.7", filter_complex)
+            self.assertIn("xfade=transition=fade:duration=0.4:offset=5.4", filter_complex)
+
 
 if __name__ == "__main__":
     unittest.main()

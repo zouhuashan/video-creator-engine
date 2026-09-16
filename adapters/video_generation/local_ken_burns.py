@@ -47,7 +47,11 @@ class LocalKenBurnsVideo(VideoGenerationProvider):
             )
         last = "v0"
         for index in range(1, len(request.image_paths)):
-            offset = request.shot_duration_seconds * index - request.transition_seconds * (index - 1)
+            # ``xfade``'s offset is relative to the first input of the
+            # current pair.  After the first transition that input already
+            # contains the previous crossfade, so each additional boundary
+            # subtracts one more transition duration.
+            offset = request.shot_duration_seconds * index - request.transition_seconds * index
             out = f"xf{index}"
             filters.append(f"[{last}][v{index}]xfade=transition=fade:duration={request.transition_seconds}:offset={offset}[{out}]")
             last = out

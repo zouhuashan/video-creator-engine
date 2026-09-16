@@ -162,6 +162,14 @@ Use the local workflow without a key:
 python3 scripts/video_generate.py <frame-1.png> <frame-2.png> --provider local_ken_burns --output /tmp/animatic.mp4
 ```
 
+Run the current story pilot end to end with local keyframes, the local Tingting voice, and the SRT captions:
+
+```bash
+python3 scripts/local_storyboard_pipeline.py projects/jinghua-yuan-local-pilot --output /tmp/tang-xiaoshan-local-storyboard-final.mp4
+```
+
+This produces a 1080×1920 H.264/AAC MP4 without a network call. The local provider uses deterministic Ken Burns motion and crossfades; it validates story timing and audio/subtitle wiring, but it does not create new character movement.
+
 Use OpenAI for an explicit image-to-video run after setting `OPENAI_API_KEY`:
 
 ```bash
