@@ -53,6 +53,7 @@ from scripts.novel_storyboard import NovelStoryboardError, load_storyboard, summ
 from scripts.novel_animatic import NovelAnimaticError, load_animatic, summary as animatic_summary  # noqa: E402
 from scripts.novel_animatic_review import NovelAnimaticReviewError, load_review as load_animatic_review, summary as animatic_review_summary  # noqa: E402
 from scripts.novel_voice_profiles import NovelVoiceProfileError, load_voice_profiles, summary as voice_profile_summary  # noqa: E402
+from scripts.novel_audio_assets import NovelAudioAssetError, load_audio_assets, summary as audio_asset_summary  # noqa: E402
 
 
 PROVIDER_TYPES = {
@@ -171,6 +172,7 @@ def _novel_anime_projects(projects_root: Path = PROJECTS_ROOT) -> list[dict[str,
             "animatic": animatic_summary(manifest.parent),
             "animatic_review": animatic_review_summary(manifest.parent),
             "voice_profiles": voice_profile_summary(manifest.parent),
+            "audio_assets": audio_asset_summary(manifest.parent),
         })
     return projects
 
@@ -403,6 +405,14 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                 project = _safe_project(match.group(1))
                 result = load_voice_profiles(project)
             except (ValueError, NovelVoiceProfileError) as error:
+                return self._error(HTTPStatus.NOT_FOUND, str(error))
+            return self._json(result)
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/audio-assets", parsed.path)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                result = load_audio_assets(project)
+            except (ValueError, NovelAudioAssetError) as error:
                 return self._error(HTTPStatus.NOT_FOUND, str(error))
             return self._json(result)
         match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/repository", parsed.path)

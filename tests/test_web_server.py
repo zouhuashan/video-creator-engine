@@ -25,6 +25,7 @@ from scripts.novel_storyboard import build_storyboard, write_storyboard
 from scripts.novel_animatic import build_animatic, write_animatic
 from scripts.novel_animatic_review import build_review, write_review
 from scripts.novel_voice_profiles import build_voice_profiles, write_voice_profiles
+from scripts.novel_audio_assets import build_audio_assets, write_audio_assets
 
 
 class WebServerTests(unittest.TestCase):
@@ -77,6 +78,7 @@ class WebServerTests(unittest.TestCase):
             write_animatic(project_dir, build_animatic(project_dir))
             write_review(project_dir, build_review(project_dir))
             write_voice_profiles(project_dir, build_voice_profiles(project_dir))
+            write_audio_assets(project_dir, build_audio_assets(project_dir))
             imports_dir = project_dir / "sources" / "imports"
             imports_dir.mkdir(parents=True)
             (imports_dir / "test.json").write_text(json.dumps({
@@ -121,6 +123,7 @@ class WebServerTests(unittest.TestCase):
         self.assertEqual(projects[0]["animatic"]["episode_count"], 5)
         self.assertEqual(projects[0]["animatic_review"]["overall_status"], "BLOCKED")
         self.assertEqual(projects[0]["voice_profiles"]["profile_count"], 0)
+        self.assertEqual(projects[0]["audio_assets"]["track_count"], 0)
 
     def test_web_entrypoints_are_tracked_assets(self):
         self.assertTrue((web_server.WEB_ROOT / "index.html").is_file())
