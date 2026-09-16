@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "cohort_id": "p14-first-ten",
+  "cohort_id": "p14-first-twenty",
   "status": "tracking",
   "metric_definitions": {
     "rates": "percentage from 0 to 100",
@@ -58,6 +58,57 @@
       "project_id": "20260916-chatgpt-voice-mode",
       "collection_status": "awaiting_manual_publish",
       "observations": []
+    },
+    {
+      "project_id": "20260916-chatgpt-study-mode",
+      "collection_status": "awaiting_manual_publish",
+      "observations": []
+    },
+    {
+      "project_id": "20260916-chatgpt-scheduled-tasks",
+      "collection_status": "awaiting_manual_publish",
+      "observations": []
+    },
+    {
+      "project_id": "20260916-chatgpt-canvas-workflow",
+      "collection_status": "awaiting_manual_publish",
+      "observations": []
+    },
+    {
+      "project_id": "20260916-chatgpt-images-precision-edit",
+      "collection_status": "awaiting_manual_publish",
+      "observations": []
+    },
+    {
+      "project_id": "20260916-chatgpt-app-permissions",
+      "collection_status": "awaiting_manual_publish",
+      "observations": []
+    },
+    {
+      "project_id": "20260916-chatgpt-history-search",
+      "collection_status": "awaiting_manual_publish",
+      "observations": []
+    },
+    {
+      "project_id": "20260916-chatgpt-shared-links",
+      "collection_status": "awaiting_manual_publish",
+      "observations": []
+    },
+    {
+      "project_id": "20260916-chatgpt-archive-vs-delete",
+      "collection_status": "awaiting_manual_publish",
+      "observations": []
+    },
+    {
+      "project_id": "20260916-chatgpt-data-export",
+      "collection_status": "awaiting_manual_publish",
+      "observations": []
+    },
+    {
+      "project_id": "20260916-chatgpt-prompt-basics",
+      "collection_status": "awaiting_manual_publish",
+      "observations": []
     }
-  ]
+  ],
+  "updated_at": "2026-09-16T08:39:26+08:00"
 }

@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import json
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
 
@@ -65,8 +66,17 @@ def validate_first_five(
             or any(value is not True for value in checks.values())
         ):
             raise PilotValidationError(f"{project_id} has incomplete pilot checks")
-        if load_run_state(directory, project_id)["status"] != "READY_FOR_REVIEW":
+        state = load_run_state(directory, project_id)
+        if state["status"] != "READY_FOR_REVIEW":
             raise PilotValidationError(f"{project_id} has not reached READY_FOR_REVIEW")
+        try:
+            created_at = datetime.fromisoformat(state["created_at"].replace("Z", "+00:00"))
+            ready_at = datetime.fromisoformat(state["history"][-1]["at"].replace("Z", "+00:00"))
+            production_elapsed = (ready_at - created_at).total_seconds()
+        except (KeyError, TypeError, ValueError) as error:
+            raise PilotValidationError(f"{project_id} lacks valid production timing evidence") from error
+        if production_elapsed <= 0:
+            raise PilotValidationError(f"{project_id} production timing evidence is not positive")
         qc = _load(directory / "qc.json", f"{project_id} QC")
         if qc.get("status") != "PASS" or qc.get("failed_reports"):
             raise PilotValidationError(f"{project_id} QC is not PASS")
@@ -85,6 +95,7 @@ def validate_first_five(
         ):
             raise PilotValidationError(f"{project_id} final media does not meet delivery standard")
         verified.append({"project_id": project_id, "duration_seconds": media["duration_seconds"],
+                         "production_elapsed_seconds": round(production_elapsed, 3),
                          "final_sha256": evaluation["final_sha256"], "checks": checks})
     return {"schema_version": 1, "status": "PASS", "verified_projects": 5,
             "required_projects": 5, "projects": verified}
@@ -108,18 +119,50 @@ def validate_first_ten(
             "projects": projects}
 
 
+def validate_first_twenty(
+    reports: list[dict[str, Any]], projects_dir: Path,
+    inspector: Callable[[Path], dict[str, Any]] = inspect_final_output,
+) -> dict[str, Any]:
+    """Independently verify four five-project batches as one twenty-video cohort."""
+    if len(reports) != 4:
+        raise PilotValidationError("P14-03 requires four five-project reports")
+    if any(report.get("status") != "PASS" for report in reports):
+        raise PilotValidationError("all four P14 batches must report PASS")
+    verified_batches = [validate_first_five(report, projects_dir, inspector) for report in reports]
+    projects = [project for batch in verified_batches for project in batch["projects"]]
+    ids = [item["project_id"] for item in projects]
+    if len(ids) != 20 or len(set(ids)) != 20:
+        raise PilotValidationError("P14-03 requires twenty unique projects across four batches")
+    return {"schema_version": 1, "status": "PASS", "verified_projects": 20,
+            "required_projects": 20, "batches": [report.get("batch_id") for report in reports],
+            "projects": projects}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--report", type=Path, default=REPORT_PATH)
     parser.add_argument("--second-report", type=Path)
+    parser.add_argument("--additional-report", action="append", type=Path, default=[])
+    parser.add_argument("--required-projects", type=int, choices={5, 10, 20}, default=5)
     parser.add_argument("--output", type=Path)
     parser.add_argument("--projects-dir", type=Path, default=ROOT / "projects")
     args = parser.parse_args()
     try:
         report = _load(args.report, "P14 report")
-        if args.second_report:
-            result = validate_first_ten(report, _load(args.second_report, "P14 second report"), args.projects_dir)
+        if args.second_report and args.additional_report:
+            raise PilotValidationError("use --second-report or --additional-report, not both")
+        others = ([ _load(args.second_report, "P14 second report") ] if args.second_report
+                  else [_load(path, "additional P14 report") for path in args.additional_report])
+        reports = [report, *others]
+        if args.required_projects == 20:
+            result = validate_first_twenty(reports, args.projects_dir)
+        elif args.required_projects == 10:
+            if len(reports) != 2:
+                raise PilotValidationError("ten-project validation requires two five-project reports")
+            result = validate_first_ten(reports[0], reports[1], args.projects_dir)
         else:
+            if len(reports) != 1:
+                raise PilotValidationError("five-project validation accepts one report")
             result = validate_first_five(report, args.projects_dir)
         if args.output:
             if args.output.exists():

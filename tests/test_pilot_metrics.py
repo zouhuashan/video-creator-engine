@@ -3,7 +3,7 @@ import unittest
 import json
 from pathlib import Path
 
-from scripts.pilot_metrics import PilotMetricsError, create_tracker, record_metrics, validate_metrics
+from scripts.pilot_metrics import PilotMetricsError, create_tracker, extend_tracker, record_metrics, validate_metrics
 from scripts.project_state import STAGES, initialize_run_state, transition_project
 
 
@@ -70,6 +70,30 @@ class PilotMetricsTests(unittest.TestCase):
         sample["views"] = True
         with self.assertRaisesRegex(PilotMetricsError, "integer"):
             validate_metrics(sample)
+
+    def test_extend_adds_ten_projects_and_preserves_existing_observations(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            ids = self._projects(root)
+            tracker = create_tracker(self._report(ids), root)
+            tracker["projects"][0]["collection_status"] = "recorded"
+            tracker["projects"][0]["observations"] = [{"observed_at": "2026-09-16T12:00:00Z", "metrics": {"views": 5}}]
+            tracker_path = root / "metrics.json"
+            tracker_path.write_text(json.dumps(tracker))
+            report = {"status": "PASS", "verified_projects": 20,
+                      "projects": [{"project_id": project_id} for project_id in ids +
+                                   [f"20260916-metrics-extra-{number}" for number in range(10)]]}
+            for number in range(10):
+                project_id = f"20260916-metrics-extra-{number}"
+                directory = root / project_id
+                directory.mkdir()
+                initialize_run_state(directory, project_id)
+                for stage in STAGES[1:STAGES.index("READY_FOR_REVIEW") + 1]:
+                    transition_project(directory, project_id, stage)
+            result = extend_tracker(tracker_path, report, root)
+            self.assertEqual(len(result["projects"]), 20)
+            self.assertEqual(result["projects"][0]["observations"][0]["metrics"]["views"], 5)
+            self.assertEqual(result["projects"][-1]["collection_status"], "awaiting_manual_publish")
 
 
 if __name__ == "__main__":

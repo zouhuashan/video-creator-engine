@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "batch_id": "p14-third-five",
+  "status": "PASS",
+  "ready_projects": 5,
+  "target_projects": 5,
+  "projects": [
+    {
+      "schema_version": 1,
+      "project_id": "20260916-chatgpt-study-mode",
+      "status": "PASS",
+      "checks": {
+        "stable_generation": true,
+        "style": true,
+        "duration": true,
+        "subtitles": true,
+        "voice": true,
+        "hook": true
+      },
+      "duration_seconds": 56.0,
+      "final_sha256": "fe546e59120be7f0843b3aca768f35d8bdcdb119f2d69e8ac80a86a90822fb20",
+      "provider": "macos_say",
+      "published": false
+    },
+    {
+      "schema_version": 1,
+      "project_id": "20260916-chatgpt-scheduled-tasks",
+      "status": "PASS",
+      "checks": {
+        "stable_generation": true,
+        "style": true,
+        "duration": true,
+        "subtitles": true,
+        "voice": true,
+        "hook": true
+      },
+      "duration_seconds": 56.0,
+      "final_sha256": "2d1cd86fff4fa7b5f956462cfb2fbb01cd5a898a323a97f02aeae2ac87cd4247",
+      "provider": "macos_say",
+      "published": false
+    },
+    {
+      "schema_version": 1,
+      "project_id": "20260916-chatgpt-canvas-workflow",
+      "status": "PASS",
+      "checks": {
+        "stable_generation": true,
+        "style": true,
+        "duration": true,
+        "subtitles": true,
+        "voice": true,
+        "hook": true
+      },
+      "duration_seconds": 56.0,
+      "final_sha256": "52d7ce73295a12d46ee07124ce9f144991d5f074b5c60b24e00c362bed69b0c5",
+      "provider": "macos_say",
+      "published": false
+    },
+    {
+      "schema_version": 1,
+      "project_id": "20260916-chatgpt-images-precision-edit",
+      "status": "PASS",
+      "checks": {
+        "stable_generation": true,
+        "style": true,
+        "duration": true,
+        "subtitles": true,
+        "voice": true,
+        "hook": true
+      },
+      "duration_seconds": 56.0,
+      "final_sha256": "91e7fa02076c1802625e1fcb4035856893b2d5ab1612be0381a1d6002ccb1ce5",
+      "provider": "macos_say",
+      "published": false
+    },
+    {
+      "schema_version": 1,
+      "project_id": "20260916-chatgpt-app-permissions",
+      "status": "PASS",
+      "checks": {
+        "stable_generation": true,
+        "style": true,
+        "duration": true,
+        "subtitles": true,
+        "voice": true,
+        "hook": true
+      },
+      "duration_seconds": 56.0,
+      "final_sha256": "c527cca965d4798ece89c64463656c65d3029e6db10b466aecb7482b00364644",
+      "provider": "macos_say",
+      "published": false
+    }
+  ],
+  "required_validations": [
+    "stable_generation",
+    "style",
+    "duration",
+    "subtitles",
+    "voice",
+    "hook"
+  ]
+}

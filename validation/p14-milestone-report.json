@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "status": "PASS",
+  "verified_projects": 20,
+  "production_time": {
+    "average_seconds": 18.112,
+    "maximum_seconds": 19.147,
+    "limit_seconds": 30.0,
+    "status": "PASS",
+    "measurement": "run.json created_at through READY_FOR_REVIEW"
+  },
+  "engineering_repairs": {
+    "projects_requiring_repair": 0,
+    "projects_without_repair": 20,
+    "no_repair_ratio": 1.0,
+    "minimum_ratio": 0.9,
+    "status": "PASS"
+  },
+  "partial_rerun": {
+    "status": "PASS",
+    "project_id": "20260916-chatgpt-memory-management",
+    "rerun_type": "cover-only",
+    "video_regenerated": false,
+    "preserved_package_files": [
+      "caption.md",
+      "final.mp4",
+      "hashtags.md",
+      "qc-report.md",
+      "sources.md",
+      "title.md"
+    ]
+  },
+  "gates_passed": 3,
+  "required_gates": 3
+}

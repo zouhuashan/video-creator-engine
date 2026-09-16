@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "batch_id": "p14-third-five",
+  "projects": [
+    {
+      "slug": "chatgpt-study-mode",
+      "topic": "ChatGPT 学习模式怎样帮助主动学习",
+      "keyword": "学习模式",
+      "source_title": "Using study mode in ChatGPT",
+      "source_url": "https://help.openai.com/en/articles/11780217",
+      "core_fact": "ChatGPT 学习模式可通过练习题、测验和逐步讲解辅助学习；提供学习阶段、具体主题、目标和已有理解，有助于它调整辅导方式。",
+      "sections": [
+        "让 ChatGPT 帮你复习，直接要答案可能不如一步步练习记得牢。",
+        "学习模式可以出练习题、逐题测验，也可以解释你答错的地方。",
+        "OpenAI 建议在开场说明学习阶段、具体主题、目标，以及你已经理解了哪些内容。",
+        "比如学代数时，可以要求先讲一道例题，再给一道相似题让你自己试。",
+        "学习模式的设计目标是引导思考，但有时仍会直接给出答案；你可以要求先提示、一次问一题。",
+        "把课程和当前卡点说清楚，再让它先提问，复习会更像主动练习。"
+      ],
+      "scene_titles": ["复习别只看答案", "练习和测验", "说明学习背景", "先讲一道例题", "要求逐步提示", "检查理解", "主动练一题"],
+      "cover_core": "学习模式怎么问",
+      "caption": "学习模式可以出题、测验并解释错误。开场说明学习阶段、主题、目标和已有基础，再要求一次一题或先给提示。",
+      "hashtags": ["#ChatGPT", "#学习方法", "#学习模式"]
+    },
+    {
+      "slug": "chatgpt-scheduled-tasks",
+      "topic": "ChatGPT 定时任务适合哪些提醒",
+      "keyword": "ChatGPT 定时任务",
+      "source_title": "Scheduled tasks in ChatGPT",
+      "source_url": "https://help.openai.com/en/articles/10291617-chatgpt-tasks",
+      "core_fact": "ChatGPT 定时任务可设置一次性或重复任务，也可在支持时监控变化并通知；在项目中创建的任务无法读取项目上传的文件。",
+      "sections": [
+        "每天自己重复设提醒？有些日常跟进可以交给 ChatGPT 定时任务。",
+        "它支持一次性或定期任务，也能在支持的情况下监控变化并发出通知。",
+        "你可以在 Scheduled 页面创建、查看、编辑、暂停或删除任务。",
+        "如果任务要提醒你某天准备材料，描述清楚时间和要做的事，并确认通知权限已经开启。",
+        "有个容易忽略的边界：在项目里创建的定时任务，不能访问上传到项目中的文件。",
+        "适合规律提醒和跟进；涉及文件内容时，先检查任务能读取哪些信息。"
+      ],
+      "scene_titles": ["重复提醒", "一次或定期", "监控有通知", "任务集中管理", "项目文件边界", "检查通知权限", "适合规律跟进"],
+      "cover_core": "提醒会读取文件吗",
+      "caption": "ChatGPT 定时任务可设置一次或重复提醒，也能在支持时监控变化。项目中创建的任务无法读取项目上传的文件，使用前要确认这个边界。",
+      "hashtags": ["#ChatGPT", "#定时任务", "#效率工具"]
+    },
+    {
+      "slug": "chatgpt-canvas-workflow",
+      "topic": "ChatGPT Canvas 怎样逐段修改长文",
+      "keyword": "ChatGPT Canvas",
+      "source_title": "Introducing canvas",
+      "source_url": "https://openai.com/index/introducing-canvas/",
+      "core_fact": "Canvas 为写作和编程项目提供并排协作空间，用户可以选中具体段落请求局部修改，也能直接编辑并恢复较早版本。",
+      "sections": [
+        "长文在聊天里来回改，最容易丢的是上下文和刚才那一版。",
+        "Canvas 是面向写作和编程项目的编辑空间，让你和 ChatGPT 围绕同一份内容逐步修改。",
+        "你可以选中一段，要求只调整语气、长度或可读性，也可以直接在文档里编辑。",
+        "它还提供语法润色和代码审阅等快捷操作，适合需要多轮修订的任务。",
+        "如果一次修改不合适，可以恢复较早版本，再从那里继续。",
+        "草稿已经有结构时，指定要修改的段落和目标，通常比整篇重写更容易保持原意。"
+      ],
+      "scene_titles": ["长文反复修改", "并排编辑", "只改指定段落", "快捷修订", "可恢复旧版本", "保留原结构", "先标出目标段"],
+      "cover_core": "画布适合改长文吗",
+      "caption": "Canvas 适合写作和编程的多轮修改。选中具体段落，说明修改目标；需要时可直接编辑或恢复较早版本。",
+      "hashtags": ["#ChatGPT", "#Canvas", "#写作工具"]
+    },
+    {
+      "slug": "chatgpt-images-precision-edit",
+      "topic": "ChatGPT Images 2.5 怎样只改图中一个细节",
+      "keyword": "ChatGPT 生图",
+      "source_title": "Introducing ChatGPT Images 2.5",
+      "source_url": "https://openai.com/index/introducing-chatgpt-images-2-5/",
+      "core_fact": "OpenAI 于 2026 年 9 月介绍的 ChatGPT Images 2.5 支持多轮图像编辑、绘制草图作为参考，以及在图片上添加评论以指定修改位置。",
+      "sections": [
+        "图片整体满意，只想改背景颜色，为什么每次都像重新抽一张？试试把修改范围说窄。",
+        "OpenAI 近期介绍的 ChatGPT Images 2.5 支持连续多轮编辑，并更关注用户指定的改动。",
+        "先说明保留哪些部分，再指出只改哪个元素，例如背景、产品或一段文字。",
+        "如果布局更容易画出来，可以直接用草图作参考；也能在图片上加评论，标明具体修改位置。",
+        "每次只提出一两项变化，再检查主体、构图和品牌风格有没有被带偏。",
+        "把原图、保留项和局部改动分开描述，下一轮就更容易聚焦。"
+      ],
+      "scene_titles": ["只想改一个细节", "连续多轮编辑", "说清保留内容", "用草图指方向", "图片上加评论", "逐项检查结果", "把范围说窄"],
+      "cover_core": "生图怎么改细节",
+      "caption": "ChatGPT Images 2.5 支持多轮编辑、草图参考和图片评论。先写清要保留的内容，再指定需要修改的单一元素。",
+      "hashtags": ["#ChatGPT", "#AI绘图", "#图片编辑"]
+    },
+    {
+      "slug": "chatgpt-app-permissions",
+      "topic": "连接 ChatGPT 应用前怎样检查权限",
+      "keyword": "ChatGPT 应用连接",
+      "source_title": "Connecting and managing app accounts in ChatGPT",
+      "source_url": "https://help.openai.com/en/articles/20001494-connecting-and-managing-app-accounts-in-chatgpt",
+      "core_fact": "连接应用前应确认所选账户、查看服务方要求的权限，并考虑工作区控制；断开连接会停止未来访问，但不会自动删除此前对话。",
+      "sections": [
+        "把 Google 云端文件接进 ChatGPT 前，别只点“连接”，先看它要访问什么。",
+        "OpenAI 建议选择本来就有目标资料访问权的账户，并检查应用请求的服务和权限。",
+        "连接后，工作区管理员、应用提供方和账户本身的权限仍会影响可用操作。",
+        "如果以后不再使用，可以在设置的应用连接中断开账户，停止后续访问。",
+        "但断开连接不会自动删除已经引用该应用内容的旧对话或已保存文件。",
+        "连接前审权限，断开后再检查相关对话和文件，管理会更完整。"
+      ],
+      "scene_titles": ["连接先看权限", "确认目标账户", "逐项审请求", "工作区有控制", "断开停止新访问", "旧对话另管理", "连接前后都检查"],
+      "cover_core": "连接前看权限吗",
+      "caption": "连接 ChatGPT 应用时，先确认账户并查看权限范围。断开后会停止后续访问，但旧对话和文件仍需单独管理。",
+      "hashtags": ["#ChatGPT", "#应用权限", "#数据管理"]
+    }
+  ]
+}

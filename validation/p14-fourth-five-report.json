@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "batch_id": "p14-fourth-five",
+  "status": "PASS",
+  "ready_projects": 5,
+  "target_projects": 5,
+  "projects": [
+    {
+      "schema_version": 1,
+      "project_id": "20260916-chatgpt-history-search",
+      "status": "PASS",
+      "checks": {
+        "stable_generation": true,
+        "style": true,
+        "duration": true,
+        "subtitles": true,
+        "voice": true,
+        "hook": true
+      },
+      "duration_seconds": 56.0,
+      "final_sha256": "fb2bb0b45644cf63c7ab0a9f903d09f8e9c9e6c4116b63d5e3bac0fea7512f73",
+      "provider": "macos_say",
+      "published": false
+    },
+    {
+      "schema_version": 1,
+      "project_id": "20260916-chatgpt-shared-links",
+      "status": "PASS",
+      "checks": {
+        "stable_generation": true,
+        "style": true,
+        "duration": true,
+        "subtitles": true,
+        "voice": true,
+        "hook": true
+      },
+      "duration_seconds": 56.0,
+      "final_sha256": "5133c7f914dcc2c7730cf3e2ca0f52c265cc96d6b779c7de6050832792e2ebc7",
+      "provider": "macos_say",
+      "published": false
+    },
+    {
+      "schema_version": 1,
+      "project_id": "20260916-chatgpt-archive-vs-delete",
+      "status": "PASS",
+      "checks": {
+        "stable_generation": true,
+        "style": true,
+        "duration": true,
+        "subtitles": true,
+        "voice": true,
+        "hook": true
+      },
+      "duration_seconds": 56.0,
+      "final_sha256": "b1cf35e33cd364e9fdd61f6c90e61641e8a4117b0c06f323e3654e4389deb25c",
+      "provider": "macos_say",
+      "published": false
+    },
+    {
+      "schema_version": 1,
+      "project_id": "20260916-chatgpt-data-export",
+      "status": "PASS",
+      "checks": {
+        "stable_generation": true,
+        "style": true,
+        "duration": true,
+        "subtitles": true,
+        "voice": true,
+        "hook": true
+      },
+      "duration_seconds": 56.0,
+      "final_sha256": "25c5277a2deea895907bfb6c1db3904aa5a9b1abf7b9bd30dc263f5e984b4892",
+      "provider": "macos_say",
+      "published": false
+    },
+    {
+      "schema_version": 1,
+      "project_id": "20260916-chatgpt-prompt-basics",
+      "status": "PASS",
+      "checks": {
+        "stable_generation": true,
+        "style": true,
+        "duration": true,
+        "subtitles": true,
+        "voice": true,
+        "hook": true
+      },
+      "duration_seconds": 56.0,
+      "final_sha256": "5c0aef300ed2a0b517597126a5effb997126457c3c49f32876ed4b8f8f27331b",
+      "provider": "macos_say",
+      "published": false
+    }
+  ],
+  "required_validations": [
+    "stable_generation",
+    "style",
+    "duration",
+    "subtitles",
+    "voice",
+    "hook"
+  ]
+}

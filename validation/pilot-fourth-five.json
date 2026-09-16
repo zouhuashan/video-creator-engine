@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "batch_id": "p14-fourth-five",
+  "projects": [
+    {
+      "slug": "chatgpt-history-search",
+      "topic": "ChatGPT 怎样找回以前的聊天",
+      "keyword": "聊天记录搜索",
+      "source_title": "How do I search my chat history in ChatGPT?",
+      "source_url": "https://help.openai.com/en/articles/10056348-how-do-i-search-my-chat-history-in-chatgpt",
+      "core_fact": "ChatGPT 聊天记录搜索可按关键词查找过往对话，归档的聊天也会出现在结果中；已删除的对话不会通过搜索找回。",
+      "sections": [
+        "左侧栏看不到旧聊天，就代表它消失了吗？有时只是没有显示在最近列表里。",
+        "ChatGPT 可以按关键词搜索聊天记录，网页端也可以用快捷键打开搜索。",
+        "输入你记得的短语或主题词，就能定位相关对话并接着查看。",
+        "被归档的聊天也会出现在搜索结果中，所以它不在侧边栏，也可能只是被归档了。",
+        "如果对话已经删除，就不能通过聊天记录搜索找回；归档与删除要区分。",
+        "先试主题词和关键短语，再检查归档列表，找旧资料会更顺手。"
+      ],
+      "scene_titles": ["旧聊天不见了", "按关键词搜索", "试主题和短语", "归档也能查到", "删除无法搜索", "检查归档列表", "先搜再判断"],
+      "cover_core": "旧聊天怎么找",
+      "caption": "找旧对话可按关键词搜索，归档内容也会显示在结果中。若聊天已删除，搜索无法恢复；先确认它是否只是被归档。",
+      "hashtags": ["#ChatGPT", "#聊天记录", "#效率技巧"]
+    },
+    {
+      "slug": "chatgpt-shared-links",
+      "topic": "分享 ChatGPT 对话链接前要检查什么",
+      "keyword": "ChatGPT 分享链接",
+      "source_title": "ChatGPT Shared Links FAQ",
+      "source_url": "https://help.openai.com/en/articles/7925741-chatgpt-shared-links-faq",
+      "core_fact": "ChatGPT 分享链接允许任何拿到链接的人查看分享时生成的对话快照；删除链接无法移除接收者已导入自己历史记录的副本。",
+      "sections": [
+        "分享一条 ChatGPT 对话链接，看到的人可能不止你发给的那位。",
+        "OpenAI 帮助中心说明，任何拿到链接的人都可以查看链接对应的对话内容。",
+        "从聊天顶部或侧边栏分享时，通常会生成截至分享时的对话快照。",
+        "分享之前先预览内容，确认里面没有不想公开的个人信息或文件片段。",
+        "之后删除分享链接，可以让链接不再访问原快照；但接收者若已导入自己的聊天记录，副本仍可能保留。",
+        "所以先检查快照，再发链接；删除链接也不等于撤回已经复制的内容。"
+      ],
+      "scene_titles": ["链接可能被转发", "拿到即可查看", "分享的是快照", "先预览内容", "导入副本仍存在", "没有细粒度权限", "发前再检查"],
+      "cover_core": "分享链接谁能看？",
+      "caption": "ChatGPT 分享链接可让拿到链接的人查看对话快照。发送前先检查内容；删除链接不会清除接收者已导入的副本。",
+      "hashtags": ["#ChatGPT", "#分享链接", "#隐私提醒"]
+    },
+    {
+      "slug": "chatgpt-archive-vs-delete",
+      "topic": "ChatGPT 归档和删除聊天有什么区别",
+      "keyword": "聊天归档删除",
+      "source_title": "How to Delete and Archive Chats in ChatGPT",
+      "source_url": "https://help.openai.com/en/articles/8809935",
+      "core_fact": "归档会把对话从侧栏隐藏但仍保留在账户中，之后可取消归档；删除会立即从历史视图移除，且不能从界面恢复。",
+      "sections": [
+        "想整理 ChatGPT 侧边栏，归档和删除不是同一种操作。",
+        "归档会把对话从主列表移走，但对话仍保存在账户里，可以之后取消归档。",
+        "删除会立即把对话从历史视图移除，而且无法从界面恢复。",
+        "OpenAI 说明，删除的聊天一般会在三十天内从系统永久删除，但去标识化或法律安全要求可能例外。",
+        "只想减少列表杂乱就归档；确实要移除内容，再考虑删除。",
+        "操作前先看清菜单选项，尤其是整批整理时，避免把要留存的对话删掉。"
+      ],
+      "scene_titles": ["整理还是删除", "归档仍保留", "可取消归档", "删除不能恢复", "留存规则有例外", "按目的选择", "操作前看菜单"],
+      "cover_core": "归档和删除差在哪？",
+      "caption": "归档会隐藏对话但保留在账户中，删除则会从历史视图移除且无法通过界面恢复。整理侧栏时按目标选择操作。",
+      "hashtags": ["#ChatGPT", "#聊天管理", "#数据整理"]
+    },
+    {
+      "slug": "chatgpt-data-export",
+      "topic": "ChatGPT 个人账户数据怎样导出",
+      "keyword": "ChatGPT 数据导出",
+      "source_title": "Exporting your ChatGPT history and data",
+      "source_url": "https://help.openai.com/en/articles/7260999-how-do-i-export-my-chatgpt-history-and-data",
+      "core_fact": "符合条件的已登录账户可在设置的数据控制中请求数据导出；准备好的压缩包下载链接会通过电子邮件或短信发送，并在二十四小时后到期。",
+      "sections": [
+        "想把 ChatGPT 的聊天和账户资料留一份备份，可以申请数据导出。",
+        "对符合条件的已登录账户，入口在设置里的数据控制，然后选择导出数据。",
+        "确认申请后，准备完成会通过账户关联的电子邮件或短信通知。",
+        "导出可能需要几天，下载链接收到后只保留二十四小时，所以要及时保存。",
+        "下载的是包含聊天记录和其他账户数据的 ZIP 文件；导出不能恢复已经删除的聊天。",
+        "操作前确认自己能访问账户邮箱或手机，拿到文件后也要妥善保管。"
+      ],
+      "scene_titles": ["需要账户备份", "设置里申请", "验证账户方式", "等通知下载", "链接二十四小时", "不能恢复已删聊天", "安全保存文件"],
+      "cover_core": "聊天记录怎么导出",
+      "caption": "符合条件的账户可在设置的数据控制中申请导出。下载链接收到后会过期，导出 ZIP 也无法恢复已删除的聊天。",
+      "hashtags": ["#ChatGPT", "#数据导出", "#账户管理"]
+    },
+    {
+      "slug": "chatgpt-prompt-basics",
+      "topic": "怎样把 ChatGPT 提示词写得更清楚",
+      "keyword": "ChatGPT 提示词",
+      "source_title": "Prompt engineering best practices for ChatGPT",
+      "source_url": "https://help.openai.com/en/articles/10032626",
+      "core_fact": "OpenAI 的提示词建议强调表达清楚、提供足够上下文，并在查看回答后迭代补充或调整指令。",
+      "sections": [
+        "同一个问题，为什么补一句背景后回答就更贴近需求？提示词里少了任务上下文。",
+        "OpenAI 建议把要求写清楚、写具体，并提供模型理解任务所需的信息。",
+        "可以补上目标对象、已有材料、输出格式和希望采用的语气。",
+        "第一版回答出来后，检查哪里偏了，再补充背景或收窄要求。",
+        "不要期待一段固定模板适用于所有任务；逐轮调整比堆很多形容词更可控。",
+        "先说清要什么结果、给出相关背景，再根据回答继续修订。"
+      ],
+      "scene_titles": ["回答偏题", "任务说具体", "补充背景", "规定输出格式", "看结果再调整", "逐轮收窄范围", "先写目标和背景"],
+      "cover_core": "提示词怎么写",
+      "caption": "写 ChatGPT 提示词时，先说明目标、背景和输出格式。看完第一版再补充或收窄要求，逐轮调整到符合用途。",
+      "hashtags": ["#ChatGPT", "#提示词", "#AI技巧"]
+    }
+  ]
+}

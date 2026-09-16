@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "cohort_id": "p14-first-twenty",
+  "definition": "A project requires engineering-level repair when a project-specific code, timeline, or rendered media correction is needed to pass QC after the accepted pipeline is run. Shared engine calibration before a final accepted run, script/cover input revisions, and deliberate candidate selection tests are excluded.",
+  "assessment_method": "Reviewed the READY_FOR_REVIEW run history and QC evidence for all 20 final projects. Every accepted run completed technical, content and visual QC and package checks without a project-specific engineering patch.",
+  "projects": [
+    {
+      "project_id": "20260916-chatgpt-plus-worth-it",
+      "engineering_repair_required": false,
+      "evidence": "Accepted pipeline completed to READY_FOR_REVIEW; technical, content, visual QC and package checks passed with no project-specific engineering correction."
+    },
+    {
+      "project_id": "20260916-chatgpt-projects-guide",
+      "engineering_repair_required": false,
+      "evidence": "Accepted pipeline completed to READY_FOR_REVIEW; technical, content, visual QC and package checks passed with no project-specific engineering correction."
+    },
+    {
+      "project_id": "20260916-temporary-chat-privacy",
+      "engineering_repair_required": false,
+      "evidence": "Accepted pipeline completed to READY_FOR_REVIEW; technical, content, visual QC and package checks passed with no project-specific engineering correction."
+    },
+    {
+      "project_id": "20260916-chatgpt-search-guide",
+      "engineering_repair_required": false,
+      "evidence": "Accepted pipeline completed to READY_FOR_REVIEW; technical, content, visual QC and package checks passed with no project-specific engineering correction."
+    },
+    {
+      "project_id": "20260916-deep-research-use-cases",
+      "engineering_repair_required": false,
+      "evidence": "Accepted pipeline completed to READY_FOR_REVIEW; technical, content, visual QC and package checks passed with no project-specific engineering correction."
+    },
+    {
+      "project_id": "20260916-chatgpt-memory-management",
+      "engineering_repair_required": false,
+      "evidence": "Accepted pipeline completed to READY_FOR_REVIEW; technical, content, visual QC and package checks passed with no project-specific engineering correction."
+    },
+    {
+      "project_id": "20260916-chatgpt-custom-instructions",
+      "engineering_repair_required": false,
+      "evidence": "Accepted pipeline completed to READY_FOR_REVIEW; technical, content, visual QC and package checks passed with no project-specific engineering correction."
+    },
+    {
+      "project_id": "20260916-chatgpt-file-uploads",
+      "engineering_repair_required": false,
+      "evidence": "Accepted pipeline completed to READY_FOR_REVIEW; technical, content, visual QC and package checks passed with no project-specific engineering correction."
+    },
+    {
+      "project_id": "20260916-chatgpt-data-controls",
+      "engineering_repair_required": false,
+      "evidence": "Accepted pipeline completed to READY_FOR_REVIEW; technical, content, visual QC and package checks passed with no project-specific engineering correction."
+    },
+    {
+      "project_id": "20260916-chatgpt-voice-mode",
+      "engineering_repair_required": false,
+      "evidence": "Accepted pipeline completed to READY_FOR_REVIEW; technical, content, visual QC and package checks passed with no project-specific engineering correction."
+    },
+    {
+      "project_id": "20260916-chatgpt-study-mode",
+      "engineering_repair_required": false,
+      "evidence": "Accepted pipeline completed to READY_FOR_REVIEW; technical, content, visual QC and package checks passed with no project-specific engineering correction."
+    },
+    {
+      "project_id": "20260916-chatgpt-scheduled-tasks",
+      "engineering_repair_required": false,
+      "evidence": "Accepted pipeline completed to READY_FOR_REVIEW; technical, content, visual QC and package checks passed with no project-specific engineering correction."
+    },
+    {
+      "project_id": "20260916-chatgpt-canvas-workflow",
+      "engineering_repair_required": false,
+      "evidence": "Accepted pipeline completed to READY_FOR_REVIEW; technical, content, visual QC and package checks passed with no project-specific engineering correction."
+    },
+    {
+      "project_id": "20260916-chatgpt-images-precision-edit",
+      "engineering_repair_required": false,
+      "evidence": "Accepted pipeline completed to READY_FOR_REVIEW; technical, content, visual QC and package checks passed with no project-specific engineering correction."
+    },
+    {
+      "project_id": "20260916-chatgpt-app-permissions",
+      "engineering_repair_required": false,
+      "evidence": "Accepted pipeline completed to READY_FOR_REVIEW; technical, content, visual QC and package checks passed with no project-specific engineering correction."
+    },
+    {
+      "project_id": "20260916-chatgpt-history-search",
+      "engineering_repair_required": false,
+      "evidence": "Accepted pipeline completed to READY_FOR_REVIEW; technical, content, visual QC and package checks passed with no project-specific engineering correction."
+    },
+    {
+      "project_id": "20260916-chatgpt-shared-links",
+      "engineering_repair_required": false,
+      "evidence": "Accepted pipeline completed to READY_FOR_REVIEW; technical, content, visual QC and package checks passed with no project-specific engineering correction."
+    },
+    {
+      "project_id": "20260916-chatgpt-archive-vs-delete",
+      "engineering_repair_required": false,
+      "evidence": "Accepted pipeline completed to READY_FOR_REVIEW; technical, content, visual QC and package checks passed with no project-specific engineering correction."
+    },
+    {
+      "project_id": "20260916-chatgpt-data-export",
+      "engineering_repair_required": false,
+      "evidence": "Accepted pipeline completed to READY_FOR_REVIEW; technical, content, visual QC and package checks passed with no project-specific engineering correction."
+    },
+    {
+      "project_id": "20260916-chatgpt-prompt-basics",
+      "engineering_repair_required": false,
+      "evidence": "Accepted pipeline completed to READY_FOR_REVIEW; technical, content, visual QC and package checks passed with no project-specific engineering correction."
+    }
+  ]
+}

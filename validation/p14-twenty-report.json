@@ -1,0 +1,294 @@
+{
+  "schema_version": 1,
+  "status": "PASS",
+  "verified_projects": 20,
+  "required_projects": 20,
+  "batches": [
+    "p14-first-five",
+    "p14-second-five",
+    "p14-third-five",
+    "p14-fourth-five"
+  ],
+  "projects": [
+    {
+      "project_id": "20260916-chatgpt-plus-worth-it",
+      "duration_seconds": 56.0,
+      "production_elapsed_seconds": 17.669,
+      "final_sha256": "0bd4ada44b84c57636e783a1b50386d449812322944ec5cd121e70d9df24382f",
+      "checks": {
+        "stable_generation": true,
+        "style": true,
+        "duration": true,
+        "subtitles": true,
+        "voice": true,
+        "hook": true
+      }
+    },
+    {
+      "project_id": "20260916-chatgpt-projects-guide",
+      "duration_seconds": 56.0,
+      "production_elapsed_seconds": 18.121,
+      "final_sha256": "8f888492069b2adb4aca263c01c461797e4b6a5e2ac91e7bb43a548f8469f6ff",
+      "checks": {
+        "stable_generation": true,
+        "style": true,
+        "duration": true,
+        "subtitles": true,
+        "voice": true,
+        "hook": true
+      }
+    },
+    {
+      "project_id": "20260916-temporary-chat-privacy",
+      "duration_seconds": 56.0,
+      "production_elapsed_seconds": 18.405,
+      "final_sha256": "71a8ed9304109122ec997c75f21fada12036734e1ea03ff696b863c901c4bf5e",
+      "checks": {
+        "stable_generation": true,
+        "style": true,
+        "duration": true,
+        "subtitles": true,
+        "voice": true,
+        "hook": true
+      }
+    },
+    {
+      "project_id": "20260916-chatgpt-search-guide",
+      "duration_seconds": 56.0,
+      "production_elapsed_seconds": 18.26,
+      "final_sha256": "cc300ec01672fe48136658d7a52278fc755896e38c77663e2cd719d2fdcc5444",
+      "checks": {
+        "stable_generation": true,
+        "style": true,
+        "duration": true,
+        "subtitles": true,
+        "voice": true,
+        "hook": true
+      }
+    },
+    {
+      "project_id": "20260916-deep-research-use-cases",
+      "duration_seconds": 56.0,
+      "production_elapsed_seconds": 18.342,
+      "final_sha256": "e814ecc2e0097b703517226762526141b4663e32e36053ed551f1d8d810796dd",
+      "checks": {
+        "stable_generation": true,
+        "style": true,
+        "duration": true,
+        "subtitles": true,
+        "voice": true,
+        "hook": true
+      }
+    },
+    {
+      "project_id": "20260916-chatgpt-memory-management",
+      "duration_seconds": 56.0,
+      "production_elapsed_seconds": 17.206,
+      "final_sha256": "4fea0d556458e6556f974fd37e34a0f41c73d10e47e9d5e072715e51383bb476",
+      "checks": {
+        "stable_generation": true,
+        "style": true,
+        "duration": true,
+        "subtitles": true,
+        "voice": true,
+        "hook": true
+      }
+    },
+    {
+      "project_id": "20260916-chatgpt-custom-instructions",
+      "duration_seconds": 56.0,
+      "production_elapsed_seconds": 17.54,
+      "final_sha256": "72d034f329ef77be22c7364ab1dfd962b9d3b792d7ce244d3f7d0f9ec0194048",
+      "checks": {
+        "stable_generation": true,
+        "style": true,
+        "duration": true,
+        "subtitles": true,
+        "voice": true,
+        "hook": true
+      }
+    },
+    {
+      "project_id": "20260916-chatgpt-file-uploads",
+      "duration_seconds": 56.0,
+      "production_elapsed_seconds": 17.171,
+      "final_sha256": "db05b108db672607ae50dcc2338ddf4ec22aeb22d781e2962acbdbab890f4be9",
+      "checks": {
+        "stable_generation": true,
+        "style": true,
+        "duration": true,
+        "subtitles": true,
+        "voice": true,
+        "hook": true
+      }
+    },
+    {
+      "project_id": "20260916-chatgpt-data-controls",
+      "duration_seconds": 56.0,
+      "production_elapsed_seconds": 17.102,
+      "final_sha256": "99150643f763741eafa3fce2e2d357587a92566ecdaf1db705ff97c06dd305f5",
+      "checks": {
+        "stable_generation": true,
+        "style": true,
+        "duration": true,
+        "subtitles": true,
+        "voice": true,
+        "hook": true
+      }
+    },
+    {
+      "project_id": "20260916-chatgpt-voice-mode",
+      "duration_seconds": 56.0,
+      "production_elapsed_seconds": 17.843,
+      "final_sha256": "a2ba77b4e21c24f2b61af07bc83a4142b8c1a5b905e73c3b347cbf9e0e3240e8",
+      "checks": {
+        "stable_generation": true,
+        "style": true,
+        "duration": true,
+        "subtitles": true,
+        "voice": true,
+        "hook": true
+      }
+    },
+    {
+      "project_id": "20260916-chatgpt-study-mode",
+      "duration_seconds": 56.0,
+      "production_elapsed_seconds": 18.05,
+      "final_sha256": "fe546e59120be7f0843b3aca768f35d8bdcdb119f2d69e8ac80a86a90822fb20",
+      "checks": {
+        "stable_generation": true,
+        "style": true,
+        "duration": true,
+        "subtitles": true,
+        "voice": true,
+        "hook": true
+      }
+    },
+    {
+      "project_id": "20260916-chatgpt-scheduled-tasks",
+      "duration_seconds": 56.0,
+      "production_elapsed_seconds": 18.176,
+      "final_sha256": "2d1cd86fff4fa7b5f956462cfb2fbb01cd5a898a323a97f02aeae2ac87cd4247",
+      "checks": {
+        "stable_generation": true,
+        "style": true,
+        "duration": true,
+        "subtitles": true,
+        "voice": true,
+        "hook": true
+      }
+    },
+    {
+      "project_id": "20260916-chatgpt-canvas-workflow",
+      "duration_seconds": 56.0,
+      "production_elapsed_seconds": 18.235,
+      "final_sha256": "52d7ce73295a12d46ee07124ce9f144991d5f074b5c60b24e00c362bed69b0c5",
+      "checks": {
+        "stable_generation": true,
+        "style": true,
+        "duration": true,
+        "subtitles": true,
+        "voice": true,
+        "hook": true
+      }
+    },
+    {
+      "project_id": "20260916-chatgpt-images-precision-edit",
+      "duration_seconds": 56.0,
+      "production_elapsed_seconds": 18.84,
+      "final_sha256": "91e7fa02076c1802625e1fcb4035856893b2d5ab1612be0381a1d6002ccb1ce5",
+      "checks": {
+        "stable_generation": true,
+        "style": true,
+        "duration": true,
+        "subtitles": true,
+        "voice": true,
+        "hook": true
+      }
+    },
+    {
+      "project_id": "20260916-chatgpt-app-permissions",
+      "duration_seconds": 56.0,
+      "production_elapsed_seconds": 19.147,
+      "final_sha256": "c527cca965d4798ece89c64463656c65d3029e6db10b466aecb7482b00364644",
+      "checks": {
+        "stable_generation": true,
+        "style": true,
+        "duration": true,
+        "subtitles": true,
+        "voice": true,
+        "hook": true
+      }
+    },
+    {
+      "project_id": "20260916-chatgpt-history-search",
+      "duration_seconds": 56.0,
+      "production_elapsed_seconds": 18.383,
+      "final_sha256": "fb2bb0b45644cf63c7ab0a9f903d09f8e9c9e6c4116b63d5e3bac0fea7512f73",
+      "checks": {
+        "stable_generation": true,
+        "style": true,
+        "duration": true,
+        "subtitles": true,
+        "voice": true,
+        "hook": true
+      }
+    },
+    {
+      "project_id": "20260916-chatgpt-shared-links",
+      "duration_seconds": 56.0,
+      "production_elapsed_seconds": 18.568,
+      "final_sha256": "5133c7f914dcc2c7730cf3e2ca0f52c265cc96d6b779c7de6050832792e2ebc7",
+      "checks": {
+        "stable_generation": true,
+        "style": true,
+        "duration": true,
+        "subtitles": true,
+        "voice": true,
+        "hook": true
+      }
+    },
+    {
+      "project_id": "20260916-chatgpt-archive-vs-delete",
+      "duration_seconds": 56.0,
+      "production_elapsed_seconds": 18.196,
+      "final_sha256": "b1cf35e33cd364e9fdd61f6c90e61641e8a4117b0c06f323e3654e4389deb25c",
+      "checks": {
+        "stable_generation": true,
+        "style": true,
+        "duration": true,
+        "subtitles": true,
+        "voice": true,
+        "hook": true
+      }
+    },
+    {
+      "project_id": "20260916-chatgpt-data-export",
+      "duration_seconds": 56.0,
+      "production_elapsed_seconds": 18.66,
+      "final_sha256": "25c5277a2deea895907bfb6c1db3904aa5a9b1abf7b9bd30dc263f5e984b4892",
+      "checks": {
+        "stable_generation": true,
+        "style": true,
+        "duration": true,
+        "subtitles": true,
+        "voice": true,
+        "hook": true
+      }
+    },
+    {
+      "project_id": "20260916-chatgpt-prompt-basics",
+      "duration_seconds": 56.0,
+      "production_elapsed_seconds": 18.319,
+      "final_sha256": "5c0aef300ed2a0b517597126a5effb997126457c3c49f32876ed4b8f8f27331b",
+      "checks": {
+        "stable_generation": true,
+        "style": true,
+        "duration": true,
+        "subtitles": true,
+        "voice": true,
+        "hook": true
+      }
+    }
+  ]
+}

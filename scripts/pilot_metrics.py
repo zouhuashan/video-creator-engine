@@ -78,6 +78,39 @@ def create_tracker(validation_report: dict[str, Any], projects_dir: Path) -> dic
             "projects": records}
 
 
+def extend_tracker(tracker_path: Path, validation_report: dict[str, Any], projects_dir: Path) -> dict[str, Any]:
+    """Add newly validated projects while preserving all prior observations."""
+    if validation_report.get("status") != "PASS" or validation_report.get("verified_projects") != 20:
+        raise PilotMetricsError("P14 metrics can only extend from a PASS twenty-project report")
+    validated = validation_report.get("projects")
+    if not isinstance(validated, list) or len(validated) != 20:
+        raise PilotMetricsError("P14 metrics extension requires twenty validated projects")
+    ids = [item.get("project_id") for item in validated if isinstance(item, dict)]
+    if len(ids) != 20 or len(set(ids)) != 20 or any(not isinstance(value, str) for value in ids):
+        raise PilotMetricsError("P14 metrics extension requires twenty unique project IDs")
+    tracker = _load(tracker_path, "metrics tracker")
+    if tracker.get("schema_version") != 1 or not isinstance(tracker.get("projects"), list):
+        raise PilotMetricsError("metrics tracker schema is invalid")
+    records = tracker["projects"]
+    existing_ids = [item.get("project_id") for item in records if isinstance(item, dict)]
+    if len(existing_ids) != len(records) or len(existing_ids) != len(set(existing_ids)) or not set(existing_ids).issubset(ids):
+        raise PilotMetricsError("existing metrics entries must be unique members of the twenty-project report")
+    known = set(existing_ids)
+    for project_id in ids:
+        if project_id in known:
+            continue
+        state = load_run_state(Path(projects_dir) / project_id, project_id)
+        if state["status"] not in {"READY_FOR_REVIEW", "PUBLISHED_MANUALLY"}:
+            raise PilotMetricsError(f"{project_id} is not ready for publication")
+        records.append({"project_id": project_id,
+                        "collection_status": "awaiting_manual_publish" if state["status"] == "READY_FOR_REVIEW" else "awaiting_metrics",
+                        "observations": []})
+    tracker["cohort_id"] = "p14-first-twenty"
+    tracker["updated_at"] = datetime.now().astimezone().isoformat(timespec="seconds")
+    _write(tracker_path, tracker)
+    return tracker
+
+
 def validate_metrics(metrics: dict[str, Any]) -> dict[str, int | float]:
     if set(metrics) != METRIC_FIELDS:
         missing, extra = METRIC_FIELDS - set(metrics), set(metrics) - METRIC_FIELDS
@@ -152,6 +185,10 @@ def main() -> int:
     record.add_argument("--observed-at", required=True)
     record.add_argument("--platform", required=True)
     record.add_argument("--source", required=True, help="reference to the platform export, screenshot, or manual report")
+    extend = subparsers.add_parser("extend", help="extend the tracker from ten to twenty validated projects")
+    extend.add_argument("--validation-report", type=Path, default=ROOT / "validation" / "p14-twenty-report.json")
+    extend.add_argument("--projects-dir", type=Path, default=DEFAULT_PROJECTS_DIR)
+    extend.add_argument("--tracker", type=Path, default=DEFAULT_TRACKER)
     args = parser.parse_args()
     try:
         if args.command == "bootstrap":
@@ -159,6 +196,8 @@ def main() -> int:
                 raise PilotMetricsError(f"refusing to overwrite existing metrics tracker: {args.output}")
             result = create_tracker(_load(args.validation_report, "ten-project validation report"), args.projects_dir)
             _write(args.output, result)
+        elif args.command == "extend":
+            result = extend_tracker(args.tracker, _load(args.validation_report, "twenty-project validation report"), args.projects_dir)
         else:
             result = record_metrics(args.tracker, args.project_id, args.projects_dir,
                                     _load(args.metrics_file, "metrics sample"), args.observed_at,

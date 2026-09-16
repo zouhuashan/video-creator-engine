@@ -9,7 +9,7 @@ from unittest.mock import patch
 from scripts import project_state
 from scripts.package_project import REQUIRED_FILES
 from scripts.pilot_producer import PilotProductionError, _atempo_chain, produce_batch
-from scripts.pilot_validation import PilotValidationError, REQUIRED_CHECKS, validate_first_five, validate_first_ten
+from scripts.pilot_validation import PilotValidationError, REQUIRED_CHECKS, validate_first_five, validate_first_ten, validate_first_twenty
 
 
 class PilotValidationTests(unittest.TestCase):
@@ -90,6 +90,17 @@ class PilotValidationTests(unittest.TestCase):
             self.assertTrue(output.is_file())
             with patch("scripts.pilot_producer.FONT", font), self.assertRaisesRegex(PilotProductionError, "overwrite"):
                 produce_batch(batch_file, projects_dir, output)
+
+    def test_independently_accepts_four_batches_as_twenty_unique_projects(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            reports = [self._fixture(root, prefix) for prefix in ("first", "second", "third", "fourth")]
+            result = validate_first_twenty(reports, root, self.inspector)
+            self.assertEqual(result["status"], "PASS")
+            self.assertEqual(result["verified_projects"], 20)
+            self.assertTrue(all(item["production_elapsed_seconds"] > 0 for item in result["projects"]))
+            with self.assertRaisesRegex(PilotValidationError, "four five-project"):
+                validate_first_twenty(reports[:3], root, self.inspector)
 
     def test_atempo_chain_supports_slow_and_fast_normalization(self):
         self.assertIn("atempo=0.50000000", _atempo_chain(0.25))
