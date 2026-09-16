@@ -16,6 +16,7 @@ from scripts.novel_series_plan import build_plan, write_plan
 from scripts.novel_episode_planning import build_episode_planning, write_episode_planning
 from scripts.novel_episode_script import build_script_package, write_script_package
 from scripts.novel_story_review import audit_story, write_report
+from scripts.novel_visual_bible import build_visual_bible, write_visual_bible
 
 
 class WebServerTests(unittest.TestCase):
@@ -59,6 +60,7 @@ class WebServerTests(unittest.TestCase):
             write_episode_planning(project_dir, build_episode_planning(project_dir))
             write_script_package(project_dir, build_script_package(project_dir))
             write_report(project_dir, audit_story(project_dir))
+            write_visual_bible(project_dir, build_visual_bible(project_dir))
             imports_dir = project_dir / "sources" / "imports"
             imports_dir.mkdir(parents=True)
             (imports_dir / "test.json").write_text(json.dumps({
@@ -91,6 +93,8 @@ class WebServerTests(unittest.TestCase):
         self.assertEqual(projects[0]["episode_scripts"]["available_input_count"], 1)
         self.assertEqual(projects[0]["story_review"]["overall_status"], "BLOCKED")
         self.assertGreater(projects[0]["story_review"]["blocker_count"], 0)
+        self.assertEqual(projects[0]["visual_bible"]["status"], "DRAFT")
+        self.assertEqual(projects[0]["visual_bible"]["episode_palette_count"], 5)
 
     def test_web_entrypoints_are_tracked_assets(self):
         self.assertTrue((web_server.WEB_ROOT / "index.html").is_file())

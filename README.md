@@ -104,6 +104,15 @@ python3 scripts/novel_story_review.py approve projects/jinghua-yuan-series --rev
 
 审核覆盖因果链、节奏、人物动机、伏笔设置/回收、跨集状态和来源标记。含阻断项或警告的报告不能批准；报告输入修订过期后也不能批准。`WRITING_READY` 同时要求最新报告为 PASS、人工审核明确通过，并保留运行时 `season_plan` 审核门。
 
+创建国风视觉方向、五集色彩脚本、构图规范和负面约束：
+
+```bash
+python3 scripts/novel_visual_bible.py create projects/jinghua-yuan-series
+python3 scripts/novel_visual_bible.py validate projects/jinghua-yuan-series
+```
+
+视觉圣经默认采用 1080×1920、9:16、30 fps，并独立记录安全区和字幕区。READY 状态要求美术方向、线稿、渲染、材质、角色/环境/动作语言、提示词前缀、五集配色、构图规则和负面约束全部完成并同步审核；引用现成影视设计、未授权参考或现代插图会被禁止。
+
 ## Environment
 
 Pinned local tool versions:
