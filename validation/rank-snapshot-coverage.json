@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "research_date": "2026-09-16",
+  "required_consecutive_periods_per_platform": 3,
+  "platforms": [
+    {
+      "platform": "起点中文网",
+      "chart_family": "男频月票榜",
+      "period_unit": "calendar_month",
+      "snapshots": [
+        {"period": "2026-06", "scope_id": "qidian-mens-monthly-ticket", "title": "夜无疆", "rank": 2, "chart_size": null, "source_url": "https://book.qidian.com/honor/1040765595", "observed_at": "2026-09-16", "source_note": "起点官方作品荣誉页回列月榜名次。"},
+        {"period": "2026-07", "scope_id": "qidian-mens-monthly-ticket", "title": "夜无疆", "rank": 3, "chart_size": null, "source_url": "https://book.qidian.com/honor/1040765595", "observed_at": "2026-09-16", "source_note": "起点官方作品荣誉页回列月榜名次。"},
+        {"period": "2026-08", "scope_id": "qidian-mens-monthly-ticket", "title": "夜无疆", "rank": 3, "chart_size": null, "source_url": "https://book.qidian.com/honor/1040765595", "observed_at": "2026-09-16", "source_note": "起点官方作品荣誉页回列月榜名次。"}
+      ],
+      "coverage": "complete_three_consecutive_periods",
+      "limitation": "此处记录同一作品的名次连续性，用于题材趋势校验；不代表平台全榜，也不能与其他平台的绝对票数/在读数相加。"
+    },
+    {
+      "platform": "番茄小说",
+      "chart_family": "阅读榜（按在读数据排序；网页分类路径不完全一致）",
+      "period_unit": "day",
+      "snapshots": [
+        {"period": "2026-09-14", "scope_id": "fanqie-reading-1_2_273", "rank": 1, "title": "冒姓琅琊", "source_url": "https://fanqienovel.com/rank/1_2_273", "observed_at": "2026-09-16", "source_note": "官方页面写明统计截止 09-14 24:00。"},
+        {"period": "2026-09-15", "scope_id": "fanqie-reading-1_1_273", "rank": 1, "title": "欢宋", "source_url": "https://fanqienovel.com/rank/1_1_273", "observed_at": "2026-09-16", "source_note": "官方页面写明统计截止 09-15 24:00。分类路径与前一日不同，不作为同一细分榜的名次变化。"}
+      ],
+      "coverage": "incomplete",
+      "limitation": "只取得相邻两日页面，且细分榜路由不同；缺 09-13 同口径快照，当前不能做连续趋势比较。"
+    },
+    {
+      "platform": "晋江文学城",
+      "chart_family": "古代言情月度排行榜",
+      "period_unit": "calendar_month",
+      "snapshots": [
+        {"period": "2026-09 current", "scope_id": "jjwxc-ancient-romance-monthly", "ranked_titles": ["高冷太子的克星", "苗疆少年他杀回来了", "江城花似锦"], "source_url": "https://static.jjwxc.net/channeltopten.php?channelid=101", "observed_at": "2026-09-16", "source_note": "晋江官方当前月榜公开页。"}
+      ],
+      "coverage": "incomplete",
+      "limitation": "官方公开页展示当期榜单；本次没有找到 2026-07、08 同口径、可复核的公开历史月榜存档。"
+    }
+  ],
+  "overall_coverage": "incomplete",
+  "next_collection_action": "保留当期原始榜单证据；在晋江下两个完整月榜周期形成可复核快照，并补齐番茄同一路由的第三个连续日期后，再计算跨期稳定性。"
+}

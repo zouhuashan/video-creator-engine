@@ -1,0 +1,199 @@
+{
+  "schema_version": 1,
+  "research_date": "2026-09-16",
+  "target_territory": "CN-Mainland",
+  "legal_basis": {
+    "statute": "中华人民共和国著作权法（2020修正）第二十二、二十三条",
+    "url": "https://www.ncac.gov.cn/xxfb/flfg/flfg_532/202103/t20210309_50530.html",
+    "note": "自然人作品的发表权及财产权保护期为作者终生及死亡后50年，截止于该年12月31日；署名权、修改权、保护作品完整权不受期限限制。此门槛只覆盖所列原作/古籍底本，不覆盖现代校注、译文、插图、版式、配音或既有影视表达。"
+  },
+  "market_signals": [
+    {
+      "signal_id": "MKT-JJ-202609",
+      "platform": "晋江文学城",
+      "period": "2026-09 current monthly chart",
+      "observed_at": "2026-09-16",
+      "genre_signal": "古代言情、架空历史、女性关系与身份冲突",
+      "trend_tags": ["historical_romance", "women_ensemble"],
+      "source_url": "https://static.jjwxc.net/channeltopten.php?channelid=101",
+      "signal_type": "platform_genre_and_chart",
+      "evidence_level": "direct_current_snapshot"
+    },
+    {
+      "signal_id": "MKT-QD-202606-08",
+      "platform": "起点中文网",
+      "period": "2026-06 through 2026-08 monthly-ticket charts",
+      "observed_at": "2026-09-16",
+      "genre_signal": "玄幻/奇幻、持续升级與长线冒险",
+      "trend_tags": ["fantasy_adventure", "serial_growth"],
+      "source_url": "https://book.qidian.com/honor/1040765595",
+      "genre_source_url": "https://www.qidian.com/chapter/1040765595/833041558/",
+      "signal_type": "three_period_rank_panel",
+      "evidence_level": "direct_official_honors_history"
+    },
+    {
+      "signal_id": "MKT-FQ-20260914-15",
+      "platform": "番茄小说",
+      "period": "2026-09-14 through 2026-09-15 daily reading rankings",
+      "observed_at": "2026-09-16",
+      "genre_signal": "奇幻/仙侠、古代言情与历史冒险并存",
+      "trend_tags": ["fantasy_adventure", "historical_romance"],
+      "source_url": "https://fanqienovel.com/rank",
+      "signal_type": "two_period_daily_snapshot",
+      "evidence_level": "direct_current_and_adjacent_day_cutoff"
+    }
+  ],
+  "works": [
+    {
+      "work_id": "CLASSIC-JHY-001",
+      "title": "镜花缘",
+      "author": "李汝珍",
+      "author_death_year": 1830,
+      "author_date_basis": "约1763—1830；北京大兴区政府人物资料记载该生卒区间。",
+      "author_date_source_url": "https://www.bjdx.gov.cn/bjsdxqrmzf/zjdx/2050197/gjrw/668745/index.html",
+      "source_edition": "嘉庆二十三年（1818）苏州原刊初印本；选择未加现代标点、注释或改写的古籍影印底本。",
+      "edition_source_url": "https://ctext.org/library.pl?if=gb&remap=gb&res=4745",
+      "edition_evidence_note": "中国哲学书电子化计划说明影印原书来自北京大学图书馆；人民网知识产权报道说明北大馆藏为嘉庆二十三年原刊本。导入制作库前仍须人工比对具体扫描卷册的牌记/序跋与校勘情况。",
+      "edition_crosscheck_url": "https://ip.people.com.cn/n1/2020/0312/c179663-31629123.html",
+      "territory": "CN-Mainland",
+      "rights_gate": "pass_for_human_decision",
+      "rights_rationale": "作者逝世年早于中国大陆自然人作品财产权保护期届满界线；以1818年古籍原刊为候选底本，不使用1955年后校注本的新增表达。入制作前仍需核验实际扫描卷册。署名与尊重原作完整性仍需遵守。",
+      "rights_evidence_urls": [
+        "https://www.ncac.gov.cn/xxfb/flfg/flfg_532/202103/t20210309_50530.html",
+        "https://www.bjdx.gov.cn/bjsdxqrmzf/zjdx/2050197/gjrw/668745/index.html",
+        "https://ctext.org/library.pl?if=gb&remap=gb&res=4745",
+        "https://ip.people.com.cn/n1/2020/0312/c179663-31629123.html"
+      ],
+      "genre_tags": ["fantasy_adventure", "ancient_china", "women_ensemble", "journey_serial"],
+      "format_fit": {
+        "continuous_arc": 4,
+        "episode_hooks": 5,
+        "visual_worldbuilding": 5,
+        "adaptation_crowding_risk": 4
+      },
+      "match_inference": "海外游历与多地异闻提供单集闭环，唐小山寻父可作贯穿线；女性群像和奇幻世界构成与当期古言信号相邻的切入点。题材贴合属于结构推断，并非榜单直接证明观众会喜欢此改编。",
+      "known_expression_risks": [
+        "已有上美 1991 年动画《镜花缘》和央视动画《哈哈镜花缘》；角色造型、镜头、配乐和宣传视觉必须独立设计，不参考这些后世版本。",
+        "不要从张友鹤校注本复制校注、现代标点编排或独创说明文字。",
+        "采用原著故事要素时，角色造型、镜头、配乐和宣传视觉必须独立设计，不参考后世插画、动画、漫画、影视或舞台版本。",
+        "先人工核对实际使用的扫描卷册确为所列嘉庆原刊底本；影印平台只作为书目/扫描入口。"
+      ],
+      "adaptation_risk_evidence_urls": [
+        "https://www.bilibili.com/bangumi/play/ss2521",
+        "https://www.cctv.com/youth/special/C10612/20030625/100812.shtml"
+      ],
+      "shortlist_eligible": true,
+      "preproduction_scan_match_required": true,
+      "topic_alignments": {"historical_romance": "adjacent", "fantasy_adventure": "direct"}
+    },
+    {
+      "work_id": "CLASSIC-LZ-001",
+      "title": "聊斋志异",
+      "author": "蒲松龄",
+      "author_death_year": 1715,
+      "author_date_basis": "1640—1715；古籍目录与作者资料一致。",
+      "author_date_source_url": "https://ctext.org/datawiki.pl?if=gb&remap=gb&res=70536",
+      "source_edition": "乾隆三十一年（1766）青柯亭刻本，优先选用上海图书馆藏本的无现代注释影印。",
+      "edition_source_url": "https://commons.wikimedia.org/wiki/File:%E8%81%8A%E6%96%8B%E5%BF%97%E5%BC%82.%E5%8D%81%E5%85%AD%E5%8D%B7.%E6%B8%85.%E8%92%B2%E6%9D%BE%E9%BE%84.%E6%92%B0.%E6%B8%85%E4%B9%BE%E9%9A%86%E4%B8%89%E5%8D%81%E4%B8%80%E5%B9%B4%E9%9D%92%E6%9F%AF%E亭%E5%88%8A%E6%9C%AC.pdf",
+      "edition_evidence_note": "所列文件描述为清乾隆三十一年青柯亭刊本，馆藏来源标注上海图书馆。该扫描可作为版本核对入口；不同青柯亭本存在卷首序记、篇目与附文差异，须先选定具体卷册。",
+      "edition_crosscheck_url": "https://m.fx361.com/news/2023/0725/22603097.html",
+      "territory": "CN-Mainland",
+      "rights_gate": "pass_for_human_decision",
+      "rights_rationale": "蒲松龄逝世年早于中国大陆自然人作品财产权保护期届满界线；1766年古籍刻本可用于核对原作，不得挪用后世评注、译文、插图、影视人物造型或表演录音。",
+      "rights_evidence_urls": [
+        "https://www.ncac.gov.cn/xxfb/flfg/flfg_532/202103/t20210309_50530.html",
+        "https://ctext.org/datawiki.pl?if=gb&remap=gb&res=70536",
+        "https://commons.wikimedia.org/wiki/File:%E8%81%8A%E6%96%8B%E5%BF%97%E5%BC%82.%E5%8D%81%E5%85%AD%E5%8D%B7.%E6%B8%85.%E8%92%B2%E6%9D%BE%E9%BE%84.%E6%92%B0.%E6%B8%85%E4%B9%BE%E9%9A%86%E4%B8%89%E5%8D%81%E4%B8%80%E5%B9%B4%E9%9D%92%E6%9F%AF%E亭%E5%88%8A%E6%9C%AC.pdf",
+        "https://m.fx361.com/news/2023/0725/22603097.html"
+      ],
+      "genre_tags": ["supernatural_mystery", "romance", "episodic_anthology", "ancient_china"],
+      "format_fit": {
+        "continuous_arc": 2,
+        "episode_hooks": 5,
+        "visual_worldbuilding": 5,
+        "adaptation_crowding_risk": 5
+      },
+      "match_inference": "志怪、奇情与悬念直接匹配奇幻/怪谈信号；篇章天然适合短集，但原作人物多为单篇角色，若要求固定主角连续成长，需要新增原创叙事框架并清楚标注为原创。",
+      "known_expression_risks": [
+        "《倩女幽魂》等视听版本已使用原作人物；避开后世版本独有的角色外形、台词、音乐、镜头和故事拼接。",
+        "青柯亭早期刻本存在不同印本与卷首材料差异，选择单一扫描底本并保留版本页。"
+      ],
+      "adaptation_risk_evidence_urls": [
+        "https://www.filmarchive.gov.hk/sc/web/hkfa/pe-event-2015-15-1-3.html"
+      ],
+      "shortlist_eligible": true,
+      "preproduction_scan_match_required": true,
+      "topic_alignments": {"historical_romance": "adjacent", "fantasy_adventure": "direct"}
+    },
+    {
+      "work_id": "CLASSIC-MDT-001",
+      "title": "牡丹亭还魂记",
+      "author": "汤显祖",
+      "author_death_year": 1616,
+      "author_date_basis": "1550—1616；故宫博物院人物资料。",
+      "author_date_source_url": "https://www.dpm.org.cn/lemmas/240278.html",
+      "source_edition": "优先从国家图书馆藏明代刻本中选定单一原始文本；候选包括泰昌元年（1620）吴兴闵氏朱墨套印本或天启五年（1625）梁台卿刻本。",
+      "edition_source_url": "https://www.nlcpress.com/ProductView.aspx?Id=10279",
+      "edition_evidence_note": "国家图书馆出版社目录说明所收22种珍本包含上述明代版本；该页面是书目证据，不是可直接制作的逐页文本。精确底本仍须馆藏扫描逐字核验。",
+      "territory": "CN-Mainland",
+      "rights_gate": "pass_for_human_decision",
+      "rights_rationale": "汤显祖逝世年早于中国大陆自然人作品财产权保护期届满界线；原作属于明代戏曲文本。须把原作文字与现代昆曲演出、整理校注本及视听作品分别处理。",
+      "rights_evidence_urls": [
+        "https://www.ncac.gov.cn/xxfb/flfg/flfg_532/202103/t20210309_50530.html",
+        "https://www.dpm.org.cn/lemmas/240278.html",
+        "https://www.nlcpress.com/ProductView.aspx?Id=10279"
+      ],
+      "genre_tags": ["historical_romance", "supernatural_return", "identity_arc", "ancient_china"],
+      "format_fit": {
+        "continuous_arc": 5,
+        "episode_hooks": 4,
+        "visual_worldbuilding": 4,
+        "adaptation_crowding_risk": 5
+      },
+      "match_inference": "古代爱情与身份/生死转折和晋江题材信号贴合度最高；原作有明确连续主线，适合分集改编，但文本为戏曲结构，转成短视频需要原创叙事节奏，且舞台、昆曲和影视既有表达风险突出。",
+      "known_expression_risks": [
+        "不得复刻昆曲演员的唱腔录音、具体舞台调度、现代舞美、服装设计或既有影视镜头。",
+        "国家图书馆目录页只证明版本存在；在取得可审阅的指定明刻本扫描前，不得把底本文字导入制作。"
+      ],
+      "adaptation_risk_evidence_urls": [
+        "https://www.mct.gov.cn/ggfw/zyjzzt/yanchu/yanchuwqhg/202409/t20240912_955248.html"
+      ],
+      "shortlist_eligible": true,
+      "preproduction_scan_match_required": true,
+      "topic_alignments": {"historical_romance": "direct", "fantasy_adventure": "adjacent"}
+    },
+    {
+      "work_id": "CLASSIC-XYJ-001",
+      "title": "西游记",
+      "author": "传统署名吴承恩，学界作者归属仍有讨论",
+      "author_death_year": null,
+      "author_date_basis": "作者归属与署名存在历史讨论，不能只用吴承恩生卒年计算权利期限。",
+      "author_date_source_url": "https://www.chnmuseum.cn/yj/xscg/xslw/201812/t20181224_36519.shtml",
+      "source_edition": "万历二十年（1592）金陵世德堂《新刻出像官板大字西游记》；目前只有版次信息，未在本轮取得可逐页校验的同版扫描。",
+      "edition_source_url": "https://www.chnmuseum.cn/yj/xscg/xslw/201812/t20181224_36519.shtml",
+      "edition_evidence_note": "中国国家博物馆文章记载1592年世德堂本为《西游记》早期主要刻本之一；还需由馆藏目录/扫描确认实际制作底本。",
+      "territory": "CN-Mainland",
+      "rights_gate": "hold_for_exact_text_and_authorship_review",
+      "rights_rationale": "早期刻本年代久远，但作者归属、原始版本与故事层次复杂；在取得指定历史文本及权利分析前不进入可制作短名单。",
+      "rights_evidence_urls": [
+        "https://www.ncac.gov.cn/xxfb/flfg/flfg_532/202103/t20210309_50530.html",
+        "https://www.chnmuseum.cn/yj/xscg/xslw/201812/t20181224_36519.shtml"
+      ],
+      "genre_tags": ["fantasy_adventure", "journey_serial", "ensemble", "episodic_encounters"],
+      "format_fit": {
+        "continuous_arc": 5,
+        "episode_hooks": 5,
+        "visual_worldbuilding": 5,
+        "adaptation_crowding_risk": 5
+      },
+      "match_inference": "长线旅程、多角色和逐段遭遇与玄幻冒险结构相邻，是市场结构匹配推断；大量现代影视、动画、游戏视觉表达令独立角色设计难度很高。",
+      "known_expression_risks": [
+        "不复制央视电视剧、现代动画、游戏等形成的独有角色造型、声音、武器造型、动作和配色组合。",
+        "先解决指定底本扫描与作者/版本法律复核；当前不进权利短名单。"
+      ],
+      "shortlist_eligible": false,
+      "preproduction_scan_match_required": true,
+      "topic_alignments": {"historical_romance": "none", "fantasy_adventure": "direct"}
+    }
+  ]
+}

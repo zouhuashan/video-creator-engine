@@ -109,6 +109,14 @@ The bundle contains the normalized trend snapshot, P16 topic pool, novel candida
 
 The current catalog is refreshed from public pages as a reviewed JSON snapshot; the command automates normalization, ranking, and rights filtering after import. It does not crawl novel sites or claim live platform API access.
 
+Compare the current P16 topic pool with the public-domain work catalog and current longitudinal snapshot inventory with:
+
+```bash
+python3 scripts/novel_ip_match.py projects/novel-candidate-pool-20260916/topic-pool.json --output-dir projects/p17-03
+```
+
+The report is a human decision aid only. It does not select or clear an IP for production. `validation/rank-snapshot-coverage.json` currently has three continuous Qidian monthly rank records, two adjacent but differently routed Fanqie daily pages, and one current Jinjiang month chart; P17-03 stays incomplete until the required same-chart three-period evidence is available. The classic-work catalog records the Mainland term basis and specific historic text-source evidence separately from modern annotations and later adaptations.
+
 Run a test-only story adaptation through script, storyboard, cards, silent animatic, and rights review with:
 
 ```bash
