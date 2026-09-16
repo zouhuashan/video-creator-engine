@@ -15,6 +15,17 @@ python3 scripts/novel_anime_project.py validate projects/jinghua-yuan-series/nov
 
 Web 控制台的“国漫项目”页面读取同一份 `novel-anime-project.json`，不维护独立副本。
 
+初始化项目仓库、记录资产版本、保存里程碑并检查上游变更影响：
+
+```bash
+python3 scripts/novel_anime_repository.py init projects/jinghua-yuan-series
+python3 scripts/novel_anime_repository.py register-asset projects/jinghua-yuan-series --asset-id AST-CHR-TXS-PORTRAIT --type character --path projects/jinghua-yuan-series/assets/characters/tang-xiaoshan/portrait-v1.png --source IP-JHY
+python3 scripts/novel_anime_repository.py snapshot projects/jinghua-yuan-series --label p18-core-model
+python3 scripts/novel_anime_repository.py impact projects/jinghua-yuan-series IP-JHY
+```
+
+SQLite 保存可查询实体、依赖和资产版本，JSON 快照保留可审阅里程碑；“国漫项目”页面显示仓库统计并能直接运行 IP 影响分析。
+
 ## Environment
 
 Pinned local tool versions:

@@ -2340,7 +2340,7 @@ P18 架构与数据底座
 # 41. 当前方向与下一任务
 
 ```text
-NEXT: P18-02 小说国漫资产注册表、版本与依赖影响
+NEXT: P18-03 小说国漫作业队列、状态机与恢复
 ```
 
 任务：
@@ -2370,7 +2370,7 @@ P18 架构与数据底座
 状态：TODO
 
 - P18-01：PASS。定义 IP、SourceEdition、Series、Season、Arc、Episode、Scene、Shot、Asset、Render Schema 与稳定 ID。
-- P18-02：TODO。建立 SQLite Repository、JSON 里程碑快照、资产注册表、版本、输入引用、来源引用、依赖关系和变更影响分析。
+- P18-02：PASS。建立 SQLite Repository、JSON 里程碑快照、资产注册表、版本、输入引用、来源引用、依赖关系和变更影响分析。
 - P18-03：TODO。建立持久化作业队列、并发锁、重试、取消、剧集状态机、审核门、局部重跑、失败恢复和旧样片迁移器。
 
 验收：能够建立一个空白小说动漫项目，保存一季五集结构；所有集、场、镜头和资产通过 ID 关联；修改上游对象后能列出需要重做的下游产物。
@@ -2380,6 +2380,14 @@ P18-01 执行记录（2026-09-16）：
 - 创建本地项目 `projects/jinghua-yuan-series/novel-anime-project.json`，层级为 `IP-JHY → SER-JHY-01 → S01 → S01E001…S01E005`，默认保持 `publication_allowed=false`。
 - 新增 `/api/novel-anime/projects` 与详情 API；Web 左侧新增“国漫项目”页面并实际显示一季五集层级。
 - 新增 6 项专项测试，JSON Schema 2020-12 校验、CLI 创建/加载、关系引用、父级作用域、覆盖保护和 Web 摘要均通过；全量 217 项测试通过。
+
+P18-02 执行记录（2026-09-16）：
+- 新增 `scripts/novel_anime_repository.py`，以项目内 SQLite 保存实体、依赖边、资产版本和快照索引；数据库与媒体都保持本地，manifest 继续作为可导出的领域快照。
+- manifest 同步会建立 `IP → Series → Season → Episode` 依赖图，并支持 SourceEdition、Arc、Scene、Shot、Asset、Render 以及显式 `input_refs/source_refs`。
+- 资产注册验证文件必须位于项目内、计算 SHA-256、保留递增版本并记录来源实体；实际注册唐小山角色图 `AST-CHR-TXS-PORTRAIT` 第 1 版。
+- 创建 `p18-core-model` JSON 里程碑快照；从 `IP-JHY` 运行影响分析可列出角色资产、剧集、第一季和五集全部下游对象。
+- Web API 新增仓库统计和影响分析；“国漫项目”卡片显示 9 个实体、8 条依赖、1 个资产版本和 1 个快照，并可点击“分析 IP 影响”。
+- 新增 5 项 Repository 专项测试并扩展 Web 测试，覆盖初始化、递归影响、资产版本、路径/引用边界和快照内容；全量 222 项测试通过。
 
 ### P19 IP 来源与故事知识库
 

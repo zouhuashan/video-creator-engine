@@ -82,7 +82,20 @@ function renderAnimeProjects() {
     $('#animeProjects').innerHTML = '<div class="empty-state">还没有 P18 小说国漫项目。</div>';
     return;
   }
-  $('#animeProjects').innerHTML = state.animeProjects.map((project) => `<article class="anime-project-card"><div class="anime-project-head"><div><span class="section-kicker">${escapeHtml(project.ip_id)} · ${escapeHtml(project.series_id)}</span><h3>${escapeHtml(project.title)}</h3></div><span class="result-chip">${escapeHtml(project.status)}</span></div><div class="hierarchy-row"><span>剧集 1</span><span>${project.season_count} 季</span><span>${project.episode_count} 集</span></div><div class="episode-token-row">${project.episode_ids.map((id) => `<span>${escapeHtml(id)}</span>`).join('')}</div><small class="manifest-note">${escapeHtml(project.project_id)} · novel-anime-project.json</small></article>`).join('');
+  $('#animeProjects').innerHTML = state.animeProjects.map((project) => {
+    const repository = project.repository;
+    const repositoryText = repository ? `${repository.entities} 实体 · ${repository.dependencies} 依赖 · ${repository.asset_versions} 资产版本 · ${repository.snapshots} 快照` : '数据仓库待初始化';
+    return `<article class="anime-project-card"><div class="anime-project-head"><div><span class="section-kicker">${escapeHtml(project.ip_id)} · ${escapeHtml(project.series_id)}</span><h3>${escapeHtml(project.title)}</h3></div><span class="result-chip">${escapeHtml(project.status)}</span></div><div class="hierarchy-row"><span>剧集 1</span><span>${project.season_count} 季</span><span>${project.episode_count} 集</span></div><div class="episode-token-row">${project.episode_ids.map((id) => `<span>${escapeHtml(id)}</span>`).join('')}</div><div class="repository-row"><small>${escapeHtml(repositoryText)}</small><button data-impact-project="${escapeHtml(project.directory_id)}" data-impact-root="${escapeHtml(project.ip_id)}" ${repository ? '' : 'disabled'}>分析 IP 影响</button></div><div class="impact-result" data-impact-result="${escapeHtml(project.directory_id)}"></div><small class="manifest-note">${escapeHtml(project.project_id)} · novel-anime-project.json</small></article>`;
+  }).join('');
+  document.querySelectorAll('[data-impact-project]').forEach((button) => button.addEventListener('click', async () => {
+    const target = document.querySelector(`[data-impact-result="${button.dataset.impactProject}"]`);
+    button.disabled = true;
+    try {
+      const result = await api(`/api/novel-anime/projects/${encodeURIComponent(button.dataset.impactProject)}/impact/${encodeURIComponent(button.dataset.impactRoot)}`);
+      target.textContent = `影响范围：${result.impact.map((item) => item.entity_id).join(' → ')}`;
+    } catch (error) { target.textContent = error.message; }
+    finally { button.disabled = false; }
+  }));
 }
 
 function setView(view) {
