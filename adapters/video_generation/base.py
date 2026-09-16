@@ -21,6 +21,8 @@ class VideoGenerationRequest:
     width: int = 1080
     height: int = 1920
     transition_seconds: float = 0.4
+    prompt_text: str = ""
+    model: str = "gen4.5"
 
     def validate(self) -> None:
         if not self.image_paths:
@@ -35,6 +37,10 @@ class VideoGenerationRequest:
             raise VideoGenerationError("video dimensions must be positive")
         if self.transition_seconds < 0 or self.transition_seconds >= self.shot_duration_seconds:
             raise VideoGenerationError("transition must be non-negative and shorter than a shot")
+        if not isinstance(self.prompt_text, str):
+            raise VideoGenerationError("prompt text must be a string")
+        if not isinstance(self.model, str) or not self.model.strip():
+            raise VideoGenerationError("model must be a non-empty string")
 
 
 @dataclass(frozen=True)
@@ -44,6 +50,7 @@ class VideoGenerationResult:
     duration_seconds: float
     image_count: int
     remote_generation: bool = False
+    task_id: str | None = None
 
 
 class VideoGenerationProvider(ABC):

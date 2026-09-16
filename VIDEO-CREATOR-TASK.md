@@ -1815,6 +1815,7 @@ follows
 - 合成 9:16、1080×1920、30fps 的 H.264/AAC MP4：`projects/jinghua-yuan-local-pilot/tang-xiaoshan-voice-test.mp4`。该样片是静态角色图配旁白，用于验证素材到视频的本地链路，不代表已完成角色动画。
 - 根据用户提出的“场景 + 角色 + 剧情连贯”方向，新增三张连续场景关键帧和镜头节奏表；生成 `tang-xiaoshan-story-animatic.mp4`，约 8.34 秒，含轻推镜、两次淡化转场、配音和中文字幕。该动态分镜验证故事连续性，尚无逐帧角色动作或口型同步；当前尚未配置专用 AI 图生视频 Provider。
 - 用户要求选定并接入视频生成能力；已选择本地优先的 `local_ken_burns` Provider，新增 `adapters/video_generation/`、`scripts/video_generate.py` 和 Provider 路由。它通过 FFmpeg 从有序关键帧生成带推镜和淡化转场的无声 MP4；`tang-xiaoshan-provider-generated.mp4` 已实际生成并通过解码检查。Runway 作为远程替换位预留但未启用、未上传素材。
+- 用户要求继续接入真正的 AI 图生视频动作模型；已新增 `RunwayImageToVideo` 适配器，按 Runway Gen‑4.5 官方 REST API 创建任务、轮询状态并下载 5 秒结果。适配器仅在显式提供 `RUNWAY_API_KEY` 时上传单张关键帧，默认保持关闭；当前未执行远程生成。
 - 试制说明和音频台词见 `projects/jinghua-yuan-local-pilot/README.md`。所有素材只用于本地验证；未完成指定古籍版本的权利核验，也没有公开发布。
 - 两个 MP4 均可完整解码，动态分镜抽帧检查通过；本地故事连续性子目标完成。P17-03 总状态保持 IN_PROGRESS，原榜单连续快照和权利证据研究按当前方向暂缓。
 
