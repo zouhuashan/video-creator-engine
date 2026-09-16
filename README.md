@@ -140,6 +140,15 @@ python3 scripts/novel_asset_review.py validate projects/jinghua-yuan-series
 
 参考包按角色、地点、道具、镜头或剧集组织视图；每次选择记录资产 ID、版本、选择人和理由。选中版本必须是 Repository 当前版本，并通过明确的人工美术审核后才能进入视觉就绪状态。Web 项目卡片及 `/api/novel-anime/projects/<id>/asset-review` 会显示参考包、版本选择和审核阻断项。
 
+创建 Scene/Shot 分解与镜头语法骨架：
+
+```bash
+python3 scripts/novel_shot_breakdown.py create projects/jinghua-yuan-series
+python3 scripts/novel_shot_breakdown.py validate projects/jinghua-yuan-series
+```
+
+每个剧本场对应稳定的 Scene ID 和 Shot ID；镜头记录景别、角度、运动、焦段、时长、首状态、尾状态和参考包引用，并对首尾状态生成连续性签名。剧本或参考包修订后旧分镜会失效，Web 项目卡片及 `/api/novel-anime/projects/<id>/shot-breakdown` 显示场/镜头覆盖与审核进度。
+
 ## Environment
 
 Pinned local tool versions:

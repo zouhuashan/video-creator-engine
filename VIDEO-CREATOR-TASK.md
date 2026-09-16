@@ -2340,7 +2340,7 @@ P18 架构与数据底座
 # 41. 当前方向与下一任务
 
 ```text
-NEXT: P22-01 Scene/Shot 分解、镜头语法、首尾状态和稳定镜头 ID
+NEXT: P22-02 静态 storyboard、首尾帧、镜头时长和前后连续关系
 ```
 
 任务：
@@ -2506,11 +2506,17 @@ P21-04 执行记录（2026-09-16）：
 - 实际《镜花缘》项目已创建并验证 `visual-bible/asset-review.json`；正式角色、地点、道具和镜头仍为空，因此参考包与选择记录为 0，保持 DRAFT 阻断状态。
 - Web 项目卡片新增参考包/资产版本/美术审核摘要，并新增 Asset Review API；3 项专项测试、Web 回归和环境检查通过，全量 281 项测试通过。
 
+P22-01 执行记录（2026-09-16）：
+- 新增 `schemas/novel-shot-breakdown.schema.json` 与 `scripts/novel_shot_breakdown.py`，为每个剧本场建立稳定 Scene/Shot 分解，记录景别、角度、运动、焦段、时长、首状态、尾状态和参考包引用。
+- Shot 与首尾状态分别生成连续性签名；场覆盖、剧集归属、剧本修订和参考包修订都会校验，任何上游修订过期或引用不存在都会阻断分镜。
+- 实际《镜花缘》项目已创建并验证 `storyboard/shot-breakdown.json`；当前剧本场仍为 0，因此保持 0 场、0 镜的空分镜骨架，没有虚构镜头。
+- Web 项目卡片新增场/镜头/审核摘要，并新增 Shot Breakdown API；2 项专项测试、Web 回归通过，下一步进入静态 storyboard 与首尾帧规划。
+
 ### P22 分镜与 Animatic
 
 状态：TODO
 
-- P22-01：Scene/Shot 分解、镜头语法、首尾状态和稳定镜头 ID。
+- P22-01：PASS。Scene/Shot 分解、镜头语法、首尾状态和稳定镜头 ID。
 - P22-02：静态 storyboard、首尾帧、镜头时长和前后连续关系。
 - P22-03：本地 animatic、临时配音、字幕和集级预览。
 - P22-04：节奏、动作可读性、角色/场景/道具连续性审核。
