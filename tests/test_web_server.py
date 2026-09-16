@@ -23,6 +23,7 @@ from scripts.novel_asset_review import build_asset_review, write_asset_review
 from scripts.novel_shot_breakdown import build_shot_breakdown, write_shot_breakdown
 from scripts.novel_storyboard import build_storyboard, write_storyboard
 from scripts.novel_animatic import build_animatic, write_animatic
+from scripts.novel_animatic_review import build_review, write_review
 
 
 class WebServerTests(unittest.TestCase):
@@ -73,6 +74,7 @@ class WebServerTests(unittest.TestCase):
             write_shot_breakdown(project_dir, build_shot_breakdown(project_dir))
             write_storyboard(project_dir, build_storyboard(project_dir))
             write_animatic(project_dir, build_animatic(project_dir))
+            write_review(project_dir, build_review(project_dir))
             imports_dir = project_dir / "sources" / "imports"
             imports_dir.mkdir(parents=True)
             (imports_dir / "test.json").write_text(json.dumps({
@@ -115,6 +117,7 @@ class WebServerTests(unittest.TestCase):
         self.assertEqual(projects[0]["shot_breakdown"]["shot_count"], 0)
         self.assertEqual(projects[0]["storyboard"]["frame_count"], 0)
         self.assertEqual(projects[0]["animatic"]["episode_count"], 5)
+        self.assertEqual(projects[0]["animatic_review"]["overall_status"], "BLOCKED")
 
     def test_web_entrypoints_are_tracked_assets(self):
         self.assertTrue((web_server.WEB_ROOT / "index.html").is_file())

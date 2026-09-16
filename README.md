@@ -167,6 +167,15 @@ python3 scripts/novel_animatic.py validate projects/jinghua-yuan-series
 
 Animatic 计划覆盖五集，把 Shot、临时配音、字幕轨和集级预览输出放在同一份可恢复数据中；剧本或 storyboard 修订后计划自动失效。READY 集必须有镜头、临时音频、字幕、预览文件和人工审核，Web 项目卡片及 `/api/novel-anime/projects/<id>/animatic` 显示制作进度。
 
+执行 Animatic 审核：
+
+```bash
+python3 scripts/novel_animatic_review.py audit projects/jinghua-yuan-series
+python3 scripts/novel_animatic_review.py validate projects/jinghua-yuan-series
+```
+
+审核报告检查节奏、动作可读性、角色/场景/道具连续性和集级输入；阻断项、上游修订过期或人工审核未通过时不能进入下一阶段。报告会显示在 Web 国漫项目卡片和 `/api/novel-anime/projects/<id>/animatic-review`。
+
 ## Environment
 
 Pinned local tool versions:
