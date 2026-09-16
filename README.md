@@ -194,6 +194,15 @@ python3 scripts/novel_audio_mix.py validate projects/jinghua-yuan-series
 
 每集混音计划固定引用音轨、配音和 Animatic 修订，记录目标响度、真峰值、对白 Cue、输出文件和同步偏移；同步偏移超过 100ms 或缺少人工审核时不能 READY。Web 项目卡片及 `/api/novel-anime/projects/<id>/audio-mix` 显示混音集数、输出和最大偏移。
 
+创建动态镜头路由、队列、预算和审核计划：
+
+```bash
+python3 scripts/novel_dynamic_shots.py create projects/jinghua-yuan-series
+python3 scripts/novel_dynamic_shots.py validate projects/jinghua-yuan-series
+```
+
+每个 Shot 可选择本地运镜、图生视频、首尾帧、口型同步或人工导入，并记录 Provider、回退策略、队列重试、预算、上传授权和角色/动作审核。可计费或上传素材的任务必须显式确认；Web 项目卡片及 `/api/novel-anime/projects/<id>/dynamic-shots` 显示队列与预算。
+
 ## Environment
 
 Pinned local tool versions:

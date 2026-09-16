@@ -55,6 +55,7 @@ from scripts.novel_animatic_review import NovelAnimaticReviewError, load_review 
 from scripts.novel_voice_profiles import NovelVoiceProfileError, load_voice_profiles, summary as voice_profile_summary  # noqa: E402
 from scripts.novel_audio_assets import NovelAudioAssetError, load_audio_assets, summary as audio_asset_summary  # noqa: E402
 from scripts.novel_audio_mix import NovelAudioMixError, load_audio_mix, summary as audio_mix_summary  # noqa: E402
+from scripts.novel_dynamic_shots import NovelDynamicShotError, load_dynamic_shots, summary as dynamic_shot_summary  # noqa: E402
 
 
 PROVIDER_TYPES = {
@@ -175,6 +176,7 @@ def _novel_anime_projects(projects_root: Path = PROJECTS_ROOT) -> list[dict[str,
             "voice_profiles": voice_profile_summary(manifest.parent),
             "audio_assets": audio_asset_summary(manifest.parent),
             "audio_mix": audio_mix_summary(manifest.parent),
+            "dynamic_shots": dynamic_shot_summary(manifest.parent),
         })
     return projects
 
@@ -423,6 +425,14 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                 project = _safe_project(match.group(1))
                 result = load_audio_mix(project)
             except (ValueError, NovelAudioMixError) as error:
+                return self._error(HTTPStatus.NOT_FOUND, str(error))
+            return self._json(result)
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/dynamic-shots", parsed.path)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                result = load_dynamic_shots(project)
+            except (ValueError, NovelDynamicShotError) as error:
                 return self._error(HTTPStatus.NOT_FOUND, str(error))
             return self._json(result)
         match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/repository", parsed.path)
