@@ -1,0 +1,180 @@
+{
+  "schema_version": 1,
+  "snapshot_date": "2026-09-16",
+  "candidates": [
+    {
+      "candidate_id": "CN-001",
+      "title": "剑烛大荒",
+      "author": "爱潜水的乌贼",
+      "genre": "玄幻、异兽、武学",
+      "work_status": "ongoing",
+      "adaptation_source": {
+        "source_url": "https://book.qidian.com/honor/1048862481",
+        "edition_note": "起点官方作品荣誉页；作品仍在连载。仅作热度观察，不下载正文。"
+      },
+      "rights": {
+        "status": "unknown",
+        "basis": "当代连载作品；本次未核验作者或平台的动画改编授权。",
+        "evidence_urls": []
+      },
+      "platform_signals": [
+        {
+          "platform": "起点中文网",
+          "chart_name": "男频月票榜",
+          "chart_period": "2026-08",
+          "observed_at": "2026-09-16",
+          "rank": null,
+          "chart_size": null,
+          "rank_note": "官方荣誉页同时保留第8名和第9名条目，记录页面差异，不强行确定单一名次。",
+          "metric_name": "榜单名次记录",
+          "metric_value": "8/9",
+          "metric_unit": "名次",
+          "source_url": "https://book.qidian.com/honor/1048862481"
+        },
+        {
+          "platform": "起点中文网",
+          "chart_name": "男频月票榜",
+          "chart_period": "2026-07",
+          "observed_at": "2026-08-01",
+          "rank": 6,
+          "chart_size": 10,
+          "rank_note": null,
+          "metric_name": "榜单名次",
+          "metric_value": 6,
+          "metric_unit": "名",
+          "source_url": "https://book.qidian.com/honor/1048862481"
+        }
+      ],
+      "pool_topic": "剑烛大荒"
+    },
+    {
+      "candidate_id": "CN-002",
+      "title": "星路仙踪",
+      "author": "忘语",
+      "genre": "东方仙侠、星际修仙",
+      "work_status": "ongoing",
+      "adaptation_source": {
+        "source_url": "https://fanqienovel.com/keyword/7426502818770470975",
+        "edition_note": "番茄官方作品页；2026-09-16 页面采样约21.2万人在读。统计口径随平台刷新。"
+      },
+      "rights": {
+        "status": "unknown",
+        "basis": "当代连载作品；本次未核验作者或平台的动画改编授权。",
+        "evidence_urls": []
+      },
+      "platform_signals": [
+        {
+          "platform": "番茄小说",
+          "chart_name": "作品页在读人数展示",
+          "chart_period": "当前页面采样",
+          "observed_at": "2026-09-16",
+          "rank": null,
+          "chart_size": null,
+          "rank_note": null,
+          "evidence_note": "当日搜索快照显示约21.2万人在读，但页面内容抓取缓存显示14.9万；该指标存在缓存口径冲突，因此不转成自动排序分值。",
+          "metric_name": "在读人数",
+          "metric_value": 212000,
+          "metric_unit": "人（页面约21.2万）",
+          "source_url": "https://fanqienovel.com/keyword/7426502818770470975"
+        }
+      ],
+      "pool_topic": "星路仙踪"
+    },
+    {
+      "candidate_id": "CN-003",
+      "title": "高冷太子的克星",
+      "author": "笑佳人",
+      "genre": "古代言情、架空历史",
+      "work_status": "ongoing",
+      "adaptation_source": {
+        "source_url": "https://www.jjwxc.net/onebook.php?novelid=11014721",
+        "edition_note": "晋江作品页；当前古代言情月度榜采样排名第1。完整文本未保存。"
+      },
+      "rights": {
+        "status": "unknown",
+        "basis": "晋江原创连载作品；榜单或免费阅读不构成改编授权。",
+        "evidence_urls": []
+      },
+      "platform_signals": [
+        {
+          "platform": "晋江文学城",
+          "chart_name": "古代言情月度排行榜",
+          "chart_period": "2026-09采样",
+          "observed_at": "2026-09-16",
+          "rank": 1,
+          "chart_size": 10,
+          "rank_note": null,
+          "metric_name": "榜单名次",
+          "metric_value": 1,
+          "metric_unit": "名",
+          "source_url": "https://static.jjwxc.net/channeltopten.php?channelid=101"
+        }
+      ],
+      "pool_topic": "高冷太子的克星"
+    },
+    {
+      "candidate_id": "CN-004",
+      "title": "侯府打工人",
+      "author": "再枯荣",
+      "genre": "古代言情、架空历史",
+      "work_status": "ongoing",
+      "adaptation_source": {
+        "source_url": "https://static.jjwxc.net/channeltopten.php?channelid=101",
+        "edition_note": "晋江古代言情月度榜公开榜单条目；完整文本未保存。"
+      },
+      "rights": {
+        "status": "unknown",
+        "basis": "晋江原创连载作品；榜单或免费阅读不构成改编授权。",
+        "evidence_urls": []
+      },
+      "platform_signals": [
+        {
+          "platform": "晋江文学城",
+          "chart_name": "古代言情月度排行榜",
+          "chart_period": "2026-09采样",
+          "observed_at": "2026-09-16",
+          "rank": 2,
+          "chart_size": 10,
+          "rank_note": null,
+          "metric_name": "榜单名次",
+          "metric_value": 2,
+          "metric_unit": "名",
+          "source_url": "https://static.jjwxc.net/channeltopten.php?channelid=101"
+        }
+      ],
+      "pool_topic": "侯府打工人"
+    },
+    {
+      "candidate_id": "CN-005",
+      "title": "苗疆少年他杀回来了",
+      "author": "田园泡",
+      "genre": "古代言情、苗疆、蛊毒、重逢",
+      "work_status": "ongoing",
+      "adaptation_source": {
+        "source_url": "https://www.jjwxc.net/onebook.php?novelid=10953905",
+        "edition_note": "晋江作品页；当前古代言情月度榜采样排名第3。完整文本未保存。"
+      },
+      "rights": {
+        "status": "unknown",
+        "basis": "晋江原创连载作品；榜单或免费阅读不构成改编授权。",
+        "evidence_urls": []
+      },
+      "platform_signals": [
+        {
+          "platform": "晋江文学城",
+          "chart_name": "古代言情月度排行榜",
+          "chart_period": "2026-09采样",
+          "observed_at": "2026-09-16",
+          "rank": 3,
+          "chart_size": 10,
+          "rank_note": null,
+          "metric_name": "榜单名次",
+          "metric_value": 3,
+          "metric_unit": "名",
+          "source_url": "https://static.jjwxc.net/channeltopten.php?channelid=101"
+        }
+      ],
+      "pool_topic": "苗疆少年他杀回来了"
+    }
+  ]
+}
