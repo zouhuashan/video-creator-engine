@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://videocreator.local/schemas/novel-script-package.schema.json",
+  "title": "Episode scene scripts and continuity deltas",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "project_id", "ip_id", "episode_planning_revision", "revision", "created_at", "updated_at", "episode_scripts", "continuity_deltas"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "project_id": {"type": "string"},
+    "ip_id": {"type": "string", "pattern": "^IP-[A-Z0-9]{2,12}$"},
+    "episode_planning_revision": {"type": "integer", "minimum": 1},
+    "revision": {"type": "integer", "minimum": 1},
+    "created_at": {"type": "string", "format": "date-time"},
+    "updated_at": {"type": "string", "format": "date-time"},
+    "episode_scripts": {"type": "array", "items": {"$ref": "#/$defs/script"}},
+    "continuity_deltas": {"type": "array", "items": {"$ref": "#/$defs/delta"}}
+  },
+  "$defs": {
+    "review": {
+      "type": "object", "additionalProperties": false,
+      "required": ["required", "status", "reviewed_at", "reviewed_by", "note"],
+      "properties": {"required": {"const": true}, "status": {"enum": ["PENDING", "APPROVED", "CHANGES_REQUESTED"]}, "reviewed_at": {"type": ["string", "null"]}, "reviewed_by": {"type": ["string", "null"]}, "note": {"type": "string", "maxLength": 2000}}
+    },
+    "provenance": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "source_refs", "story_refs", "note"],
+      "properties": {"kind": {"enum": ["UNSET", "SOURCE", "ORIGINAL"]}, "source_refs": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}, "story_refs": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}, "note": {"type": "string", "maxLength": 2000}}
+    },
+    "emotion": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["label", "intensity", "performance_note"],
+      "properties": {"label": {"type": "string"}, "intensity": {"type": "number", "minimum": 0, "maximum": 1}, "performance_note": {"type": "string"}}
+    },
+    "sound": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["cue", "timing", "mix_note"],
+      "properties": {"cue": {"type": "string"}, "timing": {"enum": ["PRELAP", "ON_ACTION", "POSTLAP", "AMBIENCE"]}, "mix_note": {"type": "string"}}
+    },
+    "unit": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "sequence", "kind", "text", "speaker_character_id", "emotion", "sound", "estimated_duration_seconds", "beat_ref", "provenance"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^UNIT-S[0-9]{2}E[0-9]{3}-SC[0-9]{3}-[0-9]{3}$"}, "sequence": {"type": "integer", "minimum": 1},
+        "kind": {"enum": ["ACTION", "DIALOGUE", "NARRATION", "SFX", "VISUAL"]}, "text": {"type": "string", "minLength": 1}, "speaker_character_id": {"type": ["string", "null"]},
+        "emotion": {"$ref": "#/$defs/emotion"}, "sound": {"$ref": "#/$defs/sound"}, "estimated_duration_seconds": {"type": "number", "exclusiveMinimum": 0, "maximum": 60},
+        "beat_ref": {"type": ["string", "null"]}, "provenance": {"$ref": "#/$defs/provenance"}
+      }
+    },
+    "scene": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "sequence", "title", "purpose", "location_id", "time_of_day", "character_ids", "units", "provenance", "human_review"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^S[0-9]{2}E[0-9]{3}-SC[0-9]{3}$"}, "sequence": {"type": "integer", "minimum": 1}, "title": {"type": "string", "minLength": 1}, "purpose": {"type": "string", "minLength": 1},
+        "location_id": {"type": ["string", "null"]}, "time_of_day": {"type": "string"}, "character_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "units": {"type": "array", "items": {"$ref": "#/$defs/unit"}}, "provenance": {"$ref": "#/$defs/provenance"}, "human_review": {"$ref": "#/$defs/review"}
+      }
+    },
+    "script": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "episode_id", "card_id", "status", "input_snapshot_id", "target_duration_seconds", "scenes", "human_review"],
+      "properties": {"id": {"type": "string", "pattern": "^SCRIPT-S[0-9]{2}E[0-9]{3}$"}, "episode_id": {"type": "string"}, "card_id": {"type": "string"}, "status": {"enum": ["DRAFT", "READY"]}, "input_snapshot_id": {"type": "string"}, "target_duration_seconds": {"type": "number", "minimum": 30, "maximum": 180}, "scenes": {"type": "array", "items": {"$ref": "#/$defs/scene"}}, "human_review": {"$ref": "#/$defs/review"}}
+    },
+    "character_change": {
+      "type": "object", "additionalProperties": false,
+      "required": ["character_id", "set_location_id", "set_costume_id", "add_carried_prop_ids", "remove_carried_prop_ids", "add_injuries", "remove_injuries", "add_knowledge", "set_emotional_state"],
+      "properties": {"character_id": {"type": "string"}, "set_location_id": {"type": ["string", "null"]}, "set_costume_id": {"type": ["string", "null"]}, "add_carried_prop_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}, "remove_carried_prop_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}, "add_injuries": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}, "remove_injuries": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}, "add_knowledge": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}, "set_emotional_state": {"type": ["string", "null"]}}
+    },
+    "relationship_change": {"type": "object", "additionalProperties": false, "required": ["relationship_id", "status", "note"], "properties": {"relationship_id": {"type": "string"}, "status": {"type": "string"}, "note": {"type": "string"}}},
+    "prop_change": {"type": "object", "additionalProperties": false, "required": ["prop_id", "location_id", "holder_character_id", "condition"], "properties": {"prop_id": {"type": "string"}, "location_id": {"type": ["string", "null"]}, "holder_character_id": {"type": ["string", "null"]}, "condition": {"type": "string"}}},
+    "delta": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "episode_id", "status", "input_snapshot_id", "character_changes", "relationship_changes", "prop_changes", "open_foreshadowing_ids", "close_foreshadowing_ids", "timeline_position_id", "human_review"],
+      "properties": {"id": {"type": "string", "pattern": "^DELTA-S[0-9]{2}E[0-9]{3}$"}, "episode_id": {"type": "string"}, "status": {"enum": ["DRAFT", "READY"]}, "input_snapshot_id": {"type": "string"}, "character_changes": {"type": "array", "items": {"$ref": "#/$defs/character_change"}}, "relationship_changes": {"type": "array", "items": {"$ref": "#/$defs/relationship_change"}}, "prop_changes": {"type": "array", "items": {"$ref": "#/$defs/prop_change"}}, "open_foreshadowing_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}, "close_foreshadowing_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}, "timeline_position_id": {"type": ["string", "null"]}, "human_review": {"$ref": "#/$defs/review"}}
+    }
+  }
+}

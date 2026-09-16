@@ -84,6 +84,16 @@ python3 scripts/novel_episode_planning.py validate projects/jinghua-yuan-series
 
 故事弧必须覆盖同一季度内连续规划的 3～8 集。就绪的单集卡必须包含开场钩子、目标、阻碍、转折、高潮和结尾钩子，并至少具有可追溯的 `HOOK` 与 `ENDING_HOOK` 节拍；故事弧与单集归属会同步到核心项目 manifest。
 
+创建五集场景剧本和 continuity delta 文件，并预览某集结束状态：
+
+```bash
+python3 scripts/novel_episode_script.py create projects/jinghua-yuan-series
+python3 scripts/novel_episode_script.py validate projects/jinghua-yuan-series
+python3 scripts/novel_episode_script.py preview-delta projects/jinghua-yuan-series --episode-id S01E001
+```
+
+剧本单元明确区分动作、对白、旁白、声效和画面信息；对白必须绑定场内角色与表演情绪，旁白必须带情绪但不冒充角色，声效必须带触发时机和混音提示。continuity delta 记录位置、服装、携带物、伤势、知识、情绪、关系、道具、伏笔与时间线变化；前一集快照缺失时，后续剧本不能进入 READY。
+
 ## Environment
 
 Pinned local tool versions:
