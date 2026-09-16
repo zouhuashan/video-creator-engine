@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "test_only": true,
+  "is_main_ip": false,
+  "novel": {
+    "title": "聊斋志异·种梨",
+    "author": "蒲松龄",
+    "work_type": "文言短篇小说"
+  },
+  "source": {
+    "source_title": "《聊斋志异》种梨篇在线古籍文本",
+    "source_url": "https://www.shidianguji.com/zh/book/XYXLZZY/chapter/1l6393j2mfdig",
+    "edition_note": "仅以在线文本核对情节梗概；不复制现代点校、注释、插图或既有改编内容。",
+    "accessed_at": "2026-09-16"
+  },
+  "rights": {
+    "status": "public_domain_source_verified",
+    "basis": "仅作中国大陆法下的初步判断：蒲松龄（1640—1715）去世已超过自然人作品财产权保护期；依据《中华人民共和国著作权法》第23条。具体底本、其他司法辖区及发布用途仍须人工复核，本状态不代表可自动发布。",
+    "evidence_urls": [
+      "https://ctext.org/datawiki.pl?if=gb&remap=gb&res=70536",
+      "https://www.npc.gov.cn/c2/c30834/202011/t20201119_308796.html"
+    ]
+  },
+  "episode": {
+    "episode_id": "zhongli-pilot-01",
+    "title": "一颗梨核，长出一树梨",
+    "logline": "卖梨人拒绝分梨后，道士用一颗梨核变出满树果实，散尽梨后留下意外代价。",
+    "target_duration_seconds": 45
+  },
+  "adaptation": {
+    "source_segments": [
+      {"segment_id": "SRC-01", "locator": "种梨篇开端", "summary": "卖梨人赶车卖梨，道士向他讨梨而遭拒。"},
+      {"segment_id": "SRC-02", "locator": "种梨篇中段一", "summary": "旁观者将梨给道士，道士吃梨后留下梨核。"},
+      {"segment_id": "SRC-03", "locator": "种梨篇中段二", "summary": "道士将梨核种下，顷刻长成结满梨子的树。"},
+      {"segment_id": "SRC-04", "locator": "种梨篇中段三", "summary": "道士把树上的梨分给围观众人，随后离开。"},
+      {"segment_id": "SRC-05", "locator": "种梨篇结尾", "summary": "卖梨人发现车中梨已不见，后来发现车把也被削去一段。"}
+    ],
+    "changes": [
+      {"change_id": "CHG-01", "type": "condensed", "description": "压缩原作叙述，只保留拒梨、种树、分梨和车把反转四个剧情节点。", "source_segment_ids": ["SRC-01", "SRC-02", "SRC-03", "SRC-04", "SRC-05"]},
+      {"change_id": "CHG-02", "type": "added", "description": "增加开场悬念字幕和结尾提问；均为本次视频包装文案，不作为原作内容。", "source_segment_ids": ["SRC-01", "SRC-05"]}
+    ],
+    "script": [
+      {"beat_id": "B01", "narration": "一车好梨，一句讨梨的话，让卖梨人惹上了一个神秘道士。", "source_segment_ids": ["SRC-01"], "adaptation_change_ids": ["CHG-01"]},
+      {"beat_id": "B02", "narration": "卖梨人不肯给。旁边有人看不过去，递给道士一颗梨。", "source_segment_ids": ["SRC-01", "SRC-02"], "adaptation_change_ids": ["CHG-01"]},
+      {"beat_id": "B03", "narration": "道士吃完，把梨核埋进土里。转眼之间，枝头竟结满了果子。", "source_segment_ids": ["SRC-02", "SRC-03"], "adaptation_change_ids": ["CHG-01"]},
+      {"beat_id": "B04", "narration": "围观的人分到了梨。等卖梨人回过神来，车上的梨已经一颗不剩。", "source_segment_ids": ["SRC-04", "SRC-05"], "adaptation_change_ids": ["CHG-01"]},
+      {"beat_id": "B05", "narration": "他再一看，连车把都少了一截。道士早已不见踪影。", "source_segment_ids": ["SRC-05"], "adaptation_change_ids": ["CHG-01"]},
+      {"beat_id": "B06", "narration": "这场梨树奇遇，是报应、幻术，还是道士另有用意？", "source_segment_ids": ["SRC-01", "SRC-05"], "adaptation_change_ids": ["CHG-02"]}
+    ],
+    "storyboard": [
+      {"scene_id": "B01", "start": 0, "end": 7, "caption": "一车梨，引来神秘道士", "visual_description": "临时文字卡表现古道、满载梨筐的独轮车和远处道士剪影。", "source_segment_ids": ["SRC-01"]},
+      {"scene_id": "B02", "start": 7, "end": 14, "caption": "卖梨人拒绝了他", "visual_description": "分屏文字卡：卖梨人护住梨筐，路人伸手递出一颗梨。", "source_segment_ids": ["SRC-01", "SRC-02"]},
+      {"scene_id": "B03", "start": 14, "end": 22, "caption": "梨核落土，顷刻成树", "visual_description": "用三个静态文字层示意梨核入土、枝干上升、梨子挂满枝头。", "source_segment_ids": ["SRC-02", "SRC-03"]},
+      {"scene_id": "B04", "start": 22, "end": 30, "caption": "满树梨果，分给众人", "visual_description": "临时卡片表现树冠、果实和围观者；注明为剧情示意，不是原作插图。", "source_segment_ids": ["SRC-04", "SRC-05"]},
+      {"scene_id": "B05", "start": 30, "end": 37, "caption": "回头一看：车梨全空", "visual_description": "空车筐置于画面中央，卖梨人回身寻找道士。", "source_segment_ids": ["SRC-05"]},
+      {"scene_id": "B06", "start": 37, "end": 45, "caption": "连车把，也少了一截", "visual_description": "特写车把缺口，远处道士剪影消失；末尾出现开放式提问。", "source_segment_ids": ["SRC-05", "SRC-01"]}
+    ]
+  }
+}
