@@ -1624,7 +1624,7 @@ Status: PASS
 
 # 23. V2 — 自动选题与数据闭环
 
-状态：PLANNED
+状态：IN_PROGRESS
 
 目标：
 
@@ -1646,12 +1646,55 @@ Status: PASS
 - 社区热点
 - 用户评论
 
+### P15-01 验收范围：趋势发现框架
+- 定义统一的 TrendSource/Adapter 接口和版本化信号格式，覆盖以上五类来源；各来源必须保留来源名称、采集时间、原始标题/主题、强度和可选来源链接。
+- 先提供本地 JSON 文件适配器，支持用户提供或后续连接器提供的信号；不在核心流程中绑定平台 API，不抓取或上传私有内容，不要求凭据。
+- 校验来源类型、时间、强度及链接；拒绝重复信号 ID；按主题和来源去重，并保留来源可追溯性。
+- 输出 `topics/trends/YYYY-MM-DD.json`，通过测试覆盖五类来源、无效数据和重复数据。
+- 趋势信号仅用于发现和排序，不视为事实核验、研究结果或制作准入。
+
+状态：PASS（2026-09-16）
+
+执行结果：
+- 新增 `scripts/trend_discovery.py`：提供 `TrendSource` 可替换接口和五类来源的本地 JSON 导入适配器。
+- 统一时间、链接、强度、来源类型和信号 ID 校验；相同来源重复主题保留最新/最强信号，输出保留来源归属。
+- CLI 输出 `topics/trends/YYYY-MM-DD.json`，已验证重复 ID、错误时区/强度、私密作者字段和输出覆盖保护。
+- 当前没有绑定微信、搜索、社区或评论平台的实时连接器；通过后续适配器接入，不要求核心流程改动。
+
 ## V2-02 自动选题池
 输出：
 
 ```text
 topics/YYYY-MM-DD.json
 ```
+
+### P16-01 验收范围：自动选题池
+- 从 P15 趋势信号按规范化主题聚合候选，按跨来源覆盖度、信号强度和时效性生成可解释的发现优先级。
+- 输出日期化选题池，包含候选主题、引用信号、各项分值、总发现分和排序理由；相同输入与基准日期产生稳定排序。
+- 选题池只产生待研究候选。进入制作仍须完成 `research.json` 核验和现有选题评分流程，不得把发现分当作 `topic_scoring` 制作准入分。
+- 输出已存在时拒绝覆盖，避免无意丢失人工审核；不接入发布后数据回流（V2-03）。
+
+状态：PASS（2026-09-16）
+
+执行结果：
+- 新增 `scripts/topic_pool.py` 和 `config/topic-pool.json`：按来源覆盖度（40%）、信号强度（40%）及 7 天半衰期时效性（20%）聚合排序。
+- 输出 `topics/YYYY-MM-DD.json`，包含候选排名、评分依据和趋势来源记录；同一输入与基准日期产生稳定排序。
+- 所有候选均标为待人工审核且不可直接制作；须先完成研究核验和 `topic_scoring`。
+- 当前以本地测试输入贯通 P15→P16；没有真实来源输入时不生成虚构的当日候选文件。
+
+运行示例：
+
+```bash
+python3 scripts/trend_discovery.py \
+  --source wechat_ecosystem=/path/to/wechat.json \
+  --source search_trend=/path/to/search.json \
+  --source ai_digital_news=/path/to/news.json \
+  --source community=/path/to/community.json \
+  --source user_comment=/path/to/comments.json
+python3 scripts/topic_pool.py topics/trends/YYYY-MM-DD.json
+```
+
+每个导入文件为 JSON 数组或 `{ "schema_version": 1, "signals": [...] }`；信号字段为 `signal_id`、`topic`、`title`、`source_name`、`observed_at`（含时区）、`strength`（0–100），并可选 `url`、`summary`。评论适配器不接受作者字段。
 
 ## V2-03 数据回流
 记录：
@@ -2201,12 +2244,18 @@ P7 = V1 OPTIONAL
 # 41. 下一任务
 
 ```text
-NEXT: P15-01（范围待补充）
+NEXT: V2-03 数据回流（待定义 P17-01 验收范围）
 ```
 
 任务：
 
-> P14-03 已通过并满足 V2 入口门槛。用户指定继续至 P15-01，但当前唯一任务文档未定义 P15-01 的目标或验收标准；收到范围后再执行，不推断其内容。
+> P15-01 与 P16-01 已通过；接下来只处理 V2-03，执行前须补齐其人工发布后数据输入与验收范围。不得提前执行 V2-04 内容模型。
+
+执行记录（2026-09-16）：
+- P15-01：PASS；实现 `scripts/trend_discovery.py`，5 项专项测试通过。
+- P16-01：PASS；实现 `scripts/topic_pool.py`，5 项专项测试通过；P15→P16 端到端验证通过。
+- 全量验证：174 项测试通过；`scripts/check-env.sh` 和发布边界审计通过。
+- Git commits：待提交后补录。
 
 执行完成后：
 
