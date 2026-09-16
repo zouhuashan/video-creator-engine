@@ -46,6 +46,7 @@
             <div class="form-row"><div><label class="field-label" for="modelInput">模型</label><select id="modelInput" class="select-field"><option value="sora-2">sora-2</option><option value="sora-2-pro">sora-2-pro</option><option value="gen4.5">gen4.5</option></select></div><div><label class="field-label" for="durationInput">时长</label><select id="durationInput" class="select-field"><option value="4">4 秒</option><option value="8">8 秒</option><option value="12">12 秒</option></select></div></div>
             <label class="confirm-row"><input type="checkbox" id="billableConfirm" /><span>我确认在远程 Provider 已配置密钥后发起一次生成</span></label>
             <button class="primary-button" id="generateButton"><span>✦</span>生成镜头</button>
+            <button class="secondary-button" id="storyboardButton"><span>◈</span>生成完整本地分镜</button>
             <p class="helper-text" id="generateHint">本地路线无需密钥；OpenAI、Runway、Wan 需要配置对应环境变量。</p>
           </div>
         </section>

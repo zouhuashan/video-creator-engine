@@ -140,21 +140,39 @@ async function generate() {
     const result = await api('/api/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
       project_id: state.project.id, image_path: state.selectedImage, provider: state.selectedProvider, model: $('#modelInput').value, shot_duration: Number($('#durationInput').value), prompt: $('#promptInput').value, confirm_billable: $('#billableConfirm').checked,
     }) });
-    $('#outputEmpty').classList.add('hidden');
-    $('#outputResult').classList.remove('hidden');
-    $('#outputVideo').src = result.media_url;
-    $('#resultProvider').textContent = result.provider;
-    $('#resultPath').textContent = result.output_path;
-    $('#resultDuration').textContent = `${Number(result.duration_seconds).toFixed(1)} 秒 · 可人工审核`;
-    $('#outputStatus').textContent = '已完成';
+    showOutput(result.media_url, result.provider, result.output_path, result.duration_seconds);
     log(`生成完成：${result.output_path}`);
   } catch (error) { log(error.message, true); $('#outputStatus').textContent = '生成失败'; }
   finally { button.innerHTML = '<span>✦</span>生成镜头'; updateGenerateButton(); }
 }
 
+function showOutput(mediaUrl, provider, outputPath, duration) {
+  $('#outputEmpty').classList.add('hidden');
+  $('#outputResult').classList.remove('hidden');
+  $('#outputVideo').src = mediaUrl;
+  $('#resultProvider').textContent = provider;
+  $('#resultPath').textContent = outputPath;
+  $('#resultDuration').textContent = `${Number(duration || 0).toFixed(1)} 秒 · 可人工审核`;
+  $('#outputStatus').textContent = '已完成';
+}
+
+async function generateStoryboard() {
+  const button = $('#storyboardButton');
+  button.disabled = true;
+  button.textContent = '分镜生成中…';
+  log('开始生成完整本地分镜（3 镜头 + 配音 + 字幕）');
+  try {
+    const result = await api('/api/storyboard/local', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ project_id: state.project.id }) });
+    showOutput(result.media_url, result.provider, result.output, 8.34);
+    log(`完整本地分镜完成：${result.output}`);
+  } catch (error) { log(error.message, true); $('#outputStatus').textContent = '生成失败'; }
+  finally { button.innerHTML = '<span>◈</span>生成完整本地分镜'; button.disabled = false; }
+}
+
 $('#projectSelect').addEventListener('change', (event) => loadProject(event.target.value).catch((error) => log(error.message, true)));
 $('#billableConfirm').addEventListener('change', updateGenerateButton);
 $('#generateButton').addEventListener('click', generate);
+$('#storyboardButton').addEventListener('click', generateStoryboard);
 $('#refreshButton').addEventListener('click', () => load());
 $('#clearLog').addEventListener('click', () => { $('#logList').innerHTML = ''; });
 document.querySelectorAll('.nav-item').forEach((item) => item.addEventListener('click', () => setView(item.dataset.view)));

@@ -34,6 +34,7 @@ from adapters.video_generation import (  # noqa: E402
     WanImageToVideo,
     normalize_image_paths,
 )
+from scripts.local_storyboard_pipeline import LocalStoryboardError, run_local_storyboard  # noqa: E402
 
 
 PROVIDER_TYPES = {
@@ -143,6 +144,15 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                 return self._save_key()
             except (ValueError, KeyError, TypeError, json.JSONDecodeError) as error:
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
+        if route == "/api/storyboard/local":
+            try:
+                payload = self._read_json()
+                response = self._generate_local_storyboard(payload)
+                self._json(response, HTTPStatus.CREATED)
+            except (LocalStoryboardError, ValueError, KeyError, TypeError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+            except Exception as error:
+                return self._error(HTTPStatus.INTERNAL_SERVER_ERROR, f"storyboard failed: {error}")
         if route != "/api/generate":
             return self._error(HTTPStatus.NOT_FOUND, "route not found")
         try:
@@ -212,6 +222,16 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
         else:
             RUNTIME_KEYS.pop(provider_id, None)
         self._json({"provider": provider_id, "configured": bool(key or os.environ.get(KEY_ENV[provider_id])), "source": "session" if key else ("environment" if os.environ.get(KEY_ENV[provider_id]) else "none")})
+
+    def _generate_local_storyboard(self, payload: dict[str, object]) -> dict[str, object]:
+        if not isinstance(payload, dict):
+            raise ValueError("request body must be an object")
+        project_id = str(payload.get("project_id") or "")
+        project = _safe_project(project_id)
+        output = project / "generated" / f"web-local-storyboard-{time.strftime('%Y%m%d-%H%M%S')}-{time.time_ns() % 100000:05d}.mp4"
+        result = run_local_storyboard(project, output)
+        relative = _relative(project, Path(result["output"]))
+        return {**result, "output": relative, "media_url": f"/media/{project.name}/{relative}"}
 
     def _read_json(self) -> dict[str, object]:
         try:
