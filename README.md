@@ -229,6 +229,15 @@ http://127.0.0.1:8877/
 
 左侧“国漫制作台”提供十个工作区：项目总览、IP 与底本、故事圣经、编剧室、角色美术、分镜 Animatic、音频制作、渲染队列、审片与问题单、发布包。它们通过 `/api/novel-anime/projects/<id>/workspaces` 读取同一项目数据；`/backups` 展示快照和迁移记录，创建快照需要明确的本地操作，恢复仍保留人工确认。
 
+运行《镜花缘》正式五集验收：
+
+```bash
+python3 scripts/novel_acceptance.py audit projects/jinghua-yuan-series
+python3 scripts/novel_acceptance.py validate projects/jinghua-yuan-series
+```
+
+验收报告写入 `acceptance/acceptance-report.json`，逐集检查剧本、连续性、角色视觉、配音、字幕、Animatic、混音和剪辑；同时确认旧技术样片只能作为参考资产，并预留一集三个真实动作 Provider 测试位。当前项目会生成 `HOLD` 报告，不会在权利、QC、人工审核或动作测试未完成时误判为正式通过；Web 项目卡片和 `/api/novel-anime/projects/<id>/acceptance` 会显示验收状态。
+
 ## Environment
 
 Pinned local tool versions:

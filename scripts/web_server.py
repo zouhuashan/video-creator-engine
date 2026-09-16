@@ -58,6 +58,7 @@ from scripts.novel_audio_mix import NovelAudioMixError, load_audio_mix, summary 
 from scripts.novel_dynamic_shots import NovelDynamicShotError, load_dynamic_shots, summary as dynamic_shot_summary  # noqa: E402
 from scripts.novel_edit_timelines import NovelEditTimelineError, load_edit_timelines, summary as edit_timeline_summary  # noqa: E402
 from scripts.novel_qc import NovelQCError, add_annotation, add_issue, compare as compare_qc, load_qc_report, summary as qc_summary, update_issue  # noqa: E402
+from scripts.novel_acceptance import NovelAcceptanceError, load_acceptance, summary as acceptance_summary  # noqa: E402
 
 
 PROVIDER_TYPES = {
@@ -181,6 +182,7 @@ def _novel_anime_projects(projects_root: Path = PROJECTS_ROOT) -> list[dict[str,
             "dynamic_shots": dynamic_shot_summary(manifest.parent),
             "edit_timelines": edit_timeline_summary(manifest.parent),
             "qc": qc_summary(manifest.parent),
+            "acceptance": acceptance_summary(manifest.parent),
         })
     return projects
 
@@ -213,8 +215,8 @@ def _novel_anime_workspaces(project_id: str) -> dict[str, object]:
         "storyboard": {"shot_breakdown": summary["shot_breakdown"], "storyboard": summary["storyboard"], "animatic": summary["animatic"], "animatic_review": summary["animatic_review"]},
         "audio": {"voice_profiles": summary["voice_profiles"], "audio_assets": summary["audio_assets"], "audio_mix": summary["audio_mix"]},
         "render": {"dynamic_shots": summary["dynamic_shots"], "edit_timelines": summary["edit_timelines"], "runtime": summary["runtime"]},
-        "review": {"qc": summary["qc"]},
-        "publish": {"source_catalog": summary["source_catalog"], "qc": summary["qc"], "repository": summary["repository"]},
+        "review": {"qc": summary["qc"], "acceptance": summary["acceptance"]},
+        "publish": {"source_catalog": summary["source_catalog"], "qc": summary["qc"], "acceptance": summary["acceptance"], "repository": summary["repository"]},
     }
     workspaces = [{"id": key, "title": title, "description": description, "status": "CONNECTED", "data": resources[key]} for key, title, description in WORKSPACE_DEFINITIONS]
     return {"project_id": summary["project_id"], "directory_id": project.name, "title": summary["title"], "workspace_order": [item["id"] for item in workspaces], "workspaces": workspaces}
@@ -526,6 +528,13 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
             try:
                 result = compare_qc(_safe_project(match.group(1)))
             except (ValueError, NovelQCError) as error:
+                return self._error(HTTPStatus.NOT_FOUND, str(error))
+            return self._json(result)
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/acceptance", parsed.path)
+        if match:
+            try:
+                result = load_acceptance(_safe_project(match.group(1)))
+            except (ValueError, NovelAcceptanceError) as error:
                 return self._error(HTTPStatus.NOT_FOUND, str(error))
             return self._json(result)
         match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/repository", parsed.path)

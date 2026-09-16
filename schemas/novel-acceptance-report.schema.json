@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://videocreator.local/schemas/novel-acceptance-report.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "project_id", "ip_id", "revision", "created_at", "updated_at", "input_revisions", "legacy_reference", "episodes", "motion_tests", "qc", "decision", "human_review"],
+  "properties": {
+    "schema_version": {"const": 1}, "project_id": {"type": "string"}, "ip_id": {"type": "string"}, "revision": {"type": "integer", "minimum": 1}, "created_at": {"type": "string", "format": "date-time"}, "updated_at": {"type": "string", "format": "date-time"},
+    "input_revisions": {"type": "object", "additionalProperties": false, "required": ["project", "story_review", "asset_review", "animatic", "audio_mix", "dynamic_shots", "edit_timelines", "qc"], "properties": {"project": {"type": "integer", "minimum": 1}, "story_review": {"type": "integer", "minimum": 1}, "asset_review": {"type": "integer", "minimum": 1}, "animatic": {"type": "integer", "minimum": 1}, "audio_mix": {"type": "integer", "minimum": 1}, "dynamic_shots": {"type": "integer", "minimum": 1}, "edit_timelines": {"type": "integer", "minimum": 1}, "qc": {"type": "integer", "minimum": 1}}},
+    "legacy_reference": {"$ref": "#/$defs/legacy"},
+    "episodes": {"type": "array", "minItems": 5, "items": {"$ref": "#/$defs/episode"}},
+    "motion_tests": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"$ref": "#/$defs/motion"}},
+    "qc": {"type": "object", "additionalProperties": false, "required": ["overall_status", "open_blocker_count", "human_review_status"], "properties": {"overall_status": {"enum": ["BLOCKED", "REVIEW_REQUIRED", "PASS"]}, "open_blocker_count": {"type": "integer", "minimum": 0}, "human_review_status": {"enum": ["PENDING", "APPROVED", "CHANGES_REQUESTED"]}}},
+    "decision": {"enum": ["HOLD", "ACCEPT", "EXPAND"]},
+    "human_review": {"$ref": "#/$defs/review"}
+  },
+  "$defs": {
+    "review": {"type": "object", "additionalProperties": false, "required": ["required", "status", "reviewed_at", "reviewed_by", "note"], "properties": {"required": {"const": true}, "status": {"enum": ["PENDING", "APPROVED", "CHANGES_REQUESTED"]}, "reviewed_at": {"type": ["string", "null"]}, "reviewed_by": {"type": ["string", "null"]}, "note": {"type": "string"}}},
+    "legacy": {"type": "object", "additionalProperties": false, "required": ["migration_count", "reference_only", "publication_allowed", "asset_count"], "properties": {"migration_count": {"type": "integer", "minimum": 0}, "reference_only": {"const": true}, "publication_allowed": {"const": false}, "asset_count": {"type": "integer", "minimum": 0}}},
+    "episode": {"type": "object", "additionalProperties": false, "required": ["episode_id", "script_status", "continuity_status", "visual_status", "voice_status", "subtitle_status", "animatic_status", "audio_status", "edit_status", "overall_status"], "properties": {"episode_id": {"type": "string"}, "script_status": {"type": "string"}, "continuity_status": {"type": "string"}, "visual_status": {"type": "string"}, "voice_status": {"type": "string"}, "subtitle_status": {"type": "string"}, "animatic_status": {"type": "string"}, "audio_status": {"type": "string"}, "edit_status": {"type": "string"}, "overall_status": {"enum": ["BLOCKED", "READY"]}}},
+    "motion": {"type": "object", "additionalProperties": false, "required": ["id", "episode_id", "shot_id", "provider", "status", "cost_usd", "duration_seconds", "consistency_status", "note"], "properties": {"id": {"type": "string", "pattern": "^MOTIONTEST-[0-9]{3}$"}, "episode_id": {"type": "string"}, "shot_id": {"type": ["string", "null"]}, "provider": {"enum": ["openai_sora", "runway", "wan", "local_ken_burns"]}, "status": {"enum": ["NOT_RUN", "SUCCEEDED", "FAILED"]}, "cost_usd": {"type": ["number", "null"], "minimum": 0}, "duration_seconds": {"type": ["number", "null"], "minimum": 0}, "consistency_status": {"enum": ["NOT_ASSESSED", "PASS", "REVIEW_REQUIRED", "FAIL"]}, "note": {"type": "string"}}}
+  }
+}

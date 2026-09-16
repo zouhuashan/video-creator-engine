@@ -146,6 +146,9 @@ class WebServerTests(unittest.TestCase):
         backups = web_server._backup_inventory(web_server._safe_project("jinghua-yuan-series"))
         self.assertGreaterEqual(backups["snapshot_count"], 1)
         self.assertTrue(backups["recovery_requires_manual_confirmation"])
+        acceptance = web_server.acceptance_summary(web_server._safe_project("jinghua-yuan-series"))
+        self.assertEqual(acceptance["decision"], "HOLD")
+        self.assertEqual(acceptance["motion_test_count"], 3)
 
     def test_web_entrypoints_are_tracked_assets(self):
         self.assertTrue((web_server.WEB_ROOT / "index.html").is_file())
