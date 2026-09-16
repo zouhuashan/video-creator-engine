@@ -1801,6 +1801,7 @@ follows
 - 题材匹配分是编辑优先级启发式，不是热度预测或法律结论；短名单始终标记 `production_allowed=false`、`publication_allowed=false`。
 - 新增 P17-03 专项测试 6 项；全量测试结果与下一步记录见本次执行日志。
 - 验证：全量测试 190 项通过；`scripts/check-env.sh` 与 `python3 scripts/publish_policy.py audit` 均通过。
+- Git commit：`61e539c`（公版原作与热门题材匹配框架及证据短名单）。
 
 ---
 
