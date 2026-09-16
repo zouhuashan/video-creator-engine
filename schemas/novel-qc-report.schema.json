@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://videocreator.local/schemas/novel-qc-report.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "project_id", "ip_id", "revision", "created_at", "updated_at", "input_revisions", "overall_status", "category_status", "findings", "annotations", "issues", "human_review"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "project_id": {"type": "string"},
+    "ip_id": {"type": "string"},
+    "revision": {"type": "integer", "minimum": 1},
+    "created_at": {"type": "string", "format": "date-time"},
+    "updated_at": {"type": "string", "format": "date-time"},
+    "input_revisions": {"type": "object", "additionalProperties": false, "required": ["source_catalog", "story_review", "animatic_review", "asset_review", "audio_mix", "dynamic_shots", "edit_timelines"], "properties": {
+      "source_catalog": {"type": "integer", "minimum": 1}, "story_review": {"type": "integer", "minimum": 1}, "animatic_review": {"type": "integer", "minimum": 1}, "asset_review": {"type": "integer", "minimum": 1}, "audio_mix": {"type": "integer", "minimum": 1}, "dynamic_shots": {"type": "integer", "minimum": 1}, "edit_timelines": {"type": "integer", "minimum": 1}
+    }},
+    "overall_status": {"enum": ["BLOCKED", "REVIEW_REQUIRED", "PASS"]},
+    "category_status": {"type": "object", "additionalProperties": false, "required": ["RIGHTS", "STORY", "CONTINUITY", "CHARACTER_AV", "TECHNICAL", "PUBLISH"], "properties": {
+      "RIGHTS": {"$ref": "#/$defs/status"}, "STORY": {"$ref": "#/$defs/status"}, "CONTINUITY": {"$ref": "#/$defs/status"}, "CHARACTER_AV": {"$ref": "#/$defs/status"}, "TECHNICAL": {"$ref": "#/$defs/status"}, "PUBLISH": {"$ref": "#/$defs/status"}
+    }},
+    "findings": {"type": "array", "items": {"$ref": "#/$defs/finding"}},
+    "annotations": {"type": "array", "items": {"$ref": "#/$defs/annotation"}},
+    "issues": {"type": "array", "items": {"$ref": "#/$defs/issue"}},
+    "human_review": {"$ref": "#/$defs/review"}
+  },
+  "$defs": {
+    "status": {"enum": ["PASS", "BLOCKED", "REVIEW_REQUIRED"]},
+    "review": {"type": "object", "additionalProperties": false, "required": ["required", "status", "reviewed_at", "reviewed_by", "note"], "properties": {"required": {"const": true}, "status": {"enum": ["PENDING", "APPROVED", "CHANGES_REQUESTED"]}, "reviewed_at": {"type": ["string", "null"]}, "reviewed_by": {"type": ["string", "null"]}, "note": {"type": "string"}}},
+    "finding": {"type": "object", "additionalProperties": false, "required": ["id", "category", "severity", "code", "message", "entity_refs", "status", "resolution"], "properties": {"id": {"type": "string", "pattern": "^QCF-[0-9]{4}$"}, "category": {"enum": ["RIGHTS", "STORY", "CONTINUITY", "CHARACTER_AV", "TECHNICAL", "PUBLISH"]}, "severity": {"enum": ["BLOCKER", "WARNING", "INFO"]}, "code": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]+$"}, "message": {"type": "string", "minLength": 1}, "entity_refs": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}, "status": {"enum": ["OPEN", "RESOLVED", "WAIVED"]}, "resolution": {"type": "string"}}},
+    "annotation": {"type": "object", "additionalProperties": false, "required": ["id", "target_id", "finding_id", "note", "author", "created_at"], "properties": {"id": {"type": "string", "pattern": "^QCA-[0-9]{4}$"}, "target_id": {"type": "string"}, "finding_id": {"type": ["string", "null"]}, "note": {"type": "string", "minLength": 1}, "author": {"type": "string", "minLength": 1}, "created_at": {"type": "string", "format": "date-time"}}},
+    "issue": {"type": "object", "additionalProperties": false, "required": ["id", "title", "finding_id", "status", "target_refs", "rerender_job_ids", "notes", "created_at", "updated_at"], "properties": {"id": {"type": "string", "pattern": "^QCI-[0-9]{4}$"}, "title": {"type": "string", "minLength": 1}, "finding_id": {"type": ["string", "null"]}, "status": {"enum": ["OPEN", "IN_PROGRESS", "RESOLVED"]}, "target_refs": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}, "rerender_job_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}, "notes": {"type": "array", "items": {"type": "string"}}, "created_at": {"type": "string", "format": "date-time"}, "updated_at": {"type": "string", "format": "date-time"}}}
+  }
+}

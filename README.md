@@ -212,6 +212,15 @@ python3 scripts/novel_edit_timelines.py validate projects/jinghua-yuan-series
 
 剪辑时间线固定引用动态镜头和混音修订，按集保存镜头片段、对白/Cue、字幕状态、DIALOGUE/MUSIC/AMBIENCE/SFX 音频总线、转场、特效和调色字段。只有镜头、字幕、输出文件和人工审核齐备时才能进入 READY；`rerender_jobs` 可按镜头替换或整集重渲染，并通过输入修订号阻止过期任务。Web 项目卡片及 `/api/novel-anime/projects/<id>/edit-timelines` 显示集数、就绪集、片段和重渲染任务。
 
+执行六类 QC 并保留批注、问题单和版本比较：
+
+```bash
+python3 scripts/novel_qc.py audit projects/jinghua-yuan-series
+python3 scripts/novel_qc.py validate projects/jinghua-yuan-series
+```
+
+QC 报告覆盖来源权利、剧情、连续性、角色与视听、技术和发布六类质量门，固定引用来源目录、剧情审核、Animatic、资产、混音、动态镜头和剪辑时间线修订。当前项目会明确报告权利未评估、剧情/连续性阻断、空时间线和禁止发布，而不会把技术骨架误判为成片。报告、批注、问题单和历史修订保存在项目的 `qc/` 目录；Web 提供 `/api/novel-anime/projects/<id>/qc`、`/qc/compare`，并支持通过 POST 添加批注、创建问题单、更新问题单状态和关联局部重渲染任务。
+
 ## Environment
 
 Pinned local tool versions:

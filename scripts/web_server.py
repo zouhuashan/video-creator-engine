@@ -57,6 +57,7 @@ from scripts.novel_audio_assets import NovelAudioAssetError, load_audio_assets, 
 from scripts.novel_audio_mix import NovelAudioMixError, load_audio_mix, summary as audio_mix_summary  # noqa: E402
 from scripts.novel_dynamic_shots import NovelDynamicShotError, load_dynamic_shots, summary as dynamic_shot_summary  # noqa: E402
 from scripts.novel_edit_timelines import NovelEditTimelineError, load_edit_timelines, summary as edit_timeline_summary  # noqa: E402
+from scripts.novel_qc import NovelQCError, add_annotation, add_issue, compare as compare_qc, load_qc_report, summary as qc_summary, update_issue  # noqa: E402
 
 
 PROVIDER_TYPES = {
@@ -179,6 +180,7 @@ def _novel_anime_projects(projects_root: Path = PROJECTS_ROOT) -> list[dict[str,
             "audio_mix": audio_mix_summary(manifest.parent),
             "dynamic_shots": dynamic_shot_summary(manifest.parent),
             "edit_timelines": edit_timeline_summary(manifest.parent),
+            "qc": qc_summary(manifest.parent),
         })
     return projects
 
@@ -445,6 +447,20 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
             except (ValueError, NovelEditTimelineError) as error:
                 return self._error(HTTPStatus.NOT_FOUND, str(error))
             return self._json(result)
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/qc", parsed.path)
+        if match:
+            try:
+                result = load_qc_report(_safe_project(match.group(1)))
+            except (ValueError, NovelQCError) as error:
+                return self._error(HTTPStatus.NOT_FOUND, str(error))
+            return self._json(result)
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/qc/compare", parsed.path)
+        if match:
+            try:
+                result = compare_qc(_safe_project(match.group(1)))
+            except (ValueError, NovelQCError) as error:
+                return self._error(HTTPStatus.NOT_FOUND, str(error))
+            return self._json(result)
         match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/repository", parsed.path)
         if match:
             try:
@@ -524,6 +540,34 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
             except Exception as error:
                 return self._error(HTTPStatus.INTERNAL_SERVER_ERROR, f"storyboard failed: {error}")
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/qc/(annotations|issues)", route)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                payload = self._read_json()
+                if match.group(2) == "annotations":
+                    report = add_annotation(project, str(payload.get("target_id") or ""), str(payload.get("note") or ""), str(payload.get("author") or ""), payload.get("finding_id"))
+                else:
+                    refs = payload.get("target_refs")
+                    if not isinstance(refs, list) or any(not isinstance(item, str) for item in refs):
+                        raise ValueError("target_refs must be a string list")
+                    report = add_issue(project, str(payload.get("title") or ""), refs, payload.get("finding_id"))
+                self._json(report, HTTPStatus.CREATED)
+            except (ValueError, NovelQCError, KeyError, TypeError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+            return
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/qc/issues/([A-Z0-9-]+)", route)
+        if match:
+            try:
+                project = _safe_project(match.group(1)); payload = self._read_json()
+                rerender = payload.get("rerender_job_ids")
+                if rerender is not None and (not isinstance(rerender, list) or any(not isinstance(item, str) for item in rerender)):
+                    raise ValueError("rerender_job_ids must be a string list")
+                report = update_issue(project, match.group(2), str(payload.get("status") or ""), note=payload.get("note"), rerender_job_ids=rerender)
+                self._json(report, HTTPStatus.OK)
+            except (ValueError, NovelQCError, KeyError, TypeError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+            return
         if route != "/api/generate":
             return self._error(HTTPStatus.NOT_FOUND, "route not found")
         try:
