@@ -9,7 +9,7 @@ selection:
   tts: fish_audio
   image: null
   video: local_ken_burns
-  video_generation: local_ken_burns
+  video_generation: openai_sora
   motion: hyperframes
   publish: manual
 
@@ -71,6 +71,18 @@ providers:
       mode: remote
       credentials_required: true
       api_key_env: RUNWAY_API_KEY
+    openai_sora:
+      adapter: openai_sora
+      enabled: true
+      mode: remote
+      credentials_required: true
+      api_key_env: OPENAI_API_KEY
+    wan:
+      adapter: wan
+      enabled: false
+      mode: remote
+      credentials_required: true
+      api_key_env: FAL_KEY
   motion:
     hyperframes:
       adapter: hyperframes

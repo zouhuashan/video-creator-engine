@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from .base import VideoGenerationError
 
-VIDEO_GENERATION_PROVIDER_PRIORITY = ("local_ken_burns", "runway")
+VIDEO_GENERATION_PROVIDER_PRIORITY = ("openai_sora", "local_ken_burns", "runway", "wan")
 
 
 def choose_video_generation_provider(available: dict[str, bool], preferred: str | None = None) -> str:

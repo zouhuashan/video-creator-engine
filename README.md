@@ -152,6 +152,24 @@ Wrap a provider with `adapters.tts.CachedTTS` to reuse generated voice audio. Ca
 
 Chinese narration rules live in [`config/zh-voice.json`](config/zh-voice.json). `adapters.tts.optimize_chinese_speech` normalizes cardinal numbers, years, percentages, currency, English initials, product names, and Chinese/English boundaries. Authors can mark `{pause:short}`, `{pause:long}`, and `**emphasis**`; the optimizer emits Fish Audio S2-Pro cues or a punctuation-only fallback before the text reaches the voice cache.
 
+## Image-to-video providers
+
+The provider-neutral image-to-video boundary is implemented in [`adapters/video_generation/`](adapters/video_generation/). OpenAI Sora (`sora-2`/`sora-2-pro`) is the selected remote route for the current pilot; Runway and fal.ai Wan remain replaceable paid routes, while `local_ken_burns` stays available for no-network workflow checks. Remote adapters require an explicit environment key and never upload a frame without one.
+
+Use the local workflow without a key:
+
+```bash
+python3 scripts/video_generate.py <frame-1.png> <frame-2.png> --provider local_ken_burns --output /tmp/animatic.mp4
+```
+
+Use OpenAI for an explicit image-to-video run after setting `OPENAI_API_KEY`:
+
+```bash
+python3 scripts/video_generate.py <frame.png> --provider openai_sora --model sora-2 --shot-duration 4 --output /tmp/sora.mp4 --prompt "国风动漫人物轻轻转身，衣袂随风，保持角色设计一致"
+```
+
+The OpenAI Videos API is currently documented for `sora-2` and `sora-2-pro`, but the official reference marks it deprecated and schedules shutdown for September 24, 2026. It is therefore used here for short-lived pilot validation behind an adapter, with Runway and Wan retained for later migration.
+
 ## video-use editing core
 
 The pinned video-use checkout provides source inspection, transcript packing, EDL rendering, subtitles, overlays, grading, and timeline review. Install it with `python3 scripts/dependency_manager.py install video-use`, then create its isolated environment with `uv sync --project .dependencies/video-use`. If `ffprobe` is not already on `PATH`, `python3 scripts/install_media_tools.py install ffprobe` installs the version and archive checksum pinned in [`media-tool-manifest.json`](media-tool-manifest.json) under `.dependencies/bin/`. [`config/video-use.json`](config/video-use.json) records the nine required editing capabilities and production safeguards. The `adapters.video.video_use` boundary verifies the install, probes sources, validates EDL timing and files, builds render commands, and selects self-evaluation windows around every cut.
