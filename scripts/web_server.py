@@ -185,6 +185,59 @@ def _novel_anime_projects(projects_root: Path = PROJECTS_ROOT) -> list[dict[str,
     return projects
 
 
+WORKSPACE_DEFINITIONS = (
+    ("overview", "项目总览", "项目、季、集和全局状态"),
+    ("ip", "IP 与底本", "来源、章节、权利和适用地域"),
+    ("story", "故事圣经", "世界观、角色、关系和连续性账本"),
+    ("script", "编剧室", "全剧规划、单集卡、场景剧本和故事审核"),
+    ("assets", "角色美术", "角色、场景、道具和参考包"),
+    ("storyboard", "分镜 Animatic", "Scene/Shot、首尾帧、本地预览和节奏审核"),
+    ("audio", "音频制作", "配音、音轨、Cue 和混音"),
+    ("render", "渲染队列", "动态镜头、剪辑时间线、任务和成本"),
+    ("review", "审片与问题单", "六类 QC、批注、问题单和版本比较"),
+    ("publish", "发布包", "人工确认、配置、快照和发布门"),
+)
+
+
+def _novel_anime_workspaces(project_id: str) -> dict[str, object]:
+    project = _safe_project(project_id)
+    summary = next((item for item in _novel_anime_projects() if item["directory_id"] == project.name), None)
+    if summary is None:
+        raise ValueError("novel-anime project not found")
+    resources = {
+        "overview": {"project": summary, "repository": summary["repository"], "runtime": summary["runtime"]},
+        "ip": {"source_catalog": summary["source_catalog"]},
+        "story": {"story_bible": summary["story_bible"]},
+        "script": {"series_plan": summary["series_plan"], "episode_planning": summary["episode_planning"], "episode_scripts": summary["episode_scripts"], "story_review": summary["story_review"]},
+        "assets": {"visual_bible": summary["visual_bible"], "character_designs": summary["character_designs"], "environment_assets": summary["environment_assets"], "asset_review": summary["asset_review"]},
+        "storyboard": {"shot_breakdown": summary["shot_breakdown"], "storyboard": summary["storyboard"], "animatic": summary["animatic"], "animatic_review": summary["animatic_review"]},
+        "audio": {"voice_profiles": summary["voice_profiles"], "audio_assets": summary["audio_assets"], "audio_mix": summary["audio_mix"]},
+        "render": {"dynamic_shots": summary["dynamic_shots"], "edit_timelines": summary["edit_timelines"], "runtime": summary["runtime"]},
+        "review": {"qc": summary["qc"]},
+        "publish": {"source_catalog": summary["source_catalog"], "qc": summary["qc"], "repository": summary["repository"]},
+    }
+    workspaces = [{"id": key, "title": title, "description": description, "status": "CONNECTED", "data": resources[key]} for key, title, description in WORKSPACE_DEFINITIONS]
+    return {"project_id": summary["project_id"], "directory_id": project.name, "title": summary["title"], "workspace_order": [item["id"] for item in workspaces], "workspaces": workspaces}
+
+
+def _backup_inventory(project: Path) -> dict[str, object]:
+    snapshots = []
+    for path in sorted((project / ".videocreator" / "snapshots").glob("*.json")):
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        snapshots.append({"snapshot_id": payload.get("snapshot_id"), "label": payload.get("label"), "created_at": payload.get("created_at"), "path": _relative(project, path)})
+    migrations = []
+    for path in sorted((project / ".videocreator" / "migrations").glob("*.json")):
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        migrations.append({"migration_key": payload.get("migration_key"), "completed_at": payload.get("completed_at"), "path": _relative(project, path)})
+    return {"snapshot_count": len(snapshots), "snapshots": snapshots, "migration_count": len(migrations), "migrations": migrations, "recovery_requires_manual_confirmation": True}
+
+
 def _source_catalog_summary(project: Path) -> dict[str, object] | None:
     path = project / CATALOG_RELATIVE_PATH
     if not path.is_file():
@@ -277,6 +330,20 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
             return self._json({"projects": self._projects()})
         if parsed.path == "/api/novel-anime/projects":
             return self._json({"projects": _novel_anime_projects()})
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/workspaces", parsed.path)
+        if match:
+            try:
+                result = _novel_anime_workspaces(match.group(1))
+            except ValueError as error:
+                return self._error(HTTPStatus.NOT_FOUND, str(error))
+            return self._json(result)
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/backups", parsed.path)
+        if match:
+            try:
+                result = _backup_inventory(_safe_project(match.group(1)))
+            except ValueError as error:
+                return self._error(HTTPStatus.NOT_FOUND, str(error))
+            return self._json(result)
         match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/sources", parsed.path)
         if match:
             try:
@@ -540,6 +607,17 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
             except Exception as error:
                 return self._error(HTTPStatus.INTERNAL_SERVER_ERROR, f"storyboard failed: {error}")
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/backups", route)
+        if match:
+            try:
+                project = _safe_project(match.group(1)); payload = self._read_json(); label = str(payload.get("label") or "").strip()
+                if not label:
+                    raise ValueError("backup label is required")
+                result = NovelAnimeRepository(project).create_snapshot(label)
+                self._json({"status": "created", **result}, HTTPStatus.CREATED)
+            except (ValueError, NovelAnimeRepositoryError, KeyError, TypeError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+            return
         match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/qc/(annotations|issues)", route)
         if match:
             try:

@@ -138,6 +138,15 @@ class WebServerTests(unittest.TestCase):
         self.assertEqual(projects[0]["qc"]["overall_status"], "BLOCKED")
         self.assertEqual(projects[0]["qc"]["open_blocker_count"], 12)
 
+    def test_novel_studio_exposes_ten_connected_workspaces_and_recovery_inventory(self):
+        studio = web_server._novel_anime_workspaces("jinghua-yuan-series")
+        self.assertEqual(len(studio["workspaces"]), 10)
+        self.assertEqual(studio["workspace_order"], ["overview", "ip", "story", "script", "assets", "storyboard", "audio", "render", "review", "publish"])
+        self.assertEqual(studio["workspaces"][2]["id"], "story")
+        backups = web_server._backup_inventory(web_server._safe_project("jinghua-yuan-series"))
+        self.assertGreaterEqual(backups["snapshot_count"], 1)
+        self.assertTrue(backups["recovery_requires_manual_confirmation"])
+
     def test_web_entrypoints_are_tracked_assets(self):
         self.assertTrue((web_server.WEB_ROOT / "index.html").is_file())
         self.assertTrue((web_server.WEB_ROOT / "app.js").is_file())

@@ -14,6 +14,17 @@
         <nav class="nav" aria-label="主导航">
           <button class="nav-item active" data-view="workspace"><span>✦</span>创作工作台</button>
           <button class="nav-item" data-view="anime"><span>卷</span>国漫项目</button>
+          <div class="nav-group-label">国漫制作台</div>
+          <button class="nav-item" data-view="studio" data-workspace="overview"><span>01</span>项目总览</button>
+          <button class="nav-item" data-view="studio" data-workspace="ip"><span>02</span>IP 与底本</button>
+          <button class="nav-item" data-view="studio" data-workspace="story"><span>03</span>故事圣经</button>
+          <button class="nav-item" data-view="studio" data-workspace="script"><span>04</span>编剧室</button>
+          <button class="nav-item" data-view="studio" data-workspace="assets"><span>05</span>角色美术</button>
+          <button class="nav-item" data-view="studio" data-workspace="storyboard"><span>06</span>分镜 Animatic</button>
+          <button class="nav-item" data-view="studio" data-workspace="audio"><span>07</span>音频制作</button>
+          <button class="nav-item" data-view="studio" data-workspace="render"><span>08</span>渲染队列</button>
+          <button class="nav-item" data-view="studio" data-workspace="review"><span>09</span>审片与问题单</button>
+          <button class="nav-item" data-view="studio" data-workspace="publish"><span>10</span>发布包</button>
           <button class="nav-item" data-view="projects"><span>▦</span>项目资产</button>
           <button class="nav-item" data-view="providers"><span>◇</span>生成 Provider</button>
         </nav>
@@ -55,6 +66,14 @@
 
         <section class="page-view hidden" id="animeView">
           <div class="panel"><div class="panel-heading"><div><span class="section-kicker">NOVEL ANIME SERIES</span><h2>小说 IP 国漫项目</h2><p class="panel-subtitle">IP → 剧集 → 季 → 集。当前页面直接读取 P18 核心项目数据。</p></div><span class="status-dot">P18</span></div><div class="anime-projects" id="animeProjects"><div class="empty-state">正在载入国漫项目…</div></div></div>
+        </section>
+
+        <section class="page-view hidden" id="studioView">
+          <div class="panel studio-panel">
+            <div class="panel-heading"><div><span class="section-kicker">NOVEL ANIME STUDIO</span><h2 id="studioTitle">项目总览</h2><p class="panel-subtitle" id="studioSubtitle">所有工作区读取同一套国漫项目数据。</p></div><span class="status-dot">P27</span></div>
+            <div class="studio-tabs" id="studioTabs"></div>
+            <div class="studio-content" id="studioContent"><div class="empty-state">正在载入制作台…</div></div>
+          </div>
         </section>
 
         <section class="page-view hidden" id="projectsView">

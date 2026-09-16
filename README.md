@@ -221,6 +221,14 @@ python3 scripts/novel_qc.py validate projects/jinghua-yuan-series
 
 QC 报告覆盖来源权利、剧情、连续性、角色与视听、技术和发布六类质量门，固定引用来源目录、剧情审核、Animatic、资产、混音、动态镜头和剪辑时间线修订。当前项目会明确报告权利未评估、剧情/连续性阻断、空时间线和禁止发布，而不会把技术骨架误判为成片。报告、批注、问题单和历史修订保存在项目的 `qc/` 目录；Web 提供 `/api/novel-anime/projects/<id>/qc`、`/qc/compare`，并支持通过 POST 添加批注、创建问题单、更新问题单状态和关联局部重渲染任务。
 
+打开国漫制作台：
+
+```text
+http://127.0.0.1:8877/
+```
+
+左侧“国漫制作台”提供十个工作区：项目总览、IP 与底本、故事圣经、编剧室、角色美术、分镜 Animatic、音频制作、渲染队列、审片与问题单、发布包。它们通过 `/api/novel-anime/projects/<id>/workspaces` 读取同一项目数据；`/backups` 展示快照和迁移记录，创建快照需要明确的本地操作，恢复仍保留人工确认。
+
 ## Environment
 
 Pinned local tool versions:

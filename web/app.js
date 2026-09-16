@@ -1,4 +1,4 @@
-const state = { projects: [], animeProjects: [], project: null, providers: [], selectedProvider: 'local_ken_burns', selectedImage: null, currentView: 'workspace' };
+const state = { projects: [], animeProjects: [], project: null, providers: [], studio: null, selectedProvider: 'local_ken_burns', selectedImage: null, currentView: 'workspace', currentWorkspace: 'overview' };
 
 const $ = (selector) => document.querySelector(selector);
 const escapeHtml = (value) => String(value).replace(/[&<>'"]/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
@@ -140,14 +140,36 @@ function renderAnimeProjects() {
   }));
 }
 
-function setView(view) {
+function renderStudio() {
+  if (!state.studio) {
+    $('#studioContent').innerHTML = '<div class="empty-state">请选择一个国漫项目后再进入制作台。</div>';
+    return;
+  }
+  const workspaces = state.studio.workspaces || [];
+  const active = workspaces.find((item) => item.id === state.currentWorkspace) || workspaces[0];
+  state.currentWorkspace = active.id;
+  $('#studioTitle').textContent = active.title;
+  $('#studioSubtitle').textContent = active.description;
+  $('#studioTabs').innerHTML = workspaces.map((item) => `<button class="studio-tab${item.id === active.id ? ' active' : ''}" data-studio-workspace="${escapeHtml(item.id)}">${escapeHtml(item.title)}</button>`).join('');
+  document.querySelectorAll('[data-studio-workspace]').forEach((button) => button.addEventListener('click', () => { state.currentWorkspace = button.dataset.studioWorkspace; renderStudio(); }));
+  const entries = Object.entries(active.data || {});
+  const cards = entries.map(([key, value]) => {
+    const text = value === null ? '尚未创建' : Object.entries(value).filter(([name]) => name !== 'category_status').map(([name, item]) => `${name}: ${typeof item === 'object' ? JSON.stringify(item) : item}`).join(' · ');
+    return `<div class="studio-data-card"><strong>${escapeHtml(key)}</strong><small>${escapeHtml(text || '已连接')}</small></div>`;
+  }).join('');
+  $('#studioContent').innerHTML = `<div class="studio-hero"><div><span class="section-kicker">${escapeHtml(state.studio.project_id)}</span><h3>${escapeHtml(state.studio.title)} · ${escapeHtml(active.title)}</h3><p>${escapeHtml(active.description)}。页面直接读取项目 Schema、状态机和 QC 结果，不维护 Web 独立数据。</p></div><span class="studio-status">${escapeHtml(active.status)}</span></div><div class="studio-data-grid">${cards || '<div class="empty-state">当前工作区暂无数据。</div>'}</div><div class="studio-api">工作区 API：/api/novel-anime/projects/${encodeURIComponent(state.studio.directory_id)}/workspaces</div>`;
+}
+
+function setView(view, workspace = state.currentWorkspace) {
   state.currentView = view;
-  document.querySelectorAll('.nav-item').forEach((nav) => nav.classList.toggle('active', nav.dataset.view === view));
-  ['workspace', 'anime', 'projects', 'providers'].forEach((name) => $(`#${name}View`).classList.toggle('hidden', name !== view));
+  if (view === 'studio') state.currentWorkspace = workspace;
+  document.querySelectorAll('.nav-item').forEach((nav) => nav.classList.toggle('active', nav.dataset.view === view && (view !== 'studio' || nav.dataset.workspace === state.currentWorkspace)));
+  ['workspace', 'anime', 'studio', 'projects', 'providers'].forEach((name) => $(`#${name}View`).classList.toggle('hidden', name !== view));
   $('#outputPanel').classList.toggle('hidden', view !== 'workspace');
   $('#logPanel')?.classList.toggle('hidden', view !== 'workspace');
   if (view === 'projects') renderProjectTable();
   if (view === 'anime') renderAnimeProjects();
+  if (view === 'studio') renderStudio();
   if (view === 'providers') renderProviderSettings();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -202,6 +224,7 @@ async function load() {
     state.projects = projects.projects;
     state.animeProjects = animeProjects.projects;
     state.providers = health.providers;
+    if (state.animeProjects.length) state.studio = await api(`/api/novel-anime/projects/${encodeURIComponent(state.animeProjects[0].directory_id)}/workspaces`);
     $('#projectSelect').innerHTML = state.projects.map((project) => `<option value="${escapeHtml(project.id)}">${escapeHtml(project.name)}</option>`).join('');
     renderProviders();
     renderProviderSettings();
@@ -256,5 +279,5 @@ $('#generateButton').addEventListener('click', generate);
 $('#storyboardButton').addEventListener('click', generateStoryboard);
 $('#refreshButton').addEventListener('click', () => load());
 $('#clearLog').addEventListener('click', () => { $('#logList').innerHTML = ''; });
-document.querySelectorAll('.nav-item').forEach((item) => item.addEventListener('click', () => setView(item.dataset.view)));
+document.querySelectorAll('.nav-item').forEach((item) => item.addEventListener('click', () => setView(item.dataset.view, item.dataset.workspace || state.currentWorkspace)));
 load();
