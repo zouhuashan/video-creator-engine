@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://videocreator.local/schemas/novel-character-designs.schema.json",
+  "type": "object", "additionalProperties": false,
+  "required": ["schema_version", "project_id", "ip_id", "visual_bible_revision", "revision", "created_at", "updated_at", "character_designs"],
+  "properties": {"schema_version": {"const": 1}, "project_id": {"type": "string"}, "ip_id": {"type": "string"}, "visual_bible_revision": {"type": "integer", "minimum": 1}, "revision": {"type": "integer", "minimum": 1}, "created_at": {"type": "string", "format": "date-time"}, "updated_at": {"type": "string", "format": "date-time"}, "character_designs": {"type": "array", "items": {"$ref": "#/$defs/design"}}},
+  "$defs": {
+    "review": {"type": "object", "additionalProperties": false, "required": ["required", "status", "reviewed_at", "reviewed_by", "note"], "properties": {"required": {"const": true}, "status": {"enum": ["PENDING", "APPROVED", "CHANGES_REQUESTED"]}, "reviewed_at": {"type": ["string", "null"]}, "reviewed_by": {"type": ["string", "null"]}, "note": {"type": "string"}}},
+    "identity": {"type": "object", "additionalProperties": false, "required": ["height_heads", "body_type", "face_shape", "skin_tone", "hair_shape", "hair_color", "eye_shape", "eye_color", "distinguishing_marks", "immutable_features", "negative_constraints"], "properties": {"height_heads": {"type": ["number", "null"], "minimum": 2, "maximum": 12}, "body_type": {"type": "string"}, "face_shape": {"type": "string"}, "skin_tone": {"type": "string"}, "hair_shape": {"type": "string"}, "hair_color": {"type": "string"}, "eye_shape": {"type": "string"}, "eye_color": {"type": "string"}, "distinguishing_marks": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}, "immutable_features": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}, "negative_constraints": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}}},
+    "turnaround": {"type": "object", "additionalProperties": false, "required": ["view", "status", "asset_id", "identity_signature", "prompt_note"], "properties": {"view": {"enum": ["FRONT", "THREE_QUARTER", "SIDE", "BACK", "CLOSEUP"]}, "status": {"enum": ["PLANNED", "GENERATED", "SELECTED", "REJECTED"]}, "asset_id": {"type": ["string", "null"]}, "identity_signature": {"type": "string"}, "prompt_note": {"type": "string"}}},
+    "expression": {"type": "object", "additionalProperties": false, "required": ["id", "emotion", "intensity", "status", "asset_id", "identity_signature", "performance_note"], "properties": {"id": {"type": "string", "pattern": "^EXPR-[A-Z0-9-]+$"}, "emotion": {"enum": ["NEUTRAL", "HAPPY", "ANGRY", "SAD", "SURPRISED", "FEAR", "DETERMINED", "CUSTOM"]}, "intensity": {"type": "number", "minimum": 0, "maximum": 1}, "status": {"enum": ["PLANNED", "GENERATED", "SELECTED", "REJECTED"]}, "asset_id": {"type": ["string", "null"]}, "identity_signature": {"type": "string"}, "performance_note": {"type": "string"}}},
+    "costume": {"type": "object", "additionalProperties": false, "required": ["id", "name", "is_default", "usage", "layers", "palette_swatch_ids", "accessories", "status", "asset_id", "identity_signature", "continuity_note"], "properties": {"id": {"type": "string", "pattern": "^COSTUME-[A-Z0-9-]+$"}, "name": {"type": "string", "minLength": 1}, "is_default": {"type": "boolean"}, "usage": {"type": "string"}, "layers": {"type": "array", "items": {"type": "string"}}, "palette_swatch_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}, "accessories": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}, "status": {"enum": ["PLANNED", "GENERATED", "SELECTED", "REJECTED"]}, "asset_id": {"type": ["string", "null"]}, "identity_signature": {"type": "string"}, "continuity_note": {"type": "string"}}},
+    "design": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "character_id", "status", "identity", "identity_signature", "palette_swatch_ids", "turnarounds", "expressions", "costumes", "default_costume_id", "voice_profile_id", "prompt_template", "human_review"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^CDES-CHR-[A-Z0-9-]+$"},
+        "character_id": {"type": "string", "pattern": "^CHR-[A-Z0-9-]+$"},
+        "status": {"enum": ["DRAFT", "READY"]},
+        "identity": {"$ref": "#/$defs/identity"},
+        "identity_signature": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "palette_swatch_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "turnarounds": {"type": "array", "items": {"$ref": "#/$defs/turnaround"}},
+        "expressions": {"type": "array", "items": {"$ref": "#/$defs/expression"}},
+        "costumes": {"type": "array", "items": {"$ref": "#/$defs/costume"}},
+        "default_costume_id": {"type": ["string", "null"]},
+        "voice_profile_id": {"type": ["string", "null"]},
+        "prompt_template": {
+          "type": "object", "additionalProperties": false,
+          "required": ["positive", "negative"],
+          "properties": {"positive": {"type": "string"}, "negative": {"type": "string"}}
+        },
+        "human_review": {"$ref": "#/$defs/review"}
+      }
+    }
+  }
+}

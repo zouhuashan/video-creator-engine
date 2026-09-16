@@ -212,6 +212,12 @@ class NovelAnimeRepository:
                 "snapshots": int(connection.execute("SELECT COUNT(*) FROM snapshots").fetchone()[0]),
             }
 
+    def current_asset_ids(self) -> set[str]:
+        """Return assets with a selected current local version."""
+        self._require_initialized()
+        with self._connect() as connection:
+            return {str(row[0]) for row in connection.execute("SELECT asset_id FROM asset_versions WHERE is_current = 1")}
+
     def register_dependency(self, upstream_id: str, downstream_id: str, relation: str = "input_to") -> None:
         self._require_initialized()
         relation = relation.strip()

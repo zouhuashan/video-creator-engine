@@ -113,6 +113,15 @@ python3 scripts/novel_visual_bible.py validate projects/jinghua-yuan-series
 
 视觉圣经默认采用 1080×1920、9:16、30 fps，并独立记录安全区和字幕区。READY 状态要求美术方向、线稿、渲染、材质、角色/环境/动作语言、提示词前缀、五集配色、构图规则和负面约束全部完成并同步审核；引用现成影视设计、未授权参考或现代插图会被禁止。
 
+创建角色身份契约、转面、表情和服装资产目录：
+
+```bash
+python3 scripts/novel_character_designs.py create projects/jinghua-yuan-series
+python3 scripts/novel_character_designs.py validate projects/jinghua-yuan-series
+```
+
+每名故事角色必须有唯一 CharacterDesign，并记录头身比、体型、脸型、肤色、发型、眼型、固定特征、禁改特征和固定配色。READY 角色至少需要正面、侧面、背面、近景以及中性、喜、怒、哀、惊五类已选表情，并具有已登记的默认服装资产；所有子资产携带同一 identity signature，结构化观察偏差会生成具体字段问题。
+
 ## Environment
 
 Pinned local tool versions:

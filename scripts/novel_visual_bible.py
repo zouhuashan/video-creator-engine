@@ -19,6 +19,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from scripts.novel_anime_project import MANIFEST_NAME, load_project, utc_timestamp  # noqa: E402
+from scripts.novel_anime_repository import NovelAnimeRepository  # noqa: E402
 from scripts.novel_episode_script import load_script_package  # noqa: E402
 from scripts.novel_story_bible import load_bible  # noqa: E402
 from scripts.novel_story_review import load_report as load_story_review  # noqa: E402
@@ -90,6 +91,8 @@ def validate_visual_bible(project_dir: Path, payload: Any) -> dict[str, Any]:
         source_ids = {item["id"] for item in catalog["chapters"]} | {item["id"] for item in catalog["locators"]}
     if set(style["provenance"]["source_refs"]) - source_ids: raise NovelVisualBibleError("visual style has unknown source references")
     asset_ids = {item["id"] for item in project["assets"]}
+    repository = NovelAnimeRepository(project_dir)
+    if repository.db_path.is_file(): asset_ids |= repository.current_asset_ids()
     if set(style["reference_asset_ids"]) - asset_ids: raise NovelVisualBibleError("visual style has unknown reference assets")
     if style["provenance"]["kind"] == "SOURCE" and not (style["provenance"]["source_refs"] or style["provenance"]["story_refs"]): raise NovelVisualBibleError("source-backed visual style requires references")
     if style["provenance"]["kind"] == "ORIGINAL" and not style["provenance"]["note"].strip(): raise NovelVisualBibleError("original visual style requires a note")

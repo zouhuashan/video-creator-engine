@@ -45,6 +45,7 @@ from scripts.novel_episode_planning import NovelEpisodePlanningError, load_episo
 from scripts.novel_episode_script import NovelEpisodeScriptError, load_script_package, summary as episode_script_summary  # noqa: E402
 from scripts.novel_story_review import NovelStoryReviewError, load_report as load_story_review, summary as story_review_summary  # noqa: E402
 from scripts.novel_visual_bible import NovelVisualBibleError, load_visual_bible, summary as visual_bible_summary  # noqa: E402
+from scripts.novel_character_designs import NovelCharacterDesignError, load_character_designs, summary as character_design_summary  # noqa: E402
 
 
 PROVIDER_TYPES = {
@@ -155,6 +156,7 @@ def _novel_anime_projects(projects_root: Path = PROJECTS_ROOT) -> list[dict[str,
             "episode_scripts": episode_script_summary(manifest.parent),
             "story_review": story_review_summary(manifest.parent),
             "visual_bible": visual_bible_summary(manifest.parent),
+            "character_designs": character_design_summary(manifest.parent),
         })
     return projects
 
@@ -323,6 +325,14 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                 project = _safe_project(match.group(1))
                 result = load_visual_bible(project)
             except (ValueError, NovelVisualBibleError) as error:
+                return self._error(HTTPStatus.NOT_FOUND, str(error))
+            return self._json(result)
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/character-designs", parsed.path)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                result = load_character_designs(project)
+            except (ValueError, NovelCharacterDesignError) as error:
                 return self._error(HTTPStatus.NOT_FOUND, str(error))
             return self._json(result)
         match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/repository", parsed.path)
