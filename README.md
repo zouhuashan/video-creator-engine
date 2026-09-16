@@ -131,6 +131,15 @@ python3 scripts/novel_environment_assets.py validate projects/jinghua-yuan-serie
 
 地点设计固定布局、地标和连续性签名；每个机位与环境变体必须引用同一签名。道具设计固定尺寸、材质、显著标记、交互规则和状态，选中的环境/道具资产必须先登记到项目资产库。每个带地点的剧本场景都要绑定天气、时间、光线和道具状态，Web 国漫项目卡片及 `/api/novel-anime/projects/<id>/environment-assets` 会显示覆盖与就绪情况。
 
+创建关键帧参考包、资产版本选择和美术审核记录：
+
+```bash
+python3 scripts/novel_asset_review.py create projects/jinghua-yuan-series
+python3 scripts/novel_asset_review.py validate projects/jinghua-yuan-series
+```
+
+参考包按角色、地点、道具、镜头或剧集组织视图；每次选择记录资产 ID、版本、选择人和理由。选中版本必须是 Repository 当前版本，并通过明确的人工美术审核后才能进入视觉就绪状态。Web 项目卡片及 `/api/novel-anime/projects/<id>/asset-review` 会显示参考包、版本选择和审核阻断项。
+
 ## Environment
 
 Pinned local tool versions:
