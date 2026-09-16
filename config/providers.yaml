@@ -8,7 +8,8 @@ selection:
   asr: null
   tts: fish_audio
   image: null
-  video: null
+  video: local_ken_burns
+  video_generation: local_ken_burns
   motion: hyperframes
   publish: manual
 
@@ -58,7 +59,18 @@ providers:
       credentials_required: false
       voice: Tingting
   image: {}
-  video: {}
+  video:
+    local_ken_burns:
+      adapter: local_ken_burns
+      enabled: true
+      mode: local
+      credentials_required: false
+    runway:
+      adapter: runway
+      enabled: false
+      mode: remote
+      credentials_required: true
+      api_key_env: RUNWAY_API_KEY
   motion:
     hyperframes:
       adapter: hyperframes
