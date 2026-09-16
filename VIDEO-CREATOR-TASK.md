@@ -2255,7 +2255,7 @@ NEXT: V2-03 数据回流（待定义 P17-01 验收范围）
 - P15-01：PASS；实现 `scripts/trend_discovery.py`，5 项专项测试通过。
 - P16-01：PASS；实现 `scripts/topic_pool.py`，5 项专项测试通过；P15→P16 端到端验证通过。
 - 全量验证：174 项测试通过；`scripts/check-env.sh` 和发布边界审计通过。
-- Git commits：待提交后补录。
+- Git commit：`4c0d1fa`（P15-01 趋势发现框架、P16-01 自动选题池）。
 
 执行完成后：
 
