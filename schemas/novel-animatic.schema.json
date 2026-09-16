@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://videocreator.local/schemas/novel-animatic.schema.json",
+  "type": "object", "additionalProperties": false,
+  "required": ["schema_version", "project_id", "ip_id", "storyboard_revision", "script_revision", "revision", "created_at", "updated_at", "episodes"],
+  "properties": {"schema_version": {"const": 1}, "project_id": {"type": "string"}, "ip_id": {"type": "string"}, "storyboard_revision": {"type": "integer", "minimum": 1}, "script_revision": {"type": "integer", "minimum": 1}, "revision": {"type": "integer", "minimum": 1}, "created_at": {"type": "string", "format": "date-time"}, "updated_at": {"type": "string", "format": "date-time"}, "episodes": {"type": "array", "items": {"$ref": "#/$defs/episode"}}},
+  "$defs": {
+    "review": {"type": "object", "additionalProperties": false, "required": ["required", "status", "reviewed_at", "reviewed_by", "note"], "properties": {"required": {"const": true}, "status": {"enum": ["PENDING", "APPROVED", "CHANGES_REQUESTED"]}, "reviewed_at": {"type": ["string", "null"]}, "reviewed_by": {"type": ["string", "null"]}, "note": {"type": "string"}}},
+    "episode": {"type": "object", "additionalProperties": false, "required": ["episode_id", "shot_ids", "temporary_audio", "subtitle_track", "output_path", "status", "human_review"], "properties": {"episode_id": {"type": "string"}, "shot_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}, "temporary_audio": {"type": "object", "additionalProperties": false, "required": ["status", "path", "duration_seconds"], "properties": {"status": {"enum": ["PLANNED", "READY"]}, "path": {"type": ["string", "null"]}, "duration_seconds": {"type": "number", "minimum": 0}}}, "subtitle_track": {"type": "object", "additionalProperties": false, "required": ["status", "path", "cue_count"], "properties": {"status": {"enum": ["PLANNED", "READY"]}, "path": {"type": ["string", "null"]}, "cue_count": {"type": "integer", "minimum": 0}}}, "output_path": {"type": ["string", "null"]}, "status": {"enum": ["DRAFT", "READY"]}, "human_review": {"$ref": "#/$defs/review"}}}
+  }
+}

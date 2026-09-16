@@ -2340,7 +2340,7 @@ P18 架构与数据底座
 # 41. 当前方向与下一任务
 
 ```text
-NEXT: P22-03 本地 animatic、临时配音、字幕和集级预览
+NEXT: P22-04 节奏、动作可读性、角色/场景/道具连续性审核
 ```
 
 任务：
@@ -2518,13 +2518,19 @@ P22-02 执行记录（2026-09-16）：
 - 实际《镜花缘》项目已创建并验证 `storyboard/storyboard.json`；当前没有正式 Shot，因此保持 0 个首尾帧、0 个已选帧的空 storyboard 骨架。
 - Web 项目卡片新增首尾帧摘要，并新增 Storyboard API；2 项专项测试、Web 回归通过，下一步进入本地 animatic、临时配音和字幕预览。
 
+P22-03 执行记录（2026-09-16）：
+- 新增 `schemas/novel-animatic.schema.json` 与 `scripts/novel_animatic.py`，按五集建立本地 Animatic 计划，把 Shot、临时音频、字幕轨和集级预览输出统一到可恢复数据中。
+- Animatic 固定引用当前 Script Package 与 Storyboard 修订；READY 集必须同时拥有镜头、临时音频、字幕、预览文件和人工审核，不能把空骨架误判为成片。
+- 实际《镜花缘》项目已创建并验证 `animatic/animatic-plan.json`；五集计划已覆盖，但当前 0 镜头、0 音频、0 字幕、0 预览，全部保持 DRAFT。
+- Web 项目卡片新增 Animatic 集级进度，并新增 Animatic API；2 项专项测试、Web 回归通过，下一步进入节奏、动作可读性和连续性审核。
+
 ### P22 分镜与 Animatic
 
 状态：TODO
 
 - P22-01：PASS。Scene/Shot 分解、镜头语法、首尾状态和稳定镜头 ID。
 - P22-02：PASS。静态 storyboard、首尾帧、镜头时长和前后连续关系。
-- P22-03：本地 animatic、临时配音、字幕和集级预览。
+- P22-03：PASS。本地 animatic、临时配音、字幕和集级预览。
 - P22-04：节奏、动作可读性、角色/场景/道具连续性审核。
 
 ### P23 音频制作

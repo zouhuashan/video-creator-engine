@@ -50,6 +50,7 @@ from scripts.novel_environment_assets import NovelEnvironmentAssetError, load_en
 from scripts.novel_asset_review import NovelAssetReviewError, load_asset_review, summary as asset_review_summary  # noqa: E402
 from scripts.novel_shot_breakdown import NovelShotBreakdownError, load_shot_breakdown, summary as shot_breakdown_summary  # noqa: E402
 from scripts.novel_storyboard import NovelStoryboardError, load_storyboard, summary as storyboard_summary  # noqa: E402
+from scripts.novel_animatic import NovelAnimaticError, load_animatic, summary as animatic_summary  # noqa: E402
 
 
 PROVIDER_TYPES = {
@@ -165,6 +166,7 @@ def _novel_anime_projects(projects_root: Path = PROJECTS_ROOT) -> list[dict[str,
             "asset_review": asset_review_summary(manifest.parent),
             "shot_breakdown": shot_breakdown_summary(manifest.parent),
             "storyboard": storyboard_summary(manifest.parent),
+            "animatic": animatic_summary(manifest.parent),
         })
     return projects
 
@@ -373,6 +375,14 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                 project = _safe_project(match.group(1))
                 result = load_storyboard(project)
             except (ValueError, NovelStoryboardError) as error:
+                return self._error(HTTPStatus.NOT_FOUND, str(error))
+            return self._json(result)
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/animatic", parsed.path)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                result = load_animatic(project)
+            except (ValueError, NovelAnimaticError) as error:
                 return self._error(HTTPStatus.NOT_FOUND, str(error))
             return self._json(result)
         match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/repository", parsed.path)

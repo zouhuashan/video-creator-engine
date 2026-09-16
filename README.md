@@ -158,6 +158,15 @@ python3 scripts/novel_storyboard.py validate projects/jinghua-yuan-series
 
 每个 Shot 必须对应首帧和尾帧，帧槽位记录状态、资产、参考包、连续性状态签名和备注；Storyboard 时长必须与 Shot 一致，剧本或参考包修订后会自动失效。Web 项目卡片及 `/api/novel-anime/projects/<id>/storyboard` 显示首尾帧选择和审核进度。
 
+创建本地 Animatic 计划：
+
+```bash
+python3 scripts/novel_animatic.py create projects/jinghua-yuan-series
+python3 scripts/novel_animatic.py validate projects/jinghua-yuan-series
+```
+
+Animatic 计划覆盖五集，把 Shot、临时配音、字幕轨和集级预览输出放在同一份可恢复数据中；剧本或 storyboard 修订后计划自动失效。READY 集必须有镜头、临时音频、字幕、预览文件和人工审核，Web 项目卡片及 `/api/novel-anime/projects/<id>/animatic` 显示制作进度。
+
 ## Environment
 
 Pinned local tool versions:
