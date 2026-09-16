@@ -155,6 +155,7 @@ def _source_catalog_summary(project: Path) -> dict[str, object] | None:
         catalog = load_catalog(path)
     except NovelSourceCatalogError:
         return None
+    imports = _source_import_summaries(project)
     return {
         "status": catalog["rights_assessment"]["status"],
         "target_regions": catalog["target_regions"],
@@ -163,7 +164,44 @@ def _source_catalog_summary(project: Path) -> dict[str, object] | None:
         "locator_count": len(catalog["locators"]),
         "script_adaptation_allowed": catalog["adaptation_policy"]["script_adaptation_allowed"],
         "publication_allowed": catalog["rights_assessment"]["publication_allowed"],
+        "import_count": len(imports),
+        "test_import_count": sum(1 for item in imports if item["test_only"]),
+        "character_candidates": sum(item["character_candidates"] for item in imports),
+        "location_candidates": sum(item["location_candidates"] for item in imports),
+        "prop_candidates": sum(item["prop_candidates"] for item in imports),
+        "event_candidates": sum(item["event_candidates"] for item in imports),
+        "full_text_stored": any(item["full_text_stored"] for item in imports),
     }
+
+
+def _source_import_summaries(project: Path) -> list[dict[str, object]]:
+    """Return review-safe import metadata without exposing source text."""
+    summaries: list[dict[str, object]] = []
+    for path in sorted((project / "sources" / "imports").glob("*.json")):
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            extraction = payload["extraction"]
+            if not isinstance(extraction, dict):
+                continue
+            summary = {
+                "import_id": str(payload["import_id"]),
+                "edition_id": str(payload["edition_id"]),
+                "source_file_name": str(payload["source_file_name"]),
+                "source_sha256": str(payload["source_sha256"]),
+                "chapter_count": len(payload.get("chapters", [])),
+                "character_candidates": len(extraction.get("characters", [])),
+                "location_candidates": len(extraction.get("locations", [])),
+                "prop_candidates": len(extraction.get("props", [])),
+                "event_candidates": len(extraction.get("events", [])),
+                "test_only": payload.get("test_only") is True,
+                "full_text_stored": payload.get("full_text_stored") is True,
+                "human_review_required": payload.get("human_review_required") is True,
+                "created_at": str(payload.get("created_at", "")),
+            }
+        except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError):
+            continue
+        summaries.append(summary)
+    return summaries
 
 
 def _provider_status() -> list[dict[str, object]]:
@@ -212,6 +250,13 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
             except (ValueError, NovelSourceCatalogError) as error:
                 return self._error(HTTPStatus.NOT_FOUND, str(error))
             return self._json(catalog)
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/source-imports", parsed.path)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+            except ValueError as error:
+                return self._error(HTTPStatus.NOT_FOUND, str(error))
+            return self._json({"project_id": project.name, "imports": _source_import_summaries(project)})
         match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/repository", parsed.path)
         if match:
             try:

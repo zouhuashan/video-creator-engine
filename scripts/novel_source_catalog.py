@@ -304,7 +304,7 @@ def load_catalog(path: Path) -> dict[str, Any]:
     return validate_catalog(payload)
 
 
-def write_catalog(project_dir: Path, catalog: dict[str, Any]) -> Path:
+def _save_catalog(project_dir: Path, catalog: dict[str, Any], *, overwrite: bool) -> Path:
     project_dir = Path(project_dir).expanduser().resolve()
     project = load_project(project_dir / MANIFEST_NAME)
     normalized = validate_catalog(catalog)
@@ -312,7 +312,7 @@ def write_catalog(project_dir: Path, catalog: dict[str, Any]) -> Path:
         raise NovelSourceCatalogError("source catalog does not match the novel-anime project")
     output = project_dir / CATALOG_RELATIVE_PATH
     output.parent.mkdir(parents=True, exist_ok=True)
-    if output.exists():
+    if output.exists() and not overwrite:
         raise NovelSourceCatalogError(f"refusing to overwrite existing source catalog: {output}")
     descriptor, temp_name = tempfile.mkstemp(prefix=".source-catalog.", suffix=".tmp", dir=output.parent)
     try:
@@ -327,6 +327,17 @@ def write_catalog(project_dir: Path, catalog: dict[str, Any]) -> Path:
             pass
         raise
     return output
+
+
+def write_catalog(project_dir: Path, catalog: dict[str, Any]) -> Path:
+    return _save_catalog(project_dir, catalog, overwrite=False)
+
+
+def replace_catalog(project_dir: Path, catalog: dict[str, Any]) -> Path:
+    output = Path(project_dir).expanduser().resolve() / CATALOG_RELATIVE_PATH
+    if not output.is_file():
+        raise NovelSourceCatalogError("cannot replace a source catalog that does not exist")
+    return _save_catalog(project_dir, catalog, overwrite=True)
 
 
 def _parser() -> argparse.ArgumentParser:

@@ -286,12 +286,12 @@ def load_project(path: Path) -> dict[str, Any]:
     return validate_project(payload)
 
 
-def write_project(project_dir: Path, payload: dict[str, Any]) -> Path:
+def _save_project(project_dir: Path, payload: dict[str, Any], *, overwrite: bool) -> Path:
     project = validate_project(payload)
     project_dir = Path(project_dir).expanduser().resolve()
     project_dir.mkdir(parents=True, exist_ok=True)
     output = project_dir / MANIFEST_NAME
-    if output.exists():
+    if output.exists() and not overwrite:
         raise NovelAnimeProjectError(f"refusing to overwrite existing manifest: {output}")
     descriptor, temp_name = tempfile.mkstemp(prefix=f".{MANIFEST_NAME}.", suffix=".tmp", dir=project_dir)
     try:
@@ -306,6 +306,17 @@ def write_project(project_dir: Path, payload: dict[str, Any]) -> Path:
             pass
         raise
     return output
+
+
+def write_project(project_dir: Path, payload: dict[str, Any]) -> Path:
+    return _save_project(project_dir, payload, overwrite=False)
+
+
+def replace_project(project_dir: Path, payload: dict[str, Any]) -> Path:
+    output = Path(project_dir).expanduser().resolve() / MANIFEST_NAME
+    if not output.is_file():
+        raise NovelAnimeProjectError("cannot replace a project manifest that does not exist")
+    return _save_project(project_dir, payload, overwrite=True)
 
 
 def _parser() -> argparse.ArgumentParser:

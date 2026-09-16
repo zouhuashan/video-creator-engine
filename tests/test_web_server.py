@@ -49,6 +49,16 @@ class WebServerTests(unittest.TestCase):
             NovelAnimeRepository(project_dir).initialize()
             NovelAnimeRuntime(project_dir).initialize()
             write_catalog(project_dir, build_catalog("jinghua-yuan-series", "IP-JHY", "镜花缘"))
+            imports_dir = project_dir / "sources" / "imports"
+            imports_dir.mkdir(parents=True)
+            (imports_dir / "test.json").write_text(json.dumps({
+                "import_id": "IMP-SRC-JHY-001-TEST", "edition_id": "SRC-JHY-001",
+                "source_file_name": "fixture.txt", "source_sha256": "0" * 64,
+                "chapters": [{"chapter_id": "CH-JHY-0001"}],
+                "extraction": {"characters": [{}], "locations": [{}], "props": [{}], "events": [{}, {}]},
+                "test_only": True, "full_text_stored": False, "human_review_required": True,
+                "created_at": "2026-09-16T00:00:00Z",
+            }), encoding="utf-8")
             projects = web_server._novel_anime_projects(Path(directory))
         self.assertEqual(len(projects), 1)
         self.assertEqual(projects[0]["ip_id"], "IP-JHY")
@@ -57,6 +67,10 @@ class WebServerTests(unittest.TestCase):
         self.assertEqual(projects[0]["runtime"]["migrations"], 0)
         self.assertEqual(projects[0]["source_catalog"]["status"], "UNASSESSED")
         self.assertFalse(projects[0]["source_catalog"]["publication_allowed"])
+        self.assertEqual(projects[0]["source_catalog"]["import_count"], 1)
+        self.assertEqual(projects[0]["source_catalog"]["test_import_count"], 1)
+        self.assertEqual(projects[0]["source_catalog"]["event_candidates"], 2)
+        self.assertFalse(projects[0]["source_catalog"]["full_text_stored"])
 
     def test_web_entrypoints_are_tracked_assets(self):
         self.assertTrue((web_server.WEB_ROOT / "index.html").is_file())

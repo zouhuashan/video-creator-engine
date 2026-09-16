@@ -47,6 +47,14 @@ python3 scripts/novel_source_catalog.py validate projects/jinghua-yuan-series/so
 
 新目录默认 `UNASSESSED`，只允许本地技术测试，禁止正式剧本改编和发布。只有指定底本、目标地区、来源证据、现代校注/插图处理和人工审核同时通过，才允许进入 `SOURCE_READY`。
 
+对已登记且通过权利审核的 UTF-8 底本执行章节切分和本地候选抽取：
+
+```bash
+python3 scripts/novel_source_ingest.py projects/jinghua-yuan-series --edition-id SRC-JHY-001 --source-file /path/to/authorized-source.txt --lexicon-file /path/to/lexicon.json --authorization-confirmed
+```
+
+导入产物只保留文件与章节哈希、行号、提及次数和待人工确认的事件候选，不复制小说全文。`--test-only` 只用于合成文本技术测试，不会把章节写入正式底本目录或核心项目；《镜花缘》当前尚未登记核验底本，因此正式原文保持未导入。
+
 ## Environment
 
 Pinned local tool versions:
