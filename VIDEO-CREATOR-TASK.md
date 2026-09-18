@@ -2764,7 +2764,7 @@ P28-01 Web 默认端口迁移（2026-09-18）：
 P28-01 Web 运维脚本增量（2026-09-18）：
 
 - 在继续 Godot / Blender 等动画路线前，先补齐本机 Web Console 的可靠启动与重启入口：新增根目录 `start-web.command` 和 `restart-web.command`。
-- 默认后台启动 `scripts/web_server.py` 于 `127.0.0.1:8765`；PID 保存到 `cache/web-server.pid`，详细日志写入 `logs/web-server.log`，启动完成前执行 HTTP 健康检查。
+- 默认后台启动 `scripts/web_server.py` 于 `127.0.0.1:18765`；PID 保存到 `cache/web-server.pid`，详细日志写入 `logs/web-server.log`，启动完成前执行 HTTP 健康检查。
 - 启动脚本具备单实例保护：已运行时只返回当前 URL/PID；端口被无关服务占用时拒绝启动，不自动抢占或误杀其他进程。
 - 重启脚本通过 PID、项目路径与监听端口识别当前仓库 Web，只停止本项目实例；优先 TERM，超时才 KILL，然后复用统一启动脚本。
 - 支持 `VIDEO_CREATOR_WEB_HOST`、`VIDEO_CREATOR_WEB_PORT`、`VIDEO_CREATOR_PYTHON` 临时覆盖；新增 `docs/WEB-OPERATIONS.md` 并更新 README 的推荐启动方式。
