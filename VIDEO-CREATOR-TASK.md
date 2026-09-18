@@ -2818,6 +2818,16 @@ P28-01 Web 运维脚本增量（2026-09-18）：
 - 支持 `VIDEO_CREATOR_WEB_HOST`、`VIDEO_CREATOR_WEB_PORT`、`VIDEO_CREATOR_PYTHON` 临时覆盖；新增 `docs/WEB-OPERATIONS.md` 并更新 README 的推荐启动方式。
 - 本增量不启动 ArcReel、不调用远程 AI、不改变 P28 人工审核状态；完成此运维入口后再继续非生成式动画路线实施。
 
+P28-01 Blender Anime 正式成片路线切换（2026-09-19）：
+
+- 用户明确否定继续以 Cutout/Godot 2.5D 作为国风动漫最终画面路线：即使 2.5D 做完，视觉上仍受单张正面立绘、缺少真实体积/透视/衣物厚度/转身信息的上限约束，难以达到目标国风动漫观感。
+- 路线职责重新冻结：`LOCAL_CUTOUT_RIG` 继续 ACTIVE，但职责降为 Animatic/对白粗剪/镜头时长预演；`GODOT_CUTOUT` 降为 `EXPERIMENTAL_DEFERRED`，保留已有代码但不再作为当前 NEXT；新增 `BLENDER_ANIME` 作为正式成片目标路线。
+- `BLENDER_ANIME` 目标不是“Grease Pencil 替代 Godot”，而是完整的 3D→2D/NPR 国漫生产链：3D Character + Armature/IK + Shape Keys + Hair/Cloth secondary + Toon/NPR Shader + Grease Pencil/Line Art + Camera + Lighting + FX + Compositing。
+- Blender 生产基线锁定当前 active LTS 5.2 系列，最低 5.2.0；Apple Silicon 强制 arm64 运行。正式接入先完成安装/smoke，再只做一个百花仙子 5～8 秒代表镜头，不一次性返工 9 个角色。
+- 首个 Blender Anime Demo 验收目标：竖屏 1080×1920、24fps、明显角色体积和透视、头发/衣袖层次、真实肩肘腕动作、镜头轻推、前中后景、Toon/NPR 明暗、线稿/轮廓、国风粒子/氛围；最终视觉必须人工审核。
+- TikTok 参考短链当前在 ChatGPT Web 环境无法解析，禁止假装已看过；用户需补视频本体或关键帧后才能做“同款”逐项对齐。该缺口不阻塞 Blender 主线基础搭建。
+- 远程 AI Video 继续 `OPTIONAL_BLOCKED`；本路线切换不触发上传、付费 Provider 或自动发布。P28 五集旧母版人工审核状态保持 `PENDING`，新 Demo 是质量路线验证，不冒充旧 P28 人审通过。
+
 P28-01 Godot 2.5D 动作预览增量（2026-09-18）：
 
 - 用户实机反馈：即使 Rig V2 自动分层成功，编辑器静态画面仍明显是平面立绘。该反馈成立；Rig V2/IK readiness 只证明资产可驱动，不代表视觉质量已经脱离“纸片感”。
