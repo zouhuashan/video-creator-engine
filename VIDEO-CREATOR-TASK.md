@@ -2818,6 +2818,16 @@ P28-01 Web 运维脚本增量（2026-09-18）：
 - 支持 `VIDEO_CREATOR_WEB_HOST`、`VIDEO_CREATOR_WEB_PORT`、`VIDEO_CREATOR_PYTHON` 临时覆盖；新增 `docs/WEB-OPERATIONS.md` 并更新 README 的推荐启动方式。
 - 本增量不启动 ArcReel、不调用远程 AI、不改变 P28 人工审核状态；完成此运维入口后再继续非生成式动画路线实施。
 
+P28-01 Blender Anime 基础工具链增量（2026-09-19）：
+
+- 新增 `BLENDER_ANIME` 机器路线并设为 `production_target_route`；`LOCAL_CUTOUT_RIG` 明确为 `animatic_route`，Godot 改为 `EXPERIMENTAL_DEFERRED`。
+- Blender 版本锁定 5.2 LTS API 窗口（>=5.2.0 且 <5.3.0），Apple Silicon 统一强制 arm64；新增 `config/blender-anime.json`、`adapters/motion/blender_anime.py` 和回归测试。
+- 新增 `install-blender.command` / `check-blender.command`：不存在时使用原生 Homebrew `blender@lts` cask 安装，随后无界面执行 EEVEE + Armature + Camera + Light + PNG render smoke；smoke 输出固定到 `cache/blender-anime-smoke.png`。
+- 根据 Blender 5.2 Python API 将 EEVEE engine id 固定为 `BLENDER_EEVEE`，避免沿用旧版 `BLENDER_EEVEE_NEXT` 导致首跑失败。
+- 新增 `templates/blender-anime-demo.json`，首个正式质量验证只做百花仙子 6 秒代表镜头，不一次性建模九个角色。
+- 更新 `docs/NON-GENERATIVE-ANIMATION.md` 与新增 `docs/BLENDER-ANIME.md`；视觉通过标准明确包含体积、真实透视、NPR、线稿、服装层次、头发/衣袖次级运动、真实镜头空间和人工视觉审核。
+- 当前只完成 Blender 基础环境/自动化契约，尚未宣称百花仙子模型或参考 TikTok 风格已复现。NEXT：本机安装与 smoke PASS，然后基于用户上传的参考视频/关键帧冻结 Style Bible 并制作 5–8 秒 Demo。
+
 P28-01 Blender Anime 正式成片路线切换（2026-09-19）：
 
 - 用户明确否定继续以 Cutout/Godot 2.5D 作为国风动漫最终画面路线：即使 2.5D 做完，视觉上仍受单张正面立绘、缺少真实体积/透视/衣物厚度/转身信息的上限约束，难以达到目标国风动漫观感。
