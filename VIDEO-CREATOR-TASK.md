@@ -2818,6 +2818,15 @@ P28-01 Web 运维脚本增量（2026-09-18）：
 - 支持 `VIDEO_CREATOR_WEB_HOST`、`VIDEO_CREATOR_WEB_PORT`、`VIDEO_CREATOR_PYTHON` 临时覆盖；新增 `docs/WEB-OPERATIONS.md` 并更新 README 的推荐启动方式。
 - 本增量不启动 ArcReel、不调用远程 AI、不改变 P28 人工审核状态；完成此运维入口后再继续非生成式动画路线实施。
 
+P28-01 Blender 5.2 图像序列输出兼容修复（2026-09-19）：
+
+- 实机 Blender 5.2.1 LTS 执行 `render-reference-demo.command` 失败：`scene.render.image_settings.file_format = "FFMPEG"` 在 5.2 已不再合法，枚举只包含图像格式，导致 TypeError 并在第 145 行中止。
+- 根据 Blender 5.2 Output 模型，Blockout 主链改为“Blender PNG 图像序列 → 项目 FFmpeg 编码 MP4”；不再依赖 Blender 内部视频编码 API。
+- `reference-dialogue-blockout.py` 现在固定渲染 144 张 `frame_0001.png ... frame_0144.png`，PNG/RGB/8-bit，并在首尾帧存在后才输出 PASS marker；仍保存可编辑 `.blend`。
+- `render-reference-demo.command` 会清理旧帧、检查 Blender 与 FFmpeg、验证恰好 144 帧，再用 `libx264 + yuv420p + faststart` 生成 `cache/reference-dialogue-blockout.mp4`；任何缺帧或编码失败均 FAIL。
+- 此改法同时提升可恢复性：后续正式长镜头可按图像序列做断点续渲，不被单次视频容器写入失败拖垮。
+- NEXT 不变：重新运行 `./render-reference-demo.command`，只审核双角色体型差、站位、视线、夕阳灯光、景深与镜头推进，不把代理几何当最终角色质量。
+
 P28-01 参考视频 Style Bible 与双角色 Demo Blockout（2026-09-19）：
 
 - 已实际读取用户上传的 44.13 秒屏幕录制并抽取关键帧；视觉基准不再是模糊“国风动漫”描述，而是明确记录为“半写实成年男角色 + 幼态/Q版小女孩 + 暖色夕阳电影光 + 浅景深 + 历史营地环境 + 对话表演”的混合 3D 动漫风格。
