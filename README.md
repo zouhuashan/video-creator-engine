@@ -521,3 +521,21 @@ On Apple Silicon:
 ```
 
 The production automation targets Blender 5.2 LTS and forces arm64 execution. The first quality milestone is a single 5–8 second Baihua Fairy shot; the pipeline must pass human visual review before it is expanded to more characters. See `docs/BLENDER-ANIME.md`.
+
+
+### Reference dialogue blockout
+
+After Blender passes the environment smoke, render the uploaded-reference composition blockout:
+
+```bash
+./render-reference-demo.command
+```
+
+Outputs:
+
+```text
+cache/reference-dialogue-blockout.mp4
+cache/reference-dialogue-blockout.blend
+```
+
+This blockout intentionally uses proxy geometry. Judge only adult/child proportion contrast, eye-lines, staging, sunset key/fill, depth of field, camera push and six-second dialogue pacing. Final character quality begins only after this blockout is accepted.
