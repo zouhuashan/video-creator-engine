@@ -2818,6 +2818,14 @@ P28-01 Web 运维脚本增量（2026-09-18）：
 - 支持 `VIDEO_CREATOR_WEB_HOST`、`VIDEO_CREATOR_WEB_PORT`、`VIDEO_CREATOR_PYTHON` 临时覆盖；新增 `docs/WEB-OPERATIONS.md` 并更新 README 的推荐启动方式。
 - 本增量不启动 ArcReel、不调用远程 AI、不改变 P28 人工审核状态；完成此运维入口后再继续非生成式动画路线实施。
 
+P28-01 Godot Rosetta/ARM 安装修复（2026-09-18）：
+
+- 实机确认当前终端会话运行在 Rosetta 2/x86_64，而原脚本直接调用 ARM Homebrew 前缀 `/opt/homebrew`，导致 Homebrew 拒绝安装：`Cannot install under Rosetta 2 in ARM default prefix`。
+- Godot 当前 Homebrew 包为 cask；安装命令改为 `/usr/bin/arch -arm64 /opt/homebrew/bin/brew install --cask godot`，与 Homebrew 当前 Godot 4.7.2 cask 保持一致。
+- Godot 二进制发现顺序改为优先 `/opt/homebrew/bin/godot` 和 `/Applications/Godot.app/Contents/MacOS/Godot`，最后才使用 PATH，避免 `/usr/local` Intel 命令遮蔽原生 ARM 版本。
+- `install-godot.command` 与 `check-godot.command` 的版本读取和 headless smoke 统一通过 `/usr/bin/arch -arm64` 启动 Godot，保证即使父终端处于 Rosetta 也使用 ARM slice。
+- `config/godot-cutout.json` 与 Adapter 候选顺序同步更新；默认版本门仍为 stable >= 4.7.2，P28 人工审核状态不变。
+
 P28-01 Rig V2 骨骼资产契约增量（2026-09-18）：
 
 - 新增 `scripts/build_character_rig_v2.py`，不再用整张立绘模拟关节；Godot IK 资产必须提供独立透明肢体层、父子骨骼关系、canvas 对齐、pivot、z-index 和来源资产 ID。
