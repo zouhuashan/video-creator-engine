@@ -2818,6 +2818,14 @@ P28-01 Web 运维脚本增量（2026-09-18）：
 - 支持 `VIDEO_CREATOR_WEB_HOST`、`VIDEO_CREATOR_WEB_PORT`、`VIDEO_CREATOR_PYTHON` 临时覆盖；新增 `docs/WEB-OPERATIONS.md` 并更新 README 的推荐启动方式。
 - 本增量不启动 ArcReel、不调用远程 AI、不改变 P28 人工审核状态；完成此运维入口后再继续非生成式动画路线实施。
 
+P28-01 Web restart 预检与 Rig readiness 语法修复（2026-09-18）：
+
+- 实机 `./restart-web.command` 停止旧 Web 后启动失败，根因是 `scripts/godot_rig_readiness.py` 第 11 行把换行误写成字面量 `\\n`，导致 Python `SyntaxError: unexpected character after line continuation character`。
+- 已将 V1/V2 manifest 常量恢复为两个真实 Python 行。
+- `restart-web.command` 新增 stop-before-preflight 保护：在停止旧 Web 前先对 `web_server.py`、`godot_rig_readiness.py`、`build_character_rig_v2.py`、`rig_v2_segment.py` 执行 `py_compile`，随后真实 `import scripts.web_server`；任何语法/导入错误都会直接 FAIL，旧 Web 保持运行。
+- 预检使用项目私有 `.web-python` + `support/web-python`，并优先选择 `VIDEO_CREATOR_PYTHON` / `/opt/homebrew/bin/python3`，与现行 Web 环境保持一致。
+- 本修复不改变 18765 端口、P28 人审状态或远程 Provider 策略。
+
 P28-01 Godot 4.7.2 TwoBoneIK smoke 类型/Rest 修复（2026-09-18）：
 
 - 实机 `check-godot.command` 首次 IK smoke 失败：Godot 4.7.2 在当前 warning-as-error 设置下拒绝 `abs()/clamp()` 等 Variant 返回值配合 `:=` 的隐式类型推断，导致 `two_bone_ik.gd` parse error。
