@@ -9,7 +9,16 @@ mkdir -p "$ROOT/logs"
 
 version_ge() {
   local a="$1" b="$2"
-  [ "$(printf '%s\n%s\n' "$b" "$a" | sort -V | head -n1)" = "$b" ]
+  local a1 a2 a3 b1 b2 b3
+  IFS=. read -r a1 a2 a3 <<<"$a"
+  IFS=. read -r b1 b2 b3 <<<"$b"
+  a1="${a1:-0}"; a2="${a2:-0}"; a3="${a3:-0}"
+  b1="${b1:-0}"; b2="${b2:-0}"; b3="${b3:-0}"
+  (( a1 > b1 )) && return 0
+  (( a1 < b1 )) && return 1
+  (( a2 > b2 )) && return 0
+  (( a2 < b2 )) && return 1
+  (( a3 >= b3 ))
 }
 
 find_godot() {
