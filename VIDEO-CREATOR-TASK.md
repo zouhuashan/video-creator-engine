@@ -2753,6 +2753,15 @@ P28-01 前五集本地试播母版与 Web 人审增量（2026-09-18）：
 - 已创建可恢复快照 `SNP-20260918T004726396Z-P28-FIVE-EPISODE-LOCAL-MASTERS`，锁定当前五集母版清单；项目首页已改为正确展示五集试播状态。
 - 当前五集母版生成状态为 `COMPLETED`、技术 QC 为 `PASS`，人工审核保持 `PENDING`，不会自动发布。`P28-01` 仍在执行：下一步是逐集人审；真实 Provider 仅在用户明确选择服务商并授权上传与计费后才可运行。
 
+P28-01 Web 运维脚本增量（2026-09-18）：
+
+- 在继续 Godot / Blender 等动画路线前，先补齐本机 Web Console 的可靠启动与重启入口：新增根目录 `start-web.command` 和 `restart-web.command`。
+- 默认后台启动 `scripts/web_server.py` 于 `127.0.0.1:8765`；PID 保存到 `cache/web-server.pid`，详细日志写入 `logs/web-server.log`，启动完成前执行 HTTP 健康检查。
+- 启动脚本具备单实例保护：已运行时只返回当前 URL/PID；端口被无关服务占用时拒绝启动，不自动抢占或误杀其他进程。
+- 重启脚本通过 PID、项目路径与监听端口识别当前仓库 Web，只停止本项目实例；优先 TERM，超时才 KILL，然后复用统一启动脚本。
+- 支持 `VIDEO_CREATOR_WEB_HOST`、`VIDEO_CREATOR_WEB_PORT`、`VIDEO_CREATOR_PYTHON` 临时覆盖；新增 `docs/WEB-OPERATIONS.md` 并更新 README 的推荐启动方式。
+- 本增量不启动 ArcReel、不调用远程 AI、不改变 P28 人工审核状态；完成此运维入口后再继续非生成式动画路线实施。
+
 P28-01 非生成式动画机器策略增量（2026-09-18）：
 
 - 新增 `config/animation-routes.json`，把动画路线变成 Codex/脚本可读取的机器策略；默认固定为 `LOCAL_CUTOUT_RIG`，远程生成默认关闭。

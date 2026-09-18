@@ -420,7 +420,21 @@ The OpenAI Videos API is currently documented for `sora-2` and `sora-2-pro`, but
 
 ## Local web console
 
-The same adapters are available through a dependency-free local web console. Start it with:
+The same adapters are available through a dependency-free local web console. The recommended macOS launcher is:
+
+```bash
+./start-web.command
+```
+
+Restart it safely with:
+
+```bash
+./restart-web.command
+```
+
+The scripts keep a PID under `cache/`, write background logs to `logs/web-server.log`, prevent duplicate instances, and refuse to kill unrelated services that happen to use the same port. See [docs/WEB-OPERATIONS.md](docs/WEB-OPERATIONS.md) for operations and environment overrides.
+
+The direct development command remains available:
 
 ```bash
 python3 scripts/web_server.py --port 8765
