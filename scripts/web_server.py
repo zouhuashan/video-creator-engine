@@ -41,6 +41,8 @@ from scripts.local_storyboard_pipeline import LocalStoryboardError, run_local_st
 from scripts.render_local_motion_test import render as render_local_motion_test  # noqa: E402
 from scripts.render_character_rig_preview import render as render_character_rig_preview  # noqa: E402
 from scripts.build_character_rig import validate_rig  # noqa: E402
+from scripts.godot_rig_readiness import GodotRigReadinessError, summarize_project as godot_rig_readiness_summary  # noqa: E402
+from scripts.rig_v2_segment import RigV2SegmentError, segment_layers as segment_rig_v2_layers  # noqa: E402
 from scripts.mux_timeline_shot import mux as mux_timeline_shot  # noqa: E402
 from scripts.batch_render_final_shots import _background_for_shot, _particle_effect, render_batch as render_final_shot_batch  # noqa: E402
 from scripts.novel_anime_project import MANIFEST_NAME as NOVEL_ANIME_MANIFEST, NovelAnimeProjectError, load_project as load_novel_anime_project  # noqa: E402
@@ -557,6 +559,57 @@ def _character_rig_inventory(project: Path) -> dict[str, object]:
     return {"project_id": project.name, "schema_version": payload.get("schema_version", 1), "rigs": enriched, "count": len(enriched)}
 
 
+def _rig_v2_workspace(project: Path, character_id: str) -> dict[str, object]:
+    rigs = _character_rig_inventory(project).get("rigs", [])
+    rig = next((item for item in rigs if str(item.get("character_id")) == character_id), None)
+    if not rig:
+        raise ValueError("character V1 Rig is not registered")
+    source_path = str(rig.get("source_path") or "")
+    source_asset_id = str(rig.get("source_asset_id") or "")
+    if not source_path or not source_asset_id:
+        raise ValueError("character Rig has no source reference")
+    source = project / source_path
+    if not source.is_file():
+        raise ValueError("character source image is missing")
+    canvas = rig.get("canvas") if isinstance(rig.get("canvas"), dict) else {}
+    profile = "GODOT_UPPER_BODY_IK"
+    required_layers = [
+        "head", "torso",
+        "upper_arm_l", "forearm_l", "hand_l",
+        "upper_arm_r", "forearm_r", "hand_r",
+    ]
+    work_dir = project / "visual-bible" / "rig-v2-work"
+    work_path = work_dir / f"{character_id.lower()}-{profile.lower()}.json"
+    existing = None
+    if work_path.is_file():
+        try:
+            existing = json.loads(work_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            existing = None
+    readiness = godot_rig_readiness_summary(project)
+    character_readiness = next(
+        (item for item in readiness.get("rigs", []) if item.get("character_id") == character_id),
+        None,
+    )
+    return {
+        "project_id": project.name,
+        "character_id": character_id,
+        "character_name": str(rig.get("character_name") or character_id),
+        "source_asset_id": source_asset_id,
+        "source_path": source_path,
+        "source_url": f"/media/{project.name}/{source_path}",
+        "canvas": {
+            "width": int(canvas.get("width", 0)),
+            "height": int(canvas.get("height", 0)),
+        },
+        "profile": profile,
+        "rig_id": f"RIG2-{character_id}-UPPER-V1",
+        "required_layers": required_layers,
+        "existing": existing,
+        "readiness": character_readiness,
+    }
+
+
 EPISODE_REVIEW_CHECKS = ("story", "picture", "audio", "subtitles")
 REVIEW_CHECK_STATUSES = {"PENDING", "PASS", "CHANGES_REQUESTED"}
 
@@ -846,6 +899,19 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
             except ValueError as error:
                 return self._error(HTTPStatus.NOT_FOUND, str(error))
             return self._json(_character_rig_inventory(project))
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/rig-v2-workspace/([^/]+)", parsed.path)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                return self._json(_rig_v2_workspace(project, unquote(match.group(2))))
+            except (ValueError, GodotRigReadinessError, OSError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.NOT_FOUND, str(error))
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/godot-rig-readiness", parsed.path)
+        if match:
+            try:
+                return self._json(godot_rig_readiness_summary(_safe_project(match.group(1))))
+            except (ValueError, GodotRigReadinessError) as error:
+                return self._error(HTTPStatus.NOT_FOUND, str(error))
         match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/timeline-cues", parsed.path)
         if match:
             try:
@@ -1090,6 +1156,38 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
             except Exception as error:
                 return self._error(HTTPStatus.INTERNAL_SERVER_ERROR, f"storyboard failed: {error}")
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/rig-v2-segment", route)
+        if match:
+            try:
+                payload = self._read_json()
+                project = _safe_project(match.group(1))
+                character_id = str(payload.get("character_id") or "").strip()
+                workspace = _rig_v2_workspace(project, character_id)
+                layers = payload.get("layers")
+                if not isinstance(layers, dict):
+                    raise ValueError("layers must be an object")
+                result = segment_rig_v2_layers(
+                    project,
+                    str(workspace["source_path"]),
+                    character_id,
+                    str(workspace["character_name"]),
+                    str(workspace["source_asset_id"]),
+                    str(workspace["rig_id"]),
+                    str(workspace["profile"]),
+                    layers,
+                    finalize=True,
+                )
+                readiness = godot_rig_readiness_summary(project)
+                return self._json(
+                    {
+                        "status": "created",
+                        "result": result,
+                        "readiness": readiness,
+                    },
+                    HTTPStatus.CREATED,
+                )
+            except (ValueError, RigV2SegmentError, GodotRigReadinessError, OSError, RuntimeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
         match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/character-motion-test", route)
         if match:
             try:
