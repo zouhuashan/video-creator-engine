@@ -224,6 +224,7 @@ async function openRigV2Editor(projectId, characterId) {
   const target = $('#rigV2Editor');
   if (!target) return;
   target.classList.remove('hidden');
+  document.body.classList.add('rig-v2-open');
   target.innerHTML = '<div class="empty-state">正在载入 Rig V2 分层工作区…</div>';
   try {
     const workspace = await api(`/api/novel-anime/projects/${encodeURIComponent(projectId)}/rig-v2-workspace/${encodeURIComponent(characterId)}`);
@@ -241,6 +242,7 @@ async function openRigV2Editor(projectId, characterId) {
     }));
     let activeLayer = required[0];
     let mode = 'polygon';
+    let zoom = 1;
 
     const readiness = workspace.readiness?.profiles || {};
     const upperReady = readiness.GODOT_UPPER_BODY_IK?.ready ? 'READY' : 'NOT READY';
@@ -260,6 +262,11 @@ async function openRigV2Editor(projectId, characterId) {
           <div class="rig-v2-mode-row">
             <button class="secondary-button small-button active" data-rig-v2-mode="polygon">勾轮廓</button>
             <button class="secondary-button small-button" data-rig-v2-mode="pivot">点 Pivot</button>
+          </div>
+          <div class="rig-v2-view-row">
+            <button class="secondary-button small-button" data-rig-v2-fit>适配画布</button>
+            <button class="secondary-button small-button" data-rig-v2-zoom-out>缩小</button>
+            <button class="secondary-button small-button" data-rig-v2-zoom-in>放大</button>
           </div>
           <div class="rig-v2-actions">
             <button class="secondary-button small-button" data-rig-v2-undo>撤销一点</button>
@@ -286,6 +293,20 @@ async function openRigV2Editor(projectId, characterId) {
 
     function renderStatus() {
       status.innerHTML = required.map((name) => `<span class="${layers[name].polygon.length >= 3 && layers[name].pivot ? 'ready' : ''}">${escapeHtml(layerStatus(name))}</span>`).join('');
+    }
+
+    function applyCanvasZoom() {
+      canvas.style.width = `${Math.max(30, Math.round(zoom * 100))}%`;
+    }
+
+    function fitCanvas() {
+      zoom = 1;
+      applyCanvasZoom();
+      const wrap = canvas.closest('.rig-v2-canvas-wrap');
+      if (wrap) {
+        wrap.scrollTop = 0;
+        wrap.scrollLeft = Math.max(0, (canvas.clientWidth - wrap.clientWidth) / 2);
+      }
     }
 
     function draw() {
@@ -334,6 +355,7 @@ async function openRigV2Editor(projectId, characterId) {
       canvas.height = Number(workspace.canvas?.height) || image.naturalHeight;
       draw();
       renderStatus();
+      fitCanvas();
     };
     image.src = workspace.source_url;
 
@@ -357,6 +379,16 @@ async function openRigV2Editor(projectId, characterId) {
       target.querySelectorAll('[data-rig-v2-mode]').forEach((item) => item.classList.toggle('active', item === button));
     }));
 
+    target.querySelector('[data-rig-v2-fit]').addEventListener('click', fitCanvas);
+    target.querySelector('[data-rig-v2-zoom-in]').addEventListener('click', () => {
+      zoom = Math.min(3, zoom + 0.25);
+      applyCanvasZoom();
+    });
+    target.querySelector('[data-rig-v2-zoom-out]').addEventListener('click', () => {
+      zoom = Math.max(0.3, zoom - 0.25);
+      applyCanvasZoom();
+    });
+
     target.querySelector('[data-rig-v2-undo]').addEventListener('click', () => {
       if (mode === 'pivot') layers[activeLayer].pivot = null;
       else layers[activeLayer].polygon.pop();
@@ -370,7 +402,14 @@ async function openRigV2Editor(projectId, characterId) {
       renderStatus();
     });
 
-    target.querySelector('[data-close-rig-v2]').addEventListener('click', () => target.classList.add('hidden'));
+    const closeRigV2Editor = () => {
+      target.classList.add('hidden');
+      document.body.classList.remove('rig-v2-open');
+    };
+    target.querySelector('[data-close-rig-v2]').addEventListener('click', closeRigV2Editor);
+    target.addEventListener('click', (event) => {
+      if (event.target === target) closeRigV2Editor();
+    });
 
     target.querySelector('[data-rig-v2-save]').addEventListener('click', async (event) => {
       const button = event.currentTarget;
