@@ -2818,6 +2818,14 @@ P28-01 Web 运维脚本增量（2026-09-18）：
 - 支持 `VIDEO_CREATOR_WEB_HOST`、`VIDEO_CREATOR_WEB_PORT`、`VIDEO_CREATOR_PYTHON` 临时覆盖；新增 `docs/WEB-OPERATIONS.md` 并更新 README 的推荐启动方式。
 - 本增量不启动 ArcReel、不调用远程 AI、不改变 P28 人工审核状态；完成此运维入口后再继续非生成式动画路线实施。
 
+P28-01 Rig V2 骨骼资产契约增量（2026-09-18）：
+
+- 新增 `scripts/build_character_rig_v2.py`，不再用整张立绘模拟关节；Godot IK 资产必须提供独立透明肢体层、父子骨骼关系、canvas 对齐、pivot、z-index 和来源资产 ID。
+- 支持 `GODOT_UPPER_BODY_IK` 与 `GODOT_FULL_BODY_IK` 两种模板/构建模式；构建结果写入独立 `visual-bible/character-rigs-v2.json`，逐层登记版本资产，并生成左右手臂/腿部 joint chain；人工审核仍固定 `PENDING`。
+- `godot_rig_readiness.py` 改为同时读取 V1/V2，按角色优先 V2，不删除旧 V1 历史；因此单个角色升级后可以独立进入 Godot 路线，不要求九个角色一次性全部返工。
+- 修复 macOS 安装脚本的版本比较：不再依赖 GNU `sort -V`，改成 Bash 数字段比较，兼容 macOS 自带 BSD 工具链。
+- 新增 Rig V2 构建测试。当前没有伪造任何真实 V2 角色资产；下一实际资产任务仍是百花仙子上半身分层与 pivot 标注，然后再进入真实 TwoBoneIK 动作验证。
+
 P28-01 Godot Skeleton2D/IK 基础接入增量（2026-09-18）：
 
 - 非生成式路线进入实际实施：新增 `adapters/motion/godot_cutout.py`，负责 Godot 二进制发现、稳定版版本门、环境探测和本地 smoke command；当前生产最低版本固定为 Godot 4.7.2 stable，拒绝 dev/alpha/beta/rc。
