@@ -121,3 +121,20 @@ python3 scripts/build_character_rig_v2.py build \\
 All Rig V2 layers must share the same RGBA canvas. Pivots use canvas coordinates. The builder registers every layer as a versioned project asset and writes `visual-bible/character-rigs-v2.json` with joint chains and human review still `PENDING`.
 
 The readiness command merges V1 and V2 manifests by character and prefers V2 when both exist, so a newly upgraded character immediately replaces its V1 readiness result without deleting the V1 asset history.
+
+## Rosetta 终端与 Apple Silicon
+
+如果当前 Terminal 本身运行在 Rosetta/x86_64，直接调用 `/opt/homebrew/bin/brew` 会被 Homebrew 拒绝。项目安装器因此固定使用：
+
+```bash
+/usr/bin/arch -arm64 /opt/homebrew/bin/brew install --cask godot
+```
+
+Godot 当前 Homebrew 分发为 cask，安装后默认提供：
+
+```text
+/Applications/Godot.app/Contents/MacOS/Godot
+/opt/homebrew/bin/godot
+```
+
+版本检查和 headless smoke 同样强制 `arch -arm64`，因此无需先退出 Rosetta Terminal 才能运行本项目的 Godot 工具链。
