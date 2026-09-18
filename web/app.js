@@ -220,6 +220,17 @@ const RIG_V2_LAYER_LABELS = {
   hand_r: '右手',
 };
 
+const RIG_V2_GUIDE = {
+  head: { title: '头部', instruction: '检查自动框是否覆盖主要头发和脸部。Pivot 应在脖子与头部连接处。' },
+  torso: { title: '躯干', instruction: '检查胸腹主体是否完整。宽袖与手臂层轻微重叠是正常的。Pivot 放在胸腹中心。' },
+  upper_arm_l: { title: '左上臂', instruction: '人物自己的左臂在画面右侧。检查肩到肘这一段，Pivot 放肩关节。' },
+  forearm_l: { title: '左前臂', instruction: '人物自己的左前臂在画面右侧。检查肘到手腕，Pivot 放肘关节。' },
+  hand_l: { title: '左手', instruction: '人物自己的左手在画面右侧。自动识别最容易偏，重点检查手掌/袖口，Pivot 放手腕。' },
+  upper_arm_r: { title: '右上臂', instruction: '人物自己的右臂在画面左侧。检查肩到肘这一段，Pivot 放肩关节。' },
+  forearm_r: { title: '右前臂', instruction: '人物自己的右前臂在画面左侧。检查肘到手腕，Pivot 放肘关节。' },
+  hand_r: { title: '右手', instruction: '人物自己的右手在画面左侧。自动识别最容易偏，重点检查手掌/袖口，Pivot 放手腕。' },
+};
+
 async function openRigV2Editor(projectId, characterId) {
   const target = $('#rigV2Editor');
   if (!target) return;
@@ -238,11 +249,16 @@ async function openRigV2Editor(projectId, characterId) {
           ? { x: Number(item.pivot.x), y: Number(item.pivot.y) }
           : null,
         z_index: Number.isFinite(Number(item.z_index)) ? Number(item.z_index) : index,
+        confidence: item.confidence || '',
+        note: item.note || '',
       }];
     }));
     let activeLayer = required[0];
     let mode = 'polygon';
     let zoom = 1;
+    let guideMode = true;
+    let guideIndex = 0;
+    let autoDraftLoaded = false;
 
     const readiness = workspace.readiness?.profiles || {};
     const upperReady = readiness.GODOT_UPPER_BODY_IK?.ready ? 'READY' : 'NOT READY';
@@ -258,6 +274,21 @@ async function openRigV2Editor(projectId, characterId) {
       <div class="rig-v2-layout">
         <div class="rig-v2-canvas-wrap"><canvas id="rigV2Canvas"></canvas></div>
         <div class="rig-v2-controls">
+          <div class="rig-v2-guide-card">
+            <div class="section-kicker">新手引导</div>
+            <strong id="rigV2GuideTitle">正在准备自动草稿…</strong>
+            <small id="rigV2GuideText">系统会先自动生成 8 层和 Pivot，你只需要逐层看是否明显偏了。</small>
+            <div class="rig-v2-guide-actions">
+              <button class="secondary-button small-button active" data-rig-v2-guide-toggle>新手模式：开</button>
+              <button class="secondary-button small-button" data-rig-v2-auto-draft>重新自动草稿</button>
+            </div>
+            <div class="rig-v2-guide-nav">
+              <button class="secondary-button small-button" data-rig-v2-prev>上一层</button>
+              <span id="rigV2GuideStep">1 / 8</span>
+              <button class="secondary-button small-button" data-rig-v2-next>下一层</button>
+            </div>
+            <button class="primary-button small-button" data-rig-v2-auto-generate>一键自动生成 Rig V2</button>
+          </div>
           <label>当前层<select class="compact-select" id="rigV2LayerSelect">${required.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(RIG_V2_LAYER_LABELS[name] || name)}</option>`).join('')}</select></label>
           <div class="rig-v2-mode-row">
             <button class="secondary-button small-button active" data-rig-v2-mode="polygon">勾轮廓</button>
@@ -283,6 +314,64 @@ async function openRigV2Editor(projectId, characterId) {
     const image = new Image();
     const layerSelect = $('#rigV2LayerSelect');
     const status = $('#rigV2Status');
+    const guideTitle = $('#rigV2GuideTitle');
+    const guideText = $('#rigV2GuideText');
+    const guideStep = $('#rigV2GuideStep');
+
+    function setActiveLayer(name) {
+      if (!required.includes(name)) return;
+      activeLayer = name;
+      guideIndex = Math.max(0, required.indexOf(name));
+      layerSelect.value = name;
+      draw();
+      renderStatus();
+    }
+
+    function applyAutoDraft(draft, overwrite = false) {
+      const proposed = draft?.layers || {};
+      required.forEach((name) => {
+        const item = proposed[name];
+        if (!item) return;
+        const current = layers[name];
+        const empty = current.polygon.length < 3 || !current.pivot;
+        if (!overwrite && !empty) return;
+        layers[name] = {
+          polygon: Array.isArray(item.polygon) ? item.polygon.map((point) => [Number(point[0]), Number(point[1])]) : [],
+          pivot: item.pivot ? { x: Number(item.pivot.x), y: Number(item.pivot.y) } : null,
+          z_index: Number.isFinite(Number(item.z_index)) ? Number(item.z_index) : required.indexOf(name),
+          confidence: item.confidence || '',
+          note: item.note || '',
+        };
+      });
+      autoDraftLoaded = true;
+      draw();
+      renderStatus();
+    }
+
+    async function loadAutoDraft(overwrite = false) {
+      const result = await api(`/api/novel-anime/projects/${encodeURIComponent(projectId)}/rig-v2-auto-draft`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ character_id: characterId }),
+      });
+      applyAutoDraft(result.draft, overwrite);
+      log(`Rig V2 自动草稿已生成：${characterId}`);
+      return result;
+    }
+
+    function renderGuide() {
+      if (!guideTitle || !guideText || !guideStep) return;
+      const item = layers[activeLayer] || {};
+      const guide = RIG_V2_GUIDE[activeLayer] || { title: activeLayer, instruction: '' };
+      const confidence = item.confidence ? ` · 自动置信度 ${item.confidence}` : '';
+      guideTitle.textContent = guideMode
+        ? `第 ${guideIndex + 1} 步：${guide.title}${confidence}`
+        : `手动模式：${guide.title}`;
+      guideText.textContent = guideMode
+        ? `${guide.instruction}${item.note ? ' ' + item.note : ''}`
+        : '可以自由选择任意层、勾轮廓或修改 Pivot。';
+      guideStep.textContent = `${guideIndex + 1} / ${required.length}`;
+    }
 
     function layerStatus(name) {
       const item = layers[name];
@@ -293,6 +382,7 @@ async function openRigV2Editor(projectId, characterId) {
 
     function renderStatus() {
       status.innerHTML = required.map((name) => `<span class="${layers[name].polygon.length >= 3 && layers[name].pivot ? 'ready' : ''}">${escapeHtml(layerStatus(name))}</span>`).join('');
+      renderGuide();
     }
 
     function applyCanvasZoom() {
@@ -356,6 +446,9 @@ async function openRigV2Editor(projectId, characterId) {
       draw();
       renderStatus();
       fitCanvas();
+      if (!workspace.existing?.segmentation && !autoDraftLoaded) {
+        loadAutoDraft(false).catch((error) => log(`自动草稿失败：${error.message}`, true));
+      }
     };
     image.src = workspace.source_url;
 
@@ -370,8 +463,54 @@ async function openRigV2Editor(projectId, characterId) {
     });
 
     layerSelect.addEventListener('change', () => {
-      activeLayer = layerSelect.value;
-      draw();
+      setActiveLayer(layerSelect.value);
+    });
+
+    target.querySelector('[data-rig-v2-guide-toggle]').addEventListener('click', (event) => {
+      guideMode = !guideMode;
+      event.currentTarget.textContent = `新手模式：${guideMode ? '开' : '关'}`;
+      event.currentTarget.classList.toggle('active', guideMode);
+      renderGuide();
+    });
+    target.querySelector('[data-rig-v2-prev]').addEventListener('click', () => {
+      setActiveLayer(required[Math.max(0, guideIndex - 1)]);
+    });
+    target.querySelector('[data-rig-v2-next]').addEventListener('click', () => {
+      setActiveLayer(required[Math.min(required.length - 1, guideIndex + 1)]);
+    });
+    target.querySelector('[data-rig-v2-auto-draft]').addEventListener('click', async (event) => {
+      const button = event.currentTarget;
+      button.disabled = true;
+      button.textContent = '正在生成草稿…';
+      try {
+        await loadAutoDraft(false);
+      } catch (error) {
+        log(error.message, true);
+      } finally {
+        button.disabled = false;
+        button.textContent = '重新自动草稿';
+      }
+    });
+    target.querySelector('[data-rig-v2-auto-generate]').addEventListener('click', async (event) => {
+      const button = event.currentTarget;
+      button.disabled = true;
+      button.textContent = '正在自动生成…';
+      try {
+        const result = await api(`/api/novel-anime/projects/${encodeURIComponent(projectId)}/rig-v2-auto-generate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ character_id: characterId }),
+        });
+        const rig = result.readiness?.rigs?.find((item) => item.character_id === characterId);
+        const upper = rig?.profiles?.GODOT_UPPER_BODY_IK?.ready;
+        log(`自动 Rig V2 已生成：${characterId} · 上半身 IK ${upper ? 'READY' : 'NOT READY'} · 人工审核 PENDING`);
+        showStudioDetail('自动 Rig V2 生成结果', result, `/api/novel-anime/projects/${encodeURIComponent(projectId)}/godot-rig-readiness`);
+      } catch (error) {
+        log(error.message, true);
+      } finally {
+        button.disabled = false;
+        button.textContent = '一键自动生成 Rig V2';
+      }
     });
 
     target.querySelectorAll('[data-rig-v2-mode]').forEach((button) => button.addEventListener('click', () => {
