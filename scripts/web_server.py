@@ -44,6 +44,7 @@ from scripts.build_character_rig import validate_rig  # noqa: E402
 from scripts.godot_rig_readiness import GodotRigReadinessError, summarize_project as godot_rig_readiness_summary  # noqa: E402
 from scripts.rig_v2_segment import RigV2SegmentError, segment_layers as segment_rig_v2_layers  # noqa: E402
 from scripts.rig_v2_auto_draft import RigV2AutoDraftError, propose_upper_body as propose_rig_v2_upper_body  # noqa: E402
+from scripts.render_godot_25d_preview import Godot25DPreviewError, render_preview as render_godot_25d_preview  # noqa: E402
 from scripts.mux_timeline_shot import mux as mux_timeline_shot  # noqa: E402
 from scripts.batch_render_final_shots import _background_for_shot, _particle_effect, render_batch as render_final_shot_batch  # noqa: E402
 from scripts.novel_anime_project import MANIFEST_NAME as NOVEL_ANIME_MANIFEST, NovelAnimeProjectError, load_project as load_novel_anime_project  # noqa: E402
@@ -1157,6 +1158,34 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
             except Exception as error:
                 return self._error(HTTPStatus.INTERNAL_SERVER_ERROR, f"storyboard failed: {error}")
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/godot-25d-preview", route)
+        if match:
+            try:
+                payload = self._read_json()
+                project = _safe_project(match.group(1))
+                character_id = str(payload.get("character_id") or "").strip()
+                seconds = float(payload.get("seconds") or 4.0)
+                result = render_godot_25d_preview(project, character_id, duration_seconds=seconds, fps=24)
+                output_path = Path(result["output"])
+                relative = _relative(project, output_path)
+                return self._json(
+                    {
+                        "status": "created",
+                        "provider": result["provider"],
+                        "character_id": character_id,
+                        "rig_id": result["rig_id"],
+                        "duration_seconds": result["duration_seconds"],
+                        "fps": result["fps"],
+                        "features": result["features"],
+                        "human_review": result["human_review"],
+                        "output": relative,
+                        "media_url": f"/media/{project.name}/{relative}",
+                    },
+                    HTTPStatus.CREATED,
+                )
+            except (ValueError, Godot25DPreviewError, OSError, RuntimeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+
         match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/rig-v2-auto-draft", route)
         if match:
             try:
