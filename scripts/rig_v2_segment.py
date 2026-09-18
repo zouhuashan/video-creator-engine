@@ -139,6 +139,17 @@ def segment_layers(
         "source_path": source.relative_to(project_dir).as_posix(),
         "canvas": {"width": width, "height": height},
         "layers": spec_layers,
+        "segmentation": {
+            name: {
+                "polygon": [[float(point[0]), float(point[1])] for point in layer_inputs[name]["polygon"]],
+                "pivot": {
+                    "x": float(layer_inputs[name]["pivot"]["x"]),
+                    "y": float(layer_inputs[name]["pivot"]["y"]),
+                },
+                "z_index": int(layer_inputs[name].get("z_index", index)),
+            }
+            for index, name in enumerate(required)
+        },
     }
 
     work_dir = project_dir / WORK_RELATIVE
