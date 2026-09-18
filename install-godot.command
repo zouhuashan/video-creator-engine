@@ -5,6 +5,7 @@ ROOT="$(cd "$(dirname "$0")" && pwd)"
 LOG="$ROOT/logs/godot-install.log"
 MIN_VERSION="4.7.2"
 SMOKE_DIR="$ROOT/support/godot/smoke"
+IK_SMOKE_DIR="$ROOT/support/godot/ik-smoke"
 mkdir -p "$ROOT/logs"
 
 version_ge() {
@@ -69,6 +70,16 @@ printf '%s\n' "$output" >>"$LOG"
 if ! printf '%s' "$output" | grep -q "VIDEO_CREATOR_GODOT_SMOKE_PASS"; then
   echo "FAIL Godot smoke test"
   tail -n 60 "$LOG" 2>/dev/null || true
+  exit 1
+fi
+
+echo "RUN  Godot TwoBoneIK smoke"
+ik_output="$(/usr/bin/arch -arm64 "$godot" --headless --path "$IK_SMOKE_DIR" --scene res://main.tscn --quit-after 10 2>&1 || true)"
+printf '%s\\n' "$ik_output" >>"$LOG"
+
+if ! printf '%s' "$ik_output" | grep -q "VIDEO_CREATOR_GODOT_IK_PASS"; then
+  echo "FAIL Godot TwoBoneIK smoke"
+  printf '%s\n' "$ik_output" | tail -n 60
   exit 1
 fi
 
