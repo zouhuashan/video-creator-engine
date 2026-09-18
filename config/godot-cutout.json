@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "engine": "godot",
+  "production_channel": "stable",
+  "minimum_version": "4.7.2",
+  "allow_newer_stable": true,
+  "reject_prerelease": true,
+  "install": {
+    "macos_homebrew_command": ["brew", "install", "godot"],
+    "binary_candidates": [
+      "godot",
+      "/opt/homebrew/bin/godot",
+      "/Applications/Godot.app/Contents/MacOS/Godot"
+    ]
+  },
+  "smoke_project": "support/godot/smoke",
+  "rig_profiles": {
+    "local_cutout": "LOCAL_CUTOUT_RIG",
+    "upper_body_ik": "GODOT_UPPER_BODY_IK",
+    "full_body_ik": "GODOT_FULL_BODY_IK"
+  },
+  "policy": {
+    "remote": false,
+    "generative": false,
+    "external_cost_usd": 0,
+    "publish_allowed": false,
+    "human_review_required": true
+  }
+}
