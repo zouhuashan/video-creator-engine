@@ -2655,7 +2655,7 @@ P28-01 复验增量记录（2026-09-17）：
 状态：IN_PROGRESS（P28-01 首轮 FAIL/HOLD）
 
 - 把旧五集技术样片迁移为参考资料，用新流程重新完成五集连续剧情、角色视觉、配音、字幕和 animatic。
-- 至少选择一集的三个代表镜头接入真实动作 Provider，比较动作质量、一致性、时长与成本。
+- 至少选择一集的三个代表镜头做动作路线对比，默认优先非生成式路线（本地 Cutout Rig / 2D 骨骼 IK / Grease Pencil 或人工关键帧）；远程 AI 视频 Provider 仅作为可选增强基准，必须显式授权上传与计费。
 - 通过六类 QC 和人工审片后，再决定是否扩展第一季。
 
 P28-01 角色资产与 ArcReel 集成增量（2026-09-17）：
@@ -2752,6 +2752,16 @@ P28-01 前五集本地试播母版与 Web 人审增量（2026-09-18）：
 - 已生成三个可替换真实动作测试输入包：`MOTIONTEST-001`（Runway，小蓬莱开场）、`MOTIONTEST-002`（Wan，百草仙子微动作）、`MOTIONTEST-003`（OpenAI Sora，嫦娥衣袂与花瓣）；输入与提示词记录在 `provider-tests/s01e001/motion-provider-tests.json`，Web 可查看，均为 `BLOCKED_PENDING_AUTHORIZATION`，未上传、未调用、未产生费用。
 - 已创建可恢复快照 `SNP-20260918T004726396Z-P28-FIVE-EPISODE-LOCAL-MASTERS`，锁定当前五集母版清单；项目首页已改为正确展示五集试播状态。
 - 当前五集母版生成状态为 `COMPLETED`、技术 QC 为 `PASS`，人工审核保持 `PENDING`，不会自动发布。`P28-01` 仍在执行：下一步是逐集人审；真实 Provider 仅在用户明确选择服务商并授权上传与计费后才可运行。
+
+P28-01 非生成式动画路线冻结（2026-09-18）：
+
+- 动漫生产不再以 AI 生图/AI 生视频作为默认前提；现有分层 PNG + Rig + 嘴型/表情 cue + Pillow/FFmpeg 正式定义为 `LOCAL_CUTOUT_RIG` 主链路，可在资产首次完成后长期复用。
+- 下一层本地增强路线定义为 `GODOT_CUTOUT`：用于骨骼、IK、网格形变、粒子和复杂角色动作；保持 Scene/Shot JSON 作为上游契约，不把业务流程绑定 Godot。
+- 电影感或手绘增强路线定义为 `BLENDER_GREASE_PENCIL`：用于 2D/2.5D 镜头、逐帧补间、骨架/父级驱动、镜头运动和特殊动作；通过 Adapter 输出标准视频资产。
+- `LIVE2D_CUBISM` 作为对白特写/表情/口型候选；`SPINE_SKELETAL` 作为商业骨骼/IK 候选。两者在正式接入前必须完成许可证与成本审查。
+- Runway / Wan / OpenAI Sora 等远程生成式 Provider 从“验收必做”降级为“可选增强/质量基准”；没有明确上传与计费授权时永远不得自动选择。
+- P28 三个代表镜头的动作质量对比改为“路线对比”而非“必须比较三个 AI Provider”；优先验证本地 Cutout、2D 骨骼和 Grease Pencil/人工关键帧，比较一致性、动作表现、制作耗时、可复用率与单集边际成本。
+- 详细路线、适用镜头和接入边界记录在 `docs/NON-GENERATIVE-ANIMATION.md`。当前五集人工审核仍为 `PENDING`，本架构调整不绕过 P28-01 人审门。
 
 P28-01 局部返工人审保护增量（2026-09-18）：
 
