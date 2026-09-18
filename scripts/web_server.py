@@ -13,7 +13,9 @@ import mimetypes
 import os
 import re
 import sys
+import threading
 import time
+from copy import deepcopy
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -34,7 +36,13 @@ from adapters.video_generation import (  # noqa: E402
     WanImageToVideo,
     normalize_image_paths,
 )
+from adapters.workspaces import ArcReelError, ArcReelWorkspace  # noqa: E402
 from scripts.local_storyboard_pipeline import LocalStoryboardError, run_local_storyboard  # noqa: E402
+from scripts.render_local_motion_test import render as render_local_motion_test  # noqa: E402
+from scripts.render_character_rig_preview import render as render_character_rig_preview  # noqa: E402
+from scripts.build_character_rig import validate_rig  # noqa: E402
+from scripts.mux_timeline_shot import mux as mux_timeline_shot  # noqa: E402
+from scripts.batch_render_final_shots import _background_for_shot, _particle_effect, render_batch as render_final_shot_batch  # noqa: E402
 from scripts.novel_anime_project import MANIFEST_NAME as NOVEL_ANIME_MANIFEST, NovelAnimeProjectError, load_project as load_novel_anime_project  # noqa: E402
 from scripts.novel_anime_repository import NovelAnimeRepository, NovelAnimeRepositoryError, repository_stats  # noqa: E402
 from scripts.novel_anime_runtime import NovelAnimeRuntime, NovelAnimeRuntimeError, runtime_stats  # noqa: E402
@@ -77,6 +85,9 @@ VIDEO_EXTENSIONS = {".mp4", ".webm", ".mov"}
 # Keys entered in the console live only for this server process.  They are
 # intentionally never written to disk, returned by the API, or put in logs.
 RUNTIME_KEYS: dict[str, str] = {}
+RUNTIME_INTEGRATIONS: dict[str, dict[str, str]] = {}
+_NOVEL_PROJECT_CACHE: dict[str, tuple[tuple[tuple[str, int, int], ...], list[dict[str, object]]]] = {}
+_NOVEL_PROJECT_CACHE_LOCK = threading.Lock()
 
 
 def _safe_project(project_id: str) -> Path:
@@ -116,32 +127,84 @@ def _episode_metadata(project: Path) -> list[dict[str, object]]:
     """Expose locally rendered episode manifests without exposing filesystem paths."""
     episodes = []
     episode_root = project / "episodes"
-    if not episode_root.is_dir():
+    if episode_root.is_dir():
+        for manifest in sorted(episode_root.glob("episode-*/episode.json")):
+            try:
+                data = json.loads(manifest.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            if not isinstance(data, dict):
+                continue
+            output = str(data.get("output") or "")
+            output_path = (manifest.parent / output).resolve()
+            if project.resolve() not in output_path.parents or not output_path.is_file():
+                continue
+            relative = _relative(project, output_path)
+            episodes.append({
+                "episode_id": str(data.get("episode_id") or manifest.parent.name),
+                "title": str(data.get("title") or manifest.parent.name),
+                "status": str(data.get("status") or "LOCAL_REVIEW"),
+                "provider": str(data.get("provider") or "local_ken_burns"),
+                "output": relative,
+                "media_url": f"/media/{project.name}/{relative}",
+            })
+    if episodes:
         return episodes
-    for manifest in sorted(episode_root.glob("episode-*/episode.json")):
+    masters = _episode_master_inventory(project)
+    return [
+        {
+            "episode_id": str(item["episode_id"]),
+            "title": f"{item['episode_id']} · 本地动态漫试播",
+            "status": str(item.get("human_review", {}).get("status") or item.get("status") or "LOCAL_REVIEW"),
+            "provider": "local_episode_assembly",
+            "output": str(item["output"]),
+            "media_url": str(item["media_url"]),
+        }
+        for item in masters.get("episodes", [])
+        if item.get("media_url")
+    ]
+
+
+def _novel_projects_signature(projects_root: Path) -> tuple[tuple[str, int, int], ...]:
+    """Return a cheap content signature for files used by project summaries.
+
+    The Web console asks for the project list, readiness and workspaces at the
+    same time.  Each summary validates the upstream chain, so recomputing all
+    three requests can take tens of seconds once a real five-episode project
+    exists.  JSON and repository database mtimes are enough to invalidate this
+    process-local cache while keeping the project files authoritative.
+    """
+
+    signature: list[tuple[str, int, int]] = []
+    if not projects_root.is_dir():
+        return ()
+    for path in sorted(projects_root.rglob("*")):
+        if not path.is_file() or (path.suffix.lower() not in {".json", ".db", ".sqlite", ".sqlite3"} and path.name != NOVEL_ANIME_MANIFEST):
+            continue
         try:
-            data = json.loads(manifest.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
+            stat = path.stat()
+        except OSError:
             continue
-        if not isinstance(data, dict):
-            continue
-        output = str(data.get("output") or "")
-        output_path = (manifest.parent / output).resolve()
-        if project.resolve() not in output_path.parents or not output_path.is_file():
-            continue
-        relative = _relative(project, output_path)
-        episodes.append({
-            "episode_id": str(data.get("episode_id") or manifest.parent.name),
-            "title": str(data.get("title") or manifest.parent.name),
-            "status": str(data.get("status") or "LOCAL_REVIEW"),
-            "provider": str(data.get("provider") or "local_ken_burns"),
-            "output": relative,
-            "media_url": f"/media/{project.name}/{relative}",
-        })
-    return episodes
+        signature.append((path.relative_to(projects_root).as_posix(), stat.st_mtime_ns, stat.st_size))
+    return tuple(signature)
 
 
 def _novel_anime_projects(projects_root: Path = PROJECTS_ROOT) -> list[dict[str, object]]:
+    projects_root = projects_root.resolve()
+    cache_key = str(projects_root)
+    signature = _novel_projects_signature(projects_root)
+    with _NOVEL_PROJECT_CACHE_LOCK:
+        cached = _NOVEL_PROJECT_CACHE.get(cache_key)
+        if cached and cached[0] == signature:
+            return deepcopy(cached[1])
+
+        projects = _build_novel_anime_projects(projects_root)
+        final_signature = _novel_projects_signature(projects_root)
+        _NOVEL_PROJECT_CACHE[cache_key] = (final_signature, projects)
+        return deepcopy(projects)
+
+
+def _build_novel_anime_projects(projects_root: Path) -> list[dict[str, object]]:
     projects = []
     if not projects_root.is_dir():
         return projects
@@ -150,7 +213,7 @@ def _novel_anime_projects(projects_root: Path = PROJECTS_ROOT) -> list[dict[str,
             project = load_novel_anime_project(manifest)
         except NovelAnimeProjectError:
             continue
-        projects.append({
+        summary = {
             "directory_id": manifest.parent.name,
             "project_id": project["project_id"],
             "title": project["title"],
@@ -183,8 +246,92 @@ def _novel_anime_projects(projects_root: Path = PROJECTS_ROOT) -> list[dict[str,
             "edit_timelines": edit_timeline_summary(manifest.parent),
             "qc": qc_summary(manifest.parent),
             "acceptance": acceptance_summary(manifest.parent),
-        })
+        }
+        summary["readiness"] = _readiness_from_summary(summary)
+        projects.append(summary)
     return projects
+
+
+def _readiness_from_summary(summary: dict[str, object]) -> dict[str, object]:
+    """Build a review-safe stage-gate view for the Web production desk.
+
+    The readiness view is derived from the same summaries used by the CLI and
+    never becomes a second source of project state.  It intentionally exposes
+    blockers instead of presenting an empty scaffold as ready.
+    """
+
+    def gate(gate_id: str, label: str, ready: bool, detail: str, blockers: list[str] | None = None) -> dict[str, object]:
+        return {
+            "id": gate_id,
+            "label": label,
+            "status": "READY" if ready else "BLOCKED",
+            "detail": detail,
+            "blockers": blockers or ([] if ready else [detail]),
+        }
+
+    source = summary.get("source_catalog") or {}
+    story = summary.get("story_bible") or {}
+    story_review = summary.get("story_review") or {}
+    characters = summary.get("character_designs") or {}
+    environment = summary.get("environment_assets") or {}
+    asset_review = summary.get("asset_review") or {}
+    shots = summary.get("shot_breakdown") or {}
+    storyboard = summary.get("storyboard") or {}
+    voices = summary.get("voice_profiles") or {}
+    audio = summary.get("audio_assets") or {}
+    mix = summary.get("audio_mix") or {}
+    dynamic = summary.get("dynamic_shots") or {}
+    edit = summary.get("edit_timelines") or {}
+    qc = summary.get("qc") or {}
+    acceptance = summary.get("acceptance") or {}
+
+    gates = [
+        gate(
+            "source", "底本与权利",
+            bool(source.get("script_adaptation_allowed")) and bool(source.get("publication_allowed")),
+            "底本权利与改编门已通过" if source.get("script_adaptation_allowed") and source.get("publication_allowed") else f"权利状态 {source.get('status', 'MISSING')}，改编/发布门未通过",
+        ),
+        gate(
+            "story", "故事与连续性",
+            bool(story.get("ready")) and story_review.get("overall_status") == "PASS" and story_review.get("human_review_status") == "APPROVED",
+            "故事圣经和剧情审核已通过" if story.get("ready") and story_review.get("overall_status") == "PASS" and story_review.get("human_review_status") == "APPROVED" else f"故事圣经 {story.get('world_status', 'MISSING')}，剧情审核 {story_review.get('overall_status', 'MISSING')}",
+        ),
+        gate(
+            "visual", "角色与场景资产",
+            bool(characters.get("ready")) and bool(environment.get("ready")) and bool(asset_review.get("ready")),
+            "角色、环境和参考包已审核" if characters.get("ready") and environment.get("ready") and asset_review.get("ready") else f"角色 {characters.get('ready_character_count', 0)}/{characters.get('character_count', 0)}，场景 {environment.get('ready_location_count', 0)}/{environment.get('location_count', 0)}，参考包 {'READY' if asset_review.get('ready') else 'BLOCKED'}",
+        ),
+        gate(
+            "storyboard", "分镜与 Animatic",
+            bool(shots.get("shot_count")) and storyboard.get("approved_shot_count", 0) == shots.get("shot_count", 0) and (summary.get("animatic") or {}).get("ready_episode_count", 0) == (summary.get("animatic") or {}).get("episode_count", 0),
+            "分镜、首尾帧和五集 Animatic 已就绪" if shots.get("shot_count") and storyboard.get("approved_shot_count", 0) == shots.get("shot_count", 0) else f"镜头 {shots.get('shot_count', 0)}，首尾帧已审 {storyboard.get('approved_shot_count', 0)}",
+        ),
+        gate(
+            "audio", "配音与混音",
+            bool(voices.get("ready_profile_count")) and voices.get("ready_line_count", 0) == voices.get("line_count", 0) and bool(audio.get("ready_track_count")) and mix.get("ready_episode_count", 0) == mix.get("episode_count", 0),
+            "配音、音轨和五集混音已就绪" if voices.get("ready_profile_count") and voices.get("ready_line_count", 0) == voices.get("line_count", 0) and audio.get("ready_track_count") and mix.get("ready_episode_count", 0) == mix.get("episode_count", 0) else f"配音 {voices.get('ready_line_count', 0)}/{voices.get('line_count', 0)}，混音 {mix.get('ready_episode_count', 0)}/{mix.get('episode_count', 0)}",
+        ),
+        gate(
+            "render", "本地渲染与剪辑",
+            bool(dynamic.get("shot_count")) and dynamic.get("ready_route_count", 0) == dynamic.get("shot_count", 0) and edit.get("ready_episode_count", 0) == edit.get("episode_count", 0),
+            "动态镜头和集级剪辑已就绪" if dynamic.get("shot_count") and dynamic.get("ready_route_count", 0) == dynamic.get("shot_count", 0) and edit.get("ready_episode_count", 0) == edit.get("episode_count", 0) else f"动态镜头 {dynamic.get('ready_route_count', 0)}/{dynamic.get('shot_count', 0)}，剪辑 {edit.get('ready_episode_count', 0)}/{edit.get('episode_count', 0)}",
+        ),
+        gate(
+            "qc", "QC 与正式验收",
+            qc.get("overall_status") == "PASS" and qc.get("human_review_status") == "APPROVED" and acceptance.get("decision") == "PASS",
+            "六类 QC 和正式五集验收已通过" if qc.get("overall_status") == "PASS" and qc.get("human_review_status") == "APPROVED" and acceptance.get("decision") == "PASS" else f"QC {qc.get('overall_status', 'MISSING')}，正式验收 {acceptance.get('decision', 'MISSING')}，开放阻断 {qc.get('open_blocker_count', 0)}",
+        ),
+    ]
+    ready_count = sum(item["status"] == "READY" for item in gates)
+    next_actions = [item["detail"] for item in gates if item["status"] == "BLOCKED"][:3]
+    return {
+        "project_id": summary.get("project_id"),
+        "decision": acceptance.get("decision", "HOLD"),
+        "ready_count": ready_count,
+        "gate_count": len(gates),
+        "gates": gates,
+        "next_actions": next_actions,
+    }
 
 
 WORKSPACE_DEFINITIONS = (
@@ -206,15 +353,28 @@ def _novel_anime_workspaces(project_id: str) -> dict[str, object]:
     summary = next((item for item in _novel_anime_projects() if item["directory_id"] == project.name), None)
     if summary is None:
         raise ValueError("novel-anime project not found")
+    episode_masters = _episode_master_inventory(project)
+    episode_master_summary = {
+        "status": episode_masters.get("status", "NOT_RUN"),
+        "episode_count": episode_masters.get("episode_count", 0),
+        "technical_qc_status": episode_masters.get("technical_qc", {}).get("status", "NOT_RUN"),
+        "human_review_status": episode_masters.get("human_review", {}).get("status", "PENDING"),
+    }
+    provider_tests = _provider_motion_test_inventory(project)
+    provider_test_summary = {
+        "status": provider_tests.get("status", "NOT_PREPARED"),
+        "test_count": provider_tests.get("test_count", 0),
+        "remote_execution": provider_tests.get("remote_execution", "BLOCKED_PENDING_AUTHORIZATION"),
+    }
     resources = {
-        "overview": {"project": summary, "repository": summary["repository"], "runtime": summary["runtime"]},
+        "overview": {"project": summary, "repository": summary["repository"], "runtime": summary["runtime"], "readiness": summary.get("readiness")},
         "ip": {"source_catalog": summary["source_catalog"]},
         "story": {"story_bible": summary["story_bible"]},
         "script": {"series_plan": summary["series_plan"], "episode_planning": summary["episode_planning"], "episode_scripts": summary["episode_scripts"], "story_review": summary["story_review"]},
         "assets": {"visual_bible": summary["visual_bible"], "character_designs": summary["character_designs"], "environment_assets": summary["environment_assets"], "asset_review": summary["asset_review"]},
         "storyboard": {"shot_breakdown": summary["shot_breakdown"], "storyboard": summary["storyboard"], "animatic": summary["animatic"], "animatic_review": summary["animatic_review"]},
         "audio": {"voice_profiles": summary["voice_profiles"], "audio_assets": summary["audio_assets"], "audio_mix": summary["audio_mix"]},
-        "render": {"dynamic_shots": summary["dynamic_shots"], "edit_timelines": summary["edit_timelines"], "runtime": summary["runtime"]},
+        "render": {"dynamic_shots": summary["dynamic_shots"], "edit_timelines": summary["edit_timelines"], "episode_masters": episode_master_summary, "provider_motion_tests": provider_test_summary, "runtime": summary["runtime"]},
         "review": {"qc": summary["qc"], "acceptance": summary["acceptance"]},
         "publish": {"source_catalog": summary["source_catalog"], "qc": summary["qc"], "acceptance": summary["acceptance"], "repository": summary["repository"]},
     }
@@ -312,6 +472,236 @@ def _provider_status() -> list[dict[str, object]]:
     return status
 
 
+def _integration_status() -> list[dict[str, object]]:
+    runtime = RUNTIME_INTEGRATIONS.get("arcreel", {})
+    local_sidecar = ROOT / "integrations" / "arcreel" / "compose.yml"
+    paused_marker = ROOT / "integrations" / "arcreel" / "PAUSED"
+    base_url = runtime.get("base_url") or os.environ.get("ARCREEL_BASE_URL", "") or ("http://127.0.0.1:1241" if local_sidecar.is_file() else "")
+    api_key = runtime.get("api_key") or os.environ.get("ARCREEL_API_KEY")
+    status: dict[str, object] = {
+        "id": "arcreel",
+        "label": "ArcReel 工作台",
+        "configured": bool(base_url),
+        "connected": False,
+        "base_url": base_url,
+        "source": "session" if runtime.get("base_url") else ("environment" if os.environ.get("ARCREEL_BASE_URL") else ("local_sidecar" if base_url else "none")),
+        "license": "AGPL-3.0",
+        "attribution": "Powered by ArcReel — https://github.com/ArcReel/ArcReel",
+    }
+    if paused_marker.is_file() and not runtime.get("base_url") and not os.environ.get("ARCREEL_BASE_URL"):
+        status.update(paused=True, detail="已按当前项目策略暂停；运行数据仍保留")
+        return [status]
+    if not base_url:
+        status["detail"] = "尚未配置独立 ArcReel 服务地址"
+        return [status]
+    try:
+        client = ArcReelWorkspace(base_url, api_key=api_key, timeout_seconds=0.8)
+        health = client.health()
+        auth = client.auth_status()
+        project_names = client.project_names()
+        status.update(connected=True, health=str(health.get("status") or "ok"), auth_enabled=bool(auth.get("enabled")), project_count=len(project_names), projects=project_names, detail=f"独立服务连接正常 · {len(project_names)} 个镜像项目")
+    except ArcReelError as error:
+        status["detail"] = str(error)
+    return [status]
+
+
+def _character_asset_inventory(project: Path) -> list[dict[str, object]]:
+    root = project / "assets" / "characters"
+    if not root.is_dir():
+        return []
+    manifest_path = project / "lookdev" / "generation-manifest.json"
+    asset_ids: dict[str, str] = {}
+    if manifest_path.is_file():
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            asset_ids = {str(item.get("path")): str(item.get("asset_id")) for item in manifest.get("assets", []) if isinstance(item, dict)}
+        except (OSError, json.JSONDecodeError):
+            asset_ids = {}
+    result = []
+    for path in sorted(root.rglob("*.png")):
+        relative = _relative(project, path)
+        asset_id = asset_ids.get(relative, "")
+        if not asset_id:
+            continue
+        stem = path.stem.lower()
+        view = next((name.upper() for name in ("front", "side", "back", "anchor", "closeup") if name in stem), "REFERENCE")
+        result.append({
+            "asset_id": asset_id,
+            "path": relative,
+            "name": path.name,
+            "character_id": path.parent.name,
+            "view": view,
+            "media_url": f"/media/{project.name}/{relative}",
+        })
+    return result
+
+
+def _character_rig_inventory(project: Path) -> dict[str, object]:
+    """Return the local, review-gated character rigs exposed by the project."""
+    manifest_path = project / "visual-bible" / "character-rigs.json"
+    if not manifest_path.is_file():
+        return {"project_id": project.name, "rigs": [], "count": 0}
+    try:
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {"project_id": project.name, "rigs": [], "count": 0}
+    rigs = payload.get("rigs", []) if isinstance(payload, dict) else []
+    if not isinstance(rigs, list):
+        rigs = []
+    enriched = []
+    for rig in rigs:
+        if isinstance(rig, dict):
+            item = dict(rig)
+            item["validation"] = validate_rig(project, item)
+            enriched.append(item)
+    return {"project_id": project.name, "schema_version": payload.get("schema_version", 1), "rigs": enriched, "count": len(enriched)}
+
+
+EPISODE_REVIEW_CHECKS = ("story", "picture", "audio", "subtitles")
+REVIEW_CHECK_STATUSES = {"PENDING", "PASS", "CHANGES_REQUESTED"}
+
+
+def _episode_master_inventory(project: Path) -> dict[str, object]:
+    """Expose local episode masters with browser-safe media links and review defaults."""
+    path = project / "renders" / "episodes" / "episode-masters.json"
+    if not path.is_file():
+        return {"schema_version": 1, "project_id": project.name, "status": "NOT_RUN", "episode_count": 0, "episodes": [], "human_review": {"required": True, "status": "PENDING"}}
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict) or not isinstance(payload.get("episodes"), list):
+        raise ValueError("episode master manifest is invalid")
+    result = deepcopy(payload)
+    enriched = []
+    for episode in result["episodes"]:
+        if not isinstance(episode, dict):
+            continue
+        item = dict(episode)
+        review = item.get("human_review") if isinstance(item.get("human_review"), dict) else {}
+        checks = review.get("checks") if isinstance(review.get("checks"), dict) else {}
+        item["human_review"] = {
+            "required": True,
+            "status": str(review.get("status") or "PENDING"),
+            "checks": {key: str(checks.get(key) or "PENDING") for key in EPISODE_REVIEW_CHECKS},
+            "reviewed_at": review.get("reviewed_at"),
+            "reviewed_by": review.get("reviewed_by"),
+            "note": str(review.get("note") or ""),
+        }
+        output = str(item.get("output") or "")
+        if output and (project / output).is_file():
+            item["media_url"] = f"/media/{project.name}/{output}"
+        subtitle = str(item.get("subtitle") or "")
+        if subtitle and (project / subtitle).is_file():
+            item["subtitle_url"] = f"/media/{project.name}/{subtitle}"
+        episode_id = str(item.get("episode_id") or "").lower()
+        qc_frame = f"renders/episodes/qc-frames/{episode_id}-speech-check.png"
+        if episode_id and (project / qc_frame).is_file():
+            item["qc_frame_url"] = f"/media/{project.name}/{qc_frame}"
+        enriched.append(item)
+    result["episodes"] = enriched
+    result["episode_count"] = len(enriched)
+    qc_path = project / "renders" / "episodes" / "episode-technical-qc.json"
+    if qc_path.is_file():
+        qc = json.loads(qc_path.read_text(encoding="utf-8"))
+        result["technical_qc"] = {
+            "status": qc.get("status", "NOT_RUN"),
+            "passed_episode_count": qc.get("passed_episode_count", 0),
+            "episode_count": qc.get("episode_count", 0),
+            "generated_at": qc.get("generated_at"),
+        }
+    return result
+
+
+def _update_episode_master_review(project: Path, payload: dict[str, object]) -> dict[str, object]:
+    path = project / "renders" / "episodes" / "episode-masters.json"
+    if not path.is_file():
+        raise ValueError("episode masters have not been rendered")
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    episode_id = str(payload.get("episode_id") or "").strip()
+    episode = next((item for item in manifest.get("episodes", []) if str(item.get("episode_id")) == episode_id), None)
+    if not episode:
+        raise ValueError("episode_id does not exist in episode masters")
+    checks = payload.get("checks")
+    if not isinstance(checks, dict) or any(checks.get(key) not in REVIEW_CHECK_STATUSES for key in EPISODE_REVIEW_CHECKS):
+        raise ValueError("checks must contain story, picture, audio and subtitles with valid statuses")
+    reviewer = str(payload.get("reviewer") or "").strip()
+    if any(checks[key] != "PENDING" for key in EPISODE_REVIEW_CHECKS) and not reviewer:
+        raise ValueError("reviewer is required when recording review results")
+    if all(checks[key] == "PASS" for key in EPISODE_REVIEW_CHECKS):
+        status = "APPROVED"
+    elif any(checks[key] == "CHANGES_REQUESTED" for key in EPISODE_REVIEW_CHECKS):
+        status = "CHANGES_REQUESTED"
+    else:
+        status = "PENDING"
+    timestamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    episode["human_review"] = {
+        "required": True,
+        "status": status,
+        "checks": {key: checks[key] for key in EPISODE_REVIEW_CHECKS},
+        "reviewed_at": timestamp,
+        "reviewed_by": reviewer,
+        "note": str(payload.get("note") or "").strip(),
+    }
+    statuses = [str(item.get("human_review", {}).get("status") or "PENDING") for item in manifest.get("episodes", [])]
+    aggregate_status = "APPROVED" if statuses and all(value == "APPROVED" for value in statuses) else "CHANGES_REQUESTED" if any(value == "CHANGES_REQUESTED" for value in statuses) else "PENDING"
+    manifest["human_review"] = {"required": True, "status": aggregate_status, "reviewed_at": timestamp, "reviewed_by": reviewer if aggregate_status == "APPROVED" else None}
+    temporary = path.with_suffix(".json.tmp")
+    temporary.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    temporary.replace(path)
+    return next(item for item in _episode_master_inventory(project)["episodes"] if item["episode_id"] == episode_id)
+
+
+def _provider_motion_test_inventory(project: Path) -> dict[str, object]:
+    path = project / "provider-tests" / "s01e001" / "motion-provider-tests.json"
+    if not path.is_file():
+        return {"schema_version": 1, "project_id": project.name, "status": "NOT_PREPARED", "remote_execution": "BLOCKED_PENDING_AUTHORIZATION", "tests": [], "test_count": 0}
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    result = deepcopy(payload)
+    tests = []
+    for raw in result.get("tests", []):
+        if not isinstance(raw, dict):
+            continue
+        item = dict(raw)
+        frame = str(item.get("start_frame") or "")
+        if frame and (project / frame).is_file():
+            item["start_frame_url"] = f"/media/{project.name}/{frame}"
+        output = str(item.get("output_path") or "")
+        if output and (project / output).is_file():
+            item["media_url"] = f"/media/{project.name}/{output}"
+        tests.append(item)
+    result["tests"] = tests
+    result["test_count"] = len(tests)
+    return result
+
+
+def _final_shot_review(project: Path) -> dict[str, object]:
+    path = project / "dynamic" / "final-shot-review.json"
+    if path.is_file():
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            pass
+    renders = sorted((project / "renders").glob("*-final-*.mp4")) if (project / "renders").is_dir() else []
+    latest = renders[-1] if renders else None
+    return {"schema_version": 1, "project_id": project.name, "shot_id": "SHOT-S01E002-SC002-001", "rig_id": "RIG-CHR-JHY-BAIHUA-FRONT-V1", "character_id": "CHR-JHY-BAIHUA", "video_path": _relative(project, latest) if latest else None, "checks": {"sound": "PENDING", "subtitles": "PENDING", "mouth": "PENDING"}, "status": "PENDING", "reviewer": None, "note": "", "updated_at": None}
+
+
+def _rig_coverage(project: Path) -> dict[str, object]:
+    timeline_path = project / "dynamic" / "mouth-cues.json"
+    timeline = json.loads(timeline_path.read_text(encoding="utf-8")).get("timeline", []) if timeline_path.is_file() else []
+    rigs = _character_rig_inventory(project).get("rigs", [])
+    covered_characters = {str(item.get("character_id")) for item in rigs}
+    roles: dict[str, dict[str, object]] = {}
+    for cue in timeline:
+        if not cue.get("speaker_character_id"):
+            continue
+        character_id = str(cue["speaker_character_id"])
+        role = roles.setdefault(character_id, {"character_id": character_id, "shot_ids": [], "shot_count": 0, "rig_ready": character_id in covered_characters})
+        role["shot_ids"].append(str(cue.get("shot_id"))); role["shot_count"] = int(role["shot_count"]) + 1
+    covered = sum(int(item["shot_count"]) for item in roles.values() if item["rig_ready"])
+    total = sum(int(item["shot_count"]) for item in roles.values())
+    ordered = sorted(roles.values(), key=lambda item: (-int(item["shot_count"]), str(item["character_id"])))
+    return {"project_id": project.name, "covered_shot_count": covered, "total_shot_count": total, "coverage_percent": round(covered / total * 100, 1) if total else 0.0, "roles": ordered, "missing_character_ids": [str(item["character_id"]) for item in ordered if not item["rig_ready"]]}
+
+
 class VideoCreatorHandler(BaseHTTPRequestHandler):
     server_version = "VideoCreatorWeb/1.0"
 
@@ -327,11 +717,24 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
         if parsed.path == "/styles.css":
             return self._serve_file(WEB_ROOT / "styles.css", "text/css; charset=utf-8")
         if parsed.path == "/api/health":
-            return self._json({"status": "ok", "providers": _provider_status()})
+            return self._json({"status": "ok", "providers": _provider_status(), "integrations": _integration_status()})
+        if parsed.path == "/api/integrations/arcreel/status":
+            return self._json(_integration_status()[0])
         if parsed.path == "/api/projects":
             return self._json({"projects": self._projects()})
         if parsed.path == "/api/novel-anime/projects":
             return self._json({"projects": _novel_anime_projects()})
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/readiness", parsed.path)
+        if match:
+            try:
+                project_id = match.group(1)
+                _safe_project(project_id)
+                summary = next((item for item in _novel_anime_projects() if item["directory_id"] == project_id), None)
+                if summary is None:
+                    raise ValueError("novel-anime project not found")
+            except ValueError as error:
+                return self._error(HTTPStatus.NOT_FOUND, str(error))
+            return self._json(_readiness_from_summary(summary))
         match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/workspaces", parsed.path)
         if match:
             try:
@@ -428,6 +831,72 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
             except (ValueError, NovelCharacterDesignError) as error:
                 return self._error(HTTPStatus.NOT_FOUND, str(error))
             return self._json(result)
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/character-assets", parsed.path)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+            except ValueError as error:
+                return self._error(HTTPStatus.NOT_FOUND, str(error))
+            assets = _character_asset_inventory(project)
+            return self._json({"project_id": project.name, "assets": assets, "count": len(assets)})
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/character-rigs", parsed.path)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+            except ValueError as error:
+                return self._error(HTTPStatus.NOT_FOUND, str(error))
+            return self._json(_character_rig_inventory(project))
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/timeline-cues", parsed.path)
+        if match:
+            try:
+                project = _safe_project(match.group(1)); path = project / "dynamic" / "mouth-cues.json"
+                if not path.is_file():
+                    return self._json({"project_id": project.name, "timeline": [], "count": 0})
+                payload = json.loads(path.read_text(encoding="utf-8"))
+                timeline = payload.get("timeline", []) if isinstance(payload, dict) else []
+                return self._json({"project_id": project.name, "timeline": timeline, "count": len(timeline), "human_review": payload.get("human_review")})
+            except (ValueError, OSError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.NOT_FOUND, str(error))
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/final-shot-review", parsed.path)
+        if match:
+            try:
+                project = _safe_project(match.group(1)); return self._json(_final_shot_review(project))
+            except ValueError as error:
+                return self._error(HTTPStatus.NOT_FOUND, str(error))
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/rig-coverage", parsed.path)
+        if match:
+            try:
+                return self._json(_rig_coverage(_safe_project(match.group(1))))
+            except (ValueError, OSError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.NOT_FOUND, str(error))
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/final-batch", parsed.path)
+        if match:
+            try:
+                project = _safe_project(match.group(1)); path = project / "dynamic" / "final-batch.json"
+                return self._json(json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {"project_id": project.name, "status": "NOT_RUN", "count": 0, "results": []})
+            except (ValueError, OSError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.NOT_FOUND, str(error))
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/episode-masters", parsed.path)
+        if match:
+            try:
+                return self._json(_episode_master_inventory(_safe_project(match.group(1))))
+            except (ValueError, OSError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.NOT_FOUND, str(error))
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/episode-masters/qc", parsed.path)
+        if match:
+            try:
+                project = _safe_project(match.group(1)); path = project / "renders" / "episodes" / "episode-technical-qc.json"
+                if not path.is_file():
+                    return self._json({"project_id": project.name, "status": "NOT_RUN", "episode_count": 0, "episodes": []})
+                return self._json(json.loads(path.read_text(encoding="utf-8")))
+            except (ValueError, OSError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.NOT_FOUND, str(error))
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/provider-motion-tests", parsed.path)
+        if match:
+            try:
+                return self._json(_provider_motion_test_inventory(_safe_project(match.group(1))))
+            except (ValueError, OSError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.NOT_FOUND, str(error))
         match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/environment-assets", parsed.path)
         if match:
             try:
@@ -607,6 +1076,11 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                 return self._save_key()
             except (ValueError, KeyError, TypeError, json.JSONDecodeError) as error:
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
+        if route == "/api/settings/integrations":
+            try:
+                return self._save_integration()
+            except (ValueError, KeyError, TypeError, json.JSONDecodeError, ArcReelError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
         if route == "/api/storyboard/local":
             try:
                 payload = self._read_json()
@@ -616,6 +1090,157 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
             except Exception as error:
                 return self._error(HTTPStatus.INTERNAL_SERVER_ERROR, f"storyboard failed: {error}")
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/character-motion-test", route)
+        if match:
+            try:
+                payload = self._read_json()
+                project = _safe_project(match.group(1))
+                asset_path = str(payload.get("asset_path") or "")
+                inventory = _character_asset_inventory(project)
+                allowed = {str(item["path"]) for item in inventory}
+                if asset_path not in allowed:
+                    raise ValueError("character asset is not registered in the local inventory")
+                seconds = float(payload.get("seconds") or 4.0)
+                if seconds < 2 or seconds > 8:
+                    raise ValueError("preview duration must be between 2 and 8 seconds")
+                background, background_asset_id = _background_for_shot(project, shot_id)
+                stamp = f"{time.strftime('%Y%m%d-%H%M%S')}-{time.time_ns() % 100000:05d}"
+                output = project / "lookdev" / f"{Path(asset_path).stem}-motion-preview-{stamp}.mp4"
+                video, keyframe = render_local_motion_test(project, background, project / asset_path, output, seconds, 24)
+                character_asset_id = next((str(item["asset_id"]) for item in inventory if item["path"] == asset_path), "")
+                if not character_asset_id:
+                    raise ValueError("character asset must have a registered asset ID before preview rendering")
+                repository = NovelAnimeRepository(project)
+                source_assets = (character_asset_id, "AST-LOC-JHY-KUNLUN-NIGHT")
+                video_asset = repository.register_asset(f"AST-VIDEO-JHY-BAIHUA-PREVIEW-{stamp.replace('-', '')}", "video", video, metadata={"title": "百花仙子本地动作预览", "provider": "local_motion", "duration_seconds": seconds, "fps": 24}, source_entity_ids=source_assets)
+                keyframe_asset = repository.register_asset(f"AST-KEYFRAME-JHY-BAIHUA-PREVIEW-{stamp.replace('-', '')}", "keyframe", keyframe, metadata={"title": "百花仙子本地动作预览首帧", "provider": "local_motion"}, source_entity_ids=source_assets)
+                relative_video = _relative(project, video)
+                return self._json({"status": "created", "provider": "local_motion", "output": relative_video, "keyframe": _relative(project, keyframe), "video_asset": video_asset, "keyframe_asset": keyframe_asset, "media_url": f"/media/{project.name}/{relative_video}", "duration_seconds": seconds}, HTTPStatus.CREATED)
+            except (OSError, ValueError, RuntimeError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/character-rig-motion-test", route)
+        if match:
+            try:
+                payload = self._read_json(); project = _safe_project(match.group(1))
+                rig_id = str(payload.get("rig_id") or "RIG-CHR-JHY-BAIHUA-FRONT-V1")
+                rigs = _character_rig_inventory(project)["rigs"]
+                rig = next((item for item in rigs if item.get("id") == rig_id), None)
+                if not rig:
+                    raise ValueError("character Rig is not registered")
+                seconds = float(payload.get("seconds") or 4.0)
+                if seconds < 2 or seconds > 8:
+                    raise ValueError("preview duration must be between 2 and 8 seconds")
+                layer_paths = [project / str(layer["path"]) for layer in rig.get("layers", []) if layer.get("name") in {"head", "torso", "lower"}]
+                if len(layer_paths) != 3:
+                    raise ValueError("Rig must contain head, torso, and lower layers")
+                background = project / "assets" / "locations" / "LOCN-JHY-KUNLUN" / "kunlun-yaochi-night-v1.png"
+                stamp = f"{time.strftime('%Y%m%d-%H%M%S')}-{time.time_ns() % 100000:05d}"
+                output = project / "lookdev" / f"baihua-rig-motion-preview-{stamp}.mp4"
+                expression = str(payload.get("expression") or "neutral")
+                mouth_cues = payload.get("mouth_cues") if isinstance(payload.get("mouth_cues"), list) else []
+                video, keyframe = render_character_rig_preview(project, background, layer_paths, output, seconds, 24, expression, mouth_cues)
+                repository = NovelAnimeRepository(project)
+                source_assets = tuple([str(layer["asset_id"]) for layer in rig["layers"]] + ["AST-LOC-JHY-KUNLUN-NIGHT"])
+                video_asset = repository.register_asset(f"AST-VIDEO-JHY-BAIHUA-RIG-{stamp.replace('-', '')}", "video", video, metadata={"title": "百花仙子 Rig 分层动作预览", "provider": "local_rig_motion", "duration_seconds": seconds, "fps": 24, "rig_id": rig_id}, source_entity_ids=source_assets)
+                keyframe_asset = repository.register_asset(f"AST-KEYFRAME-JHY-BAIHUA-RIG-{stamp.replace('-', '')}", "keyframe", keyframe, metadata={"title": "百花仙子 Rig 分层预览首帧", "provider": "local_rig_motion", "rig_id": rig_id}, source_entity_ids=source_assets)
+                relative_video = _relative(project, video)
+                return self._json({"status": "created", "provider": "local_rig_motion", "output": relative_video, "keyframe": _relative(project, keyframe), "video_asset": video_asset, "keyframe_asset": keyframe_asset, "media_url": f"/media/{project.name}/{relative_video}", "duration_seconds": seconds, "rig_id": rig_id}, HTTPStatus.CREATED)
+            except (OSError, ValueError, RuntimeError, json.JSONDecodeError, NovelAnimeRepositoryError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/storyboard-rig-preview", route)
+        if match:
+            try:
+                payload = self._read_json(); project = _safe_project(match.group(1)); shot_id = str(payload.get("shot_id") or "")
+                storyboard_path = project / "storyboard" / "storyboard.json"
+                storyboard = json.loads(storyboard_path.read_text(encoding="utf-8"))
+                shot = next((item for item in storyboard.get("frames", []) if item.get("shot_id") == shot_id), None)
+                if not shot:
+                    raise ValueError("shot_id is not present in storyboard")
+                seconds = min(8.0, max(2.0, float(payload.get("seconds") or shot.get("duration_seconds") or 4.0)))
+                rig_payload = _character_rig_inventory(project); rigs = rig_payload.get("rigs", [])
+                rig_id = str(payload.get("rig_id") or (rigs[0].get("id") if rigs else ""))
+                rig = next((item for item in rigs if item.get("id") == rig_id), None)
+                if not rig:
+                    raise ValueError("no local Rig is available for this storyboard preview")
+                layer_paths = [project / str(layer["path"]) for layer in rig.get("layers", []) if layer.get("name") in {"head", "torso", "lower"}]
+                stamp = f"{time.strftime('%Y%m%d-%H%M%S')}-{time.time_ns() % 100000:05d}"
+                output = project / "lookdev" / f"{shot_id.lower()}-rig-preview-{stamp}.mp4"
+                background = project / "assets" / "locations" / "LOCN-JHY-KUNLUN" / "kunlun-yaochi-night-v1.png"
+                cue_payload = payload.get("mouth_cues") if isinstance(payload.get("mouth_cues"), list) else None
+                if cue_payload is None:
+                    cue_path = project / "dynamic" / "mouth-cues.json"
+                    if cue_path.is_file():
+                        compiled = json.loads(cue_path.read_text(encoding="utf-8"))
+                        lines = compiled.get("shots", {}).get(shot_id, [])
+                        cue_payload = lines[0].get("mouth_cues", []) if lines else []
+                video, keyframe = render_character_rig_preview(project, background, layer_paths, output, seconds, 24, str(payload.get("expression") or "neutral"), cue_payload or [], _particle_effect(background_asset_id))
+                timeline_cue = next((item for item in (compiled.get("timeline", []) if 'compiled' in locals() else []) if item.get("shot_id") == shot_id), None)
+                return self._json({"status": "created", "provider": "local_rig_motion", "shot_id": shot_id, "rig_id": rig_id, "output": _relative(project, video), "keyframe": _relative(project, keyframe), "media_url": f"/media/{project.name}/{_relative(project, video)}", "duration_seconds": seconds, "timeline_cue": timeline_cue}, HTTPStatus.CREATED)
+            except (OSError, ValueError, RuntimeError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/storyboard-final-preview", route)
+        if match:
+            try:
+                payload = self._read_json(); project = _safe_project(match.group(1)); shot_id = str(payload.get("shot_id") or "")
+                timeline_path = project / "dynamic" / "mouth-cues.json"; timeline_payload = json.loads(timeline_path.read_text(encoding="utf-8"))
+                cue = next((item for item in timeline_payload.get("timeline", []) if item.get("shot_id") == shot_id), None)
+                if not cue or not cue.get("audio", {}).get("mix_asset_id"):
+                    raise ValueError("shot has no registered timeline mix")
+                rigs = _character_rig_inventory(project).get("rigs", []); rig_id = str(payload.get("rig_id") or (rigs[0].get("id") if rigs else "")); rig = next((item for item in rigs if item.get("id") == rig_id), None)
+                if not rig:
+                    raise ValueError("no local Rig is available")
+                seconds = min(8.0, max(2.0, float(payload.get("seconds") or cue.get("end_seconds") or 4.0)))
+                layers = [project / str(layer["path"]) for layer in rig.get("layers", []) if layer.get("name") in {"head", "torso", "lower"}]
+                background, background_asset_id = _background_for_shot(project, shot_id); stamp = f"{time.strftime('%Y%m%d-%H%M%S')}-{time.time_ns() % 100000:05d}"
+                draft = project / "lookdev" / f"{shot_id.lower()}-draft-{stamp}.mp4"; final = project / "renders" / f"{shot_id.lower()}-final-{stamp}.mp4"
+                video, _ = render_character_rig_preview(project, background, layers, draft, seconds, 24, str(payload.get("expression") or "neutral"), cue.get("mouth_cues", []), _particle_effect(background_asset_id))
+                audio_path = project / str(cue["audio"]["path"])
+                mux_timeline_shot(video, audio_path, final)
+                repository = NovelAnimeRepository(project); scene_id = shot_id.removeprefix("SHOT-").rsplit("-", 1)[0]
+                source_ids = [str(layer["asset_id"]) for layer in rig.get("layers", [])] + [str(cue["audio"]["asset_id"]), str(cue["audio"]["mix_asset_id"]), str(cue["subtitle_asset_id"]), background_asset_id, scene_id]
+                asset = repository.register_asset(f"AST-VIDEO-JHY-FINAL-{shot_id.replace('-', '')}-{stamp.replace('-', '')}", "video", final, metadata={"title": f"最终镜头预览 · {shot_id}", "provider": "local_timeline_final", "rig_id": rig_id, "audio_asset_id": cue["audio"]["asset_id"], "subtitle_asset_id": cue["subtitle_asset_id"]}, source_entity_ids=source_ids)
+                return self._json({"status": "created", "provider": "local_timeline_final", "shot_id": shot_id, "rig_id": rig_id, "output": _relative(project, final), "media_url": f"/media/{project.name}/{_relative(project, final)}", "subtitle": cue["subtitle_asset_id"], "audio": cue["audio"]["mix_asset_id"], "video_asset": asset}, HTTPStatus.CREATED)
+            except (OSError, ValueError, RuntimeError, json.JSONDecodeError, NovelAnimeRepositoryError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/final-shot-review", route)
+        if match:
+            try:
+                project = _safe_project(match.group(1)); payload = self._read_json(); review = _final_shot_review(project)
+                checks = payload.get("checks")
+                if not isinstance(checks, dict) or any(checks.get(key) not in {"PENDING", "PASS", "CHANGES_REQUESTED"} for key in ("sound", "subtitles", "mouth")):
+                    raise ValueError("checks must contain sound, subtitles and mouth with valid statuses")
+                status = str(payload.get("status") or "PENDING")
+                if status not in {"PENDING", "APPROVED", "CHANGES_REQUESTED"}:
+                    raise ValueError("invalid review status")
+                if status == "APPROVED" and any(checks[key] != "PASS" for key in ("sound", "subtitles", "mouth")):
+                    raise ValueError("all three checks must be PASS before approval")
+                review.update({"checks": checks, "status": status, "reviewer": str(payload.get("reviewer") or ""), "note": str(payload.get("note") or ""), "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())})
+                (project / "dynamic").mkdir(parents=True, exist_ok=True); (project / "dynamic" / "final-shot-review.json").write_text(json.dumps(review, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+                return self._json(review)
+            except (ValueError, OSError, KeyError, TypeError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/storyboard-final-batch-preview", route)
+        if match:
+            try:
+                project = _safe_project(match.group(1)); review = _final_shot_review(project)
+                if review.get("status") != "APPROVED":
+                    return self._json({"status": "blocked", "reason": "final shot review must be APPROVED before batch rendering", "review": review}, HTTPStatus.CONFLICT)
+                timeline = json.loads((project / "dynamic" / "mouth-cues.json").read_text(encoding="utf-8")).get("timeline", [])
+                character_id = str(review.get("character_id") or "CHR-JHY-BAIHUA")
+                eligible = sorted({str(item.get("shot_id")) for item in timeline if item.get("audio", {}).get("mix_asset_id") and item.get("speaker_character_id") == character_id})
+                missing = sorted({str(item.get("speaker_character_id")) for item in timeline if item.get("audio", {}).get("mix_asset_id") and item.get("speaker_character_id") != character_id})
+                result = render_final_shot_batch(project, eligible, str(review.get("rig_id") or "RIG-CHR-JHY-BAIHUA-FRONT-V1"))
+                return self._json({**result, "shot_count": len(eligible), "shot_ids": eligible, "blocked_character_ids": missing, "provider": "local_timeline_final", "rig_id": review.get("rig_id"), "human_review": review})
+            except (ValueError, OSError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/episode-masters/review", route)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                result = _update_episode_master_review(project, self._read_json())
+                return self._json(result)
+            except (ValueError, OSError, KeyError, TypeError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
         match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/backups", route)
         if match:
             try:
@@ -724,6 +1349,25 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
         else:
             RUNTIME_KEYS.pop(provider_id, None)
         self._json({"provider": provider_id, "configured": bool(key or os.environ.get(KEY_ENV[provider_id])), "source": "session" if key else ("environment" if os.environ.get(KEY_ENV[provider_id]) else "none")})
+
+    def _save_integration(self) -> None:
+        payload = self._read_json()
+        integration_id = str(payload.get("integration") or "")
+        if integration_id != "arcreel":
+            raise ValueError("unsupported integration")
+        base_url = str(payload.get("base_url") or "").strip()
+        api_key = str(payload.get("api_key") or "").strip()
+        if not base_url:
+            RUNTIME_INTEGRATIONS.pop("arcreel", None)
+            return self._json(_integration_status()[0])
+        client = ArcReelWorkspace(base_url, api_key=api_key or None, timeout_seconds=0.8)
+        existing = RUNTIME_INTEGRATIONS.get("arcreel", {})
+        RUNTIME_INTEGRATIONS["arcreel"] = {"base_url": client.base_url}
+        if api_key:
+            RUNTIME_INTEGRATIONS["arcreel"]["api_key"] = api_key
+        elif existing.get("api_key"):
+            RUNTIME_INTEGRATIONS["arcreel"]["api_key"] = existing["api_key"]
+        self._json(_integration_status()[0])
 
     def _generate_local_storyboard(self, payload: dict[str, object]) -> dict[str, object]:
         if not isinstance(payload, dict):

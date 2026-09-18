@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "project_id": "jinghua-yuan-series",
+  "character_id": "CHR-JHY-BAIHUA",
+  "rig_id": "RIG-CHR-JHY-BAIHUA-FRONT-V1",
+  "expressions": [
+    {"id": "neutral", "label": "平静", "brow": 0, "mouth": "rest"},
+    {"id": "soft_smile", "label": "浅笑", "brow": -1, "mouth": "smile"},
+    {"id": "concerned", "label": "担忧", "brow": 2, "mouth": "o"},
+    {"id": "surprised", "label": "惊讶", "brow": -2, "mouth": "wide"}
+  ],
+  "mouth_shapes": {
+    "rest": {"label": "闭合", "open": 0.0},
+    "smile": {"label": "微笑", "open": 0.1},
+    "o": {"label": "圆口", "open": 0.55},
+    "wide": {"label": "张口", "open": 0.85}
+  },
+  "phoneme_map": {"sil": "rest", "a": "wide", "i": "smile", "u": "o", "e": "wide", "o": "o"},
+  "human_review": {"required": true, "status": "PENDING", "reviewed_at": null, "reviewed_by": null}
+}

@@ -1,0 +1,25 @@
+services:
+  arcreel:
+    image: arcreel/arcreel@sha256:d56db7fdbebc8a8c13b46a44956707e5bbb0b6052fa324061ac3bc3769aedd63
+    container_name: videocreator-arcreel
+    ports:
+      - "127.0.0.1:1241:1241"
+    env_file: .env
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+    security_opt:
+      - seccomp:unconfined
+    cap_add:
+      - NET_ADMIN
+    volumes:
+      - ./.env:/app/.env
+      - ./data/projects:/app/projects
+      - ./data/logs:/app/logs
+      - ./data/vertex_keys:/app/vertex_keys
+      - ./data/claude_data:/root/.claude
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:1241/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 8

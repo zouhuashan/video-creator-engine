@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path: sys.path.insert(0, str(ROOT))
 from scripts.novel_anime_project import MANIFEST_NAME, load_project, utc_timestamp
 from scripts.novel_anime_repository import NovelAnimeRepository
+from scripts.novel_character_designs import NovelCharacterDesignError, load_character_designs
 from scripts.novel_visual_bible import load_visual_bible, readiness as visual_readiness
 from scripts.novel_environment_assets import load_environment_assets
 
@@ -27,13 +28,30 @@ def _current_assets(project_dir: Path) -> dict[str, int]:
     with sqlite3.connect(repo.db_path) as db:
         return {str(row[0]): int(row[1]) for row in db.execute("SELECT asset_id, version FROM asset_versions WHERE is_current = 1")}
 def build_asset_review(project_dir: Path) -> dict[str, Any]:
-    project = load_project(Path(project_dir) / MANIFEST_NAME); visual = load_visual_bible(project_dir); environment = load_environment_assets(project_dir); now = utc_timestamp(); packages = []; reviews = []
+    project = load_project(Path(project_dir) / MANIFEST_NAME); visual = load_visual_bible(project_dir); environment = load_environment_assets(project_dir); now = utc_timestamp(); packages = []; reviews = []; current = _current_assets(project_dir)
+    try:
+        characters = load_character_designs(project_dir)
+    except NovelCharacterDesignError:
+        characters = {"character_designs": []}
+    for design in characters.get("character_designs", []):
+        refs = []
+        for item in design["turnarounds"]:
+            if item["asset_id"] in current:
+                refs.append({"id": f"REF-{design['character_id']}-{item['view'].replace('_', '-')}", "view": item["view"], "asset_id": item["asset_id"], "version": current[item["asset_id"]], "role": "IDENTITY", "status": "CANDIDATE", "continuity_signature": item["identity_signature"]})
+        for item in design["expressions"]:
+            if item["asset_id"] in current:
+                refs.append({"id": f"REF-{item['id']}", "view": item["emotion"], "asset_id": item["asset_id"], "version": current[item["asset_id"]], "role": "POSE", "status": "CANDIDATE", "continuity_signature": item["identity_signature"]})
+        for item in design["costumes"]:
+            if item["asset_id"] in current:
+                refs.append({"id": f"REF-{item['id']}", "view": item["name"], "asset_id": item["asset_id"], "version": current[item["asset_id"]], "role": "COLOR", "status": "CANDIDATE", "continuity_signature": item["identity_signature"]})
+        if refs:
+            package_id = f"REFPACK-{design['character_id']}"; packages.append({"id": package_id, "entity_id": design["character_id"], "entity_type": "character", "purpose": "角色身份、表情与服装参考", "references": refs, "selected_reference_ids": [], "human_review": _review("REFERENCE_PACKAGE", package_id)}); reviews.append(packages[-1]["human_review"])
     for design in environment.get("location_designs", []):
         if design["variants"]:
-            package_id = f"REFPACK-{design['location_id']}"; refs = [{"id": f"REF-{item['id']}", "view": item["id"], "asset_id": item["asset_id"], "version": 1, "role": "ENVIRONMENT", "status": "CANDIDATE", "continuity_signature": item["continuity_signature"]} for item in design["variants"] if item["asset_id"]]
+            package_id = f"REFPACK-{design['location_id']}"; refs = [{"id": f"REF-{item['id']}", "view": item["id"], "asset_id": item["asset_id"], "version": current[item["asset_id"]], "role": "ENVIRONMENT", "status": "CANDIDATE", "continuity_signature": item["continuity_signature"]} for item in design["variants"] if item["asset_id"] in current]
             packages.append({"id": package_id, "entity_id": design["location_id"], "entity_type": "location", "purpose": "环境关键帧与变体参考", "references": refs, "selected_reference_ids": [], "human_review": _review("REFERENCE_PACKAGE", package_id)}); reviews.append(packages[-1]["human_review"])
     for design in environment.get("prop_designs", []):
-        refs = [{"id": f"REF-{state['id']}", "view": state["condition"], "asset_id": state["asset_id"], "version": 1, "role": "PROP", "status": "CANDIDATE", "continuity_signature": state["continuity_signature"]} for state in design["states"] if state["asset_id"]]
+        refs = [{"id": f"REF-{state['id']}", "view": state["condition"], "asset_id": state["asset_id"], "version": current[state["asset_id"]], "role": "PROP", "status": "CANDIDATE", "continuity_signature": state["continuity_signature"]} for state in design["states"] if state["asset_id"] in current]
         if refs:
             package_id = f"REFPACK-{design['prop_id']}"; packages.append({"id": package_id, "entity_id": design["prop_id"], "entity_type": "prop", "purpose": "道具状态参考", "references": refs, "selected_reference_ids": [], "human_review": _review("REFERENCE_PACKAGE", package_id)}); reviews.append(packages[-1]["human_review"])
     return validate_asset_review(project_dir, {"schema_version": 1, "project_id": project["project_id"], "ip_id": project["ip"]["id"], "visual_bible_revision": visual["revision"], "environment_assets_revision": environment["revision"], "revision": 1, "created_at": now, "updated_at": now, "reference_packages": packages, "selection_records": [], "art_reviews": reviews})

@@ -50,16 +50,17 @@ class WebServerTests(unittest.TestCase):
 
     def test_project_file_boundary_rejects_traversal(self):
         with self.assertRaises(ValueError):
-            web_server._safe_project_file("jinghua-yuan-local-pilot", "../../.env.example")
+            web_server._safe_project_file("jinghua-yuan-series", "../../.env.example")
 
     def test_project_file_resolves_known_asset(self):
-        path = web_server._safe_project_file("jinghua-yuan-local-pilot", "assets/characters/tang-xiaoshan-portrait.png")
+        path = web_server._safe_project_file("jinghua-yuan-series", "assets/characters/CHR-JHY-BAIHUA/baihua-anchor-v1.png")
         self.assertTrue(path.is_file())
 
-    def test_project_detail_exposes_local_episode_manifests(self):
-        episodes = web_server._episode_metadata(web_server._safe_project("jinghua-yuan-local-pilot"))
-        self.assertEqual([episode["episode_id"] for episode in episodes], [f"episode-{index:02d}" for index in range(1, 6)])
-        self.assertTrue(all(str(episode["media_url"]).endswith("/final.mp4") for episode in episodes))
+    def test_project_media_exposes_registered_lookdev_outputs(self):
+        media = web_server._media_files(web_server._safe_project("jinghua-yuan-series"))
+        paths = {item["path"] for item in media}
+        self.assertIn("lookdev/baihua-yaochi-motion-test-v1.png", paths)
+        self.assertIn("lookdev/baihua-yaochi-motion-test-v1.mp4", paths)
 
     def test_novel_anime_project_summary_uses_p18_manifest(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -150,10 +151,118 @@ class WebServerTests(unittest.TestCase):
         self.assertEqual(acceptance["decision"], "HOLD")
         self.assertEqual(acceptance["motion_test_count"], 3)
 
+    def test_novel_readiness_exposes_blocked_stage_gates_from_project_state(self):
+        summary = next(item for item in web_server._novel_anime_projects() if item["directory_id"] == "jinghua-yuan-series")
+        readiness = summary["readiness"]
+        self.assertEqual(readiness["decision"], "HOLD")
+        self.assertEqual(readiness["ready_count"], 0)
+        self.assertEqual(readiness["gate_count"], 7)
+        self.assertEqual([gate["id"] for gate in readiness["gates"]], ["source", "story", "visual", "storyboard", "audio", "render", "qc"])
+        self.assertTrue(all(gate["status"] == "BLOCKED" for gate in readiness["gates"]))
+        self.assertGreaterEqual(len(readiness["next_actions"]), 1)
+
+    def test_novel_project_summary_cache_returns_isolated_results(self):
+        web_server._NOVEL_PROJECT_CACHE.clear()
+        first = web_server._novel_anime_projects()
+        self.assertTrue(first)
+        first[0]["title"] = "changed in caller"
+        second = web_server._novel_anime_projects()
+        self.assertNotEqual(second[0]["title"], "changed in caller")
+        self.assertIn(str(web_server.PROJECTS_ROOT.resolve()), web_server._NOVEL_PROJECT_CACHE)
+
     def test_web_entrypoints_are_tracked_assets(self):
         self.assertTrue((web_server.WEB_ROOT / "index.html").is_file())
         self.assertTrue((web_server.WEB_ROOT / "app.js").is_file())
         self.assertTrue((web_server.WEB_ROOT / "styles.css").is_file())
+
+    def test_character_asset_inventory_exposes_registered_turnarounds(self):
+        assets = web_server._character_asset_inventory(web_server._safe_project("jinghua-yuan-series"))
+        asset_ids = {item["asset_id"] for item in assets}
+        self.assertIn("AST-CHR-JHY-BAIHUA-FRONT", asset_ids)
+        self.assertIn("AST-CHR-JHY-BAIHUA-SIDE", asset_ids)
+        self.assertIn("AST-CHR-JHY-BAIHUA-BACK", asset_ids)
+        self.assertTrue(all(str(item["media_url"]).startswith("/media/jinghua-yuan-series/") for item in assets))
+
+    def test_character_rig_inventory_exposes_review_gated_layers(self):
+        rig = web_server._character_rig_inventory(web_server._safe_project("jinghua-yuan-series"))
+        self.assertEqual(rig["count"], 9)
+        self.assertEqual(rig["rigs"][0]["id"], "RIG-CHR-JHY-BAIHUA-FRONT-V1")
+        self.assertEqual([layer["name"] for layer in rig["rigs"][0]["layers"]], ["full", "head", "torso", "lower"])
+        self.assertEqual(rig["rigs"][0]["human_review"]["status"], "PENDING")
+        self.assertEqual(rig["rigs"][1]["id"], "RIG-CHR-JHY-WUZETIAN-FRONT-V1")
+
+    def test_episode_master_inventory_exposes_five_playable_local_episodes(self):
+        result = web_server._episode_master_inventory(web_server._safe_project("jinghua-yuan-series"))
+        self.assertEqual(result["status"], "COMPLETED")
+        self.assertEqual(result["episode_count"], 5)
+        self.assertTrue(all(item["media_url"].startswith("/media/jinghua-yuan-series/") for item in result["episodes"]))
+        self.assertTrue(all(item["qc_frame_url"].endswith("-speech-check.png") for item in result["episodes"]))
+        self.assertEqual(set(result["episodes"][0]["human_review"]["checks"]), set(web_server.EPISODE_REVIEW_CHECKS))
+        self.assertEqual(result["technical_qc"]["status"], "PASS")
+        self.assertEqual(result["technical_qc"]["passed_episode_count"], 5)
+        metadata = web_server._episode_metadata(web_server._safe_project("jinghua-yuan-series"))
+        self.assertEqual(len(metadata), 5)
+        self.assertEqual(metadata[0]["episode_id"], "S01E001")
+        self.assertTrue(all(item["provider"] == "local_episode_assembly" for item in metadata))
+
+    def test_episode_review_requires_named_reviewer_and_updates_aggregate_status(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            manifest_dir = project / "renders" / "episodes"
+            manifest_dir.mkdir(parents=True)
+            path = manifest_dir / "episode-masters.json"
+            path.write_text(json.dumps({
+                "schema_version": 1,
+                "project_id": "test-project",
+                "status": "COMPLETED",
+                "episode_count": 2,
+                "episodes": [
+                    {"episode_id": "S01E001", "human_review": {"status": "PENDING"}},
+                    {"episode_id": "S01E002", "human_review": {"status": "PENDING"}},
+                ],
+                "human_review": {"required": True, "status": "PENDING"},
+            }), encoding="utf-8")
+            checks = {key: "PASS" for key in web_server.EPISODE_REVIEW_CHECKS}
+            with self.assertRaisesRegex(ValueError, "reviewer is required"):
+                web_server._update_episode_master_review(project, {"episode_id": "S01E001", "checks": checks})
+            saved = web_server._update_episode_master_review(project, {"episode_id": "S01E001", "checks": checks, "reviewer": "测试审核员", "note": "首集通过"})
+            self.assertEqual(saved["human_review"]["status"], "APPROVED")
+            persisted = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual(persisted["human_review"]["status"], "PENDING")
+            change_checks = {key: ("CHANGES_REQUESTED" if key == "audio" else "PASS") for key in web_server.EPISODE_REVIEW_CHECKS}
+            web_server._update_episode_master_review(project, {"episode_id": "S01E002", "checks": change_checks, "reviewer": "测试审核员"})
+            persisted = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual(persisted["human_review"]["status"], "CHANGES_REQUESTED")
+
+    def test_provider_motion_test_inventory_is_prepared_but_not_authorized(self):
+        result = web_server._provider_motion_test_inventory(web_server._safe_project("jinghua-yuan-series"))
+        self.assertEqual(result["status"], "PREPARED")
+        self.assertEqual(result["test_count"], 3)
+        self.assertEqual({item["provider"] for item in result["tests"]}, {"runway", "wan", "openai_sora"})
+        self.assertTrue(all(item["status"] == "BLOCKED_PENDING_AUTHORIZATION" for item in result["tests"]))
+        self.assertTrue(all(item["start_frame_url"].startswith("/media/jinghua-yuan-series/") for item in result["tests"]))
+
+    def test_final_shot_review_has_required_checks(self):
+        review = web_server._final_shot_review(web_server._safe_project("jinghua-yuan-series"))
+        self.assertIn(review["status"], {"PENDING", "APPROVED", "CHANGES_REQUESTED"})
+        self.assertEqual(set(review["checks"]), {"sound", "subtitles", "mouth"})
+        if review["status"] == "APPROVED":
+            self.assertTrue(all(value == "PASS" for value in review["checks"].values()))
+
+    def test_rig_coverage_only_counts_matching_character(self):
+        coverage = web_server._rig_coverage(web_server._safe_project("jinghua-yuan-series"))
+        self.assertEqual(coverage["covered_shot_count"], 16)
+        self.assertEqual(coverage["total_shot_count"], 16)
+        self.assertEqual(coverage["coverage_percent"], 100.0)
+        self.assertNotIn("CHR-JHY-WUZETIAN", coverage["missing_character_ids"])
+        self.assertEqual(coverage["missing_character_ids"], [])
+
+    def test_arcreel_local_sidecar_is_reported_as_paused(self):
+        web_server.RUNTIME_INTEGRATIONS.pop("arcreel", None)
+        status = web_server._integration_status()[0]
+        self.assertTrue(status["paused"])
+        self.assertFalse(status["connected"])
+        self.assertNotIn("api_key", status)
 
     def test_key_settings_endpoint_returns_status_without_secret(self):
         web_server.RUNTIME_KEYS.pop("openai_sora", None)
@@ -171,6 +280,49 @@ class WebServerTests(unittest.TestCase):
             web_server.RUNTIME_KEYS.pop("openai_sora", None)
             server.shutdown()
             server.server_close()
+
+    def test_arcreel_settings_endpoint_connects_without_exposing_token(self):
+        class ArcReelHandler(web_server.BaseHTTPRequestHandler):
+            def log_message(self, *_args):
+                pass
+
+            def do_GET(self):  # noqa: N802
+                payload = {"status": "ok"} if self.path == "/health" else {"enabled": True}
+                body = json.dumps(payload).encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+        arc_server = web_server.ThreadingHTTPServer(("127.0.0.1", 0), ArcReelHandler)
+        arc_thread = threading.Thread(target=arc_server.serve_forever, daemon=True)
+        arc_thread.start()
+        web_server.RUNTIME_INTEGRATIONS.pop("arcreel", None)
+        server = web_server.ThreadingHTTPServer(("127.0.0.1", 0), web_server.VideoCreatorHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            url = f"http://127.0.0.1:{server.server_port}/api/settings/integrations"
+            body = {
+                "integration": "arcreel",
+                "base_url": f"http://127.0.0.1:{arc_server.server_port}",
+                "api_key": "arc-test-secret",
+            }
+            request = urllib.request.Request(url, data=json.dumps(body).encode(), method="POST", headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(request) as response:
+                result = json.loads(response.read().decode())
+            self.assertTrue(result["configured"])
+            self.assertTrue(result["connected"])
+            self.assertTrue(result["auth_enabled"])
+            self.assertEqual(result["license"], "AGPL-3.0")
+            self.assertNotIn("arc-test-secret", json.dumps(result))
+        finally:
+            web_server.RUNTIME_INTEGRATIONS.pop("arcreel", None)
+            server.shutdown()
+            server.server_close()
+            arc_server.shutdown()
+            arc_server.server_close()
 
 
 if __name__ == "__main__":

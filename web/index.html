@@ -70,9 +70,11 @@
 
         <section class="page-view hidden" id="studioView">
           <div class="panel studio-panel">
-            <div class="panel-heading"><div><span class="section-kicker">NOVEL ANIME STUDIO</span><h2 id="studioTitle">项目总览</h2><p class="panel-subtitle" id="studioSubtitle">所有工作区读取同一套国漫项目数据。</p></div><span class="status-dot">P27</span></div>
+            <div class="panel-heading studio-heading"><div><span class="section-kicker">NOVEL ANIME STUDIO</span><h2 id="studioTitle">项目总览</h2><p class="panel-subtitle" id="studioSubtitle">所有工作区读取同一套国漫项目数据。</p></div><div class="studio-heading-actions"><select id="studioProjectSelect" class="select-field compact-select" aria-label="选择国漫项目"></select><button class="ghost-button small-button" id="studioRefreshButton">↻ 刷新</button><button class="secondary-button small-button" id="snapshotButton">保存快照</button></div></div>
             <div class="studio-tabs" id="studioTabs"></div>
+            <div class="readiness-panel" id="studioReadiness"></div>
             <div class="studio-content" id="studioContent"><div class="empty-state">正在载入制作台…</div></div>
+            <div class="studio-detail hidden" id="studioDetail"></div>
           </div>
         </section>
 
@@ -81,7 +83,7 @@
         </section>
 
         <section class="page-view hidden" id="providersView">
-          <div class="panel"><div class="panel-heading"><div><span class="section-kicker">PROVIDER SETTINGS</span><h2>配置视频生成密钥</h2><p class="panel-subtitle">密钥只保存在当前本地服务进程内，重启服务后需要重新输入；也可以继续使用环境变量。</p></div><span class="status-dot">LOCAL ONLY</span></div><div class="provider-settings" id="providerSettings"></div></div>
+          <div class="panel"><div class="panel-heading"><div><span class="section-kicker">PROVIDER &amp; WORKSPACE SETTINGS</span><h2>配置生成能力与外部工作台</h2><p class="panel-subtitle">密钥、服务地址与访问令牌只保存在当前本地服务进程内，重启服务后需要重新输入；也可以继续使用环境变量。</p></div><span class="status-dot">LOCAL ONLY</span></div><div class="provider-settings" id="providerSettings"></div></div>
         </section>
 
         <section class="panel output-panel" id="outputPanel">
