@@ -200,3 +200,31 @@ logs/web-env.log
 如果曾经手工创建过错误架构的 `.venv-web`，启动器在 Apple Silicon 上检测到非 arm64 后会自动删除并重建。
 
 `VIDEO_CREATOR_PYTHON` 现在表示“创建 Web venv 使用的基础 Python”。Apple Silicon 上显式指定的 Python 也必须是 arm64，否则启动器直接失败，避免再次出现 `_imaging ... incompatible architecture`。
+
+## 11. 找不到 arm64 Python 时自动修复
+
+在 Apple Silicon Mac 上，如果系统 PATH 中只有 Rosetta/x86_64 Python，`start-web.command` 会先扫描原生 Homebrew 常见路径。
+
+如果仍找不到，并且存在：
+
+```text
+/opt/homebrew/bin/brew
+```
+
+脚本会自动执行原生架构的 Homebrew Python 安装：
+
+```bash
+arch -arm64 /opt/homebrew/bin/brew install python
+```
+
+安装完成后继续自动创建 `.venv-web`，不需要再次手工运行安装命令。
+
+如不希望启动脚本自动安装 Python，可临时关闭：
+
+```bash
+VIDEO_CREATOR_AUTO_INSTALL_PYTHON=0 ./start-web.command
+```
+
+此时缺少 arm64 Python 会直接失败并给出明确提示。
+
+如果本机没有 `/opt/homebrew/bin/brew`，脚本不会尝试使用可能是 Intel 架构的 `/usr/local/bin/brew` 来创建 Web 环境，避免再次混入 x86_64 依赖。

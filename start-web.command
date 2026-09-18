@@ -39,9 +39,61 @@ is_apple_silicon() {
   [ "$(sysctl -n hw.optional.arm64 2>/dev/null || echo 0)" = "1" ]
 }
 
+find_native_python() {
+  local candidate resolved arch
+  local candidates=(
+    /opt/homebrew/bin/python3
+    /opt/homebrew/opt/python/bin/python3
+    /opt/homebrew/opt/python@3.14/bin/python3.14
+    /opt/homebrew/opt/python@3.13/bin/python3.13
+    /opt/homebrew/opt/python@3.12/bin/python3.12
+    python3
+    /usr/bin/python3
+  )
+
+  for candidate in "${candidates[@]}"; do
+    resolved="$(python_path "$candidate")"
+    [ -n "$resolved" ] || continue
+    arch="$(python_arch "$resolved")"
+    if is_apple_silicon && [ "$arch" != "arm64" ]; then
+      continue
+    fi
+    printf '%s' "$resolved"
+    return 0
+  done
+  return 1
+}
+
+bootstrap_arm64_python() {
+  local brew_bin="/opt/homebrew/bin/brew"
+  local python
+
+  [ "${VIDEO_CREATOR_AUTO_INSTALL_PYTHON:-1}" = "1" ] || return 1
+
+  if [ ! -x "$brew_bin" ]; then
+    echo "INFO Native Homebrew was not found at $brew_bin" >&2
+    return 1
+  fi
+
+  echo "RUN  Install native arm64 Python with Homebrew" >&2
+  if ! arch -arm64 "$brew_bin" install python >>"$ENV_LOG" 2>&1; then
+    echo "FAIL Homebrew Python installation failed" >&2
+    tail -n 60 "$ENV_LOG" 2>/dev/null >&2 || true
+    return 1
+  fi
+
+  python="$(find_native_python || true)"
+  if [ -z "$python" ]; then
+    echo "FAIL Homebrew completed but no arm64 Python was found" >&2
+    return 1
+  fi
+
+  printf '%s' "$python"
+}
+
 select_base_python() {
   local configured="${VIDEO_CREATOR_PYTHON:-}"
-  local candidate resolved arch
+  local resolved arch
 
   if [ -n "$configured" ]; then
     resolved="$(python_path "$configured")"
@@ -60,19 +112,20 @@ select_base_python() {
     return 0
   fi
 
-  for candidate in /opt/homebrew/bin/python3 python3 /usr/bin/python3; do
-    resolved="$(python_path "$candidate")"
-    [ -n "$resolved" ] || continue
-    arch="$(python_arch "$resolved")"
-    if is_apple_silicon && [ "$arch" != "arm64" ]; then
-      continue
-    fi
+  resolved="$(find_native_python || true)"
+  if [ -n "$resolved" ]; then
     printf '%s' "$resolved"
     return 0
-  done
+  fi
 
   if is_apple_silicon; then
-    echo "FAIL No native arm64 Python found. Install Homebrew Python, then rerun ./start-web.command." >&2
+    resolved="$(bootstrap_arm64_python || true)"
+    if [ -n "$resolved" ]; then
+      printf '%s' "$resolved"
+      return 0
+    fi
+    echo "FAIL No native arm64 Python is available." >&2
+    echo "NEXT Install native Homebrew at /opt/homebrew, or set VIDEO_CREATOR_PYTHON to an arm64 Python." >&2
   else
     echo "FAIL Python 3 not found." >&2
   fi

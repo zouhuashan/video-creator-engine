@@ -2753,6 +2753,14 @@ P28-01 前五集本地试播母版与 Web 人审增量（2026-09-18）：
 - 已创建可恢复快照 `SNP-20260918T004726396Z-P28-FIVE-EPISODE-LOCAL-MASTERS`，锁定当前五集母版清单；项目首页已改为正确展示五集试播状态。
 - 当前五集母版生成状态为 `COMPLETED`、技术 QC 为 `PASS`，人工审核保持 `PENDING`，不会自动发布。`P28-01` 仍在执行：下一步是逐集人审；真实 Provider 仅在用户明确选择服务商并授权上传与计费后才可运行。
 
+P28-01 Web arm64 Python 自动引导修复（2026-09-18）：
+
+- 实机第二次启动确认本机 PATH 下没有可直接使用的 arm64 Python；原隔离脚本只能检测并退出，仍需人工安装。
+- `start-web.command` 现在先扫描 `/opt/homebrew/bin/python3` 及 Homebrew `python@3.12/3.13/3.14` 常见路径，再检查 PATH 与系统 Python，仅接受 Apple Silicon 下实际报告 `arm64` 的解释器。
+- 如果仍未找到且存在原生 `/opt/homebrew/bin/brew`，默认自动执行 `arch -arm64 /opt/homebrew/bin/brew install python`，安装日志继续写入 `logs/web-env.log`，然后自动创建 `.venv-web`。
+- 可通过 `VIDEO_CREATOR_AUTO_INSTALL_PYTHON=0` 禁用自动安装；脚本不会使用可能属于 Intel Homebrew 的 `/usr/local/bin/brew` 作为自动引导来源。
+- 默认 Web 端口保持 `18765`；本修复不改变 P28 人工审核状态，也不触发远程 Provider。
+
 P28-01 Web Python 架构隔离修复（2026-09-18）：
 
 - 实机启动失败定位为 Python/Pillow 架构混用：Web 进程为 x86_64，而用户目录中的 Pillow `_imaging` 为 arm64，导致 `ImportError: incompatible architecture`。
