@@ -167,7 +167,7 @@ ensure_web_env() {
       return 1
     fi
 
-    if ! PYTHONNOUSERSITE=1 "$base_python" -m pip install       --disable-pip-version-check       --upgrade       --target "$WEB_PYTHON_DIR"       -r "$REQUIREMENTS" >>"$ENV_LOG" 2>&1; then
+    if ! PYTHONNOUSERSITE=1 "$base_python" -m pip install       --disable-pip-version-check       --use-deprecated=legacy-certs       --upgrade       --target "$WEB_PYTHON_DIR"       -r "$REQUIREMENTS" >>"$ENV_LOG" 2>&1; then
       echo "FAIL Web dependency installation failed"
       tail -n 60 "$ENV_LOG" 2>/dev/null || true
       return 1

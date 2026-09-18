@@ -2753,6 +2753,13 @@ P28-01 前五集本地试播母版与 Web 人审增量（2026-09-18）：
 - 已创建可恢复快照 `SNP-20260918T004726396Z-P28-FIVE-EPISODE-LOCAL-MASTERS`，锁定当前五集母版清单；项目首页已改为正确展示五集试播状态。
 - 当前五集母版生成状态为 `COMPLETED`、技术 QC 为 `PASS`，人工审核保持 `PENDING`，不会自动发布。`P28-01` 仍在执行：下一步是逐集人审；真实 Provider 仅在用户明确选择服务商并授权上传与计费后才可运行。
 
+P28-01 Web pip truststore 兼容修复（2026-09-18）：
+
+- 实机确认 `.web-python` 新链路已进入基础 Python 的 pip 安装阶段；当前失败来自 pip 26.2.1 的 macOS truststore 初始化，`platform.mac_ver()` 返回空版本导致 `ValueError`。
+- Web 依赖安装命令新增 `--use-deprecated=legacy-certs`，显式绕过 truststore 系统证书后端；不修改系统证书、不降级 Python、不重装 Homebrew。
+- 项目继续使用 arm64 `/opt/homebrew/bin/python3` + 私有 `.web-python/` + `PYTHONNOUSERSITE=1`；默认端口仍为 `18765`。
+- 本修复只影响 pip 下载时的证书后端选择，不改变 P28 人工审核状态，也不触发远程 Provider。
+
 P28-01 Web ensurepip 绕过修复（2026-09-18）：
 
 - 实机日志确认 Homebrew arm64 Python 3.14.7 已成功安装；当前失败点是 `python -m venv` 内部 `ensurepip` 返回非零，不再属于 Python 缺失或 CPU 架构问题。

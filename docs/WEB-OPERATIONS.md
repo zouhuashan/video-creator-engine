@@ -255,3 +255,19 @@ VIDEO_CREATOR_PYTHON=/opt/homebrew/bin/python3 ./start-web.command
 ```
 
 Apple Silicon 上该解释器必须实际报告 `arm64`。
+
+## 12. pip truststore 兼容
+
+在部分 macOS 26 + Homebrew Python 3.14 + pip 26.x 组合上，pip 的 truststore 后端可能无法读取系统版本，表现为：
+
+```text
+ValueError: invalid literal for int() with base 10: ''
+```
+
+Web 启动器安装项目私有依赖时固定增加：
+
+```text
+--use-deprecated=legacy-certs
+```
+
+这会让 pip 绕过 truststore 系统证书后端，继续使用兼容的证书校验路径；不会修改 macOS Keychain，也不会关闭 HTTPS 校验。
