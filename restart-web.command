@@ -28,7 +28,8 @@ run_preflight() {
   fi
 
   echo "RUN  Web preflight"
-  if ! PYTHONNOUSERSITE=1 PYTHONPATH="$BOOTSTRAP_DIR:$WEB_PYTHON_DIR:$ROOT" "$python" -s -m py_compile     "$ROOT/scripts/web_server.py"     "$ROOT/scripts/godot_rig_readiness.py"     "$ROOT/scripts/build_character_rig_v2.py"     "$ROOT/scripts/rig_v2_segment.py"; then
+  if ! PYTHONNOUSERSITE=1 PYTHONPATH="$BOOTSTRAP_DIR:$WEB_PYTHON_DIR:$ROOT" "$python" -s -m py_compile     "$ROOT/scripts/web_server.py"     "$ROOT/scripts/godot_rig_readiness.py"     "$ROOT/scripts/build_character_rig_v2.py"     "$ROOT/scripts/rig_v2_segment.py" \
+    "$ROOT/scripts/rig_v2_auto_draft.py"; then
     echo "FAIL Web preflight: Python syntax check failed"
     return 1
   fi
