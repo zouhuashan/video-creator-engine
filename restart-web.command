@@ -7,6 +7,39 @@ WEB_PORT="${VIDEO_CREATOR_WEB_PORT:-18765}"
 WEB_SCRIPT="$ROOT/scripts/web_server.py"
 PID_FILE="$ROOT/cache/web-server.pid"
 START_SCRIPT="$ROOT/start-web.command"
+WEB_PYTHON_DIR="$ROOT/.web-python"
+BOOTSTRAP_DIR="$ROOT/support/web-python"
+
+select_preflight_python() {
+  local candidate
+  for candidate in     "${VIDEO_CREATOR_PYTHON:-}"     "/opt/homebrew/bin/python3"     "$(command -v python3 2>/dev/null || true)"     "/usr/bin/python3"
+  do
+    [ -n "$candidate" ] && [ -x "$candidate" ] && { printf '%s' "$candidate"; return 0; }
+  done
+  return 1
+}
+
+run_preflight() {
+  local python
+  python="$(select_preflight_python || true)"
+  if [ -z "$python" ]; then
+    echo "FAIL Web preflight: Python 3 not found"
+    return 1
+  fi
+
+  echo "RUN  Web preflight"
+  if ! PYTHONNOUSERSITE=1 PYTHONPATH="$BOOTSTRAP_DIR:$WEB_PYTHON_DIR:$ROOT" "$python" -s -m py_compile     "$ROOT/scripts/web_server.py"     "$ROOT/scripts/godot_rig_readiness.py"     "$ROOT/scripts/build_character_rig_v2.py"     "$ROOT/scripts/rig_v2_segment.py"; then
+    echo "FAIL Web preflight: Python syntax check failed"
+    return 1
+  fi
+
+  if ! PYTHONNOUSERSITE=1 PYTHONPATH="$BOOTSTRAP_DIR:$WEB_PYTHON_DIR:$ROOT" "$python" -s -c     'import scripts.web_server; print("WEB_IMPORT_PASS")' >/dev/null; then
+    echo "FAIL Web preflight: web_server import failed"
+    return 1
+  fi
+
+  echo "PASS Web preflight"
+}
 
 is_project_web_pid() {
   local pid="$1"
@@ -50,6 +83,8 @@ find_project_pid() {
 
   return 1
 }
+
+run_preflight
 
 if web_pid="$(find_project_pid)"; then
   echo "RUN  Stop Web PID $web_pid"
