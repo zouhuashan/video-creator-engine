@@ -76,6 +76,21 @@ def validate_config(payload: Any) -> dict[str, Any]:
     if policy.get("publish_requires_human_confirmation") is not True:
         raise AnimationRouteConfigError("publishing must require human confirmation")
 
+    animatic_route_id = str(policy.get("animatic_route") or default_route_id)
+    animatic_route = route_by_id.get(animatic_route_id)
+    if animatic_route is None:
+        raise AnimationRouteConfigError("animatic_route must reference a configured route")
+    if animatic_route["remote"] or animatic_route["generative"] or not animatic_route["implemented"]:
+        raise AnimationRouteConfigError("animatic route must be implemented, local and non-generative")
+
+    production_target_id = str(policy.get("production_target_route") or "")
+    if production_target_id:
+        production_target = route_by_id.get(production_target_id)
+        if production_target is None:
+            raise AnimationRouteConfigError("production_target_route must reference a configured route")
+        if production_target["remote"] or production_target["generative"]:
+            raise AnimationRouteConfigError("production target must be local and non-generative")
+
     required_remote_gates = set(policy.get("remote_generation_requires") or [])
     if not {"upload_authorized", "confirm_billable"}.issubset(required_remote_gates):
         raise AnimationRouteConfigError("remote generation must require upload and billing confirmation")
@@ -91,6 +106,8 @@ def summary(payload: dict[str, Any]) -> dict[str, Any]:
     routes = payload["routes"]
     return {
         "default_route": payload["policy"]["default_route"],
+        "animatic_route": payload["policy"].get("animatic_route", payload["policy"]["default_route"]),
+        "production_target_route": payload["policy"].get("production_target_route"),
         "active_local_routes": [
             item["id"]
             for item in routes
