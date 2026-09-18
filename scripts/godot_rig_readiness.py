@@ -8,7 +8,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-RIG_MANIFEST_V1 = Path("visual-bible/character-rigs.json")\nRIG_MANIFEST_V2 = Path("visual-bible/character-rigs-v2.json")
+RIG_MANIFEST_V1 = Path("visual-bible/character-rigs.json")
+RIG_MANIFEST_V2 = Path("visual-bible/character-rigs-v2.json")
 
 PROFILE_REQUIREMENTS: dict[str, tuple[str, ...]] = {
     "LOCAL_CUTOUT_RIG": ("head", "torso", "lower"),
