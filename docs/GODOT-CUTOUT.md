@@ -209,3 +209,27 @@ support/godot/runtime/two_bone_ik.gd
 The IK runtime uses explicit static types for all numerical intermediates. In projects where `debug/gdscript/warnings/inference_on_variant` is configured as Error, expressions such as generic `abs()` or `clamp()` combined with inferred declarations can otherwise stop script loading. The solver therefore uses `absf`, `clampf`, and explicit `float` declarations.
 
 Runtime-created `Bone2D` nodes also receive an explicit rest transform immediately after parenting. Godot documents the default `Bone2D.rest` as an all-zero Transform2D, while Skeleton2D keeps and uses bone rest poses; leaving that default in a programmatically built smoke skeleton can lead to non-invertible-transform errors.
+
+## 新手引导与一键自动生成
+
+Rig V2 工作台默认启用新手模式。首次打开一个尚未有 Rig V2 分层的角色时，Web 会自动请求本地几何草稿，不上传图片。
+
+自动草稿基于：
+
+- 源 PNG 的透明像素边界；
+- V1 已验证的 head/torso 纵向比例；
+- 正面人物的肩/肘/腕几何比例；
+- 允许关节区域重叠的 Cutout 原则。
+
+每层会显示自动置信度。头部/躯干通常为 HIGH，手臂为 MEDIUM，手部与宽袖通常为 LOW，因此这些位置仍建议人工看一眼。
+
+工作台提供：
+
+```text
+新手模式：开/关
+重新自动草稿
+上一层 / 下一层
+一键自动生成 Rig V2
+```
+
+“一键自动生成 Rig V2”会直接写入本地 Rig V2 资产并计算 `GODOT_UPPER_BODY_IK` readiness，但生成结果的人工审核状态始终为 `PENDING`。它不会自动批准资产，也不会触发发布。
