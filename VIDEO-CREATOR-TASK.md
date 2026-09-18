@@ -2818,6 +2818,14 @@ P28-01 Web 运维脚本增量（2026-09-18）：
 - 支持 `VIDEO_CREATOR_WEB_HOST`、`VIDEO_CREATOR_WEB_PORT`、`VIDEO_CREATOR_PYTHON` 临时覆盖；新增 `docs/WEB-OPERATIONS.md` 并更新 README 的推荐启动方式。
 - 本增量不启动 ArcReel、不调用远程 AI、不改变 P28 人工审核状态；完成此运维入口后再继续非生成式动画路线实施。
 
+P28-01 Rig V2 编辑器全屏布局修复（2026-09-18）：
+
+- 实机截图确认 Rig V2 编辑器被 `.character-asset-gallery` 的 auto-fill Grid 当成单个约 190px 卡片布局，导致控制区严重挤压、原图 Canvas 几乎不可操作。
+- Web 编辑器改为固定全屏工作台：viewport 内悬浮，左侧大 Canvas、右侧 330px 控制栏，页面背景滚动锁定；关闭后恢复角色列表。
+- Canvas 区新增棋盘背景、独立滚动、适配画布、放大、缩小；点击坐标仍按 Canvas 内部真实分辨率换算，不因 CSS 缩放改变 polygon/pivot 数据。
+- 小屏宽度 <980px 自动切成“上方画布 + 下方控制栏”，保证笔记本/窄窗口也能编辑。
+- 本修复仅改变 Web 编辑体验，不改变 Rig V2 数据结构、IK 算法、P28 人审状态。
+
 P28-01 Web restart 预检与 Rig readiness 语法修复（2026-09-18）：
 
 - 实机 `./restart-web.command` 停止旧 Web 后启动失败，根因是 `scripts/godot_rig_readiness.py` 第 11 行把换行误写成字面量 `\\n`，导致 Python `SyntaxError: unexpected character after line continuation character`。
