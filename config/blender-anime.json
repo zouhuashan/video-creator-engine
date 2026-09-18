@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "engine": "blender",
+  "route": "BLENDER_ANIME",
+  "production_channel": "5.2 LTS",
+  "minimum_version": "5.2.0",
+  "maximum_exclusive": "5.3.0",
+  "stable_only": true,
+  "architecture": "arm64",
+  "install": {
+    "macos_homebrew_command": [
+      "/usr/bin/arch",
+      "-arm64",
+      "/opt/homebrew/bin/brew",
+      "install",
+      "--cask",
+      "blender@lts"
+    ],
+    "binary_candidates": [
+      "/opt/homebrew/bin/blender",
+      "/Applications/Blender.app/Contents/MacOS/Blender",
+      "blender"
+    ]
+  },
+  "render": {
+    "engine": "BLENDER_EEVEE_NEXT",
+    "resolution": [
+      1080,
+      1920
+    ],
+    "fps": 24,
+    "style": "toon_npr_guofeng",
+    "line_art": true,
+    "grease_pencil_fx": true,
+    "camera_depth": true,
+    "secondary_motion": true
+  },
+  "first_demo": {
+    "character_id": "CHR-JHY-BAIHUA",
+    "duration_seconds": 6,
+    "shot": "raise_hand_look_flower_camera_push",
+    "goal": "validate final-frame guofeng anime quality before scaling to more characters"
+  },
+  "policy": {
+    "remote": false,
+    "generative": false,
+    "external_cost_usd": 0,
+    "publish_allowed": false,
+    "human_visual_review_required": true
+  }
+}
