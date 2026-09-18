@@ -1419,7 +1419,7 @@ def main() -> int:
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--host", default="127.0.0.1")
-    parser.add_argument("--port", type=int, default=8765)
+    parser.add_argument("--port", type=int, default=18765)
     args = parser.parse_args()
     server = ThreadingHTTPServer((args.host, args.port), VideoCreatorHandler)
     print(f"VideoCreator web console: http://{args.host}:{args.port}")
