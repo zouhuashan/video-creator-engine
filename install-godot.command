@@ -23,7 +23,7 @@ version_ge() {
 
 find_godot() {
   local candidate
-  for candidate in     "$(command -v godot 2>/dev/null || true)"     "/opt/homebrew/bin/godot"     "/Applications/Godot.app/Contents/MacOS/Godot"
+  for candidate in     "/opt/homebrew/bin/godot"     "/Applications/Godot.app/Contents/MacOS/Godot"     "$(command -v godot 2>/dev/null || true)"
   do
     [ -n "$candidate" ] && [ -x "$candidate" ] && { printf '%s' "$candidate"; return 0; }
   done
@@ -38,8 +38,8 @@ if [ -z "$godot" ]; then
     echo "FAIL Homebrew not found"
     exit 1
   fi
-  echo "RUN  Install stable Godot"
-  if ! HOMEBREW_NO_ENV_HINTS=1 "$brew_bin" install godot >>"$LOG" 2>&1; then
+  echo "RUN  Install stable Godot (arm64 cask)"
+  if ! HOMEBREW_NO_ENV_HINTS=1 /usr/bin/arch -arm64 "$brew_bin" install --cask godot >>"$LOG" 2>&1; then
     echo "FAIL Godot install failed"
     tail -n 60 "$LOG" 2>/dev/null || true
     exit 1
@@ -52,7 +52,7 @@ if [ -z "$godot" ]; then
   exit 1
 fi
 
-raw_version="$("$godot" --version 2>&1 | head -n1)"
+raw_version="$(/usr/bin/arch -arm64 "$godot" --version 2>&1 | head -n1)"
 if printf '%s' "$raw_version" | grep -Eiq '(dev|alpha|beta|rc)'; then
   echo "FAIL Pre-release Godot is not allowed for production: $raw_version"
   exit 1
@@ -64,7 +64,7 @@ if [ -z "$version" ] || ! version_ge "$version" "$MIN_VERSION"; then
 fi
 
 echo "RUN  Godot smoke test"
-output="$("$godot" --headless --path "$SMOKE_DIR" --scene res://main.tscn --quit-after 10 2>&1 || true)"
+output="$(/usr/bin/arch -arm64 "$godot" --headless --path "$SMOKE_DIR" --scene res://main.tscn --quit-after 10 2>&1 || true)"
 printf '%s\n' "$output" >>"$LOG"
 if ! printf '%s' "$output" | grep -q "VIDEO_CREATOR_GODOT_SMOKE_PASS"; then
   echo "FAIL Godot smoke test"
