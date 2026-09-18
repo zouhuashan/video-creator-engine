@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 WEB_HOST="${VIDEO_CREATOR_WEB_HOST:-127.0.0.1}"
-WEB_PORT="${VIDEO_CREATOR_WEB_PORT:-8765}"
+WEB_PORT="${VIDEO_CREATOR_WEB_PORT:-18765}"
 WEB_SCRIPT="$ROOT/scripts/web_server.py"
 PID_FILE="$ROOT/cache/web-server.pid"
 START_SCRIPT="$ROOT/start-web.command"
