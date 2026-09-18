@@ -432,7 +432,7 @@ Restart it safely with:
 ./restart-web.command
 ```
 
-The scripts keep a PID under `cache/`, write background logs to `logs/web-server.log`, prevent duplicate instances, and refuse to kill unrelated services that happen to use the same port. See [docs/WEB-OPERATIONS.md](docs/WEB-OPERATIONS.md) for operations and environment overrides.
+The scripts keep a PID under `cache/`, write background logs to `logs/web-server.log`, prevent duplicate instances, and refuse to kill unrelated services that happen to use the same port. The launcher also creates an isolated `.venv-web` and installs `requirements-web.txt`, preventing user-site Python packages with a mismatched CPU architecture from breaking the console. See [docs/WEB-OPERATIONS.md](docs/WEB-OPERATIONS.md) for operations and environment overrides.
 
 The direct development command remains available:
 

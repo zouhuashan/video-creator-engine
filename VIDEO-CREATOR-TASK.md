@@ -2753,6 +2753,15 @@ P28-01 前五集本地试播母版与 Web 人审增量（2026-09-18）：
 - 已创建可恢复快照 `SNP-20260918T004726396Z-P28-FIVE-EPISODE-LOCAL-MASTERS`，锁定当前五集母版清单；项目首页已改为正确展示五集试播状态。
 - 当前五集母版生成状态为 `COMPLETED`、技术 QC 为 `PASS`，人工审核保持 `PENDING`，不会自动发布。`P28-01` 仍在执行：下一步是逐集人审；真实 Provider 仅在用户明确选择服务商并授权上传与计费后才可运行。
 
+P28-01 Web Python 架构隔离修复（2026-09-18）：
+
+- 实机启动失败定位为 Python/Pillow 架构混用：Web 进程为 x86_64，而用户目录中的 Pillow `_imaging` 为 arm64，导致 `ImportError: incompatible architecture`。
+- `start-web.command` 改为项目级 `.venv-web` 独立环境；Apple Silicon 优先选择原生 arm64 Python，并明确拒绝 x86_64 基础 Python，避免继承 `~/Library/Python/.../site-packages` 历史污染。
+- 新增 `requirements-web.txt`，Web 首次启动自动安装 Pillow；依赖文件哈希写入 venv，仅在 requirements 变化时重装。
+- 启动前执行 Python 架构与 Pillow import 自检；错误架构的既有 `.venv-web` 会自动删除重建；Web 运行时强制 `PYTHONNOUSERSITE=1`。
+- 新增 `logs/web-env.log` 用于环境安装诊断，并将 `.venv-web/` 加入 Git 忽略；默认端口继续保持 `18765`。
+- 本修复只解决本机 Web 运行环境，不改变 P28 人工审核状态，也不触发远程 Provider。
+
 P28-01 Web 默认端口迁移（2026-09-18）：
 
 - 本机端口 `8765` 已被其他服务占用，VideoCreator Web Console 默认端口统一迁移到 `18765`。

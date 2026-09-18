@@ -171,3 +171,32 @@ single-instance protection
 - 改变 P28 人工审核状态。
 
 Web 中涉及远程 Provider 的动作仍受现有上传授权、计费确认和人工发布门控制。
+
+## 10. Python / Pillow 架构隔离
+
+Web 启动器不会再直接使用用户目录中的 Python 包。它会在项目根目录创建：
+
+```text
+.venv-web/
+```
+
+Apple Silicon Mac 会优先选择原生 arm64 Python（优先 `/opt/homebrew/bin/python3`），并在独立环境中安装 `requirements-web.txt`。因此即使 `~/Library/Python/.../site-packages` 中存在旧的 x86_64/arm64 混装 Pillow，也不会再污染 Web 进程。
+
+首次启动可能出现：
+
+```text
+RUN  Create isolated Web Python environment
+RUN  Install Web Python dependencies
+```
+
+之后依赖文件没有变化时不会重复安装。
+
+环境安装日志：
+
+```text
+logs/web-env.log
+```
+
+如果曾经手工创建过错误架构的 `.venv-web`，启动器在 Apple Silicon 上检测到非 arm64 后会自动删除并重建。
+
+`VIDEO_CREATOR_PYTHON` 现在表示“创建 Web venv 使用的基础 Python”。Apple Silicon 上显式指定的 Python 也必须是 arm64，否则启动器直接失败，避免再次出现 `_imaging ... incompatible architecture`。
