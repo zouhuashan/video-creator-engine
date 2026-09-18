@@ -22,6 +22,59 @@ from scripts.novel_anime_repository import NovelAnimeRepository
 from scripts.render_character_rig_preview import render
 
 
+EPISODE_REVIEW_CHECKS = ("story", "picture", "audio", "subtitles")
+
+
+def _pending_human_review() -> dict[str, Any]:
+    return {
+        "required": True,
+        "status": "PENDING",
+        "checks": {key: "PENDING" for key in EPISODE_REVIEW_CHECKS},
+        "reviewed_at": None,
+        "reviewed_by": None,
+        "note": "",
+    }
+
+
+def _aggregate_human_review(episodes: list[dict[str, Any]]) -> dict[str, Any]:
+    reviews = [item.get("human_review") for item in episodes if isinstance(item.get("human_review"), dict)]
+    statuses = [str(review.get("status") or "PENDING") for review in reviews]
+    if episodes and len(reviews) == len(episodes) and all(status == "APPROVED" for status in statuses):
+        status = "APPROVED"
+    elif any(status == "CHANGES_REQUESTED" for status in statuses):
+        status = "CHANGES_REQUESTED"
+    else:
+        status = "PENDING"
+    reviewers = sorted({str(review.get("reviewed_by")).strip() for review in reviews if review.get("reviewed_by")})
+    reviewed_times = sorted(str(review.get("reviewed_at")) for review in reviews if review.get("reviewed_at"))
+    return {
+        "required": True,
+        "status": status,
+        "reviewed_at": reviewed_times[-1] if status == "APPROVED" and reviewed_times else None,
+        "reviewed_by": ", ".join(reviewers) if status == "APPROVED" and reviewers else None,
+    }
+
+
+def _merge_episode_results(
+    plan_episode_ids: list[str],
+    rendered_results: list[dict[str, Any]],
+    existing_manifest: dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    existing = {
+        str(item.get("episode_id")): item
+        for item in (existing_manifest or {}).get("episodes", [])
+        if isinstance(item, dict) and item.get("episode_id")
+    }
+    rendered = {str(item["episode_id"]): item for item in rendered_results}
+    merged: list[dict[str, Any]] = []
+    for episode_id in plan_episode_ids:
+        if episode_id in rendered:
+            merged.append(rendered[episode_id])
+        elif episode_id in existing:
+            merged.append(existing[episode_id])
+    return merged
+
+
 def _shot_id(unit_id: str) -> str:
     return f"SHOT-{unit_id.removeprefix('UNIT-')}"
 
@@ -171,10 +224,17 @@ def assemble(project: Path, episode_ids: set[str] | None = None) -> dict[str, An
     project = project.expanduser().resolve(); plan = build_plan(project); repository = NovelAnimeRepository(project)
     segment_dir = project / "renders" / "episode-segments"; episode_dir = project / "renders" / "episodes"
     segment_dir.mkdir(parents=True, exist_ok=True); episode_dir.mkdir(parents=True, exist_ok=True)
-    results = []
+    manifest_path = episode_dir / "episode-masters.json"
+    existing_manifest = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.is_file() else None
+    plan_episode_ids = [str(item["episode_id"]) for item in plan["episodes"]]
+    requested = set(plan_episode_ids) if episode_ids is None else set(episode_ids)
+    unknown = sorted(requested.difference(plan_episode_ids))
+    if unknown:
+        raise ValueError(f"unknown episode ids: {', '.join(unknown)}")
+    rendered_results = []
     for episode in plan["episodes"]:
         episode_id = str(episode["episode_id"])
-        if episode_ids and episode_id not in episode_ids:
+        if episode_id not in requested:
             continue
         clips: list[Path] = []; srt: list[str] = []; cursor = 0.0; source_ids: list[str] = [episode_id]
         output_segments = []
@@ -210,9 +270,13 @@ def assemble(project: Path, episode_ids: set[str] | None = None) -> dict[str, An
         source_ids = list(dict.fromkeys(source_ids))
         subtitle_asset = repository.register_asset(f"AST-SUBTITLE-JHY-EPISODE-{episode_id}-LOCAL-V1", "subtitle", subtitle_path, metadata={"title": f"{episode_id} 本地试播字幕", "provider": "local_episode_assembly"}, source_entity_ids=source_ids)
         video_asset = repository.register_asset(f"AST-VIDEO-JHY-EPISODE-{episode_id}-LOCAL-V1", "video", final, metadata={"title": f"{episode_id} 本地动态漫试播母版", "provider": "local_episode_assembly", "duration_seconds": round(cursor, 3), "subtitle_asset_id": subtitle_asset["asset_id"]}, source_entity_ids=source_ids + [subtitle_asset["asset_id"]])
-        results.append({"episode_id": episode_id, "output": final.relative_to(project).as_posix(), "clean_output": clean.relative_to(project).as_posix(), "subtitle": subtitle_path.relative_to(project).as_posix(), "video_asset_id": video_asset["asset_id"], "subtitle_asset_id": subtitle_asset["asset_id"], "duration_seconds": round(cursor, 3), "segment_count": len(output_segments), "segments": output_segments, "status": "COMPLETED", "human_review": {"required": True, "status": "PENDING", "reviewed_at": None, "reviewed_by": None}})
-    manifest = {"schema_version": 1, "project_id": project.name, "status": "COMPLETED" if len(results) == 5 else "PARTIAL", "episode_count": len(results), "episodes": results, "human_review": {"required": True, "status": "PENDING", "reviewed_at": None, "reviewed_by": None}}
-    manifest_path = episode_dir / "episode-masters.json"; manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        rendered_results.append({"episode_id": episode_id, "output": final.relative_to(project).as_posix(), "clean_output": clean.relative_to(project).as_posix(), "subtitle": subtitle_path.relative_to(project).as_posix(), "video_asset_id": video_asset["asset_id"], "subtitle_asset_id": subtitle_asset["asset_id"], "duration_seconds": round(cursor, 3), "segment_count": len(output_segments), "segments": output_segments, "status": "COMPLETED", "human_review": _pending_human_review()})
+    results = _merge_episode_results(plan_episode_ids, rendered_results, existing_manifest)
+    complete = len(results) == len(plan_episode_ids) and all(item.get("status") == "COMPLETED" for item in results)
+    manifest = {"schema_version": 1, "project_id": project.name, "status": "COMPLETED" if complete else "PARTIAL", "episode_count": len(results), "episodes": results, "human_review": _aggregate_human_review(results)}
+    temporary = manifest_path.with_suffix(".json.tmp")
+    temporary.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    temporary.replace(manifest_path)
     return manifest
 
 
