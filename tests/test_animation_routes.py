@@ -18,6 +18,7 @@ class AnimationRouteConfigTests(unittest.TestCase):
         self.assertFalse(route["remote"])
         self.assertFalse(route["generative"])
         self.assertEqual(summary(payload)["remote_generation_default_enabled"], False)
+        self.assertEqual(payload["policy"]["animatic_route"], "LOCAL_CUTOUT_RIG")
 
     def test_remote_ai_cannot_become_active_default(self):
         payload = load_config()
@@ -44,6 +45,24 @@ class AnimationRouteConfigTests(unittest.TestCase):
         self.assertEqual(route["required_rig_profile"], "GODOT_RIG_V2")
         self.assertEqual(route["visual_quality_gate"]["status"], "NOT_PASSED")
         self.assertIn("mesh_deformation", route["visual_quality_gate"]["requires"])
+
+
+    def test_blender_anime_is_final_image_target(self):
+        payload = load_config()
+        self.assertEqual(payload["policy"]["production_target_route"], "BLENDER_ANIME")
+        route = next(item for item in payload["routes"] if item["id"] == "BLENDER_ANIME")
+        self.assertFalse(route["implemented"])
+        self.assertFalse(route["remote"])
+        self.assertFalse(route["generative"])
+        self.assertEqual(route["production_channel"], "5.2 LTS")
+        self.assertEqual(route["role"], "FINAL_IMAGE_TARGET")
+        self.assertEqual(route["visual_quality_gate"]["status"], "NOT_PASSED")
+
+    def test_godot_is_deferred_experiment(self):
+        payload = load_config()
+        route = next(item for item in payload["routes"] if item["id"] == "GODOT_CUTOUT")
+        self.assertEqual(route["status"], "EXPERIMENTAL_DEFERRED")
+        self.assertEqual(route["role"], "EXPERIMENTAL_ONLY")
 
 
 if __name__ == "__main__":
