@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-RIG_MANIFEST = Path("visual-bible/character-rigs.json")
+RIG_MANIFEST_V1 = Path("visual-bible/character-rigs.json")\nRIG_MANIFEST_V2 = Path("visual-bible/character-rigs-v2.json")
 
 PROFILE_REQUIREMENTS: dict[str, tuple[str, ...]] = {
     "LOCAL_CUTOUT_RIG": ("head", "torso", "lower"),
@@ -65,15 +65,57 @@ def assess_rig(rig: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def load_manifest(project_dir: Path) -> dict[str, Any]:
-    path = Path(project_dir).expanduser().resolve() / RIG_MANIFEST
+def _read_manifest(path: Path) -> dict[str, Any]:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
         raise GodotRigReadinessError(f"cannot read character rigs: {error}") from error
     if not isinstance(payload, dict) or not isinstance(payload.get("rigs"), list):
-        raise GodotRigReadinessError("character rig manifest is invalid")
+        raise GodotRigReadinessError(f"character rig manifest is invalid: {path.name}")
     return payload
+
+
+def load_manifest(project_dir: Path) -> dict[str, Any]:
+    project_dir = Path(project_dir).expanduser().resolve()
+    manifests: list[tuple[int, Path, dict[str, Any]]] = []
+    for priority, relative in ((1, RIG_MANIFEST_V1), (2, RIG_MANIFEST_V2)):
+        path = project_dir / relative
+        if path.is_file():
+            manifests.append((priority, path, _read_manifest(path)))
+    if not manifests:
+        raise GodotRigReadinessError("cannot read character rigs: no V1 or V2 manifest found")
+
+    selected: dict[str, dict[str, Any]] = {}
+    sources: dict[str, str] = {}
+    project_id = project_dir.name
+    for priority, path, payload in manifests:
+        project_id = str(payload.get("project_id") or project_id)
+        for rig in payload["rigs"]:
+            if not isinstance(rig, dict):
+                continue
+            key = str(rig.get("character_id") or rig.get("id") or "")
+            if not key:
+                continue
+            current = selected.get(key)
+            current_priority = int(current.get("_manifest_priority", 0)) if current else 0
+            if priority >= current_priority:
+                item = dict(rig)
+                item["_manifest_priority"] = priority
+                item["_source_manifest"] = path.relative_to(project_dir).as_posix()
+                selected[key] = item
+                sources[key] = path.relative_to(project_dir).as_posix()
+
+    rigs = []
+    for item in selected.values():
+        normalized = dict(item)
+        normalized.pop("_manifest_priority", None)
+        rigs.append(normalized)
+    return {
+        "schema_version": "merged",
+        "project_id": project_id,
+        "rigs": rigs,
+        "source_manifests": sorted(set(sources.values())),
+    }
 
 
 def summarize_project(project_dir: Path, rig_id: str | None = None) -> dict[str, Any]:
