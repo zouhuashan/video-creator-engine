@@ -437,10 +437,10 @@ The scripts keep a PID under `cache/`, write background logs to `logs/web-server
 The direct development command remains available:
 
 ```bash
-python3 scripts/web_server.py --port 8765
+python3 scripts/web_server.py --port 18765
 ```
 
-Open `http://127.0.0.1:8765`. The console lists projects and local reference frames, shows which Provider keys are configured, and the **生成 Provider** menu lets you enter a key for the current server session. Session keys are held in memory only; use `OPENAI_API_KEY`, `RUNWAY_API_KEY`, or `FAL_KEY` when persistent local configuration is preferred. The workspace has both single-shot generation and **生成完整本地分镜** (three scenes plus local voice and captions), plus clickable cards for the five rendered pilot episodes; remote generation still requires an explicit confirmation, and the console previews the generated MP4 without publishing content.
+Open `http://127.0.0.1:18765`. The console lists projects and local reference frames, shows which Provider keys are configured, and the **生成 Provider** menu lets you enter a key for the current server session. Session keys are held in memory only; use `OPENAI_API_KEY`, `RUNWAY_API_KEY`, or `FAL_KEY` when persistent local configuration is preferred. The workspace has both single-shot generation and **生成完整本地分镜** (three scenes plus local voice and captions), plus clickable cards for the five rendered pilot episodes; remote generation still requires an explicit confirmation, and the console previews the generated MP4 without publishing content.
 
 ## video-use editing core
 
