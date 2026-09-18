@@ -233,3 +233,30 @@ Rig V2 工作台默认启用新手模式。首次打开一个尚未有 Rig V2 �
 ```
 
 “一键自动生成 Rig V2”会直接写入本地 Rig V2 资产并计算 `GODOT_UPPER_BODY_IK` readiness，但生成结果的人工审核状态始终为 `PENDING`。它不会自动批准资产，也不会触发发布。
+
+## 2.5D 动作预览
+
+Rig V2 编辑器是资产对齐视图，静止时会故意把所有层还原到源图位置，因此不能用该页面的静态观感判断最终动画是否“平”。
+
+生成 Rig V2 后，可以在同一工作台点击：
+
+```text
+生成 2.5D 动作预览
+```
+
+后端使用 Godot Movie Maker 离线渲染短视频；Godot 官方 CLI 支持 `--write-movie`、`--fixed-fps` 和 `--quit-after`，因此预览不需要实时录屏。输出再经 FFmpeg 转为 Web 可播放的 H.264 MP4。
+
+当前首版预览包含层级骨骼动作、呼吸、头部微动、抬手/停留/回收、层间视差、次级迟滞、轻微 squash 和接触阴影。它用于判断是否明显降低纸片感，但仍不是最终生产门。
+
+Godot 路线真正进入生产前还必须补齐并人工通过：
+
+```text
+articulated motion
+layer parallax
+secondary motion
+contact shadow
+mesh deformation
+human visual review
+```
+
+如果完成 mesh deformation 后仍达不到需要的空间感，代表镜头应升级到 Blender Grease Pencil / 2.5D 路线，而不是无限继续修 Cutout。
