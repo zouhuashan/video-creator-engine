@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "demo_id": "DEMO-BLENDER-BAIHUA-001",
+  "character_id": "CHR-JHY-BAIHUA",
+  "character_name": "百花仙子",
+  "duration_seconds": 6,
+  "fps": 24,
+  "resolution": [
+    1080,
+    1920
+  ],
+  "purpose": "quality_route_validation",
+  "shot": {
+    "start": "neutral standing pose with subtle breathing",
+    "action": "raise one hand and look toward the hand",
+    "hold": "brief elegant hold with sleeve and hair secondary motion",
+    "end": "soft return while camera keeps a gentle push-in"
+  },
+  "visual_targets": [
+    "clear 3D body volume",
+    "anime/toon NPR shading",
+    "clean line art or Grease Pencil outline",
+    "Chinese-inspired costume layering",
+    "hair and sleeve secondary motion",
+    "foreground petals and atmospheric depth",
+    "camera push-in with real perspective",
+    "foreground-midground-background separation"
+  ],
+  "required_inputs": {
+    "reference_video_or_frames": "PENDING_USER_UPLOAD",
+    "character_model": "PENDING",
+    "character_armature": "PENDING",
+    "toon_material": "PENDING",
+    "hair_cloth_secondary": "PENDING",
+    "scene_or_stage": "PENDING"
+  },
+  "human_visual_review": "PENDING",
+  "publish_allowed": false
+}
