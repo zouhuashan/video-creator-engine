@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 SMOKE_DIR="$ROOT/support/godot/smoke"
+IK_SMOKE_DIR="$ROOT/support/godot/ik-smoke"
 
 find_godot() {
   local candidate
@@ -30,6 +31,15 @@ output="$(/usr/bin/arch -arm64 "$godot" --headless --path "$SMOKE_DIR" --scene r
 if ! printf '%s' "$output" | grep -q "VIDEO_CREATOR_GODOT_SMOKE_PASS"; then
   echo "FAIL Godot smoke test"
   printf '%s\n' "$output" | tail -n 40
+  exit 1
+fi
+
+echo "RUN  Godot TwoBoneIK smoke"
+ik_output="$(/usr/bin/arch -arm64 "$godot" --headless --path "$IK_SMOKE_DIR" --scene res://main.tscn --quit-after 10 2>&1 || true)"
+
+if ! printf '%s' "$ik_output" | grep -q "VIDEO_CREATOR_GODOT_IK_PASS"; then
+  echo "FAIL Godot TwoBoneIK smoke"
+  printf '%s\n' "$ik_output" | tail -n 60
   exit 1
 fi
 
