@@ -2,7 +2,7 @@
 
 > 适用项目：VideoCreator Engine  
 > 默认服务：`scripts/web_server.py`  
-> 默认地址：`http://127.0.0.1:8765`
+> 默认地址：`http://127.0.0.1:18765`
 
 ## 1. 推荐用法
 
@@ -16,7 +16,7 @@
 
 ```text
 PASS Web started
-URL  http://127.0.0.1:8765
+URL  http://127.0.0.1:18765
 PID  <pid>
 LOG  <project>/logs/web-server.log
 ```
@@ -61,7 +61,7 @@ cache/web-server.pid
 
 如果 Web 已经正常运行，脚本不会再启动第二份进程，而是直接返回当前 URL、PID 和日志位置。
 
-如果默认端口 `8765` 被其他程序占用，脚本会失败并明确提示，不会自动杀掉占用端口的其他服务。
+如果默认端口 `18765` 被其他程序占用，脚本会失败并明确提示，不会自动杀掉占用端口的其他服务。
 
 ## 4. 修改端口
 
@@ -81,7 +81,7 @@ VIDEO_CREATOR_WEB_PORT=8877 ./restart-web.command
 
 ```text
 VIDEO_CREATOR_WEB_HOST=127.0.0.1
-VIDEO_CREATOR_WEB_PORT=8765
+VIDEO_CREATOR_WEB_PORT=18765
 VIDEO_CREATOR_PYTHON=python3
 ```
 
@@ -110,13 +110,13 @@ tail -n 100 logs/web-server.log
 浏览器打开：
 
 ```text
-http://127.0.0.1:8765
+http://127.0.0.1:18765
 ```
 
 也可以：
 
 ```bash
-curl -I http://127.0.0.1:8765
+curl -I http://127.0.0.1:18765
 ```
 
 脚本启动时本身会使用 HTTP 请求做健康检查，因此出现 `PASS Web started` 后才表示 Web 已经可以访问。
