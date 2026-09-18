@@ -206,6 +206,6 @@ support/godot/runtime/two_bone_ik.gd
 
 ### Godot 4.7.2 strict GDScript
 
-The IK runtime uses explicit static types for all numerical intermediates. In projects where `debug/gdscript/warnings/inference_on_variant` is configured as Error, expressions such as generic `abs()` or `clamp()` combined with inferred declarations can otherwise stop script loading. The solver therefore uses `absf`, `clampf`, and explicit `float` declarations. citeturn821431search1turn821431search7
+The IK runtime uses explicit static types for all numerical intermediates. In projects where `debug/gdscript/warnings/inference_on_variant` is configured as Error, expressions such as generic `abs()` or `clamp()` combined with inferred declarations can otherwise stop script loading. The solver therefore uses `absf`, `clampf`, and explicit `float` declarations.
 
-Runtime-created `Bone2D` nodes also receive an explicit rest transform immediately after parenting. Godot documents the default `Bone2D.rest` as an all-zero Transform2D, while Skeleton2D keeps and uses bone rest poses; leaving that default in a programmatically built smoke skeleton can lead to non-invertible-transform errors. citeturn892935search0turn892935search1
+Runtime-created `Bone2D` nodes also receive an explicit rest transform immediately after parenting. Godot documents the default `Bone2D.rest` as an all-zero Transform2D, while Skeleton2D keeps and uses bone rest poses; leaving that default in a programmatically built smoke skeleton can lead to non-invertible-transform errors.
