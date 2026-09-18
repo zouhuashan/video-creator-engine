@@ -6,11 +6,18 @@
   "allow_newer_stable": true,
   "reject_prerelease": true,
   "install": {
-    "macos_homebrew_command": ["brew", "install", "godot"],
+    "macos_homebrew_command": [
+      "/usr/bin/arch",
+      "-arm64",
+      "/opt/homebrew/bin/brew",
+      "install",
+      "--cask",
+      "godot"
+    ],
     "binary_candidates": [
-      "godot",
       "/opt/homebrew/bin/godot",
-      "/Applications/Godot.app/Contents/MacOS/Godot"
+      "/Applications/Godot.app/Contents/MacOS/Godot",
+      "godot"
     ]
   },
   "smoke_project": "support/godot/smoke",
