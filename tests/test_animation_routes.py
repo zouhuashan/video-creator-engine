@@ -34,5 +34,15 @@ class AnimationRouteConfigTests(unittest.TestCase):
             validate_config(broken)
 
 
+    def test_godot_route_requires_stable_rig_v2_foundation(self):
+        payload = load_config()
+        route = next(item for item in payload["routes"] if item["id"] == "GODOT_CUTOUT")
+        self.assertFalse(route["implemented"])
+        self.assertEqual(route["implementation_stage"], "FOUNDATION_READY")
+        self.assertEqual(route["minimum_version"], "4.7.2")
+        self.assertTrue(route["stable_only"])
+        self.assertEqual(route["required_rig_profile"], "GODOT_RIG_V2")
+
+
 if __name__ == "__main__":
     unittest.main()
