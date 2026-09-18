@@ -483,7 +483,7 @@ async function openRigV2Editor(projectId, characterId) {
       button.disabled = true;
       button.textContent = '正在生成草稿…';
       try {
-        await loadAutoDraft(false);
+        await loadAutoDraft(true);
       } catch (error) {
         log(error.message, true);
       } finally {
