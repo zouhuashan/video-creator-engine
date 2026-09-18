@@ -9,7 +9,7 @@ from mathutils import Vector
 
 def args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--output", required=True)
+    parser.add_argument("--frames-dir", required=True)
     parser.add_argument("--blend-output")
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
     return parser.parse_args(argv)
@@ -142,11 +142,10 @@ def main():
     scene.render.fps = 24
     scene.frame_start = 1
     scene.frame_end = 144
-    scene.render.image_settings.file_format = "FFMPEG"
-    scene.render.ffmpeg.format = "MPEG4"
-    scene.render.ffmpeg.codec = "H264"
-    scene.render.ffmpeg.constant_rate_factor = "MEDIUM"
-    scene.render.ffmpeg.ffmpeg_preset = "GOOD"
+    scene.render.image_settings.file_format = "PNG"
+    scene.render.image_settings.color_mode = "RGB"
+    scene.render.image_settings.color_depth = "8"
+    scene.render.image_settings.compression = 35
     scene.render.film_transparent = False
     scene.world.color = (0.055,0.035,0.025)
 
@@ -196,13 +195,20 @@ def main():
     cam.location = (0.08,-6.75,1.98)
     cam.keyframe_insert(data_path="location", frame=144)
 
-    output = Path(a.output).expanduser().resolve()
-    output.parent.mkdir(parents=True, exist_ok=True)
-    scene.render.filepath = str(output)
-    bpy.ops.wm.save_as_mainfile(filepath=str(Path(a.blend_output).expanduser().resolve())) if a.blend_output else None
+    frames_dir = Path(a.frames_dir).expanduser().resolve()
+    frames_dir.mkdir(parents=True, exist_ok=True)
+    scene.render.filepath = str(frames_dir / "frame_")
+    if a.blend_output:
+        blend_output = Path(a.blend_output).expanduser().resolve()
+        blend_output.parent.mkdir(parents=True, exist_ok=True)
+        bpy.ops.wm.save_as_mainfile(filepath=str(blend_output))
     bpy.ops.render.render(animation=True)
 
-    print(f"VIDEO_CREATOR_REFERENCE_BLOCKOUT_PASS output={output}")
+    first_frame = frames_dir / "frame_0001.png"
+    last_frame = frames_dir / "frame_0144.png"
+    if not first_frame.is_file() or not last_frame.is_file():
+        raise RuntimeError("expected PNG frame sequence was not created")
+    print(f"VIDEO_CREATOR_REFERENCE_BLOCKOUT_FRAMES_PASS frames_dir={frames_dir}")
 
 
 if __name__ == "__main__":
