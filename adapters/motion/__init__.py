@@ -9,6 +9,14 @@ from .godot_cutout import (
     run_smoke,
     smoke_command,
 )
+from .blender_anime import (
+    BlenderAnimeError,
+    BlenderVersion,
+    discover_binary as discover_blender_binary,
+    inspect_environment as inspect_blender_environment,
+    parse_version as parse_blender_version,
+    smoke_command as blender_smoke_command,
+)
 
 __all__ = [
     "GodotCutoutError",
@@ -18,6 +26,10 @@ __all__ = [
     "parse_version",
     "run_smoke",
     "smoke_command",
+    "BlenderAnimeError",
+    "BlenderVersion",
+    "discover_blender_binary",
+    "inspect_blender_environment",
+    "parse_blender_version",
+    "blender_smoke_command",
 ]
-
-from .blender_anime import (\n    BlenderAnimeError,\n    BlenderVersion,\n    discover_binary as discover_blender_binary,\n    inspect_environment as inspect_blender_environment,\n    parse_version as parse_blender_version,\n    smoke_command as blender_smoke_command,\n)\n\n__all__ += [\n    "BlenderAnimeError",\n    "BlenderVersion",\n    "discover_blender_binary",\n    "inspect_blender_environment",\n    "parse_blender_version",\n    "blender_smoke_command",\n]\n
