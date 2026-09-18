@@ -196,12 +196,6 @@ def main():
     cam.location = (0.08,-6.75,1.98)
     cam.keyframe_insert(data_path="location", frame=144)
 
-    # keep interpolation soft
-    for action in bpy.data.actions:
-        for fcurve in action.fcurves:
-            for point in fcurve.keyframe_points:
-                point.interpolation = "BEZIER"
-
     output = Path(a.output).expanduser().resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     scene.render.filepath = str(output)
