@@ -144,6 +144,14 @@ ensure_web_env() {
     return 1
   fi
 
+  local mac_version
+  mac_version="$(PYTHONNOUSERSITE=1 PYTHONPATH="$BOOTSTRAP_DIR" "$base_python" -s -c 'import platform; print(platform.mac_ver()[0])' 2>>"$ENV_LOG" || true)"
+  if is_apple_silicon && [ -z "$mac_version" ]; then
+    echo "FAIL macOS version detection is still empty"
+    echo "NEXT Run: /usr/bin/sw_vers -productVersion"
+    return 1
+  fi
+
   if [ -d "$LEGACY_VENV_DIR" ]; then
     echo "RUN  Remove legacy Web venv"
     rm -rf "$LEGACY_VENV_DIR"
