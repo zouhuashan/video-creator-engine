@@ -303,6 +303,11 @@ async function openRigV2Editor(projectId, characterId) {
             <button class="secondary-button small-button" data-rig-v2-undo>撤销一点</button>
             <button class="secondary-button small-button" data-rig-v2-clear>清空当前层</button>
             <button class="secondary-button small-button" data-rig-v2-save>生成 Rig V2</button>
+            <button class="primary-button small-button" data-rig-v2-preview>生成 2.5D 动作预览</button>
+          </div>
+          <div class="rig-v2-preview hidden" id="rigV2PreviewBox">
+            <video id="rigV2PreviewVideo" controls playsinline></video>
+            <small id="rigV2PreviewText">本地 Godot 2.5D 预览</small>
           </div>
           <div class="rig-v2-status" id="rigV2Status"></div>
           <small>提示：轮廓至少 3 个点；Pivot 必须点在原画布内。关节区域可以适度重叠，避免转动时出现断缝。</small>
@@ -548,6 +553,40 @@ async function openRigV2Editor(projectId, characterId) {
     target.querySelector('[data-close-rig-v2]').addEventListener('click', closeRigV2Editor);
     target.addEventListener('click', (event) => {
       if (event.target === target) closeRigV2Editor();
+    });
+
+    target.querySelector('[data-rig-v2-preview]').addEventListener('click', async (event) => {
+      const button = event.currentTarget;
+      const incomplete = required.filter((name) => layers[name].polygon.length < 3 || !layers[name].pivot);
+      if (incomplete.length) {
+        log('请先生成 Rig V2，或先点“一键自动生成 Rig V2”。', true);
+        return;
+      }
+      button.disabled = true;
+      button.textContent = '正在渲染 2.5D…';
+      try {
+        const result = await api(`/api/novel-anime/projects/${encodeURIComponent(projectId)}/godot-25d-preview`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ character_id: characterId, seconds: 4 }),
+        });
+        const box = $('#rigV2PreviewBox');
+        const video = $('#rigV2PreviewVideo');
+        const text = $('#rigV2PreviewText');
+        if (box && video) {
+          video.src = `${result.media_url}?t=${Date.now()}`;
+          box.classList.remove('hidden');
+          video.load();
+          video.play().catch(() => {});
+        }
+        if (text) text.textContent = `Godot 2.5D · ${result.duration_seconds}s · ${result.features.join(' · ')} · 人工审核 ${result.human_review}`;
+        log(`Godot 2.5D 预览已生成：${characterId}`);
+      } catch (error) {
+        log(error.message, true);
+      } finally {
+        button.disabled = false;
+        button.textContent = '生成 2.5D 动作预览';
+      }
     });
 
     target.querySelector('[data-rig-v2-save]').addEventListener('click', async (event) => {
