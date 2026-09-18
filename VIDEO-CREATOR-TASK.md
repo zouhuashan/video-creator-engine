@@ -2753,6 +2753,14 @@ P28-01 前五集本地试播母版与 Web 人审增量（2026-09-18）：
 - 已创建可恢复快照 `SNP-20260918T004726396Z-P28-FIVE-EPISODE-LOCAL-MASTERS`，锁定当前五集母版清单；项目首页已改为正确展示五集试播状态。
 - 当前五集母版生成状态为 `COMPLETED`、技术 QC 为 `PASS`，人工审核保持 `PENDING`，不会自动发布。`P28-01` 仍在执行：下一步是逐集人审；真实 Provider 仅在用户明确选择服务商并授权上传与计费后才可运行。
 
+P28-01 Web 默认端口迁移（2026-09-18）：
+
+- 本机端口 `8765` 已被其他服务占用，VideoCreator Web Console 默认端口统一迁移到 `18765`。
+- `start-web.command`、`restart-web.command`、`scripts/web_server.py`、README 与 `docs/WEB-OPERATIONS.md` 已统一使用 `127.0.0.1:18765`。
+- 仍支持通过 `VIDEO_CREATOR_WEB_PORT` 临时覆盖；端口冲突保护保持不变，不会自动杀死占用端口的其他服务。
+- 新默认访问地址：`http://127.0.0.1:18765`。
+- 本次仅修改 Web 本机监听默认值，不改变 P28 人工审核状态，也不启动远程 Provider。
+
 P28-01 Web 运维脚本增量（2026-09-18）：
 
 - 在继续 Godot / Blender 等动画路线前，先补齐本机 Web Console 的可靠启动与重启入口：新增根目录 `start-web.command` 和 `restart-web.command`。
