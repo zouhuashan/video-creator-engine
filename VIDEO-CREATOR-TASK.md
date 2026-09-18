@@ -2818,6 +2818,15 @@ P28-01 Web 运维脚本增量（2026-09-18）：
 - 支持 `VIDEO_CREATOR_WEB_HOST`、`VIDEO_CREATOR_WEB_PORT`、`VIDEO_CREATOR_PYTHON` 临时覆盖；新增 `docs/WEB-OPERATIONS.md` 并更新 README 的推荐启动方式。
 - 本增量不启动 ArcReel、不调用远程 AI、不改变 P28 人工审核状态；完成此运维入口后再继续非生成式动画路线实施。
 
+P28-01 百花仙子 Rig V2 本地分层工作台增量（2026-09-18）：
+
+- 新增 `scripts/rig_v2_segment.py`：根据人工绘制 polygon 从本地源 PNG 裁出真实透明层，保留原画布对齐；每层必须具备可见像素和 pivot，完成后直接调用 Rig V2 builder 登记版本资产。
+- 分层工作文件会保存 polygon、pivot、z-index 到 `visual-bible/rig-v2-work/`，支持刷新后继续；不上传图片、不调用生成模型。
+- Web“角色美术”新增 `Rig V2 / Godot IK` 编辑器：直接显示本地角色源图，逐层勾选 head/torso/左右上臂/前臂/手，支持撤销、清空、Pivot 模式和一键生成 Rig V2；保存后立即重新计算 Godot readiness。
+- 新增 `support/godot/runtime/two_bone_ik.gd` 自有余弦定理 TwoBoneIK solver，以及真实 Bone2D 链数值 smoke；`install-godot.command` / `check-godot.command` 现在同时检查 Skeleton2D 基础和 IK 端点误差。
+- 选择自有 IK backend 的原因：Godot 官方 `SkeletonModification2DTwoBoneIK` 当前仍标记 Experimental；VideoCreator 仍使用 Godot 原生 Skeleton2D/Bone2D，但生产解算不被实验性 API 单点绑定。
+- 当前代码链已经推进到“需要本地人工标注百花仙子真实肢体轮廓和 Pivot”的门前；没有伪造 V2 资产。标注完成并显示 `GODOT_UPPER_BODY_IK=READY` 后，NEXT 才进入百花仙子首个实际抬手/指向动作输出。
+
 P28-01 Godot Rosetta/ARM 安装修复（2026-09-18）：
 
 - 实机确认当前终端会话运行在 Rosetta 2/x86_64，而原脚本直接调用 ARM Homebrew 前缀 `/opt/homebrew`，导致 Homebrew 拒绝安装：`Cannot install under Rosetta 2 in ARM default prefix`。
