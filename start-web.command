@@ -13,6 +13,8 @@ BOOTSTRAP_DIR="$ROOT/support/web-python"
 LEGACY_VENV_DIR="$ROOT/.venv-web"
 REQUIREMENTS="$ROOT/requirements-web.txt"
 REQ_MARKER="$WEB_PYTHON_DIR/.requirements.sha256"
+WHEEL_CACHE="$ROOT/cache/web-wheels"
+WHEEL_INSTALLER="$ROOT/support/web-python/install_wheels.py"
 WEB_PYTHON_BIN=""
 
 mkdir -p "$ROOT/cache" "$ROOT/logs"
@@ -176,8 +178,29 @@ ensure_web_env() {
       return 1
     fi
 
-    if ! PYTHONNOUSERSITE=1 PYTHONPATH="$BOOTSTRAP_DIR" "$base_python" -m pip install       --disable-pip-version-check       --use-deprecated=legacy-certs       --upgrade       --target "$WEB_PYTHON_DIR"       -r "$REQUIREMENTS" >>"$ENV_LOG" 2>&1; then
-      echo "FAIL Web dependency installation failed"
+    rm -rf "$WHEEL_CACHE"
+    mkdir -p "$WHEEL_CACHE"
+
+    if ! PYTHONNOUSERSITE=1 PYTHONPATH="$BOOTSTRAP_DIR" "$base_python" -m pip download \
+      --disable-pip-version-check \
+      --use-deprecated=legacy-certs \
+      --only-binary=:all: \
+      --dest "$WHEEL_CACHE" \
+      -r "$REQUIREMENTS" >>"$ENV_LOG" 2>&1; then
+      echo "FAIL Web dependency download failed"
+      tail -n 60 "$ENV_LOG" 2>/dev/null || true
+      return 1
+    fi
+
+    if [ ! -f "$WHEEL_INSTALLER" ]; then
+      echo "FAIL Missing wheel installer: $WHEEL_INSTALLER"
+      return 1
+    fi
+
+    if ! PYTHONNOUSERSITE=1 "$base_python" -s "$WHEEL_INSTALLER" \
+      --wheel-dir "$WHEEL_CACHE" \
+      --target "$WEB_PYTHON_DIR" >>"$ENV_LOG" 2>&1; then
+      echo "FAIL Web wheel extraction failed"
       tail -n 60 "$ENV_LOG" 2>/dev/null || true
       return 1
     fi

@@ -2753,6 +2753,14 @@ P28-01 前五集本地试播母版与 Web 人审增量（2026-09-18）：
 - 已创建可恢复快照 `SNP-20260918T004726396Z-P28-FIVE-EPISODE-LOCAL-MASTERS`，锁定当前五集母版清单；项目首页已改为正确展示五集试播状态。
 - 当前五集母版生成状态为 `COMPLETED`、技术 QC 为 `PASS`，人工审核保持 `PENDING`，不会自动发布。`P28-01` 仍在执行：下一步是逐集人审；真实 Provider 仅在用户明确选择服务商并授权上传与计费后才可运行。
 
+P28-01 Web pip wheel 安装器绕过修复（2026-09-18）：
+
+- 实机进一步确认：Pillow 12.3.0 的 `cp314-cp314-macosx_11_0_arm64.whl` 已成功下载，失败仅发生在 pip 26.2.1 的 wheel 安装阶段，报 `ImportError: No module named 'pip._internal.operations.install.wheel'`。
+- 启动器不再执行 `pip install`；改为 `pip download --only-binary=:all:` 只做版本解析、平台匹配和 wheel 下载，然后使用项目自带 `support/web-python/install_wheels.py` 通过 Python 标准库 `zipfile` 安装到 `.web-python/`。
+- 自有 wheel 解包器包含路径穿越保护，并处理 wheel `.data/purelib`、`.data/platlib`、`.data/data` 映射；不依赖 pip 的内部 install API。
+- wheel 下载缓存放在 `cache/web-wheels/`，继续使用 macOS 版本补丁、legacy certs、arm64 Python 与 `PYTHONNOUSERSITE=1`。
+- 默认 Web 端口仍为 `18765`；本修复不改变 P28 人工审核状态，不触发远程 Provider。
+
 P28-01 Web macOS 版本探测修复（2026-09-18）：
 
 - 实机第三次确认：即使 pip 使用 legacy certs，`packaging.tags` 仍因 `platform.mac_ver()` 返回空字符串而在计算 macOS wheel 标签时崩溃；这是 macOS 26 上已有同类报告的兼容问题。

@@ -295,3 +295,37 @@ support/web-python/sitecustomize.py
 并把该真实版本提供给当前 Python 进程。不会修改系统文件，也不会硬编码具体 macOS 版本。
 
 启动器在安装依赖、环境自检和 Web 服务运行时统一加载这层兼容逻辑。
+
+## 14. pip 只下载 wheel，项目自行安装
+
+在当前 Homebrew Python 3.14 + pip 26.2.1 环境中，Pillow wheel 可以正常解析和下载，但 pip 的安装阶段可能报：
+
+```text
+ImportError: No module named 'pip._internal.operations.install.wheel'
+```
+
+因此启动器只让 pip 做它当前已经验证正常的部分：
+
+```text
+版本解析 -> 平台匹配 -> 下载 arm64 wheel
+```
+
+下载目录：
+
+```text
+cache/web-wheels/
+```
+
+随后由：
+
+```text
+support/web-python/install_wheels.py
+```
+
+使用 Python 标准库 `zipfile` 将 wheel 安装到：
+
+```text
+.web-python/
+```
+
+因此 Web 依赖安装不再调用 pip 的内部 wheel installer。
