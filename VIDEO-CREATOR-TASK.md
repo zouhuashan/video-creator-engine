@@ -2818,6 +2818,16 @@ P28-01 Web 运维脚本增量（2026-09-18）：
 - 支持 `VIDEO_CREATOR_WEB_HOST`、`VIDEO_CREATOR_WEB_PORT`、`VIDEO_CREATOR_PYTHON` 临时覆盖；新增 `docs/WEB-OPERATIONS.md` 并更新 README 的推荐启动方式。
 - 本增量不启动 ArcReel、不调用远程 AI、不改变 P28 人工审核状态；完成此运维入口后再继续非生成式动画路线实施。
 
+P28-01 参考视频 Style Bible 与双角色 Demo Blockout（2026-09-19）：
+
+- 已实际读取用户上传的 44.13 秒屏幕录制并抽取关键帧；视觉基准不再是模糊“国风动漫”描述，而是明确记录为“半写实成年男角色 + 幼态/Q版小女孩 + 暖色夕阳电影光 + 浅景深 + 历史营地环境 + 对话表演”的混合 3D 动漫风格。
+- 新增 `config/style-ref-guofeng-dialogue-001.json`：冻结成年人与儿童两套比例系统、脸型/眼睛差异、服装材质、夕阳逆光/冷填充、50–85mm 镜头语言、景深、成人左/儿童右的构图关系、对话动作节奏、NPR/线稿边界和人工质量门。
+- 首个 Blender Demo 从“百花仙子单人抬手”正式改为 `DEMO-BLENDER-DIALOGUE-001` 双角色 6 秒对话镜头；目标是验证与参考视频相同类型的角色体积、成人/儿童风格差异、视线关系、电影光、景深和表演，而不是先扩展小说角色资产。
+- 新增 `support/blender/reference-dialogue-blockout.py`：用本地代理几何快速建立成年男/小女孩双角色、儿童大头大眼比例、营地背景轮廓、暖色逆光+冷填充、68mm Camera、DOF 和 144 帧对话节奏；输出只用于构图/镜头/灯光/节奏验证，不冒充最终角色模型。
+- 新增 `render-reference-demo.command`：一键调用 arm64 Blender 后台渲染 `cache/reference-dialogue-blockout.mp4` 和可继续编辑的 `cache/reference-dialogue-blockout.blend`。
+- 参考源 UI 自身标注“包含 AI 生成素材”，因此本项目只把它作为视觉目标参考，不假设其原始制作技术；我们的当前实现仍保持 Blender 本地非生成式主线。
+- NEXT：本机先 PASS `install-blender.command`，随后运行 `render-reference-demo.command` 生成双角色 Blockout。用户只审核构图/镜头/灯光/体型差异；Blockout 通过后才进入正式成年男角色 + 小女孩 LookDev，不在代理几何上继续堆细节。
+
 P28-01 Blender Anime 基础工具链增量（2026-09-19）：
 
 - 新增 `BLENDER_ANIME` 机器路线并设为 `production_target_route`；`LOCAL_CUTOUT_RIG` 明确为 `animatic_route`，Godot 改为 `EXPERIMENTAL_DEFERRED`。
