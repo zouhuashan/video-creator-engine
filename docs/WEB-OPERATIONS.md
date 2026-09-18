@@ -271,3 +271,27 @@ Web 启动器安装项目私有依赖时固定增加：
 ```
 
 这会让 pip 绕过 truststore 系统证书后端，继续使用兼容的证书校验路径；不会修改 macOS Keychain，也不会关闭 HTTPS 校验。
+
+## 13. macOS 26 版本探测兼容
+
+某些 macOS 26 环境中，Python 的 `platform.mac_ver()` 可能返回空字符串。pip 的 truststore 与 packaging wheel 标签计算都会把该值当数字解析，从而报：
+
+```text
+ValueError: invalid literal for int() with base 10: ''
+```
+
+项目提供：
+
+```text
+support/web-python/sitecustomize.py
+```
+
+它只在 Python 无法得到 macOS 版本时调用：
+
+```bash
+/usr/bin/sw_vers -productVersion
+```
+
+并把该真实版本提供给当前 Python 进程。不会修改系统文件，也不会硬编码具体 macOS 版本。
+
+启动器在安装依赖、环境自检和 Web 服务运行时统一加载这层兼容逻辑。

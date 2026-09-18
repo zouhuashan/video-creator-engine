@@ -9,6 +9,7 @@ PID_FILE="$ROOT/cache/web-server.pid"
 LOG_FILE="$ROOT/logs/web-server.log"
 ENV_LOG="$ROOT/logs/web-env.log"
 WEB_PYTHON_DIR="$ROOT/.web-python"
+BOOTSTRAP_DIR="$ROOT/support/web-python"
 LEGACY_VENV_DIR="$ROOT/.venv-web"
 REQUIREMENTS="$ROOT/requirements-web.txt"
 REQ_MARKER="$WEB_PYTHON_DIR/.requirements.sha256"
@@ -161,13 +162,13 @@ ensure_web_env() {
     rm -rf "$WEB_PYTHON_DIR"
     mkdir -p "$WEB_PYTHON_DIR"
 
-    if ! PYTHONNOUSERSITE=1 "$base_python" -m pip --version >>"$ENV_LOG" 2>&1; then
+    if ! PYTHONNOUSERSITE=1 PYTHONPATH="$BOOTSTRAP_DIR" "$base_python" -m pip --version >>"$ENV_LOG" 2>&1; then
       echo "FAIL pip is unavailable in $base_python"
       tail -n 40 "$ENV_LOG" 2>/dev/null || true
       return 1
     fi
 
-    if ! PYTHONNOUSERSITE=1 "$base_python" -m pip install       --disable-pip-version-check       --use-deprecated=legacy-certs       --upgrade       --target "$WEB_PYTHON_DIR"       -r "$REQUIREMENTS" >>"$ENV_LOG" 2>&1; then
+    if ! PYTHONNOUSERSITE=1 PYTHONPATH="$BOOTSTRAP_DIR" "$base_python" -m pip install       --disable-pip-version-check       --use-deprecated=legacy-certs       --upgrade       --target "$WEB_PYTHON_DIR"       -r "$REQUIREMENTS" >>"$ENV_LOG" 2>&1; then
       echo "FAIL Web dependency installation failed"
       tail -n 60 "$ENV_LOG" 2>/dev/null || true
       return 1
@@ -176,7 +177,7 @@ ensure_web_env() {
     printf '%s\n' "$req_hash" > "$REQ_MARKER"
   fi
 
-  if ! PYTHONNOUSERSITE=1 PYTHONPATH="$WEB_PYTHON_DIR" "$base_python" -s -c     'import platform; from PIL import Image; print(platform.machine(), Image.__version__)' >>"$ENV_LOG" 2>&1; then
+  if ! PYTHONNOUSERSITE=1 PYTHONPATH="$BOOTSTRAP_DIR:$WEB_PYTHON_DIR" "$base_python" -s -c     'import platform; from PIL import Image; print(platform.machine(), Image.__version__)' >>"$ENV_LOG" 2>&1; then
     echo "FAIL Web Python self-check failed"
     tail -n 60 "$ENV_LOG" 2>/dev/null || true
     return 1
@@ -240,7 +241,7 @@ fi
 ensure_web_env
 
 cd "$ROOT"
-PYTHONNOUSERSITE=1 PYTHONPATH="$WEB_PYTHON_DIR" nohup "$WEB_PYTHON_BIN" -s -u "$WEB_SCRIPT"   --host "$WEB_HOST" --port "$WEB_PORT" >>"$LOG_FILE" 2>&1 &
+PYTHONNOUSERSITE=1 PYTHONPATH="$BOOTSTRAP_DIR:$WEB_PYTHON_DIR" nohup "$WEB_PYTHON_BIN" -s -u "$WEB_SCRIPT"   --host "$WEB_HOST" --port "$WEB_PORT" >>"$LOG_FILE" 2>&1 &
 web_pid=$!
 echo "$web_pid" > "$PID_FILE"
 

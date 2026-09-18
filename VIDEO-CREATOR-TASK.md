@@ -2753,6 +2753,14 @@ P28-01 前五集本地试播母版与 Web 人审增量（2026-09-18）：
 - 已创建可恢复快照 `SNP-20260918T004726396Z-P28-FIVE-EPISODE-LOCAL-MASTERS`，锁定当前五集母版清单；项目首页已改为正确展示五集试播状态。
 - 当前五集母版生成状态为 `COMPLETED`、技术 QC 为 `PASS`，人工审核保持 `PENDING`，不会自动发布。`P28-01` 仍在执行：下一步是逐集人审；真实 Provider 仅在用户明确选择服务商并授权上传与计费后才可运行。
 
+P28-01 Web macOS 版本探测修复（2026-09-18）：
+
+- 实机第三次确认：即使 pip 使用 legacy certs，`packaging.tags` 仍因 `platform.mac_ver()` 返回空字符串而在计算 macOS wheel 标签时崩溃；这是 macOS 26 上已有同类报告的兼容问题。
+- 新增 `support/web-python/sitecustomize.py`：Python 启动时仅在 `platform.mac_ver()` 为空时调用系统 `/usr/bin/sw_vers -productVersion`，把真实 macOS 版本补回；架构仍由原生 arm64 Python 自身报告。
+- Web 启动器在 pip、自检和 Web 运行三个阶段统一把该目录加入 `PYTHONPATH`，因此 truststore、packaging 和后续依赖看到同一份有效 macOS 版本。
+- 保留 `--use-deprecated=legacy-certs` 作为证书后端兼容保护；不修改系统文件、不覆盖 `sw_vers`、不伪造固定 26.x 版本。
+- 默认端口保持 `18765`，P28 人工审核状态不变，远程 Provider 继续保持阻断。
+
 P28-01 Web pip truststore 兼容修复（2026-09-18）：
 
 - 实机确认 `.web-python` 新链路已进入基础 Python 的 pip 安装阶段；当前失败来自 pip 26.2.1 的 macOS truststore 初始化，`platform.mac_ver()` 返回空版本导致 `ValueError`。
