@@ -23,7 +23,7 @@
     ]
   },
   "render": {
-    "engine": "BLENDER_EEVEE_NEXT",
+    "engine": "BLENDER_EEVEE",
     "resolution": [
       1080,
       1920
