@@ -16,9 +16,9 @@ from typing import Iterable
 
 MINIMUM_GODOT_VERSION = (4, 7, 2)
 DEFAULT_CANDIDATES = (
-    "godot",
     "/opt/homebrew/bin/godot",
     "/Applications/Godot.app/Contents/MacOS/Godot",
+    "godot",
 )
 _PRERELEASE_MARKERS = ("dev", "alpha", "beta", "rc")
 
