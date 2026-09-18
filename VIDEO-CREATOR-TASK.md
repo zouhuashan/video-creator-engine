@@ -2818,6 +2818,16 @@ P28-01 Web 运维脚本增量（2026-09-18）：
 - 支持 `VIDEO_CREATOR_WEB_HOST`、`VIDEO_CREATOR_WEB_PORT`、`VIDEO_CREATOR_PYTHON` 临时覆盖；新增 `docs/WEB-OPERATIONS.md` 并更新 README 的推荐启动方式。
 - 本增量不启动 ArcReel、不调用远程 AI、不改变 P28 人工审核状态；完成此运维入口后再继续非生成式动画路线实施。
 
+P28-01 Rig V2 新手引导与自动生成增量（2026-09-18）：
+
+- 新增 `scripts/rig_v2_auto_draft.py`：完全本地、非生成式、无远程调用，根据 V1 源图透明像素边界、既有 head/torso 比例和人体几何比例，自动提出 8 个上半身 polygon + Pivot 草稿；人物左侧按正面角色规则映射到画面右侧。
+- 自动草稿包含 HIGH/MEDIUM/LOW 置信度与逐层说明；手部/宽袖明确标低置信度，避免把几何启发式包装成精准人体理解。
+- Web Rig V2 工作台默认开启“新手引导”：逐层显示第 N/8 步、当前部位、人物左右说明、Pivot 应放位置，并提供上一层/下一层。
+- 首次打开且没有历史分层时，系统自动加载本地草稿；用户可以自由修改，也可点击“重新自动草稿”覆盖当前草稿。
+- 新增“一键自动生成 Rig V2”：直接用本地草稿生成透明层、登记 Rig V2、重新计算 Godot readiness；自动结果固定 `human_review=PENDING`，不会视为人工验收通过。
+- 新增 Web API `rig-v2-auto-draft` / `rig-v2-auto-generate`，restart preflight 同步检查自动草稿模块；不上传图片、不调用 AI 视频或远程 Provider。
+- NEXT：用户可直接一键自动生成百花仙子 Rig V2；若上半身 IK readiness=READY，再进入首个真实抬手/指向动作。如果自动分层视觉不理想，再由新手引导逐层微调。
+
 P28-01 Rig V2 编辑器全屏布局修复（2026-09-18）：
 
 - 实机截图确认 Rig V2 编辑器被 `.character-asset-gallery` 的 auto-fill Grid 当成单个约 190px 卡片布局，导致控制区严重挤压、原图 Canvas 几乎不可操作。
