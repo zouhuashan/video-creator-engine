@@ -2818,6 +2818,15 @@ P28-01 Web 运维脚本增量（2026-09-18）：
 - 支持 `VIDEO_CREATOR_WEB_HOST`、`VIDEO_CREATOR_WEB_PORT`、`VIDEO_CREATOR_PYTHON` 临时覆盖；新增 `docs/WEB-OPERATIONS.md` 并更新 README 的推荐启动方式。
 - 本增量不启动 ArcReel、不调用远程 AI、不改变 P28 人工审核状态；完成此运维入口后再继续非生成式动画路线实施。
 
+P28-01 Godot Skeleton2D/IK 基础接入增量（2026-09-18）：
+
+- 非生成式路线进入实际实施：新增 `adapters/motion/godot_cutout.py`，负责 Godot 二进制发现、稳定版版本门、环境探测和本地 smoke command；当前生产最低版本固定为 Godot 4.7.2 stable，拒绝 dev/alpha/beta/rc。
+- 新增根目录 `install-godot.command` 与 `check-godot.command`；macOS 可用 Homebrew 安装 Godot，并通过 `support/godot/smoke` 的 Skeleton2D + Bone2D 场景做本地无网络 smoke 检查。
+- 新增 `scripts/godot_rig_readiness.py`：正式区分 `LOCAL_CUTOUT_RIG`、`GODOT_UPPER_BODY_IK`、`GODOT_FULL_BODY_IK` 三档资产 readiness。现有 head/torso/lower Rig 仍可用于本地 Cutout，但不会被误判为 IK-ready。
+- Rig V2 标准层命名冻结：head/torso/pelvis、左右 upper_arm/forearm/hand、左右 thigh/shin/foot；上半身 IK 与全身 IK 分别输出缺失层清单。
+- `config/animation-routes.json` 中 `GODOT_CUTOUT` 保持 `implemented=false`，但增加 `implementation_stage=FOUNDATION_READY`、最低版本、stable-only、Rig V2 要求和 smoke project；不因只完成框架而虚报 Godot 已生产可用。
+- 新增 Godot Adapter / Rig readiness 回归测试与 `docs/GODOT-CUTOUT.md`。当前下一技术工作是“Rig V2 分层 + 1 个代表角色上半身 IK”，P28 五集人工审核仍为 `PENDING`，远程 Provider 不启用。
+
 P28-01 非生成式动画机器策略增量（2026-09-18）：
 
 - 新增 `config/animation-routes.json`，把动画路线变成 Codex/脚本可读取的机器策略；默认固定为 `LOCAL_CUTOUT_RIG`，远程生成默认关闭。
