@@ -1,0 +1,14 @@
+config_version=5
+
+[application]
+config/name="VideoCreator 2.5D Character Preview"
+run/main_scene="res://main.tscn"
+
+[display]
+window/size/viewport_width=720
+window/size/viewport_height=1280
+window/stretch/mode="canvas_items"
+
+[rendering]
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
