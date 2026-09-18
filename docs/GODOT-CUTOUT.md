@@ -96,3 +96,28 @@ The existing `lower` layer remains valid for `LOCAL_CUTOUT_RIG`, but it does not
 The next implementation step is **Rig V2 segmentation + one representative upper-body IK character**. Only after one real character passes that route should VideoCreator build reusable Godot action clips and move to full-body IK.
 
 Blender Grease Pencil stays the next higher-cost local route for shots that exceed the Godot cutout action library.
+
+## Build Rig V2
+
+Generate an upper-body template for one character:
+
+```bash
+python3 scripts/build_character_rig_v2.py template \\
+  --character-id CHR-JHY-BAIHUA \\
+  --character-name 百花仙子 \\
+  --rig-id RIG2-CHR-JHY-BAIHUA-UPPER-V1 \\
+  --profile GODOT_UPPER_BODY_IK \\
+  --output /tmp/baihua-rig-v2.json
+```
+
+Fill each layer's project-local transparent PNG path and joint pivot, then build:
+
+```bash
+python3 scripts/build_character_rig_v2.py build \\
+  projects/jinghua-yuan-series \\
+  --spec /tmp/baihua-rig-v2.json
+```
+
+All Rig V2 layers must share the same RGBA canvas. Pivots use canvas coordinates. The builder registers every layer as a versioned project asset and writes `visual-bible/character-rigs-v2.json` with joint chains and human review still `PENDING`.
+
+The readiness command merges V1 and V2 manifests by character and prefers V2 when both exist, so a newly upgraded character immediately replaces its V1 readiness result without deleting the V1 asset history.
