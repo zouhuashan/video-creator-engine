@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "style_id": "STYLE-REF-GUOFENG-DIALOGUE-001",
+  "source": {
+    "type": "user_uploaded_screen_recording",
+    "duration_seconds": 44.13,
+    "inspected": true,
+    "note": "Reference contains a landscape cinematic clip embedded in a portrait short-video UI. Style extraction targets the clip itself, not the surrounding app UI."
+  },
+  "visual_identity": {
+    "adult_character": {
+      "rendering": "semi_realistic_stylized_3d",
+      "proportions": "heroic/slender adult, realistic shoulder and torso volume",
+      "face": "narrower adult face, smaller eyes than child, sharper nose/jaw",
+      "hair": "layered dark hair with strand breakup and rim-light response",
+      "costume": "dark historical/fantasy layered cloth + leather/metal accents"
+    },
+    "child_character": {
+      "rendering": "stylized_chibi_3d",
+      "proportions": "large head, short body, soft limbs",
+      "face": "very large eyes, round cheeks, small nose/mouth, soft skin shading",
+      "hair": "dark twin-bun / tied style with readable silhouette",
+      "costume": "light pale-blue/white hanfu-like layered robe"
+    },
+    "contrast_rule": "Do not force adult and child into the same facial proportion system. Their controlled style contrast is part of the reference appeal."
+  },
+  "lighting": {
+    "key": "warm low-angle sunset/backlight",
+    "fill": "soft cool-neutral face fill",
+    "rim": "strong warm edge light on hair and shoulders",
+    "sky": "golden cloudy sunset",
+    "contrast": "medium-high cinematic contrast with protected faces",
+    "atmosphere": "warm haze / dusty battlefield-camp air"
+  },
+  "camera": {
+    "reference_aspect_ratio": "16:9",
+    "production_demo_aspect_ratio": "9:16",
+    "focal_language_mm": [
+      50,
+      85
+    ],
+    "depth_of_field": "shallow to medium; faces sharp, background characters/camp softened",
+    "height": "around adult chest/child eye relationship depending on shot",
+    "movement": "slow push-in, small reframing, no game-like orbit",
+    "shot_types": [
+      "two-shot medium",
+      "child close-up",
+      "adult reaction medium-close"
+    ]
+  },
+  "composition": {
+    "adult": "usually left/left-center",
+    "child": "lower right/right-center",
+    "interaction": "clear eye-line relationship and height difference",
+    "background": "camp / historical environment with human silhouettes and props",
+    "foreground": "occasional body/prop edge or atmospheric particle for depth"
+  },
+  "shading": {
+    "base": "PBR-informed but softened NPR/anime result",
+    "skin": "soft subsurface-like response without plastic gloss",
+    "cloth": "rough diffuse cloth with selective edge highlights",
+    "metal_leather": "controlled specular accents",
+    "outline": "subtle; avoid thick cartoon contour around everything",
+    "target": "cinematic 3D animation, not flat toon cutout and not photoreal game render"
+  },
+  "color": {
+    "palette": [
+      "warm amber",
+      "earth brown",
+      "charcoal",
+      "muted steel blue",
+      "pale cyan-white"
+    ],
+    "saturation": "moderate, faces slightly warmer",
+    "grade": "warm highlights + neutral/cooler shadows, restrained saturation"
+  },
+  "motion": {
+    "acting": "micro-expression and eye-line driven",
+    "adult": "restrained head/eye reactions, small arm/hand gestures",
+    "child": "more expressive head tilt, mouth/eye reaction, hand gesture",
+    "secondary": "hair ornaments, tied hair, sleeves move after primary body motion",
+    "pacing": "dialogue-first; avoid constant idle swaying"
+  },
+  "demo_beats": [
+    {
+      "time": "0.0-1.5",
+      "beat": "adult and child two-shot, child looks up, adult notices"
+    },
+    {
+      "time": "1.5-3.0",
+      "beat": "child raises one hand and speaks; adult eye-line follows"
+    },
+    {
+      "time": "3.0-4.5",
+      "beat": "adult small reaction/answer, slight camera push-in"
+    },
+    {
+      "time": "4.5-6.0",
+      "beat": "child close reaction; sleeve/hair settle with delayed secondary motion"
+    }
+  ],
+  "non_negotiable_quality_gate": [
+    "adult and child read as volumetric 3D characters",
+    "child face has large-eye soft chibi appeal without looking like a flat sticker",
+    "adult face remains more mature and semi-realistic",
+    "eye-lines connect correctly",
+    "sunset rim light and background depth are visible",
+    "background is softened by DOF rather than painted as a flat card",
+    "hair and sleeves have delayed secondary motion",
+    "camera movement feels cinematic, not like viewport navigation",
+    "final result must be judged from rendered motion, not a rig editor view"
+  ]
+}
