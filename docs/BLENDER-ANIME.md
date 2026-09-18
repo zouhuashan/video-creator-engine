@@ -109,3 +109,36 @@ The TikTok short link supplied on 2026-09-19 could not be resolved in the curren
 6. Add hair/sleeve secondary motion, camera and petals.
 7. Render a review MP4.
 8. Decide whether the route is visually good enough before adding a second character.
+
+## Uploaded reference style lock
+
+The user-uploaded reference has now been inspected directly. The target is not generic toon 3D. It combines a semi-realistic adult male with a deliberately more chibi/juvenile girl, warm sunset rim light, shallow depth of field, historical-camp staging and dialogue-first acting.
+
+The machine-readable reference is:
+
+```text
+config/style-ref-guofeng-dialogue-001.json
+```
+
+The first demo is now:
+
+```text
+DEMO-BLENDER-DIALOGUE-001
+```
+
+Run the proxy blockout after Blender installation:
+
+```bash
+./render-reference-demo.command
+```
+
+Outputs:
+
+```text
+cache/reference-dialogue-blockout.mp4
+cache/reference-dialogue-blockout.blend
+```
+
+The blockout is intentionally simple geometry. It validates only composition, relative body proportions, adult/child style contrast, eye-line relationship, sunset key/fill, depth of field, camera push and six-second dialogue pacing. It must not be judged as final character quality.
+
+Once the blockout is accepted, the next asset work is two real LookDev characters, not more proxy animation.
