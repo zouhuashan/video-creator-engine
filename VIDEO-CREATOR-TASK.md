@@ -2818,6 +2818,15 @@ P28-01 Web 运维脚本增量（2026-09-18）：
 - 支持 `VIDEO_CREATOR_WEB_HOST`、`VIDEO_CREATOR_WEB_PORT`、`VIDEO_CREATOR_PYTHON` 临时覆盖；新增 `docs/WEB-OPERATIONS.md` 并更新 README 的推荐启动方式。
 - 本增量不启动 ArcReel、不调用远程 AI、不改变 P28 人工审核状态；完成此运维入口后再继续非生成式动画路线实施。
 
+P28-01 Godot 2.5D 动作预览增量（2026-09-18）：
+
+- 用户实机反馈：即使 Rig V2 自动分层成功，编辑器静态画面仍明显是平面立绘。该反馈成立；Rig V2/IK readiness 只证明资产可驱动，不代表视觉质量已经脱离“纸片感”。
+- 新增 `support/godot/25d-preview` 与 `scripts/render_godot_25d_preview.py`：读取真实 Rig V2 层，调用 Godot Movie Maker 本地离线输出 4 秒动作预览，再通过 FFmpeg 转成 H.264 MP4。
+- 首版预览组合：父子 Pivot 层级、呼吸、头部次级运动、人物左臂抬手→停留→回收、另一侧轻微惯性、层间视差、局部 squash/secondary motion、接触阴影和轻微整体镜头漂移；全部本地，无上传/计费。
+- Web Rig V2 工作台新增“生成 2.5D 动作预览”，直接在页面内播放视频；以后不再用静态分层编辑画面评价 Godot 动画效果。
+- `GODOT_CUTOUT` 机器策略升级为 `2_5D_PREVIEW_CODE_READY`，但仍 `implemented=false`；新增视觉质量门，至少要求 articulated motion、parallax、secondary motion、contact shadow、mesh deformation、人工视觉审核全部满足，Rig V2/IK READY 本身不能视为生产通过。
+- 当前首版预览仍未宣称具备真正 mesh deformation；NEXT 是先在百花仙子实机输出该视频并判断“纸片感”改善程度，再决定继续 Polygon2D/mesh deformation，或提前进入 Blender Grease Pencil 对比。
+
 P28-01 Rig V2 新手引导与自动生成增量（2026-09-18）：
 
 - 新增 `scripts/rig_v2_auto_draft.py`：完全本地、非生成式、无远程调用，根据 V1 源图透明像素边界、既有 head/torso 比例和人体几何比例，自动提出 8 个上半身 polygon + Pivot 草稿；人物左侧按正面角色规则映射到画面右侧。
