@@ -8,10 +8,11 @@ WEB_SCRIPT="$ROOT/scripts/web_server.py"
 PID_FILE="$ROOT/cache/web-server.pid"
 LOG_FILE="$ROOT/logs/web-server.log"
 ENV_LOG="$ROOT/logs/web-env.log"
-VENV_DIR="$ROOT/.venv-web"
-VENV_PYTHON="$VENV_DIR/bin/python"
+WEB_PYTHON_DIR="$ROOT/.web-python"
+LEGACY_VENV_DIR="$ROOT/.venv-web"
 REQUIREMENTS="$ROOT/requirements-web.txt"
-REQ_MARKER="$VENV_DIR/.requirements.sha256"
+REQ_MARKER="$WEB_PYTHON_DIR/.requirements.sha256"
+WEB_PYTHON_BIN=""
 
 mkdir -p "$ROOT/cache" "$ROOT/logs"
 
@@ -76,7 +77,7 @@ bootstrap_arm64_python() {
   fi
 
   echo "RUN  Install native arm64 Python with Homebrew" >&2
-  if ! arch -arm64 "$brew_bin" install python >>"$ENV_LOG" 2>&1; then
+  if ! HOMEBREW_NO_ENV_HINTS=1 arch -arm64 "$brew_bin" install python >>"$ENV_LOG" 2>&1; then
     echo "FAIL Homebrew Python installation failed" >&2
     tail -n 60 "$ENV_LOG" 2>/dev/null >&2 || true
     return 1
@@ -133,24 +134,18 @@ select_base_python() {
 }
 
 ensure_web_env() {
-  local base_python venv_arch req_hash installed_hash
+  local base_python req_hash installed_hash
   base_python="$(select_base_python)" || return 1
+  WEB_PYTHON_BIN="$base_python"
 
-  if [ -x "$VENV_PYTHON" ]; then
-    venv_arch="$(python_arch "$VENV_PYTHON")"
-    if is_apple_silicon && [ "$venv_arch" != "arm64" ]; then
-      echo "RUN  Rebuild Web Python environment ($venv_arch -> arm64)"
-      rm -rf "$VENV_DIR"
-    fi
+  if is_apple_silicon && [ "$(python_arch "$base_python")" != "arm64" ]; then
+    echo "FAIL Selected Web Python is not arm64: $(python_arch "$base_python")"
+    return 1
   fi
 
-  if [ ! -x "$VENV_PYTHON" ]; then
-    echo "RUN  Create isolated Web Python environment"
-    if ! "$base_python" -m venv "$VENV_DIR" >>"$ENV_LOG" 2>&1; then
-      echo "FAIL Could not create $VENV_DIR"
-      tail -n 40 "$ENV_LOG" 2>/dev/null || true
-      return 1
-    fi
+  if [ -d "$LEGACY_VENV_DIR" ]; then
+    echo "RUN  Remove legacy Web venv"
+    rm -rf "$LEGACY_VENV_DIR"
   fi
 
   if [ ! -f "$REQUIREMENTS" ]; then
@@ -160,24 +155,30 @@ ensure_web_env() {
 
   req_hash="$(shasum -a 256 "$REQUIREMENTS" | awk '{print $1}')"
   installed_hash="$(cat "$REQ_MARKER" 2>/dev/null || true)"
+
   if [ "$req_hash" != "$installed_hash" ]; then
     echo "RUN  Install Web Python dependencies"
-    if ! PYTHONNOUSERSITE=1 "$VENV_PYTHON" -m pip install --disable-pip-version-check -r "$REQUIREMENTS" >>"$ENV_LOG" 2>&1; then
+    rm -rf "$WEB_PYTHON_DIR"
+    mkdir -p "$WEB_PYTHON_DIR"
+
+    if ! PYTHONNOUSERSITE=1 "$base_python" -m pip --version >>"$ENV_LOG" 2>&1; then
+      echo "FAIL pip is unavailable in $base_python"
+      tail -n 40 "$ENV_LOG" 2>/dev/null || true
+      return 1
+    fi
+
+    if ! PYTHONNOUSERSITE=1 "$base_python" -m pip install       --disable-pip-version-check       --upgrade       --target "$WEB_PYTHON_DIR"       -r "$REQUIREMENTS" >>"$ENV_LOG" 2>&1; then
       echo "FAIL Web dependency installation failed"
       tail -n 60 "$ENV_LOG" 2>/dev/null || true
       return 1
     fi
+
     printf '%s\n' "$req_hash" > "$REQ_MARKER"
   fi
 
-  if ! PYTHONNOUSERSITE=1 "$VENV_PYTHON" -c 'import platform; from PIL import Image; print(platform.machine(), Image.__version__)' >>"$ENV_LOG" 2>&1; then
+  if ! PYTHONNOUSERSITE=1 PYTHONPATH="$WEB_PYTHON_DIR" "$base_python" -s -c     'import platform; from PIL import Image; print(platform.machine(), Image.__version__)' >>"$ENV_LOG" 2>&1; then
     echo "FAIL Web Python self-check failed"
     tail -n 60 "$ENV_LOG" 2>/dev/null || true
-    return 1
-  fi
-
-  if is_apple_silicon && [ "$(python_arch "$VENV_PYTHON")" != "arm64" ]; then
-    echo "FAIL Web virtual environment is not arm64: $(python_arch "$VENV_PYTHON")"
     return 1
   fi
 }
@@ -239,7 +240,7 @@ fi
 ensure_web_env
 
 cd "$ROOT"
-PYTHONNOUSERSITE=1 nohup "$VENV_PYTHON" -u "$WEB_SCRIPT" --host "$WEB_HOST" --port "$WEB_PORT" >>"$LOG_FILE" 2>&1 &
+PYTHONNOUSERSITE=1 PYTHONPATH="$WEB_PYTHON_DIR" nohup "$WEB_PYTHON_BIN" -s -u "$WEB_SCRIPT"   --host "$WEB_HOST" --port "$WEB_PORT" >>"$LOG_FILE" 2>&1 &
 web_pid=$!
 echo "$web_pid" > "$PID_FILE"
 
@@ -270,12 +271,13 @@ if [ "$started" -ne 1 ]; then
   echo "--- web log tail ---"
   tail -n 40 "$LOG_FILE" 2>/dev/null || true
   echo "--- env log tail ---"
-  tail -n 20 "$ENV_LOG" 2>/dev/null || true
+  tail -n 30 "$ENV_LOG" 2>/dev/null || true
   exit 1
 fi
 
 echo "PASS Web started"
 echo "URL  $WEB_URL"
 echo "PID  $web_pid"
-echo "PY   $VENV_PYTHON ($(python_arch "$VENV_PYTHON"))"
+echo "PY   $WEB_PYTHON_BIN ($(python_arch "$WEB_PYTHON_BIN"))"
+echo "DEPS $WEB_PYTHON_DIR"
 echo "LOG  $LOG_FILE"

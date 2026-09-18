@@ -432,7 +432,7 @@ Restart it safely with:
 ./restart-web.command
 ```
 
-The scripts keep a PID under `cache/`, write background logs to `logs/web-server.log`, prevent duplicate instances, and refuse to kill unrelated services that happen to use the same port. The launcher also creates an isolated `.venv-web` and installs `requirements-web.txt`, preventing user-site Python packages with a mismatched CPU architecture from breaking the console. On Apple Silicon, if no native arm64 Python is available but native Homebrew exists at `/opt/homebrew/bin/brew`, the launcher automatically bootstraps Homebrew Python before creating the environment. See [docs/WEB-OPERATIONS.md](docs/WEB-OPERATIONS.md) for operations and environment overrides.
+The scripts keep a PID under `cache/`, write background logs to `logs/web-server.log`, prevent duplicate instances, and refuse to kill unrelated services that happen to use the same port. The launcher uses native arm64 Python plus a project-private `.web-python/` dependency directory from `requirements-web.txt`, so it does not depend on `venv/ensurepip` and does not load mismatched packages from the user site. On Apple Silicon, if no native arm64 Python is available but native Homebrew exists at `/opt/homebrew/bin/brew`, the launcher automatically bootstraps Homebrew Python before installing the private Web dependencies. See [docs/WEB-OPERATIONS.md](docs/WEB-OPERATIONS.md) for operations and environment overrides.
 
 The direct development command remains available:
 

@@ -174,22 +174,41 @@ Web 中涉及远程 Provider 的动作仍受现有上传授权、计费确认和
 
 ## 10. Python / Pillow 架构隔离
 
-Web 启动器不会再直接使用用户目录中的 Python 包。它会在项目根目录创建：
+Web 启动器不会直接使用用户目录中的 Python 包，也不再依赖 `venv/ensurepip`。
+
+当前方式：
 
 ```text
-.venv-web/
+/opt/homebrew/bin/python3   # 原生 arm64 Python
+.web-python/                # 项目私有第三方依赖目录
+requirements-web.txt        # Web 最小 Python 依赖
 ```
 
-Apple Silicon Mac 会优先选择原生 arm64 Python（优先 `/opt/homebrew/bin/python3`），并在独立环境中安装 `requirements-web.txt`。因此即使 `~/Library/Python/.../site-packages` 中存在旧的 x86_64/arm64 混装 Pillow，也不会再污染 Web 进程。
+启动器用基础 Python 自带的 `pip` 将依赖安装到 `.web-python/`：
 
-首次启动可能出现：
+```bash
+python3 -m pip install --target .web-python -r requirements-web.txt
+```
+
+Web 运行时使用：
 
 ```text
-RUN  Create isolated Web Python environment
+PYTHONNOUSERSITE=1
+PYTHONPATH=<project>/.web-python
+```
+
+因此 `~/Library/Python/.../site-packages` 中旧的 x86_64/arm64 混装包不会进入 Web 进程。
+
+第一次成功启动通常会显示：
+
+```text
 RUN  Install Web Python dependencies
+PASS Web started
+PY   /opt/homebrew/bin/python3 (arm64)
+DEPS <project>/.web-python
 ```
 
-之后依赖文件没有变化时不会重复安装。
+之前脚本创建过的 `.venv-web/` 属于旧方案；新版启动器发现后会自动删除。
 
 环境安装日志：
 
@@ -197,34 +216,42 @@ RUN  Install Web Python dependencies
 logs/web-env.log
 ```
 
-如果曾经手工创建过错误架构的 `.venv-web`，启动器在 Apple Silicon 上检测到非 arm64 后会自动删除并重建。
-
-`VIDEO_CREATOR_PYTHON` 现在表示“创建 Web venv 使用的基础 Python”。Apple Silicon 上显式指定的 Python 也必须是 arm64，否则启动器直接失败，避免再次出现 `_imaging ... incompatible architecture`。
-
 ## 11. 找不到 arm64 Python 时自动修复
 
-在 Apple Silicon Mac 上，如果系统 PATH 中只有 Rosetta/x86_64 Python，`start-web.command` 会先扫描原生 Homebrew 常见路径。
+Apple Silicon Mac 会优先扫描：
 
-如果仍找不到，并且存在：
+```text
+/opt/homebrew/bin/python3
+/opt/homebrew/opt/python/bin/python3
+/opt/homebrew/opt/python@3.14/bin/python3.14
+/opt/homebrew/opt/python@3.13/bin/python3.13
+/opt/homebrew/opt/python@3.12/bin/python3.12
+```
+
+如果仍找不到，并且存在原生 Homebrew：
 
 ```text
 /opt/homebrew/bin/brew
 ```
 
-脚本会自动执行原生架构的 Homebrew Python 安装：
+脚本会自动执行：
 
 ```bash
 arch -arm64 /opt/homebrew/bin/brew install python
 ```
 
-安装完成后继续自动创建 `.venv-web`，不需要再次手工运行安装命令。
+安装完成后继续安装项目私有 Web 依赖，不创建 venv，因此不会触发 `ensurepip`。
 
-如不希望启动脚本自动安装 Python，可临时关闭：
+如果不希望自动安装 Python：
 
 ```bash
 VIDEO_CREATOR_AUTO_INSTALL_PYTHON=0 ./start-web.command
 ```
 
-此时缺少 arm64 Python 会直接失败并给出明确提示。
+如果显式指定基础 Python：
 
-如果本机没有 `/opt/homebrew/bin/brew`，脚本不会尝试使用可能是 Intel 架构的 `/usr/local/bin/brew` 来创建 Web 环境，避免再次混入 x86_64 依赖。
+```bash
+VIDEO_CREATOR_PYTHON=/opt/homebrew/bin/python3 ./start-web.command
+```
+
+Apple Silicon 上该解释器必须实际报告 `arm64`。

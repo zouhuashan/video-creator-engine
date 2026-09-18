@@ -2753,6 +2753,14 @@ P28-01 前五集本地试播母版与 Web 人审增量（2026-09-18）：
 - 已创建可恢复快照 `SNP-20260918T004726396Z-P28-FIVE-EPISODE-LOCAL-MASTERS`，锁定当前五集母版清单；项目首页已改为正确展示五集试播状态。
 - 当前五集母版生成状态为 `COMPLETED`、技术 QC 为 `PASS`，人工审核保持 `PENDING`，不会自动发布。`P28-01` 仍在执行：下一步是逐集人审；真实 Provider 仅在用户明确选择服务商并授权上传与计费后才可运行。
 
+P28-01 Web ensurepip 绕过修复（2026-09-18）：
+
+- 实机日志确认 Homebrew arm64 Python 3.14.7 已成功安装；当前失败点是 `python -m venv` 内部 `ensurepip` 返回非零，不再属于 Python 缺失或 CPU 架构问题。
+- Web 环境实现从 `.venv-web` 改为“原生 arm64 Python + 项目私有 `.web-python/` 依赖目录”，完全绕过 `venv/ensurepip`。
+- 依赖通过基础 Python 的 `pip --target .web-python` 安装；运行时固定 `PYTHONNOUSERSITE=1` + `PYTHONPATH=.web-python`，继续隔离 `~/Library/Python` 旧 Pillow。
+- 新启动器会自动删除此前失败残留的 `.venv-web`，requirements 哈希变化时重建 `.web-python`；启动前仍验证 arm64 架构和 Pillow import。
+- `.venv-web/` 与 `.web-python/` 均加入 Git 忽略；默认端口保持 `18765`，本修复不改变 P28 人工审核状态，也不触发远程 Provider。
+
 P28-01 Web arm64 Python 自动引导修复（2026-09-18）：
 
 - 实机第二次启动确认本机 PATH 下没有可直接使用的 arm64 Python；原隔离脚本只能检测并退出，仍需人工安装。
