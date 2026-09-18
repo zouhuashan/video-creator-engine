@@ -1,39 +1,71 @@
 {
-  "schema_version": 1,
-  "demo_id": "DEMO-BLENDER-BAIHUA-001",
-  "character_id": "CHR-JHY-BAIHUA",
-  "character_name": "百花仙子",
+  "schema_version": 2,
+  "demo_id": "DEMO-BLENDER-DIALOGUE-001",
+  "style_id": "STYLE-REF-GUOFENG-DIALOGUE-001",
   "duration_seconds": 6,
   "fps": 24,
-  "resolution": [
+  "preview_resolution": [
+    540,
+    960
+  ],
+  "final_resolution": [
     1080,
     1920
   ],
-  "purpose": "quality_route_validation",
-  "shot": {
-    "start": "neutral standing pose with subtle breathing",
-    "action": "raise one hand and look toward the hand",
-    "hold": "brief elegant hold with sleeve and hair secondary motion",
-    "end": "soft return while camera keeps a gentle push-in"
-  },
-  "visual_targets": [
-    "clear 3D body volume",
-    "anime/toon NPR shading",
-    "clean line art or Grease Pencil outline",
-    "Chinese-inspired costume layering",
-    "hair and sleeve secondary motion",
-    "foreground petals and atmospheric depth",
-    "camera push-in with real perspective",
-    "foreground-midground-background separation"
+  "reference_composition": "adult left / child lower-right, warm sunset historical camp",
+  "roles": [
+    {
+      "id": "ADULT-MALE-01",
+      "type": "adult_male",
+      "look": "semi_realistic_stylized_3d",
+      "status": "PROXY_FIRST"
+    },
+    {
+      "id": "CHILD-GIRL-01",
+      "type": "child_girl",
+      "look": "chibi_stylized_3d",
+      "status": "PROXY_FIRST"
+    }
   ],
-  "required_inputs": {
-    "reference_video_or_frames": "PENDING_USER_UPLOAD",
-    "character_model": "PENDING",
-    "character_armature": "PENDING",
-    "toon_material": "PENDING",
-    "hair_cloth_secondary": "PENDING",
-    "scene_or_stage": "PENDING"
-  },
-  "human_visual_review": "PENDING",
-  "publish_allowed": false
+  "beats": [
+    {
+      "frames": [
+        1,
+        36
+      ],
+      "action": "two-shot establish; child looks up; adult notices"
+    },
+    {
+      "frames": [
+        37,
+        72
+      ],
+      "action": "child speaks and gestures; adult tracks her eye-line"
+    },
+    {
+      "frames": [
+        73,
+        108
+      ],
+      "action": "adult reacts; camera slowly pushes closer"
+    },
+    {
+      "frames": [
+        109,
+        144
+      ],
+      "action": "child close reaction; hair/sleeve secondary motion settles"
+    }
+  ],
+  "production_phases": [
+    "REFERENCE_BLOCKOUT",
+    "CHARACTER_LOOKDEV",
+    "RIG_AND_FACE",
+    "ANIMATION",
+    "NPR_AND_LINE",
+    "HAIR_CLOTH_SECONDARY",
+    "FX_AND_GRADE",
+    "HUMAN_VISUAL_REVIEW"
+  ],
+  "quality_gate": "PENDING"
 }
