@@ -2818,6 +2818,14 @@ P28-01 Web 运维脚本增量（2026-09-18）：
 - 支持 `VIDEO_CREATOR_WEB_HOST`、`VIDEO_CREATOR_WEB_PORT`、`VIDEO_CREATOR_PYTHON` 临时覆盖；新增 `docs/WEB-OPERATIONS.md` 并更新 README 的推荐启动方式。
 - 本增量不启动 ArcReel、不调用远程 AI、不改变 P28 人工审核状态；完成此运维入口后再继续非生成式动画路线实施。
 
+P28-01 Godot 4.7.2 TwoBoneIK smoke 类型/Rest 修复（2026-09-18）：
+
+- 实机 `check-godot.command` 首次 IK smoke 失败：Godot 4.7.2 在当前 warning-as-error 设置下拒绝 `abs()/clamp()` 等 Variant 返回值配合 `:=` 的隐式类型推断，导致 `two_bone_ik.gd` parse error。
+- `two_bone_ik.gd` 全部数值局部变量改为显式 `float` / `Vector2`，并使用 `absf` / `clampf`，避免 inference-on-Variant warning 被提升为 error。
+- smoke 场景去掉运行时导出的 Script 实例，改为 `preload` + static solver 调用，减少动态 Variant 调用面。
+- 同一实机日志出现 `affine_invert det == 0`；Godot Bone2D 的 rest 默认是零 Transform2D。运行时创建 upper/forearm 后现在显式把当前 transform 写入 `rest`，避免 Skeleton2D 对不可逆 rest 求逆。
+- 本修复不改变 IK 数学、Rig V2 schema、P28 人审状态或远程 Provider 策略。
+
 P28-01 百花仙子 Rig V2 本地分层工作台增量（2026-09-18）：
 
 - 新增 `scripts/rig_v2_segment.py`：根据人工绘制 polygon 从本地源 PNG 裁出真实透明层，保留原画布对齐；每层必须具备可见像素和 pivot，完成后直接调用 Rig V2 builder 登记版本资产。
