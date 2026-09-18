@@ -138,3 +138,68 @@ Godot 当前 Homebrew 分发为 cask，安装后默认提供：
 ```
 
 版本检查和 headless smoke 同样强制 `arch -arm64`，因此无需先退出 Rosetta Terminal 才能运行本项目的 Godot 工具链。
+
+## Web Rig V2 分层
+
+Godot 安装并通过 smoke 后，重启 VideoCreator Web：
+
+```bash
+./restart-web.command
+```
+
+打开：
+
+```text
+http://127.0.0.1:18765
+```
+
+进入 **角色美术**，在已有角色 Rig 卡片上点击：
+
+```text
+Rig V2 / Godot IK
+```
+
+浏览器会直接读取该角色 V1 Rig 的本地源图，不上传任何图片。当前上半身 IK 需要逐层标注：
+
+```text
+head
+torso
+upper_arm_l
+forearm_l
+hand_l
+upper_arm_r
+forearm_r
+hand_r
+```
+
+操作方式：
+
+1. 选择当前层。
+2. 使用“勾轮廓”在原图上依次点击多边形点，至少 3 点。
+3. 切换“点 Pivot”，为该层点击关节/旋转中心。
+4. 所有 8 层完成后点击“生成 Rig V2”。
+5. 后台生成项目内透明 PNG、Rig V2 spec、版本资产与 `character-rigs-v2.json`。
+6. readiness 立即重新计算；只有实际层齐全才会显示 `GODOT_UPPER_BODY_IK = READY`。
+
+标注几何会保存在：
+
+```text
+visual-bible/rig-v2-work/
+```
+
+所以页面刷新后可以继续，不需要重新从零标注。
+
+## TwoBoneIK backend
+
+首个生产 IK backend 使用 VideoCreator 自有的余弦定理解算器：
+
+```text
+support/godot/runtime/two_bone_ik.gd
+```
+
+它驱动 Godot 原生 `Skeleton2D + Bone2D`，避免把生产链唯一绑定到 Godot 当前仍标记为 Experimental 的 `SkeletonModification2DTwoBoneIK`。官方 TwoBoneIK 后续可作为可选 backend。
+
+`./check-godot.command` 现在执行两个 smoke：
+
+- Skeleton2D/Bone2D 基础 smoke；
+- TwoBoneIK 端点到达目标的数值 smoke。
