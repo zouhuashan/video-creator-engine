@@ -135,3 +135,19 @@ body.rig-v2-open { overflow: hidden; }
   }
   .rig-v2-controls { max-height: 34vh; }
 }
+
+.rig-v2-guide-card{
+  display:grid;
+  gap:9px;
+  padding:12px;
+  border:1px solid rgba(223,155,90,.35);
+  border-radius:12px;
+  background:rgba(223,155,90,.07)
+}
+.rig-v2-guide-card strong{font-size:14px}
+.rig-v2-guide-card small{color:var(--muted);line-height:1.55}
+.rig-v2-guide-actions,.rig-v2-guide-nav{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.rig-v2-guide-nav{justify-content:space-between}
+.rig-v2-guide-nav span{font-size:11px;color:var(--muted)}
+.rig-v2-guide-card [data-rig-v2-guide-toggle].active{outline:2px solid var(--accent)}
+.rig-v2-guide-card .primary-button{width:100%;justify-content:center}
