@@ -502,3 +502,22 @@ The terminal prints `RUN`, `PASS` or `FAIL`, `RESULT`, and `NEXT`. Log lines use
 ## Project layout
 
 The directories under `skill/`, `adapters/`, `templates/`, `brand/`, `config/`, and `projects/` reserve the boundaries described in the task specification. Empty directories are retained with `.gitkeep` until their corresponding task adds implementation files.
+
+
+## Blender Anime final-image route
+
+The deterministic animation stack now has two explicit roles:
+
+- `LOCAL_CUTOUT_RIG`: Animatic, dialogue blocking and shot timing.
+- `BLENDER_ANIME`: current final-image target using a real 3D character, Armature/IK, Toon/NPR, line art/Grease Pencil enhancement, camera, lighting and local FX.
+
+Godot cutout work is preserved as an experiment but is no longer the current final-image target.
+
+On Apple Silicon:
+
+```bash
+./install-blender.command
+./check-blender.command
+```
+
+The production automation targets Blender 5.2 LTS and forces arm64 execution. The first quality milestone is a single 5–8 second Baihua Fairy shot; the pipeline must pass human visual review before it is expanded to more characters. See `docs/BLENDER-ANIME.md`.
