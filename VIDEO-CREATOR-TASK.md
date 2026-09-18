@@ -2753,6 +2753,14 @@ P28-01 前五集本地试播母版与 Web 人审增量（2026-09-18）：
 - 已创建可恢复快照 `SNP-20260918T004726396Z-P28-FIVE-EPISODE-LOCAL-MASTERS`，锁定当前五集母版清单；项目首页已改为正确展示五集试播状态。
 - 当前五集母版生成状态为 `COMPLETED`、技术 QC 为 `PASS`，人工审核保持 `PENDING`，不会自动发布。`P28-01` 仍在执行：下一步是逐集人审；真实 Provider 仅在用户明确选择服务商并授权上传与计费后才可运行。
 
+P28-01 非生成式动画机器策略增量（2026-09-18）：
+
+- 新增 `config/animation-routes.json`，把动画路线变成 Codex/脚本可读取的机器策略；默认固定为 `LOCAL_CUTOUT_RIG`，远程生成默认关闭。
+- 本地候选登记 `GODOT_CUTOUT`、`BLENDER_GREASE_PENCIL`，专用角色候选登记 `LIVE2D_CUBISM`、`SPINE_SKELETAL`，并明确安装/许可证审查状态；`MANUAL_IMPORT` 保持可用人工兜底。
+- `REMOTE_AI_VIDEO` 仅登记为 `OPTIONAL_BLOCKED`，不能成为默认 ACTIVE 路线；策略强制要求上传授权和计费确认。
+- 新增 `scripts/validate_animation_routes.py` 与回归测试，防止后续改配置时误把远程 AI 变成默认路线或移除人工发布门。
+- 本增量只冻结路线和门禁，不安装 Godot/Blender/Live2D/Spine，也不触发任何远程生成；P28-01 五集人工审核状态保持 `PENDING`。
+
 P28-01 非生成式动画路线冻结（2026-09-18）：
 
 - 动漫生产不再以 AI 生图/AI 生视频作为默认前提；现有分层 PNG + Rig + 嘴型/表情 cue + Pillow/FFmpeg 正式定义为 `LOCAL_CUTOUT_RIG` 主链路，可在资产首次完成后长期复用。

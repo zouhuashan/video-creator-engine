@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "policy": {
+    "default_route": "LOCAL_CUTOUT_RIG",
+    "non_generative_first": true,
+    "remote_generation_default_enabled": false,
+    "remote_generation_requires": ["upload_authorized", "confirm_billable"],
+    "publish_requires_human_confirmation": true
+  },
+  "routes": [
+    {
+      "id": "LOCAL_CUTOUT_RIG",
+      "category": "local_deterministic",
+      "status": "ACTIVE",
+      "implemented": true,
+      "remote": false,
+      "generative": false,
+      "requires_installation": false,
+      "license_review_required": false,
+      "adapter": "local_cutout_rig",
+      "use_cases": ["dialogue", "narration", "subtle_motion", "serialized_episode"]
+    },
+    {
+      "id": "GODOT_CUTOUT",
+      "category": "local_skeletal_2d",
+      "status": "CANDIDATE",
+      "implemented": false,
+      "remote": false,
+      "generative": false,
+      "requires_installation": true,
+      "license_review_required": false,
+      "adapter": "godot_cutout",
+      "use_cases": ["articulated_body_motion", "ik", "mesh_deformation", "particles"]
+    },
+    {
+      "id": "BLENDER_GREASE_PENCIL",
+      "category": "local_2d_2_5d",
+      "status": "CANDIDATE",
+      "implemented": false,
+      "remote": false,
+      "generative": false,
+      "requires_installation": true,
+      "license_review_required": false,
+      "adapter": "blender_grease_pencil",
+      "use_cases": ["cinematic_camera", "hand_drawn_motion", "hero_shot", "effects"]
+    },
+    {
+      "id": "LIVE2D_CUBISM",
+      "category": "specialized_character_runtime",
+      "status": "OPTIONAL",
+      "implemented": false,
+      "remote": false,
+      "generative": false,
+      "requires_installation": true,
+      "license_review_required": true,
+      "adapter": "live2d_cubism",
+      "use_cases": ["dialogue_closeup", "expression", "lip_sync", "secondary_physics"]
+    },
+    {
+      "id": "SPINE_SKELETAL",
+      "category": "specialized_character_runtime",
+      "status": "OPTIONAL",
+      "implemented": false,
+      "remote": false,
+      "generative": false,
+      "requires_installation": true,
+      "license_review_required": true,
+      "adapter": "spine_skeletal",
+      "use_cases": ["full_body", "ik", "reusable_action_library", "runtime_blending"]
+    },
+    {
+      "id": "MANUAL_IMPORT",
+      "category": "human_authored",
+      "status": "ACTIVE",
+      "implemented": true,
+      "remote": false,
+      "generative": false,
+      "requires_installation": false,
+      "license_review_required": false,
+      "adapter": "manual_import",
+      "use_cases": ["outsourced_animation", "hand_drawn_fix", "hero_shot"]
+    },
+    {
+      "id": "REMOTE_AI_VIDEO",
+      "category": "remote_generative",
+      "status": "OPTIONAL_BLOCKED",
+      "implemented": true,
+      "remote": true,
+      "generative": true,
+      "requires_installation": false,
+      "license_review_required": false,
+      "adapter": "provider_selected",
+      "use_cases": ["exceptional_shot_only"]
+    }
+  ]
+}
