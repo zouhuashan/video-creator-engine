@@ -142,3 +142,23 @@ cache/reference-dialogue-blockout.blend
 The blockout is intentionally simple geometry. It validates only composition, relative body proportions, adult/child style contrast, eye-line relationship, sunset key/fill, depth of field, camera push and six-second dialogue pacing. It must not be judged as final character quality.
 
 Once the blockout is accepted, the next asset work is two real LookDev characters, not more proxy animation.
+
+### Blender 5.2 image-sequence output
+
+The reference blockout deliberately does not use Blender's internal FFmpeg output API. Blender 5.2 separates media type from image file format, so the project uses the more stable production pattern:
+
+```text
+Blender 5.2
+→ PNG frame sequence
+→ validate 144/144 frames
+→ project FFmpeg
+→ H.264 yuv420p MP4
+```
+
+Temporary frames are written to:
+
+```text
+cache/reference-dialogue-blockout-frames/
+```
+
+This is also the preferred basis for longer final renders because a failed or interrupted encode does not invalidate already-rendered frames.
