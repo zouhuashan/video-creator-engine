@@ -4,7 +4,10 @@
     "default_route": "LOCAL_CUTOUT_RIG",
     "non_generative_first": true,
     "remote_generation_default_enabled": false,
-    "remote_generation_requires": ["upload_authorized", "confirm_billable"],
+    "remote_generation_requires": [
+      "upload_authorized",
+      "confirm_billable"
+    ],
     "publish_requires_human_confirmation": true
   },
   "routes": [
@@ -18,7 +21,12 @@
       "requires_installation": false,
       "license_review_required": false,
       "adapter": "local_cutout_rig",
-      "use_cases": ["dialogue", "narration", "subtle_motion", "serialized_episode"]
+      "use_cases": [
+        "dialogue",
+        "narration",
+        "subtle_motion",
+        "serialized_episode"
+      ]
     },
     {
       "id": "GODOT_CUTOUT",
@@ -30,7 +38,17 @@
       "requires_installation": true,
       "license_review_required": false,
       "adapter": "godot_cutout",
-      "use_cases": ["articulated_body_motion", "ik", "mesh_deformation", "particles"]
+      "use_cases": [
+        "articulated_body_motion",
+        "ik",
+        "mesh_deformation",
+        "particles"
+      ],
+      "implementation_stage": "FOUNDATION_READY",
+      "minimum_version": "4.7.2",
+      "stable_only": true,
+      "required_rig_profile": "GODOT_RIG_V2",
+      "smoke_project": "support/godot/smoke"
     },
     {
       "id": "BLENDER_GREASE_PENCIL",
@@ -42,7 +60,12 @@
       "requires_installation": true,
       "license_review_required": false,
       "adapter": "blender_grease_pencil",
-      "use_cases": ["cinematic_camera", "hand_drawn_motion", "hero_shot", "effects"]
+      "use_cases": [
+        "cinematic_camera",
+        "hand_drawn_motion",
+        "hero_shot",
+        "effects"
+      ]
     },
     {
       "id": "LIVE2D_CUBISM",
@@ -54,7 +77,12 @@
       "requires_installation": true,
       "license_review_required": true,
       "adapter": "live2d_cubism",
-      "use_cases": ["dialogue_closeup", "expression", "lip_sync", "secondary_physics"]
+      "use_cases": [
+        "dialogue_closeup",
+        "expression",
+        "lip_sync",
+        "secondary_physics"
+      ]
     },
     {
       "id": "SPINE_SKELETAL",
@@ -66,7 +94,12 @@
       "requires_installation": true,
       "license_review_required": true,
       "adapter": "spine_skeletal",
-      "use_cases": ["full_body", "ik", "reusable_action_library", "runtime_blending"]
+      "use_cases": [
+        "full_body",
+        "ik",
+        "reusable_action_library",
+        "runtime_blending"
+      ]
     },
     {
       "id": "MANUAL_IMPORT",
@@ -78,7 +111,11 @@
       "requires_installation": false,
       "license_review_required": false,
       "adapter": "manual_import",
-      "use_cases": ["outsourced_animation", "hand_drawn_fix", "hero_shot"]
+      "use_cases": [
+        "outsourced_animation",
+        "hand_drawn_fix",
+        "hero_shot"
+      ]
     },
     {
       "id": "REMOTE_AI_VIDEO",
@@ -90,7 +127,9 @@
       "requires_installation": false,
       "license_review_required": false,
       "adapter": "provider_selected",
-      "use_cases": ["exceptional_shot_only"]
+      "use_cases": [
+        "exceptional_shot_only"
+      ]
     }
   ]
 }
