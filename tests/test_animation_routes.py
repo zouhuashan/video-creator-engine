@@ -38,10 +38,12 @@ class AnimationRouteConfigTests(unittest.TestCase):
         payload = load_config()
         route = next(item for item in payload["routes"] if item["id"] == "GODOT_CUTOUT")
         self.assertFalse(route["implemented"])
-        self.assertEqual(route["implementation_stage"], "FOUNDATION_READY")
+        self.assertEqual(route["implementation_stage"], "2_5D_PREVIEW_CODE_READY")
         self.assertEqual(route["minimum_version"], "4.7.2")
         self.assertTrue(route["stable_only"])
         self.assertEqual(route["required_rig_profile"], "GODOT_RIG_V2")
+        self.assertEqual(route["visual_quality_gate"]["status"], "NOT_PASSED")
+        self.assertIn("mesh_deformation", route["visual_quality_gate"]["requires"])
 
 
 if __name__ == "__main__":
