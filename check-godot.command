@@ -6,7 +6,7 @@ SMOKE_DIR="$ROOT/support/godot/smoke"
 
 find_godot() {
   local candidate
-  for candidate in     "$(command -v godot 2>/dev/null || true)"     "/opt/homebrew/bin/godot"     "/Applications/Godot.app/Contents/MacOS/Godot"
+  for candidate in     "/opt/homebrew/bin/godot"     "/Applications/Godot.app/Contents/MacOS/Godot"     "$(command -v godot 2>/dev/null || true)"
   do
     [ -n "$candidate" ] && [ -x "$candidate" ] && { printf '%s' "$candidate"; return 0; }
   done
@@ -20,13 +20,13 @@ if [ -z "$godot" ]; then
   exit 1
 fi
 
-raw_version="$("$godot" --version 2>&1 | head -n1)"
+raw_version="$(/usr/bin/arch -arm64 "$godot" --version 2>&1 | head -n1)"
 if printf '%s' "$raw_version" | grep -Eiq '(dev|alpha|beta|rc)'; then
   echo "FAIL Pre-release Godot is not accepted: $raw_version"
   exit 1
 fi
 
-output="$("$godot" --headless --path "$SMOKE_DIR" --scene res://main.tscn --quit-after 10 2>&1 || true)"
+output="$(/usr/bin/arch -arm64 "$godot" --headless --path "$SMOKE_DIR" --scene res://main.tscn --quit-after 10 2>&1 || true)"
 if ! printf '%s' "$output" | grep -q "VIDEO_CREATOR_GODOT_SMOKE_PASS"; then
   echo "FAIL Godot smoke test"
   printf '%s\n' "$output" | tail -n 40
