@@ -2,122 +2,96 @@
 
 > Project: VideoCreator Engine  
 > Status: ACTIVE ARCHITECTURE DECISION  
-> Updated: 2026-09-18  
-> Principle: non-generative first; remote AI video is optional enhancement only.
+> Updated: 2026-09-19  
+> Principle: use deterministic local tools for reusable production; final publish remains human-confirmed.
 
-## Why this exists
+## Current route hierarchy
 
-VideoCreator Engine must be able to produce serialized animation even when no image-generation or video-generation API is available. Character identity, continuity, cost and resumability are easier to control when reusable assets are animated deterministically.
+| Route | Role | Current status |
+| --- | --- | --- |
+| LOCAL_CUTOUT_RIG | Animatic, dialogue blocking, timing preview | ACTIVE |
+| BLENDER_ANIME | Final-image target: 3D character + NPR/toon + line art + camera + FX | CANDIDATE / CURRENT NEXT |
+| GODOT_CUTOUT | Archived experiment for 2D skeletal/cutout research | EXPERIMENTAL_DEFERRED |
+| BLENDER_GREASE_PENCIL | Line-art, hand-drawn accents and FX around Blender Anime | OPTIONAL |
+| LIVE2D_CUBISM | Dialogue close-up specialty route | OPTIONAL / LICENSE REVIEW |
+| SPINE_SKELETAL | Commercial skeletal specialty route | OPTIONAL / LICENSE REVIEW |
+| MANUAL_IMPORT | Human-made or outsourced fallback | ACTIVE |
+| REMOTE_AI_VIDEO | Exceptional-shot option only | OPTIONAL_BLOCKED |
 
-The existing Jing Hua Yuan pipeline already implements the first version of this approach: layered PNG character rigs, expression/mouth cues, reusable scene anchors, Pillow rendering, FFmpeg assembly, local TTS/subtitles and human review gates.
+## Why the hierarchy changed
 
-## Route hierarchy
+The Jing Hua Yuan pilot proved that a single front-facing illustration can be segmented and moved, but that workflow does not contain the real geometry needed for convincing volume, perspective changes, clothing thickness or turns. More cutout complexity does not remove that ceiling.
 
-| Route | Role | Best for | Automation | Current status |
-| --- | --- | --- | --- | --- |
-| `LOCAL_CUTOUT_RIG` | Default production route | dialogue, narration, subtle body motion, long-form serialized episodes | High | ACTIVE |
-| `GODOT_CUTOUT` | Advanced 2D skeletal route | limbs, IK, mesh deformation, reusable action libraries, particles | High after rig setup | CANDIDATE |
-| `BLENDER_GREASE_PENCIL` | 2D/2.5D cinematic route | hero shots, camera moves, hand-drawn effects, complex staging | Medium | CANDIDATE |
-| `LIVE2D_CUBISM` | Character close-up route | face, expressions, eye blink, lip sync, hair/clothing physics | High after model setup | OPTIONAL / LICENSE REVIEW |
-| `SPINE_SKELETAL` | Commercial skeletal route | full-body reusable actions, IK, runtime blending | High after rig setup | OPTIONAL / LICENSE REVIEW |
-| `MANUAL_IMPORT` | Human-made fallback | key hero shots, outsourced animation, hand-drawn corrections | Low | ACTIVE |
-| Remote AI video | Optional enhancement | shots that are uneconomical to rig manually | Variable | BLOCKED BY DEFAULT |
+Therefore LOCAL_CUTOUT_RIG remains useful, but only as an Animatic and timing system. GODOT_CUTOUT is retained for experiments and is no longer the final-image target.
 
-## Recommended VideoCreator architecture
+## Animatic route
 
-### Level 0 — Motion comic / deterministic cutout
+LOCAL_CUTOUT_RIG remains the cheap deterministic front end:
 
-Keep the current local pipeline as the cheapest default:
+- storyboard timing;
+- dialogue blocking;
+- mouth and expression cues;
+- rough camera moves;
+- subtitle and audio synchronization;
+- shot duration decisions;
+- episode assembly before expensive final rendering.
 
-- reusable transparent character layers;
-- reusable backgrounds and foreground layers;
-- camera pan / zoom / parallax;
-- breathing, head/torso motion and simple secondary motion;
-- expression swaps;
-- mouth cues driven by the audio timeline;
-- particles and scene-specific effects;
-- FFmpeg mux, subtitles and QC.
+Once the director timing is accepted, only selected shots move to final rendering.
 
-Once an asset pack is approved, later episodes mostly reuse assets and parameters instead of generating new images.
+## Final-image route: Blender Anime
 
-### Level 1 — Godot 2D skeleton and IK
+The production target is a real 3D-to-2D/NPR pipeline:
 
-Use Godot only behind a render adapter. Scene/Shot JSON remains the business contract.
+~~~text
+3D character
+→ Armature / IK / Shape Keys
+→ hair and cloth secondary motion
+→ Toon / NPR shading
+→ line art / Grease Pencil accents
+→ camera + lighting + scene depth
+→ guofeng FX + compositing
+→ final shot asset
+~~~
 
-Target capabilities:
+The first validation target is intentionally small: one 5–8 second Baihua Fairy shot. Do not scale to all nine characters until that shot passes human visual review.
 
-- Skeleton2D / Bone2D rigs;
-- FK/IK limb control;
-- Polygon2D mesh deformation;
-- AnimationPlayer / AnimationTree clips;
-- particles and reusable action presets;
-- headless/offline rendering to a standard video or image sequence.
+## Blender Grease Pencil role
 
-This is the preferred next technical experiment because it extends the existing cutout concept rather than replacing it.
+Grease Pencil is not a replacement for the 3D character body. It is an enhancement layer for:
 
-### Level 2 — Blender Grease Pencil / 2.5D
+- clean line art;
+- hand-drawn accents;
+- hair/sleeve exaggeration;
+- impact frames;
+- smoke, petals, ink and calligraphic FX;
+- selective 2D corrections over a 3D render.
 
-Use for shots where flat cutout is visibly insufficient:
+## Godot route
 
-- custom hand-drawn motion;
-- frame-by-frame accents;
-- deformation and armature-driven strokes;
-- 2.5D depth and camera movement;
-- compositing, lighting and special effects.
+The existing Godot code is preserved for learning and experiments. It is not deleted, because it remains useful for 2D skeletal research and low-cost motion tests. It is not the current production target.
 
-The result still returns to VideoCreator as a versioned shot asset, so only that shot needs rerendering.
+## Remote generative video
 
-### Level 3 — Specialized character runtimes
+Remote AI video remains blocked by default. It can only be used when upload and possible billing are explicitly authorized, and it never bypasses human review.
 
-**Live2D Cubism** is useful for dialogue-heavy close-ups because its runtime supports model parameters, motions, expression data, eye blinking, lip sync and physics. It should not become a hard dependency because its Core is proprietary and licensing must be reviewed before commercial deployment.
+## Reference matching
 
-**Spine** is useful for full-body skeletal animation, reusable clips, IK and runtime blending. It is a strong optional commercial route but should remain behind an adapter and license gate.
+A reference URL must be actually inspectable before VideoCreator claims that it can reproduce that exact style. If a short-link video cannot be resolved, upload the video file or representative frames. Exact style decomposition should then record character design, shading, line treatment, camera, motion, FX, compositing and scene depth separately.
 
-### Level 4 — Remote generative video
+## P28 relationship
 
-Remote AI video is never the default fallback. It can only be selected when all of the following are true:
-
-1. the shot is materially expensive or impossible in the deterministic routes;
-2. the user explicitly authorizes upload;
-3. the user explicitly authorizes possible billing;
-4. identity / continuity references are available;
-5. the generated output passes the same human review and QC gates as local outputs.
-
-## P28 comparison change
-
-The three representative P28 motion tests should compare **production routes**, not require three AI vendors.
-
-Suggested comparison:
-
-1. dialogue/subtle-motion shot → `LOCAL_CUTOUT_RIG`;
-2. articulated body/action shot → `GODOT_CUTOUT` prototype;
-3. cinematic/effect-heavy shot → `BLENDER_GREASE_PENCIL` or `MANUAL_IMPORT`.
-
-Runway / Wan / Sora packages remain available as optional benchmarks only. They are not allowed to block the non-generative production route.
+The existing five local masters remain technically complete but human review stays PENDING. Blender Anime work is a quality-route validation and does not retroactively approve or replace the existing P28 review gate.
 
 ## Adapter contract
 
-Every renderer should consume the same logical inputs and return the same output metadata:
+Every final renderer still consumes the shared shot contract and returns versioned output metadata including project/episode/scene/shot IDs, input asset versions, route/version, duration, fps, resolution, output asset, elapsed render time, external cost, review status and QC result.
 
-- project_id / episode_id / scene_id / shot_id;
-- input asset versions;
-- render route and route version;
-- deterministic seed when applicable;
-- duration / fps / resolution;
-- output asset reference;
-- elapsed render time;
-- external cost (zero for local routes unless separately recorded);
-- review status and QC result.
-
-No renderer is allowed to publish content directly.
+No renderer may publish content directly.
 
 ## External technical references
 
-- Blender Grease Pencil manual: https://docs.blender.org/manual/en/latest/grease_pencil/introduction.html
-- Blender Grease Pencil animation: https://docs.blender.org/manual/en/latest/grease_pencil/animation/introduction.html
+- Blender releases: https://www.blender.org/releases/
+- Blender 5.2 LTS: https://www.blender.org/releases/5-2/
+- Blender EEVEE: https://docs.blender.org/manual/en/5.2/render/eevee/index.html
+- Blender rendering manual: https://docs.blender.org/manual/en/5.2/render/index.html
 - Godot cutout animation: https://docs.godotengine.org/en/stable/tutorials/animation/cutout_animation.html
-- Godot Skeleton2D/Bone2D: https://docs.godotengine.org/en/stable/classes/class_skeleton2d.html
-- Live2D Cubism SDK motion: https://docs.live2d.com/en/cubism-sdk-manual/motion/
-- Live2D Cubism original workflow: https://docs.live2d.com/en/cubism-sdk-manual/original-workflow/
-- Spine runtimes: https://us.esotericsoftware.com/spine-runtimes
-- Spine IK constraints: https://us.esotericsoftware.com/spine-ik-constraints
