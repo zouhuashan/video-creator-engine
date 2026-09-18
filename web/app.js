@@ -209,6 +209,200 @@ function showStudioDetail(title, payload, endpoint = '') {
   $('#closeStudioDetail').addEventListener('click', () => detail.classList.add('hidden'));
 }
 
+const RIG_V2_LAYER_LABELS = {
+  head: '头部',
+  torso: '躯干',
+  upper_arm_l: '左上臂',
+  forearm_l: '左前臂',
+  hand_l: '左手',
+  upper_arm_r: '右上臂',
+  forearm_r: '右前臂',
+  hand_r: '右手',
+};
+
+async function openRigV2Editor(projectId, characterId) {
+  const target = $('#rigV2Editor');
+  if (!target) return;
+  target.classList.remove('hidden');
+  target.innerHTML = '<div class="empty-state">正在载入 Rig V2 分层工作区…</div>';
+  try {
+    const workspace = await api(`/api/novel-anime/projects/${encodeURIComponent(projectId)}/rig-v2-workspace/${encodeURIComponent(characterId)}`);
+    const required = workspace.required_layers || [];
+    const saved = workspace.existing?.segmentation || {};
+    const layers = Object.fromEntries(required.map((name, index) => {
+      const item = saved[name] || {};
+      return [name, {
+        polygon: Array.isArray(item.polygon) ? item.polygon.map((point) => [Number(point[0]), Number(point[1])]) : [],
+        pivot: item.pivot && Number.isFinite(Number(item.pivot.x)) && Number.isFinite(Number(item.pivot.y))
+          ? { x: Number(item.pivot.x), y: Number(item.pivot.y) }
+          : null,
+        z_index: Number.isFinite(Number(item.z_index)) ? Number(item.z_index) : index,
+      }];
+    }));
+    let activeLayer = required[0];
+    let mode = 'polygon';
+
+    const readiness = workspace.readiness?.profiles || {};
+    const upperReady = readiness.GODOT_UPPER_BODY_IK?.ready ? 'READY' : 'NOT READY';
+    target.innerHTML = `
+      <div class="rig-v2-editor-head">
+        <div>
+          <div class="section-kicker">GODOT RIG V2</div>
+          <strong>${escapeHtml(workspace.character_name)} · 上半身 IK 分层</strong>
+          <small>当前：${escapeHtml(upperReady)} · 在原图上逐层勾轮廓，再切换到 Pivot 模式点肩/肘/腕等关节点。不会上传图片。</small>
+        </div>
+        <button class="text-button" data-close-rig-v2>关闭</button>
+      </div>
+      <div class="rig-v2-layout">
+        <div class="rig-v2-canvas-wrap"><canvas id="rigV2Canvas"></canvas></div>
+        <div class="rig-v2-controls">
+          <label>当前层<select class="compact-select" id="rigV2LayerSelect">${required.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(RIG_V2_LAYER_LABELS[name] || name)}</option>`).join('')}</select></label>
+          <div class="rig-v2-mode-row">
+            <button class="secondary-button small-button active" data-rig-v2-mode="polygon">勾轮廓</button>
+            <button class="secondary-button small-button" data-rig-v2-mode="pivot">点 Pivot</button>
+          </div>
+          <div class="rig-v2-actions">
+            <button class="secondary-button small-button" data-rig-v2-undo>撤销一点</button>
+            <button class="secondary-button small-button" data-rig-v2-clear>清空当前层</button>
+            <button class="secondary-button small-button" data-rig-v2-save>生成 Rig V2</button>
+          </div>
+          <div class="rig-v2-status" id="rigV2Status"></div>
+          <small>提示：轮廓至少 3 个点；Pivot 必须点在原画布内。关节区域可以适度重叠，避免转动时出现断缝。</small>
+        </div>
+      </div>`;
+
+    const canvas = $('#rigV2Canvas');
+    const ctx = canvas.getContext('2d');
+    const image = new Image();
+    const layerSelect = $('#rigV2LayerSelect');
+    const status = $('#rigV2Status');
+
+    function layerStatus(name) {
+      const item = layers[name];
+      const polygonOk = item.polygon.length >= 3;
+      const pivotOk = !!item.pivot;
+      return `${RIG_V2_LAYER_LABELS[name] || name}: ${polygonOk ? item.polygon.length + ' 点' : '未完成轮廓'} · ${pivotOk ? `Pivot(${Math.round(item.pivot.x)}, ${Math.round(item.pivot.y)})` : '未设 Pivot'}`;
+    }
+
+    function renderStatus() {
+      status.innerHTML = required.map((name) => `<span class="${layers[name].polygon.length >= 3 && layers[name].pivot ? 'ready' : ''}">${escapeHtml(layerStatus(name))}</span>`).join('');
+    }
+
+    function draw() {
+      if (!image.complete || !image.naturalWidth) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+      required.forEach((name) => {
+        const item = layers[name];
+        if (!item.polygon.length) return;
+        ctx.save();
+        ctx.lineWidth = Math.max(2, canvas.width / 500);
+        ctx.globalAlpha = name === activeLayer ? 1 : 0.35;
+        ctx.beginPath();
+        item.polygon.forEach((point, index) => {
+          if (index === 0) ctx.moveTo(point[0], point[1]);
+          else ctx.lineTo(point[0], point[1]);
+        });
+        if (item.polygon.length >= 3) ctx.closePath();
+        ctx.strokeStyle = name === activeLayer ? '#ffffff' : '#bfc7d5';
+        ctx.stroke();
+        item.polygon.forEach((point) => {
+          ctx.beginPath();
+          ctx.arc(point[0], point[1], Math.max(3, canvas.width / 250), 0, Math.PI * 2);
+          ctx.fillStyle = name === activeLayer ? '#ffffff' : '#aab3c2';
+          ctx.fill();
+        });
+        if (item.pivot) {
+          ctx.beginPath();
+          ctx.arc(item.pivot.x, item.pivot.y, Math.max(5, canvas.width / 180), 0, Math.PI * 2);
+          ctx.strokeStyle = '#ffb86b';
+          ctx.lineWidth = Math.max(2, canvas.width / 500);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(item.pivot.x - 10, item.pivot.y);
+          ctx.lineTo(item.pivot.x + 10, item.pivot.y);
+          ctx.moveTo(item.pivot.x, item.pivot.y - 10);
+          ctx.lineTo(item.pivot.x, item.pivot.y + 10);
+          ctx.stroke();
+        }
+        ctx.restore();
+      });
+    }
+
+    image.onload = () => {
+      canvas.width = Number(workspace.canvas?.width) || image.naturalWidth;
+      canvas.height = Number(workspace.canvas?.height) || image.naturalHeight;
+      draw();
+      renderStatus();
+    };
+    image.src = workspace.source_url;
+
+    canvas.addEventListener('click', (event) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = (event.clientX - rect.left) * canvas.width / rect.width;
+      const y = (event.clientY - rect.top) * canvas.height / rect.height;
+      if (mode === 'pivot') layers[activeLayer].pivot = { x, y };
+      else layers[activeLayer].polygon.push([x, y]);
+      draw();
+      renderStatus();
+    });
+
+    layerSelect.addEventListener('change', () => {
+      activeLayer = layerSelect.value;
+      draw();
+    });
+
+    target.querySelectorAll('[data-rig-v2-mode]').forEach((button) => button.addEventListener('click', () => {
+      mode = button.dataset.rigV2Mode;
+      target.querySelectorAll('[data-rig-v2-mode]').forEach((item) => item.classList.toggle('active', item === button));
+    }));
+
+    target.querySelector('[data-rig-v2-undo]').addEventListener('click', () => {
+      if (mode === 'pivot') layers[activeLayer].pivot = null;
+      else layers[activeLayer].polygon.pop();
+      draw();
+      renderStatus();
+    });
+
+    target.querySelector('[data-rig-v2-clear]').addEventListener('click', () => {
+      layers[activeLayer] = { ...layers[activeLayer], polygon: [], pivot: null };
+      draw();
+      renderStatus();
+    });
+
+    target.querySelector('[data-close-rig-v2]').addEventListener('click', () => target.classList.add('hidden'));
+
+    target.querySelector('[data-rig-v2-save]').addEventListener('click', async (event) => {
+      const button = event.currentTarget;
+      const incomplete = required.filter((name) => layers[name].polygon.length < 3 || !layers[name].pivot);
+      if (incomplete.length) {
+        log(`Rig V2 未完成：${incomplete.map((name) => RIG_V2_LAYER_LABELS[name] || name).join('、')}`, true);
+        return;
+      }
+      button.disabled = true;
+      button.textContent = '正在生成…';
+      try {
+        const result = await api(`/api/novel-anime/projects/${encodeURIComponent(projectId)}/rig-v2-segment`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ character_id: characterId, layers }),
+        });
+        const rig = result.readiness?.rigs?.find((item) => item.character_id === characterId);
+        const upper = rig?.profiles?.GODOT_UPPER_BODY_IK?.ready;
+        log(`Rig V2 已生成：${characterId} · 上半身 IK ${upper ? 'READY' : 'NOT READY'}`);
+        showStudioDetail('Rig V2 生成结果', result, `/api/novel-anime/projects/${encodeURIComponent(projectId)}/godot-rig-readiness`);
+      } catch (error) {
+        log(error.message, true);
+      } finally {
+        button.disabled = false;
+        button.textContent = '生成 Rig V2';
+      }
+    });
+  } catch (error) {
+    target.innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
+  }
+}
+
 async function loadCharacterAssetGallery() {
   const target = $('#characterAssetGallery');
   if (!target || !state.studio?.directory_id) return;
@@ -222,12 +416,16 @@ async function loadCharacterAssetGallery() {
     ]);
     let reviewResult = null;
     try { reviewResult = await api(`/api/novel-anime/projects/${encodeURIComponent(projectId)}/final-shot-review`); } catch (error) { log(`审片状态读取失败：${error.message}`, true); }
-    const rigSummary = (rigResult.rigs || []).map((rig) => `<div class="character-rig-summary"><div><strong>${escapeHtml(rig.id)}</strong><small>来源：${escapeHtml(rig.source_asset_id || '本地角色图')} · ${rig.layers?.length || 0} 层 · ${escapeHtml((rig.human_review || {}).status || 'PENDING')} · 校验 ${rig.validation?.valid ? '通过' : '需检查'}</small></div><span>${escapeHtml((rig.motion_channels || []).join(' · '))}</span><select class="compact-select rig-expression-select" data-rig-expression><option value="neutral">平静</option><option value="soft_smile">浅笑</option><option value="concerned">担忧</option><option value="surprised">惊讶</option></select><button class="secondary-button small-button" data-rig-preview="${escapeHtml(rig.id)}">生成 Rig 动作预览</button><button class="secondary-button small-button" data-shot-rig-preview="${escapeHtml(rig.id)}">按分镜预览</button><button class="secondary-button small-button" data-final-rig-preview="${escapeHtml(rig.id)}">生成最终镜头</button></div>`).join('');
+    const rigSummary = (rigResult.rigs || []).map((rig) => `<div class="character-rig-summary"><div><strong>${escapeHtml(rig.id)}</strong><small>来源：${escapeHtml(rig.source_asset_id || '本地角色图')} · ${rig.layers?.length || 0} 层 · ${escapeHtml((rig.human_review || {}).status || 'PENDING')} · 校验 ${rig.validation?.valid ? '通过' : '需检查'}</small></div><span>${escapeHtml((rig.motion_channels || []).join(' · '))}</span><select class="compact-select rig-expression-select" data-rig-expression><option value="neutral">平静</option><option value="soft_smile">浅笑</option><option value="concerned">担忧</option><option value="surprised">惊讶</option></select><button class="secondary-button small-button" data-rig-v2-editor="${escapeHtml(rig.character_id || '')}">Rig V2 / Godot IK</button><button class="secondary-button small-button" data-rig-preview="${escapeHtml(rig.id)}">生成 Rig 动作预览</button><button class="secondary-button small-button" data-shot-rig-preview="${escapeHtml(rig.id)}">按分镜预览</button><button class="secondary-button small-button" data-final-rig-preview="${escapeHtml(rig.id)}">生成最终镜头</button></div>`).join('');
     const cards = result.assets.length ? result.assets.map((asset) => `<article class="character-asset-card"><img src="${escapeHtml(asset.media_url)}" alt="${escapeHtml(asset.name)}"><div><strong>${escapeHtml(asset.view)} · ${escapeHtml(asset.name)}</strong><small>${escapeHtml(asset.asset_id || asset.character_id)}</small><button class="secondary-button small-button" data-character-preview="${escapeHtml(asset.path)}">生成本地动作预览</button></div></article>`).join('') : '<div class="empty-state">尚无本地角色图片。</div>';
     const checkOptions = (value) => ['PENDING', 'PASS', 'CHANGES_REQUESTED'].map((item) => `<option value="${item}" ${item === value ? 'selected' : ''}>${item}</option>`).join('');
     const reviewCard = reviewResult ? `<div class="final-shot-review"><div class="final-review-copy"><div class="section-kicker">FINAL SHOT REVIEW</div><strong>${escapeHtml(reviewResult.video_path || '尚未生成最终镜头')}</strong><small>三项均为 PASS 后才可批准；批量范围按已审核的角色 Rig 计算。</small></div><label>声音<select class="compact-select" data-final-check="sound">${checkOptions(reviewResult.checks?.sound || 'PENDING')}</select></label><label>字幕<select class="compact-select" data-final-check="subtitles">${checkOptions(reviewResult.checks?.subtitles || 'PENDING')}</select></label><label>嘴型<select class="compact-select" data-final-check="mouth">${checkOptions(reviewResult.checks?.mouth || 'PENDING')}</select></label><input class="text-field" data-final-reviewer placeholder="审核人" value="${escapeHtml(reviewResult.reviewer || '')}"><input class="text-field" data-final-note placeholder="修改意见或备注" value="${escapeHtml(reviewResult.note || '')}"><button class="secondary-button small-button" data-save-final-review>保存审片</button><button class="secondary-button small-button" data-run-final-batch ${reviewResult.status === 'APPROVED' ? '' : 'disabled'}>批量生成已审核角色镜头</button></div>` : '';
     const coverageCard = `<div class="rig-coverage-card"><div><div class="section-kicker">RIG COVERAGE</div><strong>${coverageResult.covered_shot_count}/${coverageResult.total_shot_count} 个对白镜头可生成 · ${coverageResult.coverage_percent}%</strong><small>当前批次：${escapeHtml(batchResult.status || 'NOT_RUN')} · 已生成 ${batchResult.count || 0} 镜｜待补角色：${escapeHtml((coverageResult.missing_character_ids || []).join('、') || '无')}</small></div><div class="readiness-meter"><span style="width:${coverageResult.coverage_percent}%"></span></div></div>`;
-    target.innerHTML = `${reviewCard}${coverageCard}${rigSummary ? `<div class="character-rig-list"><div class="section-kicker">NATIVE CHARACTER RIG</div>${rigSummary}</div>` : ''}<div class="character-asset-grid">${cards}</div>`;
+    target.innerHTML = `${reviewCard}${coverageCard}${rigSummary ? `<div class="character-rig-list"><div class="section-kicker">NATIVE CHARACTER RIG</div>${rigSummary}</div>` : ''}<div id="rigV2Editor" class="rig-v2-editor hidden"></div><div class="character-asset-grid">${cards}</div>`;
+    document.querySelectorAll('[data-rig-v2-editor]').forEach((button) => button.addEventListener('click', () => {
+      const characterId = button.dataset.rigV2Editor;
+      if (characterId) openRigV2Editor(projectId, characterId);
+    }));
     document.querySelectorAll('[data-character-preview]').forEach((button) => button.addEventListener('click', async () => {
       button.disabled = true;
       button.textContent = '正在渲染…';
