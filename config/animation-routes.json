@@ -44,11 +44,24 @@
         "mesh_deformation",
         "particles"
       ],
-      "implementation_stage": "FOUNDATION_READY",
+      "implementation_stage": "2_5D_PREVIEW_CODE_READY",
       "minimum_version": "4.7.2",
       "stable_only": true,
       "required_rig_profile": "GODOT_RIG_V2",
-      "smoke_project": "support/godot/smoke"
+      "smoke_project": "support/godot/smoke",
+      "preview_renderer": "scripts/render_godot_25d_preview.py",
+      "visual_quality_gate": {
+        "status": "NOT_PASSED",
+        "requires": [
+          "articulated_motion",
+          "layer_parallax",
+          "secondary_motion",
+          "contact_shadow",
+          "mesh_deformation",
+          "human_visual_review"
+        ],
+        "note": "Rig V2/IK readiness alone is not sufficient for production visual quality."
+      }
     },
     {
       "id": "BLENDER_GREASE_PENCIL",
