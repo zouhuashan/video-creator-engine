@@ -56,6 +56,15 @@ class RigV2SegmentTests(unittest.TestCase):
     def test_polygon_must_have_three_points(self):
         with tempfile.TemporaryDirectory() as directory:
             project, source = self.make_project(Path(directory))
+            names = ("head", "torso", "upper_arm_l", "forearm_l", "hand_l", "upper_arm_r", "forearm_r", "hand_r")
+            layers = {
+                name: {
+                    "polygon": [[10, 5], [90, 5], [90, 115], [10, 115]],
+                    "pivot": {"x": 50, "y": 60},
+                }
+                for name in names
+            }
+            layers["head"]["polygon"] = [[1, 1], [2, 2]]
             with self.assertRaisesRegex(RigV2SegmentError, "at least 3 polygon"):
                 segment_layers(
                     project,
@@ -65,7 +74,7 @@ class RigV2SegmentTests(unittest.TestCase):
                     "AST-CHR-JHY-BAIHUA-FRONT",
                     "RIG2-TEST",
                     "GODOT_UPPER_BODY_IK",
-                    {"head": {"polygon": [[1, 1], [2, 2]], "pivot": {"x": 1, "y": 1}}},
+                    layers,
                 )
 
 
