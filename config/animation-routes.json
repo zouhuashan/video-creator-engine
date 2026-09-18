@@ -8,7 +8,9 @@
       "upload_authorized",
       "confirm_billable"
     ],
-    "publish_requires_human_confirmation": true
+    "publish_requires_human_confirmation": true,
+    "animatic_route": "LOCAL_CUTOUT_RIG",
+    "production_target_route": "BLENDER_ANIME"
   },
   "routes": [
     {
@@ -22,16 +24,20 @@
       "license_review_required": false,
       "adapter": "local_cutout_rig",
       "use_cases": [
+        "animatic",
+        "dialogue_blocking",
+        "timing_preview",
         "dialogue",
         "narration",
         "subtle_motion",
         "serialized_episode"
-      ]
+      ],
+      "role": "ANIMATIC_DEFAULT"
     },
     {
       "id": "GODOT_CUTOUT",
       "category": "local_skeletal_2d",
-      "status": "CANDIDATE",
+      "status": "EXPERIMENTAL_DEFERRED",
       "implemented": false,
       "remote": false,
       "generative": false,
@@ -61,12 +67,58 @@
           "human_visual_review"
         ],
         "note": "Rig V2/IK readiness alone is not sufficient for production visual quality."
+      },
+      "role": "EXPERIMENTAL_ONLY",
+      "note": "Retained for experiments; not the current final-image production target."
+    },
+    {
+      "id": "BLENDER_ANIME",
+      "category": "local_3d_npr",
+      "status": "CANDIDATE",
+      "implemented": false,
+      "remote": false,
+      "generative": false,
+      "requires_installation": true,
+      "license_review_required": false,
+      "adapter": "blender_anime",
+      "role": "FINAL_IMAGE_TARGET",
+      "use_cases": [
+        "serialized_final_shot",
+        "character_performance",
+        "armature_ik",
+        "shape_keys",
+        "toon_npr",
+        "line_art",
+        "cinematic_camera",
+        "hair_cloth_secondary",
+        "guofeng_fx"
+      ],
+      "implementation_stage": "INSTALLATION_AND_SMOKE_READY",
+      "production_channel": "5.2 LTS",
+      "minimum_version": "5.2.0",
+      "maximum_exclusive": "5.3.0",
+      "stable_only": true,
+      "first_demo": "DEMO-BLENDER-BAIHUA-001",
+      "visual_quality_gate": {
+        "status": "NOT_PASSED",
+        "requires": [
+          "body_volume",
+          "real_perspective",
+          "toon_npr_shading",
+          "line_art",
+          "costume_layering",
+          "hair_cloth_secondary",
+          "camera_staging",
+          "foreground_midground_background",
+          "guofeng_atmosphere",
+          "human_visual_review"
+        ]
       }
     },
     {
       "id": "BLENDER_GREASE_PENCIL",
       "category": "local_2d_2_5d",
-      "status": "CANDIDATE",
+      "status": "OPTIONAL",
       "implemented": false,
       "remote": false,
       "generative": false,
@@ -78,7 +130,9 @@
         "hand_drawn_motion",
         "hero_shot",
         "effects"
-      ]
+      ],
+      "role": "BLENDER_ANIME_ENHANCEMENT",
+      "note": "Use as line-art/effects/hand-drawn enhancement inside or beside BLENDER_ANIME."
     },
     {
       "id": "LIVE2D_CUBISM",
