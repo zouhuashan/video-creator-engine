@@ -2818,6 +2818,16 @@ P28-01 Web 运维脚本增量（2026-09-18）：
 - 支持 `VIDEO_CREATOR_WEB_HOST`、`VIDEO_CREATOR_WEB_PORT`、`VIDEO_CREATOR_PYTHON` 临时覆盖；新增 `docs/WEB-OPERATIONS.md` 并更新 README 的推荐启动方式。
 - 本增量不启动 ArcReel、不调用远程 AI、不改变 P28 人工审核状态；完成此运维入口后再继续非生成式动画路线实施。
 
+P28-02 Child LookDev v3 视觉迭代（2026-09-19）：
+
+- 用户实机提交 `child-lookdev-v2.png`；v2 相比 v1 已解决全白 clay、基础配色和眼神高光问题，但人工审核仍未通过：脸仍偏公仔/吉祥物，眼睛略外凸，刘海像五根立柱，侧发/双髻块状，袖子像圆管，服装仍偏几何玩具感。
+- 新增 `config/child-lookdev-v3.json`、`support/blender/child-lookdev-v3.py`、`render-child-lookdev-v3.command` 与回归测试；v1/v2 历史产物继续保留。
+- v3 头部进一步缩小并加强 chin taper；眼白/虹膜/瞳孔整体缩小并更靠近脸面，去掉凸起腮红几何，保留更轻的鼻嘴曲线，目标从 mascot/toy 转向 stylized child。
+- v3 头发不再使用竖向椭球刘海：新增 flat ribbon hair lock 网格，五组刘海与两侧发片用扁平发束表达；双髻继续保留但降低规则球体感。
+- v3 袖子不再使用面向相机的圆柱/锥管，改为纵向下垂的 smooth ellipsoid cloth masses；手部移到袖口下方，减少“管子插在身体上”的玩具感。
+- 继续使用 Principled 节点材质、浅青白多层古装、暖 Rim + 冷 Fill + Eye Light、82mm 人像镜头和 camera-space framing gate。
+- v3 技术成功仍只记 `PASS P28-02 v3 technical render`；人工审核保持 `PENDING`。NEXT：用户运行 `./render-child-lookdev-v3.command` 并提交 `renders/lookdev/child-lookdev-v3.png`；P28-02 未通过前不进入 P28-03。
+
 P28-02 Child LookDev v2 视觉迭代（2026-09-19）：
 
 - 用户实机提交 `child-lookdev-v1.png`；v1 灰模确认幼态/双髻/古装大轮廓方向可继续，但人工审核未通过：脸仍像球体公仔，眼睛像浮雕贴片，嘴鼻图标化，刘海/侧发块状，古装层次不足，且 EEVEE 实际渲染接近全白 clay，无法验证正式配色/光感。
