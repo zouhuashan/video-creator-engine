@@ -71,6 +71,7 @@ from scripts.novel_dynamic_shots import NovelDynamicShotError, load_dynamic_shot
 from scripts.novel_edit_timelines import NovelEditTimelineError, load_edit_timelines, summary as edit_timeline_summary  # noqa: E402
 from scripts.novel_qc import NovelQCError, add_annotation, add_issue, compare as compare_qc, load_qc_report, summary as qc_summary, update_issue  # noqa: E402
 from scripts.novel_acceptance import NovelAcceptanceError, load_acceptance, summary as acceptance_summary  # noqa: E402
+from support.providers.openai_image_provider import OpenAIImageError, OpenAIImageProvider, character_bible_prompt, keyframe_prompt  # noqa: E402
 
 
 PROVIDER_TYPES = {
@@ -81,6 +82,7 @@ PROVIDER_TYPES = {
 }
 KEY_ENV = {
     "openai_sora": "OPENAI_API_KEY",
+    "openai_image": "OPENAI_API_KEY",
     "runway": "RUNWAY_API_KEY",
     "wan": "FAL_KEY",
 }
@@ -461,6 +463,133 @@ def _source_import_summaries(project: Path) -> list[dict[str, object]]:
     return summaries
 
 
+IMAGE_PROVIDER_CONFIG_PATH = ROOT / "config" / "providers" / "openai-image-provider.json"
+IMAGE_CHARACTER_CONFIG_PATH = ROOT / "config" / "characters" / "char-child-001.json"
+IMAGE_SHOT_CONFIG_PATH = ROOT / "config" / "shots" / "demo-shot-001.json"
+
+
+def _load_repo_json(path: Path) -> dict[str, object]:
+    if not path.is_file():
+        raise ValueError(f"configuration file not found: {path.relative_to(ROOT)}")
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValueError(f"invalid configuration file: {path.relative_to(ROOT)}") from error
+    if not isinstance(payload, dict):
+        raise ValueError(f"configuration must be an object: {path.relative_to(ROOT)}")
+    return payload
+
+
+def _openai_image_status() -> dict[str, object]:
+    cfg = _load_repo_json(IMAGE_PROVIDER_CONFIG_PATH)
+    env_name = str(cfg.get("key_env") or "OPENAI_API_KEY")
+    configured = bool(RUNTIME_KEYS.get("openai_image") or os.environ.get(env_name))
+    return {
+        "id": "openai_image",
+        "label": str(cfg.get("label") or "OpenAI Image"),
+        "model": str(cfg.get("model") or "gpt-image-2"),
+        "configured": configured,
+        "source": "session" if RUNTIME_KEYS.get("openai_image") else ("environment" if os.environ.get(env_name) else "none"),
+        "remote": True,
+        "review_required": True,
+        "key_env": env_name,
+    }
+
+
+def _image_studio_inventory(project: Path) -> dict[str, object]:
+    root = project / "lookdev" / "image-studio"
+    items: list[dict[str, object]] = []
+    if root.is_dir():
+        for meta_path in sorted(root.rglob("*.json"), reverse=True):
+            try:
+                meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            if not isinstance(meta, dict):
+                continue
+            output = str(meta.get("output") or "")
+            output_path = project / output
+            if not output or not output_path.is_file() or output_path.suffix.lower() not in IMAGE_EXTENSIONS:
+                continue
+            item = dict(meta)
+            item["media_url"] = f"/media/{project.name}/{output}"
+            item["metadata"] = _relative(project, meta_path)
+            items.append(item)
+    return {
+        "project_id": project.name,
+        "provider": _openai_image_status(),
+        "character": _load_repo_json(IMAGE_CHARACTER_CONFIG_PATH),
+        "shot": _load_repo_json(IMAGE_SHOT_CONFIG_PATH),
+        "items": items[:24],
+        "review_required": True,
+    }
+
+
+def _generate_image_studio_asset(
+    project: Path,
+    *,
+    artifact_type: str,
+    custom_prompt: str = "",
+) -> dict[str, object]:
+    if artifact_type not in {"character_bible", "keyframe"}:
+        raise ValueError("unsupported image studio artifact type")
+
+    cfg = _load_repo_json(IMAGE_PROVIDER_CONFIG_PATH)
+    character = _load_repo_json(IMAGE_CHARACTER_CONFIG_PATH)
+    shot = _load_repo_json(IMAGE_SHOT_CONFIG_PATH)
+    env_name = str(cfg.get("key_env") or "OPENAI_API_KEY")
+    api_key = RUNTIME_KEYS.get("openai_image") or os.environ.get(env_name)
+    if not api_key:
+        raise ValueError("请先在 AI 生图页面配置 OpenAI API Key")
+
+    base_url = str(cfg.get("base_url") or "https://api.openai.com/v1")
+    model = str(cfg.get("model") or "gpt-image-2")
+    quality = str(cfg.get("quality") or "high")
+    provider = OpenAIImageProvider(str(api_key), model=model, base_url=base_url)
+
+    stamp = time.strftime("%Y%m%d-%H%M%S") + f"-{time.time_ns() % 100000:05d}"
+    if artifact_type == "character_bible":
+        prompt = character_bible_prompt(character, custom_prompt)
+        size = str(cfg.get("character_bible_size") or "1536x1024")
+        output_dir = project / "lookdev" / "image-studio" / "character-bible"
+        output = output_dir / f"{stamp}-char-child-001.png"
+        artifact_id = f"CHAR-BIBLE-{stamp}"
+    else:
+        prompt = keyframe_prompt(character, shot, custom_prompt)
+        size = str(cfg.get("keyframe_size") or "1024x1536")
+        output_dir = project / "lookdev" / "image-studio" / "keyframes"
+        output = output_dir / f"{stamp}-shot-demo-001.png"
+        artifact_id = f"KEYFRAME-{stamp}"
+
+    result = provider.generate(prompt, output, size=size, quality=quality)
+    relative = _relative(project, output)
+    metadata = {
+        "schema_version": 1,
+        "artifact_id": artifact_id,
+        "artifact_type": artifact_type,
+        "provider": result["provider"],
+        "model": result["model"],
+        "size": result["size"],
+        "quality": result["quality"],
+        "project_id": project.name,
+        "character_id": str(character.get("character_id") or "CHAR-CHILD-001"),
+        "shot_id": str(shot.get("shot_id") or "SHOT-DEMO-001") if artifact_type == "keyframe" else None,
+        "style_id": str(character.get("style_id") or "STYLE-REF-GUOFENG-DIALOGUE-001"),
+        "output": relative,
+        "review_status": "PENDING",
+        "human_review_required": True,
+        "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "prompt": prompt,
+    }
+    metadata_path = output.with_suffix(".json")
+    metadata_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return {
+        **metadata,
+        "media_url": f"/media/{project.name}/{relative}",
+        "metadata": _relative(project, metadata_path),
+    }
+
+
 def _provider_status() -> list[dict[str, object]]:
     status = [{"id": "local_ken_burns", "label": "本地动态分镜", "remote": False, "configured": True}]
     for provider_id, label in (("openai_sora", "OpenAI Sora"), ("runway", "Runway"), ("wan", "Wan 2.1")):
@@ -773,6 +902,17 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
             return self._serve_file(WEB_ROOT / "styles.css", "text/css; charset=utf-8")
         if parsed.path == "/api/health":
             return self._json({"status": "ok", "providers": _provider_status(), "integrations": _integration_status()})
+        if parsed.path == "/api/image-studio/status":
+            query = {}
+            if parsed.query:
+                from urllib.parse import parse_qs
+                query = parse_qs(parsed.query)
+            project_id = str((query.get("project_id") or [""])[0]).strip()
+            try:
+                project = _safe_project(project_id)
+                return self._json(_image_studio_inventory(project))
+            except (ValueError, OSError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
         if parsed.path == "/api/integrations/arcreel/status":
             return self._json(_integration_status()[0])
         if parsed.path == "/api/projects":
@@ -1149,6 +1289,23 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                 return self._save_integration()
             except (ValueError, KeyError, TypeError, json.JSONDecodeError, ArcReelError) as error:
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
+        if route in {"/api/image-studio/character-bible", "/api/image-studio/keyframe"}:
+            try:
+                payload = self._read_json()
+                if payload.get("confirm_billable") is not True:
+                    raise ValueError("远程生图需要明确确认 confirm_billable=true")
+                project = _safe_project(str(payload.get("project_id") or ""))
+                artifact_type = "character_bible" if route.endswith("/character-bible") else "keyframe"
+                result = _generate_image_studio_asset(
+                    project,
+                    artifact_type=artifact_type,
+                    custom_prompt=str(payload.get("custom_prompt") or ""),
+                )
+                return self._json(result, HTTPStatus.CREATED)
+            except (ValueError, OpenAIImageError, OSError, KeyError, TypeError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+            except Exception as error:
+                return self._error(HTTPStatus.INTERNAL_SERVER_ERROR, f"image generation failed: {error}")
         if route == "/api/storyboard/local":
             try:
                 payload = self._read_json()
