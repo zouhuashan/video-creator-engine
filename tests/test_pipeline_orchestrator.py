@@ -2,6 +2,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from scripts.pipeline_orchestrator import pipeline_status, run_pipeline, update_pipeline_review, PipelineError
 
@@ -25,6 +26,7 @@ class PipelineOrchestratorTests(unittest.TestCase):
             self.assertFalse(control["final_visual_allowed"])
             stages = {item["id"]: item for item in result["stages"]}
             self.assertEqual(stages["image"]["status"], "PLANNED")
+            self.assertEqual(stages["image"]["route"]["provider_id"], "COMFYUI_IMAGE")
             self.assertFalse(stages["subtitles"]["asr_round_trip"])
             self.assertTrue(stages["review"]["human_required"])
             self.assertEqual(stages["review"]["owner"], "human")
@@ -44,6 +46,38 @@ class PipelineOrchestratorTests(unittest.TestCase):
             self.assertEqual(status["run_manifest"], "pipeline/run.json")
             with self.assertRaisesRegex(PipelineError, "not ready"):
                 update_pipeline_review("demo-project", "APPROVED", projects_root=projects)
+
+    def test_execute_can_generate_local_comfyui_keyframe_without_remote_confirmation(self):
+        class FakeComfy:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def health(self, **kwargs):
+                return {"connected": True}
+
+            def available_checkpoints(self, **kwargs):
+                return ["local-test.safetensors"]
+
+            def generate(self, prompt, output_path, *, size):
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                output_path.write_bytes(b"\x89PNG\r\n\x1a\npipeline-test")
+                return {"provider": "comfyui_image", "model": "local-test.safetensors", "size": size, "quality": "local", "output": str(output_path)}
+
+        with tempfile.TemporaryDirectory() as directory:
+            projects = Path(directory)
+            project = projects / "demo-project"
+            project.mkdir()
+            (project / "novel-anime-project.json").write_text('{"project_id":"demo-project"}\n', encoding="utf-8")
+            with patch("scripts.pipeline_orchestrator.ComfyUIImageProvider", FakeComfy):
+                result = run_pipeline("demo-project", dry_run=False, projects_root=projects)
+            stages = {item["id"]: item for item in result["stages"]}
+            self.assertEqual(stages["image"]["status"], "WAITING_REVIEW")
+            self.assertEqual(stages["image"]["route"]["provider_id"], "COMFYUI_IMAGE")
+            metadata = project / stages["image"]["metadata"]
+            saved = json.loads(metadata.read_text(encoding="utf-8"))
+            self.assertEqual(saved["review_status"], "PENDING")
+            self.assertFalse(saved["remote"])
+            self.assertTrue((project / saved["output"]).is_file())
 
 
 if __name__ == "__main__":
