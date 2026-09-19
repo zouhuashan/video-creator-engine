@@ -2818,6 +2818,13 @@ P28-01 Web 运维脚本增量（2026-09-18）：
 - 支持 `VIDEO_CREATOR_WEB_HOST`、`VIDEO_CREATOR_WEB_PORT`、`VIDEO_CREATOR_PYTHON` 临时覆盖；新增 `docs/WEB-OPERATIONS.md` 并更新 README 的推荐启动方式。
 - 本增量不启动 ArcReel、不调用远程 AI、不改变 P28 人工审核状态；完成此运维入口后再继续非生成式动画路线实施。
 
+P28-02 v5 MPFB 检查门去 marker 化（2026-09-19）：
+
+- 实机 `./check-mpfb.command` 出现“Blender/Python exit code 成功但日志 marker 缺失”的假 FAIL；说明 stdout marker 不适合作为第二个技术真值源。
+- `check-mpfb.py` 改为成功后写 `cache/mpfb-check.json`，记录实际 MPFB root package、operator、HumanService API、TargetService macro API、macro keys 与 Blender version；任何 API 不可用直接抛异常，由 `--python-exit-code 1` 转为非 0。
+- `check-mpfb.command` 与 `render-child-lookdev-v5.command` 现在以“Python exit code + 非空 status JSON”作为唯一技术门，不再 grep stdout marker；同时在 PASS 时打印实际 root package 和 Service API。
+- NEXT：用户 `git pull` 后重新执行 `./check-mpfb.command`。若 PASS，再直接执行 `./render-child-lookdev-v5.command`。
+
 P28-02 v5 MPFB 官方 Service API 修复（2026-09-19）：
 
 - v5 首次实机确认 MPFB 已安装且 `bpy.ops.mpfb.create_human` 可用，但脚本在创建人物前失败：`Scene` 中不存在猜测的 `add_phenotype` 属性。该 FAIL 不是 framing 问题，而是错误依赖 MPFB UI/Scene 属性。
