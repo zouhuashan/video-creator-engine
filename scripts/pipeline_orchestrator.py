@@ -247,6 +247,76 @@ def _auto_qc(video_path: Path | None) -> dict[str, Any]:
     }
 
 
+def _repair_media_container(video_path: Path) -> dict[str, Any]:
+    """Attempt a conservative technical repair without changing editorial content."""
+    ffmpeg = shutil.which("ffmpeg")
+    if not ffmpeg or not video_path.is_file():
+        return {"status": "SKIPPED", "reason": "ffmpeg or media unavailable"}
+    repaired = video_path.with_suffix(".repair.mp4")
+    completed = subprocess.run(
+        [
+            ffmpeg,
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-y",
+            "-i",
+            str(video_path),
+            "-map",
+            "0:v:0",
+            "-map",
+            "0:a?",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "medium",
+            "-crf",
+            "18",
+            "-pix_fmt",
+            "yuv420p",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "192k",
+            "-movflags",
+            "+faststart",
+            str(repaired),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if completed.returncode != 0 or not repaired.is_file():
+        repaired.unlink(missing_ok=True)
+        return {"status": "FAIL", "error": (completed.stderr or "technical repair failed")[-1200:]}
+    repaired.replace(video_path)
+    return {"status": "PASS", "action": "TRANSCODE_CONTAINER_NORMALIZE"}
+
+
+def _qc_with_retry(video_path: Path | None, cfg: dict[str, Any]) -> dict[str, Any]:
+    policy = dict(cfg.get("auto_retry") or {})
+    enabled = bool(policy.get("enabled", True))
+    max_attempts = max(0, int(policy.get("max_attempts_per_stage") or 0))
+    attempts: list[dict[str, Any]] = []
+
+    qc = _auto_qc(video_path)
+    attempts.append({"attempt": 1, "qc": qc, "repair": None})
+    if not enabled or video_path is None:
+        return {**qc, "attempt_count": len(attempts), "attempts": attempts}
+
+    retry_count = 0
+    while qc.get("status") == "FAIL" and bool(qc.get("auto_retry")) and retry_count < max_attempts:
+        retry_count += 1
+        repair = _repair_media_container(video_path)
+        if repair.get("status") != "PASS":
+            attempts.append({"attempt": retry_count + 1, "qc": qc, "repair": repair})
+            break
+        qc = _auto_qc(video_path)
+        attempts.append({"attempt": retry_count + 1, "qc": qc, "repair": repair})
+
+    return {**qc, "attempt_count": len(attempts), "attempts": attempts}
+
+
 def pipeline_status(project_id: str, projects_root: Path = PROJECTS_ROOT) -> dict[str, Any]:
     project = _project_path(project_id, projects_root)
     run_path = project / "pipeline" / "run.json"
@@ -526,7 +596,7 @@ def run_pipeline(
     final_video = project / "final.mp4"
     if final_video.is_file():
         stages.append(_stage("assembly", "PASS", "existing FFmpeg final output reused", asset="final.mp4", reused=True))
-        qc = _auto_qc(final_video)
+        qc = _qc_with_retry(final_video, cfg)
     elif dry_run:
         stages.append(_stage("assembly", "PLANNED", "dry-run: FFmpeg finalizer will assemble available video/audio/subtitles"))
         qc = _auto_qc(existing_video)
@@ -540,14 +610,22 @@ def run_pipeline(
                 output=final_video,
             )
             stages.append(_stage("assembly", "PASS", "FFmpeg assembled final.mp4", **assembly))
-            qc = _auto_qc(final_video)
+            qc = _qc_with_retry(final_video, cfg)
         except PipelineMediaError as error:
             stages.append(_stage("assembly", "BLOCKED", f"FFmpeg assembly failed: {error}"))
-            qc = _auto_qc(existing_video)
+            qc = _qc_with_retry(existing_video, cfg)
     else:
         stages.append(_stage("assembly", "BLOCKED", "no video asset is available for FFmpeg assembly"))
-        qc = _auto_qc(None)
-    stages.append(_stage("qc", qc["status"], "automatic media QC", report=qc, auto_retry=bool(qc.get("auto_retry"))))
+        qc = _qc_with_retry(None, cfg)
+    stages.append(_stage(
+        "qc",
+        qc["status"],
+        "automatic media QC with bounded technical auto-retry",
+        report=qc,
+        auto_retry=bool(qc.get("auto_retry")),
+        attempt_count=int(qc.get("attempt_count") or 1),
+        retry_policy=dict(cfg.get("auto_retry") or {}),
+    ))
 
     review_ready = final_video.is_file() and qc.get("status") == "PASS"
     review_path = pipeline_root / "review.json"
