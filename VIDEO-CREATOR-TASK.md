@@ -2818,6 +2818,16 @@ P28-01 Web 运维脚本增量（2026-09-18）：
 - 支持 `VIDEO_CREATOR_WEB_HOST`、`VIDEO_CREATOR_WEB_PORT`、`VIDEO_CREATOR_PYTHON` 临时覆盖；新增 `docs/WEB-OPERATIONS.md` 并更新 README 的推荐启动方式。
 - 本增量不启动 ArcReel、不调用远程 AI、不改变 P28 人工审核状态；完成此运维入口后再继续非生成式动画路线实施。
 
+P28-02 Child LookDev v2 视觉迭代（2026-09-19）：
+
+- 用户实机提交 `child-lookdev-v1.png`；v1 灰模确认幼态/双髻/古装大轮廓方向可继续，但人工审核未通过：脸仍像球体公仔，眼睛像浮雕贴片，嘴鼻图标化，刘海/侧发块状，古装层次不足，且 EEVEE 实际渲染接近全白 clay，无法验证正式配色/光感。
+- 新增 `config/child-lookdev-v2.json`、`support/blender/child-lookdev-v2.py`、`render-child-lookdev-v2.command` 与回归测试；v1 产物保留，不覆盖历史。
+- v2 材质全部改为 `use_nodes=True` + Principled BSDF Base Color/Roughness/Metallic，避免只改 viewport diffuse_color 而正式 EEVEE 渲染仍接近白模；灯光能量同步收敛，保留暖 Rim + 冷 Fill + Eye Light。
+- v2 头部使用程序化 taper：额头/脸颊更饱满、下巴更小；眼睛改为 sclera/iris/pupil/catchlight 多层结构，并增加上眼睑/眉毛曲线；嘴从 torus 圆环改为 Bezier 柔和嘴线，鼻子继续弱化。
+- 头发改为不规则双髻、五组重叠刘海、曲线侧发、发带/发饰；服装补内外层、交领、腰封、前后垂片、宽袖与袖口，正式锁浅青/白/墨发/肤色配色。
+- v2 保持 flat world-space 静帧变换，不引入不必要 parent，避免 v1/Blockout 已发现的双重变换风险；继续保留 camera-space framing gate。
+- v2 技术成功仍只记 `PASS P28-02 v2 technical render`；人工视觉审核保持 `PENDING`。NEXT：用户执行 `./render-child-lookdev-v2.command` 并提交 `renders/lookdev/child-lookdev-v2.png`，未通过前不进入 P28-03 成年男主 LookDev。
+
 P28-02 Child LookDev v1 执行开始（2026-09-19）：
 
 - P28-02 已正式进入实现，不再停留在规格讨论；新增 `config/child-lookdev-v1.json`、`support/blender/child-lookdev-v1.py`、`render-child-lookdev.command` 和回归测试。
