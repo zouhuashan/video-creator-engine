@@ -2818,6 +2818,16 @@ P28-01 Web 运维脚本增量（2026-09-18）：
 - 支持 `VIDEO_CREATOR_WEB_HOST`、`VIDEO_CREATOR_WEB_PORT`、`VIDEO_CREATOR_PYTHON` 临时覆盖；新增 `docs/WEB-OPERATIONS.md` 并更新 README 的推荐启动方式。
 - 本增量不启动 ArcReel、不调用远程 AI、不改变 P28 人工审核状态；完成此运维入口后再继续非生成式动画路线实施。
 
+P28-01 双角色 Blockout 构图/父级位移修复（2026-09-19）：
+
+- 用户上传首版 `reference-dialogue-blockout.mp4` 后抽帧检查发现主体几乎全部落到画外，只剩右侧局部角色边缘；该产物视觉 FAIL，不能用于判断 Blender 路线质量。
+- 根因定位到代理角色父级坐标：Adult/Child Root 已含横向位置，而子对象又按世界 X 创建后直接 parent，导致父级位移再次叠加，成人继续左移、儿童继续右移。
+- 角色构建改为“Root 保存角色世界位置、所有子对象使用 Root-local 坐标”，避免双重平移；成人锁左、小女孩锁右，并补最基础手臂代理以验证说话手势轮廓。
+- Camera 改为 52mm、目标 Empty + Track To；推进时只改变相机距离，目标始终保持双角色中心，避免移动 Camera 后旋转不更新造成构图漂移。
+- 新增渲染前 camera-space framing gate：Adult head/body、Child head/body 四个关键点必须全部位于 8%–92% 安全画框且深度为正，同时成人头部 X 必须位于儿童头部左侧；失败则在 144 帧渲染前立即中止。
+- `render-reference-demo.command` 新增 `VIDEO_CREATOR_REFERENCE_FRAMING_PASS` 硬门；没有构图 PASS marker 不再继续编码 MP4。
+- NEXT：重新渲染双角色 Blockout。通过标准仍只看体型差、双人同框、视线、夕阳光、景深和镜头推进；代理模型外观不作为当前验收项。
+
 P28-01 Blender 5.2 图像序列输出兼容修复（2026-09-19）：
 
 - 实机 Blender 5.2.1 LTS 执行 `render-reference-demo.command` 失败：`scene.render.image_settings.file_format = "FFMPEG"` 在 5.2 已不再合法，枚举只包含图像格式，导致 TypeError 并在第 145 行中止。
