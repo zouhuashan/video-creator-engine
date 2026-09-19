@@ -45,6 +45,7 @@ class ImageProviderRouter:
         return {
             "final_visual_route": str(self._policy.get("final_visual_route") or ""),
             "provider_mode": str(self._policy.get("provider_mode") or ""),
+            "default_local_provider": str(self._policy.get("default_local_provider") or ""),
             "high_quality_fallback_provider": fallback_id,
             "fallback_role": str(fallback.get("role") or ""),
             "human_review_required": bool(self._policy.get("human_review_required")),
@@ -83,7 +84,7 @@ class ImageProviderRouter:
             and (available is None or str(item.get("id")) in available)
         ]
         selected = None
-        if preferred_provider:
+        if preferred_provider and str(preferred_provider).upper() != "AUTO":
             explicit = self._providers.get(str(preferred_provider))
             if explicit is None:
                 raise ImageProviderRouteError(f"unknown image provider: {preferred_provider}")
@@ -91,8 +92,11 @@ class ImageProviderRouter:
                 raise ImageProviderRouteError(f"provider {preferred_provider} cannot serve final visual capability {capability}")
             selected = explicit
         else:
+            local_id = self._policy.get("default_local_provider")
+            if local_id:
+                selected = next((item for item in candidates if item.get("id") == local_id), None)
             default_id = self._policy.get("default_remote_provider")
-            if default_id:
+            if selected is None and default_id:
                 selected = next((item for item in candidates if item.get("id") == default_id), None)
             if selected is None:
                 fallback_id = self._policy.get("high_quality_fallback_provider")
@@ -105,6 +109,10 @@ class ImageProviderRouter:
             raise ImageProviderRouteError("billable remote image generation requires explicit confirmation")
         if reference_image and self._policy.get("reference_image_upload_requires_authorization") and not upload_authorized:
             raise ImageProviderRouteError("reference image upload requires explicit authorization")
+        fallback_chain = []
+        for provider_id in (self._policy.get("default_local_provider"), self._policy.get("default_remote_provider"), self._policy.get("high_quality_fallback_provider")):
+            if provider_id and provider_id not in fallback_chain:
+                fallback_chain.append(str(provider_id))
         return {
             "route_id": "IMAGE_PROVIDER_ROUTER",
             "provider_id": str(selected.get("id") or ""),
@@ -114,6 +122,7 @@ class ImageProviderRouter:
             "remote": bool(selected.get("remote")),
             "human_review_required": bool(self._policy.get("human_review_required")),
             "generated_assets_root": str(self._policy.get("generated_assets_root") or "lookdev/image-studio"),
+            "fallback_chain": fallback_chain,
         }
 
 
