@@ -243,7 +243,8 @@ def _auto_qc(video_path: Path | None) -> dict[str, Any]:
             "anomaly_scan": anomaly,
         },
         "duration_seconds": round(duration, 3),
-        "auto_retry": status == "FAIL",
+        "auto_retry": status == "FAIL" and not anomaly_failed,
+        "retry_class": "TECHNICAL" if status == "FAIL" and not anomaly_failed else ("VISUAL_REGEN_REQUIRED" if anomaly_failed else "NONE"),
     }
 
 
