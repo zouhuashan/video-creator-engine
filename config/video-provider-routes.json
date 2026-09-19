@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "policy": {
+    "route_id": "VIDEO_PROVIDER_ROUTER",
+    "default_provider": "LOCAL_KEN_BURNS",
+    "billable_remote_call_requires_confirmation": true,
+    "human_review_required": true
+  },
+  "providers": [
+    {
+      "id": "LOCAL_KEN_BURNS",
+      "adapter": "local_ken_burns",
+      "role": "FREE_LOCAL_FALLBACK",
+      "remote": false,
+      "status": "ACTIVE",
+      "capabilities": [
+        "image_to_video"
+      ]
+    },
+    {
+      "id": "OPENAI_SORA",
+      "adapter": "openai_sora",
+      "role": "REMOTE_GENERATIVE",
+      "remote": true,
+      "status": "AVAILABLE_WHEN_CONFIGURED",
+      "capabilities": [
+        "image_to_video"
+      ]
+    },
+    {
+      "id": "RUNWAY",
+      "adapter": "runway",
+      "role": "REMOTE_GENERATIVE",
+      "remote": true,
+      "status": "AVAILABLE_WHEN_CONFIGURED",
+      "capabilities": [
+        "image_to_video"
+      ]
+    },
+    {
+      "id": "WAN",
+      "adapter": "wan",
+      "role": "REMOTE_GENERATIVE",
+      "remote": true,
+      "status": "AVAILABLE_WHEN_CONFIGURED",
+      "capabilities": [
+        "image_to_video"
+      ]
+    },
+    {
+      "id": "COMFYUI_VIDEO",
+      "adapter": "comfyui_video",
+      "role": "LOCAL_VISUAL_FACTORY",
+      "remote": false,
+      "status": "ADAPTER_SLOT",
+      "capabilities": [
+        "image_to_video"
+      ]
+    }
+  ]
+}
