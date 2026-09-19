@@ -3298,7 +3298,7 @@ NEXT：P30-02 ComfyUI 本地视觉工厂 Adapter。
 
 
 ## P30-02 ComfyUI 本地视觉工厂 Adapter
-Status: IN_PROGRESS
+Status: PASS
 
 目标：把 ComfyUI 从预留插槽升级为 VideoCreator Engine 可直接调用的本地视觉 Provider。用户不进入 ComfyUI 手工拖节点；Web 与 Pipeline 通过 HTTP API 自动完成健康检查、模型发现、Workflow 提交、任务轮询、图片下载、资产登记和人工审核。
 
@@ -3324,4 +3324,44 @@ PASS: no API secret is persisted
 PASS: regression tests cover local provider and routing
 ```
 
-NEXT：完成 P30-02 实现与自动回归；通过后继续 P30-03 TTS / 字幕 / FFmpeg 执行化。
+P30-02 执行记录（2026-09-20）：
+
+- 新增 `support/providers/comfyui_image_provider.py` 与 `config/providers/comfyui-image-provider.json`：使用 ComfyUI HTTP API 完成 health、checkpoint 发现、API-format txt2img workflow、队列提交、history 轮询、输出下载；不要求用户进入 ComfyUI 拖节点。
+- `config/visual-generation-routes.json` 和 `ImageProviderRouter` 已切到 `LOCAL_FIRST_FALLBACK_REMOTE`：AUTO 优先 `COMFYUI_IMAGE`，本地不可用时才考虑 `OPENAI_IMAGE`；远程 fallback 仍必须显式确认计费。
+- Web「AI 生图」新增 `AUTO / ComfyUI / OpenAI` 路线、ComfyUI 本地地址保存/检测和本地状态展示；生成结果继续写入 `lookdev/image-studio/`，审核默认 `PENDING`。
+- Pipeline execute 已可探测并调用本地 ComfyUI 生成 keyframe，dry-run 只规划不调用；run manifest 记录实际 Provider、fallback chain、remote 标志、输出和 metadata。OpenAI fallback 不会静默产生费用。
+- 新增 `tests/test_comfyui_image_provider.py`，使用本地 fake HTTP server 覆盖 health、checkpoint、workflow、queue/history/view；扩展 Router 与 Pipeline 测试覆盖本地优先和 execute 模式。
+- 新增 GitHub Actions `.github/workflows/p30-provider-regression.yml`。当前 GitHub 未产生 workflow run，因此不虚报 CI PASS；Web JS 已用 V8 做语法校验、相关 JSON 已做解析校验并通过。真实 Mac/GPU ComfyUI smoke 属于运行时验证，GitHub 连接器无法访问本机 127.0.0.1，但不阻塞代码架构继续推进。
+- 关键提交：`cf62089`、`2f46b43`、`6213d71`、`7a11376`、`3a4266a`、`9fdbd03`、`51fe765`、`268f783`、`ef1567e`、`81ee391`、`085d42f`、`b953177`。
+- P30-02 代码范围完成；Blender 仍固定 `AUXILIARY_3D_CONTROL`，最终视觉没有回退到传统人物建模路线。
+
+NEXT：P30-03 TTS / 字幕 / FFmpeg 执行化。
+
+
+## P30-03 TTS / 字幕 / FFmpeg 执行化
+Status: IN_PROGRESS
+
+目标：把 P30-01 中仍为 PLANNED 的 TTS、字幕和 Assembly 阶段变成可真实执行的软件步骤，最大化复用现有 `generate_local_tts.py`、音频资产、字幕和 FFmpeg 能力，不再要求用户手工录音、对字幕或进剪辑软件。
+
+执行原则：
+
+- 优先复用现有本地/Provider TTS；没有远程授权时不得因为 TTS 阻塞整个本地流水线。
+- 字幕从已知脚本和 TTS 时间信息直接构建，不为“拿回原文”再走 ASR/Whisper。
+- FFmpeg 是默认总装器；Premiere / After Effects / Nuke 不进入默认依赖。
+- 任何已有且通过验证的音频、字幕和视频产物优先复用，支持 Resume 与局部重跑。
+- execute 模式真实执行；dry-run 只生成计划。
+- 最终成片生成后必须继续经过 Auto QC 和人工最终审核。
+
+验收：
+
+```text
+PASS: TTS stage has a real executable path
+PASS: subtitle stage builds from script/TTS timing without ASR round-trip
+PASS: FFmpeg assembly can produce final.mp4 from available video/audio/subtitle assets
+PASS: existing artifacts are reused instead of regenerated
+PASS: dry-run stays side-effect safe
+PASS: Web can request execute mode without terminal commands
+PASS: final review remains human-gated
+```
+
+NEXT：完成 P30-03 后继续 P30-04 Auto QC / Auto Retry / Web 一键整集执行。
