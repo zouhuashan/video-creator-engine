@@ -905,13 +905,13 @@ function renderImageStudio() {
   $('#imageStudioStatus').textContent = (localReady || remoteReady) ? 'READY' : 'NO PROVIDER';
   $('#imageStudioStatus').classList.toggle('off', !(localReady || remoteReady));
   $('#imageStudioRoute').textContent = routing.final_visual_route || 'IMAGE_PROVIDER_ROUTER';
-  $('#imageStudioBlenderRole').textContent = \`Blender · \${routing.blender_role || 'AUXILIARY_3D_CONTROL'}\`;
+  $('#imageStudioBlenderRole').textContent = `Blender · ${routing.blender_role || 'AUXILIARY_3D_CONTROL'}`;
   $('#imageStudioComfyUrl').value = comfyui.base_url || 'http://127.0.0.1:8188';
   $('#imageStudioComfyHint').textContent = localReady
-    ? \`本地 ComfyUI 已连接 · \${comfyui.checkpoint_count || 0} 个 checkpoint · 不产生远程 API 费用。\`
-    : \`本地 ComfyUI 未就绪：\${comfyui.detail || '请启动 ComfyUI 或修改地址'}\`;
+    ? `本地 ComfyUI 已连接 · ${comfyui.checkpoint_count || 0} 个 checkpoint · 不产生远程 API 费用。`
+    : `本地 ComfyUI 未就绪：${comfyui.detail || '请启动 ComfyUI 或修改地址'}`;
   $('#imageStudioKeyHint').textContent = openai.configured
-    ? \`OpenAI fallback 已配置（\${openai.source === 'environment' ? '环境变量' : '当前 Web 会话'}），密钥不会显示或写入文件。\`
+    ? `OpenAI fallback 已配置（${openai.source === 'environment' ? '环境变量' : '当前 Web 会话'}），密钥不会显示或写入文件。`
     : 'OpenAI 仅作为远程 fallback；未配置时 AUTO 不会产生远程调用。';
 
   const character = data?.character || {};
@@ -988,7 +988,7 @@ async function saveComfyUIEndpoint() {
       body: JSON.stringify({ integration: 'comfyui', base_url: baseUrl }),
     });
     await loadImageStudio(state.imageStudioProjectId);
-    log(\`ComfyUI：\${result.detail || (result.connected ? '连接正常' : '未连接')}\`);
+    log(`ComfyUI：${result.detail || (result.connected ? '连接正常' : '未连接')}`);
   } catch (error) { log(error.message, true); }
   finally { button.disabled = false; button.textContent = '保存并检测'; }
 }
@@ -1033,7 +1033,7 @@ async function generateImageStudio(kind) {
   if (preference === 'COMFYUI_IMAGE' && !localReady) { log('ComfyUI 本地 Provider 尚未就绪', true); return; }
   if (usesRemote) {
     if (!openai.configured) { log('本地 ComfyUI 不可用，OpenAI fallback 也未配置', true); return; }
-    if (!window.confirm(\`将使用 OpenAI fallback 生成\${label}，可能产生 API 费用。确认继续？\`)) return;
+    if (!window.confirm(`将使用 OpenAI fallback 生成${label}，可能产生 API 费用。确认继续？`)) return;
   }
 
   const button = kind === 'character-bible' ? $('#generateCharacterBibleButton') : $('#generateKeyframeButton');
