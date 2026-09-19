@@ -107,9 +107,6 @@ def add_child_face():
         iris_obj = sphere(f"Iris_{side}", (x,eye_y-0.048,2.86), (0.098,0.026,0.132), iris, 48, 24)
         pupil_obj = sphere(f"Pupil_{side}", (x,eye_y-0.068,2.86), (0.048,0.014,0.073), pupil, 40, 20)
         sphere(f"Catch_{side}", (x-0.03,eye_y-0.084,2.93), (0.026,0.010,0.034), catch, 32, 16)
-        sclera.parent = head
-        iris_obj.parent = head
-        pupil_obj.parent = head
 
     # brows / nose / mouth / cheek blush
     cube("Brow_L", (-0.235,-0.535,3.095), (0.12,0.018,0.018), brow, rotation=(math.radians(2),0,math.radians(-5)), bevel=0.02)
@@ -259,19 +256,8 @@ def main():
     track.up_axis = "UP_Y"
     scene.camera = cam
 
-    # mild three-quarter turn, still close enough to reference
-    root = bpy.data.objects.new("ChildLookdevRoot", None)
-    bpy.context.collection.objects.link(root)
-    # parent all foreground child objects only
-    excluded = {"Camera","LookdevTarget","Ground","Key","Fill"}
-    for obj in list(bpy.context.scene.objects):
-        if obj == root or obj.type in {"CAMERA","LIGHT"} or obj.name.startswith("BG_") or obj.name.startswith("Pole") or obj.name.startswith("Lantern"):
-            continue
-        if obj.name == "Ground":
-            continue
-        if obj.parent is None:
-            obj.parent = root
-    root.rotation_euler = (0.0,0.0,math.radians(-3.0))
+    # Keep v1 transform hierarchy flat. The still does not need runtime parenting,
+    # and flat world-space transforms avoid accidental double transforms.
 
     bpy.context.view_layer.update()
     head_center = head.matrix_world.translation
