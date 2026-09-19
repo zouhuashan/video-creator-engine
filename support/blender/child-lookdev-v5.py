@@ -16,6 +16,40 @@ def parse_args():
     return parser.parse_args(argv)
 
 
+def ensure_mpfb_enabled():
+    prefs = bpy.context.preferences
+
+    for module_name in prefs.addons.keys():
+        if str(module_name).split(".")[-1] == "mpfb":
+            return str(module_name)
+
+    repos = getattr(getattr(prefs, "extensions", None), "repos", [])
+    candidates = []
+    for repo in repos:
+        if not getattr(repo, "enabled", True):
+            continue
+        repo_dir = Path(str(repo.directory)).expanduser()
+        package_dir = repo_dir / "mpfb"
+        manifest = package_dir / "blender_manifest.toml"
+        if package_dir.is_dir() and manifest.is_file():
+            candidates.append(f"bl_ext.{repo.module}.mpfb")
+
+    if not candidates:
+        raise RuntimeError("MPFB extension package not found in enabled repositories")
+
+    errors = []
+    for module_name in candidates:
+        try:
+            result = bpy.ops.preferences.addon_enable(module=module_name)
+            if "FINISHED" in result and module_name in bpy.context.preferences.addons.keys():
+                return module_name
+            errors.append(f"{module_name}: {result}")
+        except Exception as error:
+            errors.append(f"{module_name}: {type(error).__name__}: {error}")
+
+    raise RuntimeError("MPFB extension could not be enabled: " + " | ".join(errors))
+
+
 def principled(name, color, roughness=0.7, metallic=0.0):
     mat = bpy.data.materials.get(name) or bpy.data.materials.new(name)
     mat.use_nodes = True
@@ -110,9 +144,7 @@ def childify_basemesh(obj):
 
 
 def create_mpfb_basemesh():
-    if not hasattr(bpy.ops, "mpfb") or not hasattr(bpy.ops.mpfb, "create_human"):
-        raise RuntimeError("MPFB operator mpfb.create_human is not available")
-
+    module_name = ensure_mpfb_enabled()
     before_names = {obj.name for obj in bpy.data.objects}
 
     result = bpy.ops.mpfb.create_human()
@@ -145,6 +177,7 @@ def create_mpfb_basemesh():
 
     return base, {
         "api": "bpy.ops.mpfb.create_human",
+        "module": module_name,
         "created_mesh_count": len(created_meshes),
         "base_vertices": len(base.data.vertices),
     }
