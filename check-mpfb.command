@@ -21,7 +21,7 @@ fi
 
 : >"$LOG"
 echo "RUN  Check MPFB"
-if ! /usr/bin/arch -arm64 "$blender" --background --python "$ROOT/support/blender/check-mpfb.py" >>"$LOG" 2>&1; then
+if ! /usr/bin/arch -arm64 "$blender" --background --python-exit-code 1 --python "$ROOT/support/blender/check-mpfb.py" >>"$LOG" 2>&1; then
   echo "FAIL MPFB unavailable"
   tail -n 100 "$LOG" 2>/dev/null || true
   exit 1
@@ -29,6 +29,7 @@ fi
 
 grep -q "VIDEO_CREATOR_MPFB_PASS" "$LOG" || {
   echo "FAIL MPFB validation marker missing"
+  tail -n 120 "$LOG" 2>/dev/null || true
   exit 1
 }
 
