@@ -177,3 +177,24 @@ VIDEO_CREATOR_REFERENCE_BLOCKOUT_FRAMES_PASS
 ```
 
 Without the framing marker, `render-reference-demo.command` fails before encoding the MP4.
+
+## P28-02 Child LookDev v1
+
+P28-02 now has an executable local Blender LookDev pass rather than a prose-only specification.
+
+Run:
+
+```bash
+./render-child-lookdev.command
+```
+
+Outputs:
+
+```text
+renders/lookdev/child-lookdev-v1.png
+renders/lookdev/child-lookdev-v1.blend
+```
+
+The first pass locks child-specific proportions, large eyes/catchlights, soft round cheeks, minimal nose/mouth, double-bun hair silhouette, pale cyan/white layered costume and the reference warm-rim/cool-fill lighting language. A camera-space gate prevents an off-frame character from being reported as a valid render.
+
+A successful command means only **technical render PASS**. Human visual review remains PENDING until the still is inspected against the uploaded reference.
