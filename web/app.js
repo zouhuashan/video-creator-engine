@@ -807,10 +807,13 @@ function renderImageStudio() {
   if (data?.project_id) select.value = data.project_id;
 
   const provider = data?.provider || {};
+  const routing = data?.routing || {};
   $('#imageStudioProvider').textContent = provider.label || 'OpenAI Image';
   $('#imageStudioModel').textContent = provider.model || '—';
   $('#imageStudioStatus').textContent = provider.configured ? 'READY' : 'NEED KEY';
   $('#imageStudioStatus').classList.toggle('off', !provider.configured);
+  $('#imageStudioRoute').textContent = routing.final_visual_route || provider.final_visual_route || 'IMAGE_PROVIDER_ROUTER';
+  $('#imageStudioBlenderRole').textContent = `Blender · ${routing.blender_role || provider.blender_role || 'AUXILIARY_3D_CONTROL'}`;
   $('#imageStudioKeyHint').textContent = provider.configured
     ? `已配置（${provider.source === 'environment' ? '环境变量' : '当前 Web 会话'}），密钥不会显示或写入文件。`
     : '尚未配置。请在这里保存 OpenAI API Key；只保存在当前 Web 服务进程。';
