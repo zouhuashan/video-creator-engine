@@ -29,6 +29,22 @@
       "model_from": "config/providers/openai-image-provider.json"
     },
     {
+      "id": "COMFYUI_IMAGE",
+      "adapter": "comfyui_image",
+      "status": "ADAPTER_SLOT",
+      "remote": false,
+      "generative": true,
+      "role": "LOCAL_VISUAL_FACTORY",
+      "capabilities": [
+        "character_bible",
+        "shot_keyframe",
+        "hero_frame",
+        "rescue_shot"
+      ],
+      "web_surface": "AUTO PIPELINE",
+      "endpoint_env": "COMFYUI_BASE_URL"
+    },
+    {
       "id": "BLENDER_ANIME",
       "adapter": "blender_anime",
       "status": "AUXILIARY",
