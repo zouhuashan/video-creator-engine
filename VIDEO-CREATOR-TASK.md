@@ -3194,3 +3194,12 @@ Provider 可替换 > 单一供应商
 ```
 
 **VideoCreator Engine 的目标不是“自动生成视频”，而是构建一套可以长期升级、复用、迭代和商业化的个人视频内容生产系统。**
+
+## P29 最终视觉 Provider 化（2026-09-19）
+
+- **现行架构已切换**：最终视觉不再以 Blender 为默认画质生产器；`config/animation-routes.json` 的 `production_target_route` 改为 `IMAGE_PROVIDER_ROUTER`。
+- 新增 `config/visual-generation-routes.json`：Image Provider Router 是最终视觉主路由；OpenAI Image 当前作为 `HIGH_QUALITY_FALLBACK` / 手动高质量生图 Provider；所有远程计费调用继续要求明确确认，未来若上传参考图还必须单独获得上传授权。
+- Blender 正式降级为 `AUXILIARY_3D_CONTROL`：只负责 camera blocking、pose reference、scene layout、lighting reference、FX assist 和可控 3D 辅助，不再承担默认最终角色画质。
+- Web Console 已新增「AI 生图」页面：用户可直接在 `http://127.0.0.1:18765` 保存会话级 OpenAI Key、生成角色定妆板、生成镜头关键帧、预览历史结果并做人工审核；不要求命令行。
+- 生图资产统一保存到当前项目 `lookdev/image-studio/`，metadata 的 `review_status` 默认 `PENDING`；人工通过前不得视为正式角色/镜头资产。
+- NEXT：从 Web 的「AI 生图」生成并审核 `CHAR-CHILD-001` 定妆板，然后用审核通过的角色锁继续 SHOT keyframe → Motion Provider → Episode。
