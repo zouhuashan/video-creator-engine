@@ -351,6 +351,7 @@ def run_pipeline(
         "PASS" if subtitles else "PLANNED",
         "subtitle asset resolved" if subtitles else "subtitles will be built from script/TTS timing; Whisper round-trip is disabled",
         asset=_relative(project, subtitles),
+        subtitle_source="SCRIPT_TTS_TIMING",
         asr_round_trip=False,
     ))
 
