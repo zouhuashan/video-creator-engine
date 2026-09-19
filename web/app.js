@@ -1,4 +1,4 @@
-const state = { projects: [], animeProjects: [], project: null, providers: [], integrations: [], studio: null, readiness: null, backups: null, studioProjectId: null, imageStudio: null, imageStudioProjectId: null, selectedProvider: 'local_ken_burns', selectedImage: null, currentView: 'workspace', currentWorkspace: 'overview' };
+const state = { projects: [], animeProjects: [], project: null, providers: [], integrations: [], studio: null, readiness: null, backups: null, studioProjectId: null, imageStudio: null, imageStudioProjectId: null, imageStudioSelected: null, selectedProvider: 'local_ken_burns', selectedImage: null, currentView: 'workspace', currentWorkspace: 'overview' };
 
 const $ = (selector) => document.querySelector(selector);
 const escapeHtml = (value) => String(value).replace(/[&<>'"]/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
@@ -840,6 +840,7 @@ function renderImageStudio() {
 
 function showImageStudioResult(item) {
   if (!item) return;
+  state.imageStudioSelected = item;
   $('#imageStudioEmpty').classList.add('hidden');
   $('#imageStudioResult').classList.remove('hidden');
   $('#imageStudioPreview').src = item.media_url;
@@ -874,6 +875,33 @@ async function saveImageStudioKey() {
     log('OpenAI Image Key 已保存到当前 Web 服务进程');
   } catch (error) { log(error.message, true); }
   finally { button.disabled = false; button.textContent = '保存 Key'; }
+}
+
+async function reviewImageStudio(status) {
+  const item = state.imageStudioSelected;
+  const projectId = state.imageStudioProjectId;
+  if (!item?.metadata || !projectId) { log('请先选择一张 AI 生图结果', true); return; }
+  const label = status === 'APPROVED' ? '通过' : '需要修改';
+  let note = '';
+  if (status === 'CHANGES_REQUESTED') {
+    note = window.prompt('请输入需要修改的内容（可留空）：', '') ?? '';
+  }
+  try {
+    const result = await api('/api/image-studio/review', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        project_id: projectId,
+        metadata: item.metadata,
+        status,
+        note,
+      }),
+    });
+    showImageStudioResult(result);
+    await loadImageStudio(projectId);
+    showImageStudioResult(result);
+    log(`AI 生图人工审核：${label}`);
+  } catch (error) { log(error.message, true); }
 }
 
 async function generateImageStudio(kind) {
@@ -1061,6 +1089,8 @@ $('#imageStudioProject').addEventListener('change', (event) => loadImageStudio(e
 $('#imageStudioSaveKey').addEventListener('click', saveImageStudioKey);
 $('#generateCharacterBibleButton').addEventListener('click', () => generateImageStudio('character-bible'));
 $('#generateKeyframeButton').addEventListener('click', () => generateImageStudio('keyframe'));
+$('#imageStudioApproveButton').addEventListener('click', () => reviewImageStudio('APPROVED'));
+$('#imageStudioChangesButton').addEventListener('click', () => reviewImageStudio('CHANGES_REQUESTED'));
 $('#projectSelect').addEventListener('change', (event) => loadProject(event.target.value).catch((error) => log(error.message, true)));
 $('#billableConfirm').addEventListener('change', updateGenerateButton);
 $('#generateButton').addEventListener('click', generate);
