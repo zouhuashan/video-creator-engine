@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "policy": {
     "default_route": "LOCAL_CUTOUT_RIG",
     "non_generative_first": true,
@@ -10,7 +10,11 @@
     ],
     "publish_requires_human_confirmation": true,
     "animatic_route": "LOCAL_CUTOUT_RIG",
-    "production_target_route": "BLENDER_ANIME"
+    "production_target_route": "IMAGE_PROVIDER_ROUTER",
+    "final_visual_mode": "PROVIDER_ROUTED",
+    "blender_role": "AUXILIARY_3D_CONTROL",
+    "remote_image_generation_mode": "FALLBACK_OR_MANUAL",
+    "final_visual_human_review_required": true
   },
   "routes": [
     {
@@ -72,26 +76,45 @@
       "note": "Retained for experiments; not the current final-image production target."
     },
     {
+      "id": "IMAGE_PROVIDER_ROUTER",
+      "category": "visual_provider_router",
+      "status": "ACTIVE",
+      "implemented": true,
+      "remote": false,
+      "generative": false,
+      "requires_installation": false,
+      "license_review_required": false,
+      "adapter": "image_provider_router",
+      "role": "FINAL_VISUAL_DEFAULT",
+      "use_cases": [
+        "character_bible",
+        "shot_keyframe",
+        "hero_frame",
+        "visual_quality_fallback",
+        "provider_routing"
+      ],
+      "provider_policy": "config/visual-generation-routes.json",
+      "note": "Final visual output is provider-routed. Remote providers remain explicitly gated and human reviewed."
+    },
+    {
       "id": "BLENDER_ANIME",
       "category": "local_3d_npr",
-      "status": "CANDIDATE",
-      "implemented": false,
+      "status": "AUXILIARY",
+      "implemented": true,
       "remote": false,
       "generative": false,
       "requires_installation": true,
       "license_review_required": false,
       "adapter": "blender_anime",
-      "role": "FINAL_IMAGE_TARGET",
+      "role": "AUXILIARY_3D_CONTROL",
       "use_cases": [
-        "serialized_final_shot",
-        "character_performance",
-        "armature_ik",
-        "shape_keys",
-        "toon_npr",
-        "line_art",
-        "cinematic_camera",
-        "hair_cloth_secondary",
-        "guofeng_fx"
+        "camera_blocking",
+        "pose_reference",
+        "scene_layout",
+        "deterministic_3d_reference",
+        "lighting_reference",
+        "fx_assist",
+        "optional_controlled_shot"
       ],
       "implementation_stage": "INSTALLATION_AND_SMOKE_READY",
       "production_channel": "5.2 LTS",
@@ -113,7 +136,8 @@
           "guofeng_atmosphere",
           "human_visual_review"
         ]
-      }
+      },
+      "note": "Blender is no longer the default final-image producer. Use it for controllable 3D blocking, camera, pose, scene, lighting and FX assistance."
     },
     {
       "id": "BLENDER_GREASE_PENCIL",
