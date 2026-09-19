@@ -1445,7 +1445,12 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                 payload = self._read_json()
                 project_id = str(payload.get("project_id") or "").strip()
                 _safe_project(project_id)
-                result = run_pipeline(project_id, dry_run=payload.get("dry_run") is not False)
+                result = run_pipeline(
+                    project_id,
+                    dry_run=payload.get("dry_run") is not False,
+                    confirm_billable=payload.get("confirm_billable") is True,
+                    preferred_image_provider=str(payload.get("image_provider") or "AUTO"),
+                )
                 return self._json(result, HTTPStatus.CREATED)
             except (ValueError, OSError, KeyError, TypeError, json.JSONDecodeError, PipelineError) as error:
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
