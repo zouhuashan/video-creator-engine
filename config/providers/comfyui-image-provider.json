@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "provider_id": "comfyui_image",
+  "label": "ComfyUI Local",
+  "capability": "image_generation",
+  "enabled": true,
+  "mode": "local",
+  "base_url_env": "COMFYUI_BASE_URL",
+  "default_base_url": "http://127.0.0.1:8188",
+  "checkpoint_env": "COMFYUI_CHECKPOINT",
+  "checkpoint": null,
+  "character_bible_size": "1536x1024",
+  "keyframe_size": "1024x1536",
+  "steps": 24,
+  "cfg_scale": 6.5,
+  "sampler_name": "euler",
+  "scheduler": "normal",
+  "negative_prompt": "watermark, text, logo, malformed hands, extra fingers, duplicate limbs, identity drift, low quality",
+  "timeout_seconds": 180,
+  "poll_interval_seconds": 0.5,
+  "status_timeout_seconds": 0.8,
+  "review_required": true,
+  "output_root": "lookdev/image-studio",
+  "supported_artifact_types": [
+    "character_bible",
+    "keyframe",
+    "hero_frame",
+    "rescue_shot"
+  ]
+}
