@@ -2825,6 +2825,14 @@ P28-02 v5 MPFB 检查门去 marker 化（2026-09-19）：
 - `check-mpfb.command` 与 `render-child-lookdev-v5.command` 现在以“Python exit code + 非空 status JSON”作为唯一技术门，不再 grep stdout marker；同时在 PASS 时打印实际 root package 和 Service API。
 - NEXT：用户 `git pull` 后重新执行 `./check-mpfb.command`。若 PASS，再直接执行 `./render-child-lookdev-v5.command`。
 
+P28-02 v5 MPFB operator-only 自动化修复（2026-09-19）：
+
+- 用户执行新版 `./check-mpfb.command` 时，`bpy.ops.mpfb.create_human` 已注册，但后台 Blender 无法 import `bl_ext.blender_org.mpfb` 或 `mpfb`；说明扩展内部 package path 在当前 Blender 5.2 安装中不可作为稳定自动化接口。
+- v5 再次收紧边界：彻底移除 MPFB 内部模块/Service API 依赖，`check-mpfb.py` 只验证已注册的 `bpy.ops.mpfb.create_human` operator，并把 operator RNA property 列表写入 status JSON。
+- `child-lookdev-v5.py` 改为直接 `bpy.ops.mpfb.create_human()` 创建真实连续人体 basemesh；从新建 Mesh 中选择顶点数最大的主体作为 `ChildMPFBBaseMesh`，隐藏其它 helper mesh。
+- 为避免再次依赖 MPFB UI phenotype 参数，儿童化改为在真实连续 mesh 上直接做 vertex proportion edit：头部整体放大、肩胸收窄、腰胯轻收、腿部视觉缩短，之后统一归一化到 1.34m；不 remesh，不回退到 primitive 拼装。
+- v5 的目标仍只是“真实连续人体底座质量门”，不是最终古装角色。NEXT：用户 `git pull` 后先 `./check-mpfb.command`，PASS 后直接 `./render-child-lookdev-v5.command`。
+
 P28-02 MPFB check/install status-file 统一（2026-09-19）：
 
 - 用户执行 `./check-mpfb.command` 出现 `FAIL MPFB validation marker missing`；该输出对应旧版 grep-marker 检查逻辑，而当前仓库的 `check-mpfb.command` 已升级为 status JSON 文件校验。
