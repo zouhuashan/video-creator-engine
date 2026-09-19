@@ -79,6 +79,42 @@ class PipelineOrchestratorTests(unittest.TestCase):
             self.assertFalse(saved["remote"])
             self.assertTrue((project / saved["output"]).is_file())
 
+    def test_execute_reuses_media_and_reaches_qc_without_manual_editing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            projects = Path(directory)
+            project = projects / "demo-project"
+            project.mkdir()
+            (project / "novel-anime-project.json").write_text('{"project_id":"demo-project"}\n', encoding="utf-8")
+            generated = project / "generated" / "shot.mp4"
+            generated.parent.mkdir(parents=True)
+            generated.write_bytes(b"video")
+            audio = project / "audio" / "voice.wav"
+            audio.parent.mkdir(parents=True)
+            audio.write_bytes(b"audio")
+            subtitles = project / "subtitles" / "voice.srt"
+            subtitles.parent.mkdir(parents=True)
+            subtitles.write_text("1\n00:00:00,000 --> 00:00:01,000\nhello\n", encoding="utf-8")
+
+            def fake_assemble(project_path, video, *, audio=None, subtitles=None, output=None):
+                target = output or (project_path / "final.mp4")
+                target.write_bytes(b"final")
+                return {"status":"PASS","output":"final.mp4","finalizer":"ffmpeg"}
+
+            with patch("scripts.pipeline_orchestrator.ComfyUIImageProvider") as comfy, \
+                 patch("scripts.pipeline_orchestrator.assemble_final", side_effect=fake_assemble), \
+                 patch("scripts.pipeline_orchestrator._qc_with_retry", return_value={"status":"PASS","auto_retry":False,"attempt_count":1,"attempts":[]}):
+                comfy.side_effect = Exception("unused")
+                result = run_pipeline("demo-project", dry_run=False, projects_root=projects)
+
+            stages = {item["id"]: item for item in result["stages"]}
+            self.assertEqual(stages["tts"]["status"], "PASS")
+            self.assertEqual(stages["subtitles"]["status"], "PASS")
+            self.assertEqual(stages["assembly"]["status"], "PASS")
+            self.assertEqual(stages["qc"]["status"], "PASS")
+            self.assertTrue((project / "final.mp4").is_file())
+            self.assertTrue(result["review"]["ready"])
+
+
 
 if __name__ == "__main__":
     unittest.main()
