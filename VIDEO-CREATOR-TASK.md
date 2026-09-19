@@ -2825,6 +2825,15 @@ P28-02 v5 MPFB 检查门去 marker 化（2026-09-19）：
 - `check-mpfb.command` 与 `render-child-lookdev-v5.command` 现在以“Python exit code + 非空 status JSON”作为唯一技术门，不再 grep stdout marker；同时在 PASS 时打印实际 root package 和 Service API。
 - NEXT：用户 `git pull` 后重新执行 `./check-mpfb.command`。若 PASS，再直接执行 `./render-child-lookdev-v5.command`。
 
+P28-02 最终 LookDev 拉通（2026-09-19）：
+
+- 用户明确反馈当前推进过慢，要求停止持续研究人物建模，直接拉通 LookDev 并产生最终视觉效果。该要求升级为当前 P28-02 唯一 NEXT；后续不再以“裸体 basemesh checkpoint”作为阶段产物。
+- 新增 `FINAL-CHILD-LOOKDEV-001`：以 v6 的真实 MPFB child basemesh 为底座，一次性加入动漫脸部视觉系统、大眼/虹膜/高光/眼睑、小嘴、双髻+刘海+侧发、青色发带/金饰、浅青白多层汉服、交领/腰封/前片/宽袖、暖夕阳 Rim、冷 Face Fill、Eye Light、82mm 人像镜头、f/2.8 景深和历史营地背景层次。
+- 新增 `config/final-child-lookdev-001.json`、`support/blender/final-child-lookdev-001.py`、`render-final-child-lookdev.command` 与回归测试；正式输出 `renders/lookdev/final-child-lookdev-001.png` + `.blend`。
+- 该产物直接按“是否读成参考方向里的国风动漫小女孩成片”验收，不再按裸模比例验收。技术 PASS 只说明脚本/渲染链成功；正式人审仍为 `PENDING`。
+- 如果该最终 LookDev 仍明显不接近参考目标，下一步应直接切更强的角色资产/生成式角色外观路线，而不是继续对基础人体做 v7/v8 裸模比例微调。
+- NEXT：用户执行 `./render-final-child-lookdev.command` 并提交 `renders/lookdev/final-child-lookdev-001.png`。
+
 P28-02 Child LookDev v6 原生 MPFB child phenotype（2026-09-19）：
 
 - 用户实机提交 `child-lookdev-v5.png`：连续真实人体 basemesh 已成功，primitive/公仔拼装问题彻底解决，因此“真实人体底层路线”技术 PASS；但视觉仍是明显成年女性体态（头小、肩胯/腿长成人化、胸部明显），P28-02 人工审核仍 FAIL。
