@@ -43,6 +43,30 @@
         </section>
 
         <section class="workspace-grid" id="workspaceView">
+          <div class="panel pipeline-panel">
+            <div class="panel-heading">
+              <div><span class="section-kicker">P30 / AUTO PIPELINE</span><h2>一键整集自动生产线</h2><p class="panel-subtitle">小说/项目 → 角色 → 分镜 → Blender 控制参考 → ImageProvider → VideoProvider → TTS → 字幕 → FFmpeg → QC → 人工审核。</p></div>
+              <span class="status-dot" id="pipelineStatus">NOT STARTED</span>
+            </div>
+            <div class="pipeline-toolbar">
+              <div>
+                <label class="field-label" for="pipelineProjectSelect">国漫项目</label>
+                <select id="pipelineProjectSelect" class="select-field"></select>
+              </div>
+              <button class="primary-button pipeline-run-button" id="pipelineRunButton"><span>▶</span>创建整集（自动规划）</button>
+              <button class="secondary-button pipeline-review-button" id="pipelineApproveButton" disabled>人工确认成片</button>
+            </div>
+            <div class="pipeline-progress">
+              <div><strong id="pipelineProgressText">0%</strong><small id="pipelineNext">等待启动</small></div>
+              <div class="pipeline-progress-track"><span id="pipelineProgressBar"></span></div>
+            </div>
+            <div class="pipeline-stage-grid" id="pipelineStages"><div class="empty-state">点击“创建整集（自动规划）”，软件会生成完整机器执行图。P30-01 不会自动触发远程计费。</div></div>
+            <div class="pipeline-preview hidden" id="pipelinePreviewWrap">
+              <div class="panel-heading compact"><div><span class="section-kicker">PREVIEW</span><h3>当前可预览成片</h3></div><span class="muted">最终发布仍需人工确认</span></div>
+              <video id="pipelinePreview" controls playsinline></video>
+            </div>
+          </div>
+
           <div class="panel project-panel">
             <div class="panel-heading"><div><span class="section-kicker">01 / PROJECT</span><h2>选择试制项目</h2></div><span class="status-dot">LIVE</span></div>
             <label class="field-label" for="projectSelect">项目</label><select id="projectSelect" class="select-field"></select>
