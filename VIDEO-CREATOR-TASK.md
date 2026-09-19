@@ -2825,6 +2825,16 @@ P28-02 v5 MPFB 检查门去 marker 化（2026-09-19）：
 - `check-mpfb.command` 与 `render-child-lookdev-v5.command` 现在以“Python exit code + 非空 status JSON”作为唯一技术门，不再 grep stdout marker；同时在 PASS 时打印实际 root package 和 Service API。
 - NEXT：用户 `git pull` 后重新执行 `./check-mpfb.command`。若 PASS，再直接执行 `./render-child-lookdev-v5.command`。
 
+P28-02 Child LookDev v6 原生 MPFB child phenotype（2026-09-19）：
+
+- 用户实机提交 `child-lookdev-v5.png`：连续真实人体 basemesh 已成功，primitive/公仔拼装问题彻底解决，因此“真实人体底层路线”技术 PASS；但视觉仍是明显成年女性体态（头小、肩胯/腿长成人化、胸部明显），P28-02 人工审核仍 FAIL。
+- v5 证明底层路线正确，同时证明“默认成人 MPFB + 我们自己按身高区间改顶点”的 childify 方法不可靠；停止继续使用粗暴 age-region vertex deformation 作为儿童生成主手段。
+- 对照 MPFB2 官方源码确认：New Human panel 使用 `SceneConfigSet(..., prefix="NH_")`，实际 Scene 属性全名为 `MPFB_NH_<property>`；`createhuman.py` 会直接读取这些属性并生成 macro phenotype。
+- v6 新增 `config/child-lookdev-v6.json`、`support/blender/child-lookdev-v6.py`、`render-child-lookdev-v6.command`、回归测试。创建前强制写入并回读：`MPFB_NH_add_phenotype=True`、`phenotype_gender=female`、`phenotype_age=child`、`phenotype_race=asian`、`phenotype_muscle=minmuscle`、`phenotype_weight=averageweight`、`phenotype_height=minheight`、`phenotype_proportions=average`、`phenotype_influence=1.0`、`MPFB_NH_add_breast=False`。
+- MPFB 官方 operator 对 child 的真实 macro 映射为 age=0.1875，对 female 的真实 gender macro 映射为 0.0；v6 不再自行伪造这些 macro。
+- MPFB 原生 child basemesh 生成后仅做轻度动漫化：头部 XY +10%、Z +4%、肩部 -4%、腿部轻缩，最后归一化到约 1.28m；该步骤只是向参考中的幼态/chibi 方向推进，不替代原生 child macro。
+- v6 技术成功必须同时出现 `VIDEO_CREATOR_MPFB_NATIVE_CHILD_PASS`、framing PASS 和最终 output PASS；人工视觉审核仍保持 `PENDING`。NEXT：用户执行 `./render-child-lookdev-v6.command` 并提交 `renders/lookdev/child-lookdev-v6.png`。
+
 P28-02 v5 MPFB 实际安装修复（2026-09-19）：
 
 - 用户实机输出已证明：Blender 5.2 三个已启用 extension repository 中都不存在 `mpfb/blender_manifest.toml`，因此此前所有 check/render 失败的最终根因是 MPFB 扩展并未真正安装到 Blender 5.2，而不是 module-name 推导问题。
