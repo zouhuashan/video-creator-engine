@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "lookdev_id": "P28-02-CHILD-LOOKDEV-V1",
+  "style_id": "STYLE-REF-GUOFENG-DIALOGUE-001",
+  "role": "child_girl",
+  "output": {
+    "preview_resolution": [
+      540,
+      960
+    ],
+    "final_target_resolution": [
+      1080,
+      1920
+    ],
+    "image": "renders/lookdev/child-lookdev-v1.png",
+    "blend": "renders/lookdev/child-lookdev-v1.blend"
+  },
+  "proportions": {
+    "head_to_body_ratio_target": 3.3,
+    "head_scale": "large",
+    "shoulders": "narrow",
+    "limbs": "short_soft",
+    "adult_face_reuse_forbidden": true
+  },
+  "face": {
+    "shape": "round_soft_cheeks",
+    "eyes": "very_large_dark_iris_with_catchlight",
+    "nose": "minimal",
+    "mouth": "small_soft",
+    "brows": "thin_soft",
+    "cheek_blush": true
+  },
+  "hair": {
+    "color": "near_black_brown",
+    "silhouette": "double_bun_with_bangs",
+    "ornaments": "small_pale_cyan_ribbons",
+    "strand_breakup": "simple_v1"
+  },
+  "costume": {
+    "palette": [
+      "pale_cyan",
+      "white",
+      "muted_teal"
+    ],
+    "silhouette": "hanfu_inspired_layered_robe",
+    "wide_sleeves": true,
+    "crossed_collar": true,
+    "waist_sash": true
+  },
+  "lighting": {
+    "key": "warm_sunset_rim",
+    "fill": "cool_soft_face_fill",
+    "background": "warm_haze_dark_neutral",
+    "depth_of_field": "shallow"
+  },
+  "quality_gate": {
+    "status": "PENDING",
+    "requires": [
+      "reads_as_child_at_first_glance",
+      "large_eye_soft_face",
+      "double_bun_silhouette",
+      "pale_blue_white_guofeng_costume",
+      "visible_costume_layering",
+      "warm_rim_and_cool_fill",
+      "no_flat_cutout_read",
+      "human_visual_review"
+    ]
+  }
+}
