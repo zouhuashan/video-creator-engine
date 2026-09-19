@@ -3203,3 +3203,85 @@ Provider 可替换 > 单一供应商
 - Web Console 已新增「AI 生图」页面：用户可直接在 `http://127.0.0.1:18765` 保存会话级 OpenAI Key、生成角色定妆板、生成镜头关键帧、预览历史结果并做人工审核；不要求命令行。
 - 生图资产统一保存到当前项目 `lookdev/image-studio/`，metadata 的 `review_status` 默认 `PENDING`；人工通过前不得视为正式角色/镜头资产。
 - NEXT：从 Web 的「AI 生图」生成并审核 `CHAR-CHILD-001` 定妆板，然后用审核通过的角色锁继续 SHOT keyframe → Motion Provider → Episode。
+
+
+---
+
+# 44. P30 — Software-First Pipeline Orchestrator（2026-09-19）
+
+## P30-01 自动生产线架构冻结
+Status: IN_PROGRESS
+
+用户最终操作边界冻结为：
+
+```text
+输入小说/章节或选择现有项目
+→ 点击“创建整集”
+→ 查看机器流水线进度
+→ 预览最终成片
+→ 人工最终确认
+```
+
+除最终审核/发布外，凡是能够通过脚本、API、批处理、Headless 或 Provider 完成的工作，默认不得要求用户手工制作。
+
+现行主架构：
+
+```text
+ChatGPT / Codex
+      ↓
+Pipeline Orchestrator
+      ├── Story / Character / Shot Planner
+      ├── Scene Control
+      │     └── Blender Headless
+      │          camera / pose / blocking / depth / normal / mask / composition only
+      ├── ImageProvider Router
+      │     ├── OpenAI Image
+      │     └── ComfyUI (adapter slot)
+      ├── VideoProvider Router
+      │     ├── Local Ken Burns
+      │     ├── OpenAI Sora
+      │     ├── Runway
+      │     ├── Wan
+      │     └── ComfyUI (adapter slot)
+      ├── TTS Provider
+      ├── Subtitle Builder (script/TTS timing; no Whisper round-trip)
+      ├── FFmpeg Finalizer
+      ├── Auto QC
+      └── Human Final Review
+```
+
+强制规则：
+
+- Blender 永久保持 `AUXILIARY_3D_CONTROL`，不得重新升级为默认最终画质生产器。
+- Prompt 必须由 Character Bible + Shot + Scene/Camera 约束自动生成；Web 主流程不要求用户手写 Prompt。
+- ImageProvider / VideoProvider 必须可替换；核心 Orchestrator 禁止直接绑定单一供应商。
+- OpenAI API Key 与其他密钥仍只允许保存在当前 Web 服务进程或环境变量，不写项目文件、不写日志。
+- 字幕优先直接使用已知脚本与 TTS 时长生成；禁止为了拿回原文本再走 Whisper。
+- FFmpeg 是最终总装厂；Premiere / After Effects / Nuke 不进入默认生产依赖。
+- Auto QC 至少覆盖媒体完整性、技术规格、黑帧/异常帧接口、字幕/音频存在性，并允许失败镜头进入 AUTO_RETRY。
+- Web Console 主流程必须提供：创建整集、进度、预览、人工确认；底层 Provider/手工调试页保留为高级工具。
+- 正式发布仍必须人工确认，任何流水线不得自动发布平台内容。
+
+P30-01 实施范围：
+
+1. 新增统一 Pipeline Orchestrator 与持久化 run manifest。
+2. 新增 VideoProvider Router，和现有 ImageProvider Router 对齐。
+3. 固化 Character Bible JSON Schema。
+4. 自动构建镜头 Prompt；用户输入 Prompt 只允许作为可选 override，不作为主路径。
+5. 把 Web Console 接入 Pipeline status / run / review API。
+6. 新增项目级 dry-run，验证从 Story/Character/Shot 到 Review Gate 的整条阶段图可以一次跑通。
+7. 保留现有模块与 Provider，不大规模重写已经 PASS 的能力。
+8. 正常输出保持 RUN / PASS / FAIL / NEXT；详细过程进入 logs。
+
+验收：
+
+```text
+PASS: pipeline dry-run writes one machine-readable run manifest
+PASS: image/video routing remains provider-neutral
+PASS: Blender is auxiliary only
+PASS: Web can trigger and inspect the pipeline without terminal commands
+PASS: final review remains human-gated
+PASS: no API secret is persisted
+```
+
+NEXT：完成 P30-01 Orchestrator + Web dry-run，回归现有 P29 Image Studio 与 Provider 路由；通过后再进入 P30-02 ComfyUI 本地视觉工厂 Adapter。
