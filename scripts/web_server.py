@@ -72,6 +72,7 @@ from scripts.novel_edit_timelines import NovelEditTimelineError, load_edit_timel
 from scripts.novel_qc import NovelQCError, add_annotation, add_issue, compare as compare_qc, load_qc_report, summary as qc_summary, update_issue  # noqa: E402
 from scripts.novel_acceptance import NovelAcceptanceError, load_acceptance, summary as acceptance_summary  # noqa: E402
 from support.providers.openai_image_provider import OpenAIImageError, OpenAIImageProvider, character_bible_prompt, keyframe_prompt  # noqa: E402
+from support.providers.image_provider_router import ImageProviderRouter  # noqa: E402
 
 
 PROVIDER_TYPES = {
@@ -466,6 +467,7 @@ def _source_import_summaries(project: Path) -> list[dict[str, object]]:
 IMAGE_PROVIDER_CONFIG_PATH = ROOT / "config" / "providers" / "openai-image-provider.json"
 IMAGE_CHARACTER_CONFIG_PATH = ROOT / "config" / "characters" / "char-child-001.json"
 IMAGE_SHOT_CONFIG_PATH = ROOT / "config" / "shots" / "demo-shot-001.json"
+VISUAL_GENERATION_ROUTE_CONFIG_PATH = ROOT / "config" / "visual-generation-routes.json"
 
 
 def _load_repo_json(path: Path) -> dict[str, object]:
@@ -478,6 +480,10 @@ def _load_repo_json(path: Path) -> dict[str, object]:
     if not isinstance(payload, dict):
         raise ValueError(f"configuration must be an object: {path.relative_to(ROOT)}")
     return payload
+
+
+def _image_provider_router() -> ImageProviderRouter:
+    return ImageProviderRouter(VISUAL_GENERATION_ROUTE_CONFIG_PATH)
 
 
 def _openai_image_status() -> dict[str, object]:
@@ -524,6 +530,7 @@ def _image_studio_inventory(project: Path) -> dict[str, object]:
         "provider": _openai_image_status(),
         "character": _load_repo_json(IMAGE_CHARACTER_CONFIG_PATH),
         "shot": _load_repo_json(IMAGE_SHOT_CONFIG_PATH),
+        "routing": _image_provider_router().describe(),
         "items": items[:24],
         "review_required": True,
     }
@@ -534,9 +541,23 @@ def _generate_image_studio_asset(
     *,
     artifact_type: str,
     custom_prompt: str = "",
+    confirm_billable: bool = False,
+    upload_authorized: bool = False,
 ) -> dict[str, object]:
     if artifact_type not in {"character_bible", "keyframe"}:
         raise ValueError("unsupported image studio artifact type")
+
+    capability = "character_bible" if artifact_type == "character_bible" else "shot_keyframe"
+    route = _image_provider_router().route(
+        capability,
+        preferred_provider="OPENAI_IMAGE",
+        available_provider_ids={"OPENAI_IMAGE"},
+        confirm_billable=confirm_billable,
+        reference_image=False,
+        upload_authorized=upload_authorized,
+    )
+    if route["adapter"] != "openai_image":
+        raise ValueError("selected Image Provider adapter is not available in Image Studio")
 
     cfg = _load_repo_json(IMAGE_PROVIDER_CONFIG_PATH)
     character = _load_repo_json(IMAGE_CHARACTER_CONFIG_PATH)
@@ -581,7 +602,10 @@ def _generate_image_studio_asset(
         "style_id": str(character.get("style_id") or "STYLE-REF-GUOFENG-DIALOGUE-001"),
         "output": relative,
         "review_status": "PENDING",
-        "human_review_required": True,
+        "human_review_required": bool(route["human_review_required"]),
+        "route_id": route["route_id"],
+        "provider_id": route["provider_id"],
+        "provider_role": route["role"],
         "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "prompt": prompt,
     }
@@ -1343,6 +1367,8 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                     project,
                     artifact_type=artifact_type,
                     custom_prompt=str(payload.get("custom_prompt") or ""),
+                    confirm_billable=payload.get("confirm_billable") is True,
+                    upload_authorized=payload.get("upload_authorized") is True,
                 )
                 return self._json(result, HTTPStatus.CREATED)
             except (ValueError, OpenAIImageError, OSError, KeyError, TypeError, json.JSONDecodeError) as error:
