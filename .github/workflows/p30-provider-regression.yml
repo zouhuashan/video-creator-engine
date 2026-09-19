@@ -1,0 +1,43 @@
+name: P30 Provider Regression
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "support/providers/**"
+      - "config/providers/**"
+      - "config/visual-generation-routes.json"
+      - "scripts/pipeline_orchestrator.py"
+      - "scripts/web_server.py"
+      - "web/**"
+      - "tests/test_comfyui_image_provider.py"
+      - "tests/test_image_provider_router.py"
+      - "tests/test_pipeline_orchestrator.py"
+      - ".github/workflows/p30-provider-regression.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  provider-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Compile touched Python modules
+        run: |
+          python -m py_compile \
+            support/providers/comfyui_image_provider.py \
+            support/providers/image_provider_router.py \
+            scripts/pipeline_orchestrator.py \
+            scripts/web_server.py
+      - name: Run P30 unit regression
+        run: |
+          python -m unittest \
+            tests.test_comfyui_image_provider \
+            tests.test_image_provider_router \
+            tests.test_pipeline_orchestrator
