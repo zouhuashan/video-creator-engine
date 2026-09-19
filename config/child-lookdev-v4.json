@@ -1,0 +1,33 @@
+{
+  "schema_version": 4,
+  "lookdev_id": "P28-02-CHILD-LOOKDEV-V4",
+  "based_on": "P28-02-CHILD-LOOKDEV-V3",
+  "style_id": "STYLE-REF-GUOFENG-DIALOGUE-001",
+  "modeling_strategy": "organic_curve_and_loft_mesh",
+  "outputs": {
+    "image": "renders/lookdev/child-lookdev-v4.png",
+    "blend": "renders/lookdev/child-lookdev-v4.blend"
+  },
+  "upgrades": [
+    "bezier_hair_strands",
+    "organic_loft_torso",
+    "organic_loft_skirt",
+    "bell_sleeve_loft_mesh",
+    "smaller_integrated_eyes",
+    "soft_child_face_taper",
+    "layered_hanfu_panels",
+    "cinematic_principled_materials"
+  ],
+  "quality_gate": {
+    "status": "PENDING",
+    "requires": [
+      "hair_no_longer_reads_as_blocks",
+      "sleeves_no_longer_read_as_capsules",
+      "body_no_longer_reads_as_primitive_stack",
+      "face_reads_as_soft_stylized_child",
+      "costume_has_guofeng_layering",
+      "colors_and_lighting_match_reference_direction",
+      "human_visual_review"
+    ]
+  }
+}
