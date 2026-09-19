@@ -1,0 +1,50 @@
+{
+  "schema_version": 6,
+  "lookdev_id": "P28-02-CHILD-LOOKDEV-V6",
+  "based_on": "P28-02-CHILD-LOOKDEV-V5",
+  "style_id": "STYLE-REF-GUOFENG-DIALOGUE-001",
+  "modeling_strategy": "mpfb_native_child_phenotype_plus_light_stylize",
+  "mpfb": {
+    "scene_prefix": "MPFB_NH_",
+    "phenotype": {
+      "add_phenotype": true,
+      "gender": "female",
+      "age": "child",
+      "race": "asian",
+      "muscle": "minmuscle",
+      "weight": "averageweight",
+      "height": "minheight",
+      "proportions": "average",
+      "influence": 1,
+      "add_breast": false
+    },
+    "official_macro_mapping": {
+      "child_age": 0.1875,
+      "female_gender": 0
+    }
+  },
+  "post_stylize": {
+    "enabled": true,
+    "head_xy_scale": 1.1,
+    "head_z_scale": 1.04,
+    "shoulder_width_scale": 0.96,
+    "leg_length_scale": 0.94,
+    "target_height_m": 1.28
+  },
+  "outputs": {
+    "image": "renders/lookdev/child-lookdev-v6.png",
+    "blend": "renders/lookdev/child-lookdev-v6.blend"
+  },
+  "quality_gate": {
+    "status": "PENDING",
+    "requires": [
+      "mpfb_native_child_phenotype_applied",
+      "female_asian_child_macro",
+      "breast_macro_disabled",
+      "continuous_human_basemesh",
+      "juvenile_head_body_ratio",
+      "no_adult_female_silhouette",
+      "human_visual_review"
+    ]
+  }
+}
