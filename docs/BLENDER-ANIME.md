@@ -316,3 +316,24 @@ The first-time command remains:
 ```bash
 ./install-mpfb.command
 ```
+
+### Child LookDev v6 — native MPFB child phenotype
+
+V5 validated the continuous MPFB basemesh route but still rendered an adult female silhouette. V6 therefore configures MPFB's own New Human scene properties before calling `mpfb.create_human`.
+
+The MPFB source defines New Human settings with prefix `NH_`, and BlenderConfigSet adds the global `MPFB_` prefix. V6 therefore sets properties such as `MPFB_NH_phenotype_age="child"`, `MPFB_NH_phenotype_gender="female"`, `MPFB_NH_phenotype_race="asian"`, and `MPFB_NH_add_breast=False` before creation.
+
+Run:
+
+```bash
+./render-child-lookdev-v6.command
+```
+
+Outputs:
+
+```text
+renders/lookdev/child-lookdev-v6.png
+renders/lookdev/child-lookdev-v6.blend
+```
+
+The native MPFB child phenotype is the primary anatomy source. Only a small post-style push is applied afterwards for the target animation direction. Human visual review is still required.
