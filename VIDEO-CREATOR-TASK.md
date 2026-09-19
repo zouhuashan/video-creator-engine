@@ -2340,7 +2340,7 @@ P18 架构与数据底座
 # 41. 当前方向与下一任务
 
 ```text
-NEXT: P28-01 复验（补齐正式五集素材与人工确认后）
+NEXT: P30-02 ComfyUI 本地视觉工厂 Adapter
 ```
 
 任务：
@@ -3210,7 +3210,7 @@ Provider 可替换 > 单一供应商
 # 44. P30 — Software-First Pipeline Orchestrator（2026-09-19）
 
 ## P30-01 自动生产线架构冻结
-Status: IN_PROGRESS
+Status: PASS
 
 用户最终操作边界冻结为：
 
@@ -3284,4 +3284,14 @@ PASS: final review remains human-gated
 PASS: no API secret is persisted
 ```
 
-NEXT：完成 P30-01 Orchestrator + Web dry-run，回归现有 P29 Image Studio 与 Provider 路由；通过后再进入 P30-02 ComfyUI 本地视觉工厂 Adapter。
+P30-01 执行记录（2026-09-19）：
+
+- `scripts/pipeline_orchestrator.py` 已形成统一 12 阶段机器执行图：Story → Character → Shot → Scene Control → Prompt → Image → Video → TTS → Subtitles → FFmpeg Assembly → Auto QC → Human Review；run manifest 持久化到项目 `pipeline/run.json`。
+- `config/pipeline-orchestrator.json` 新增机器可读的 `execution_policy`：默认 `software_first=true`、禁止把可自动化制作步骤退回人工，用户动作只保留 `SELECT_INPUT / FINAL_REVIEW / MANUAL_PUBLISH`。
+- 每个 stage 现在显式记录 `owner` 与 `human_action`；除最终 review 外全部归 `software`，review 固定归 `human`。Blender 继续锁定 `AUXILIARY_3D_CONTROL`，不得产出默认最终视觉。
+- ImageProvider Router、VideoProvider Router、Character Bible Schema、自动 Prompt、Web `/api/pipeline/status` / `run` / `review` 已接入；P29 Image Studio 与会话级密钥策略保持不变，run manifest 不保存 API Secret。
+- 回归测试 `tests/test_pipeline_orchestrator.py` 增加软件/人工阶段所有权与用户动作边界断言；本轮 GitHub 连接环境未配置 Actions workflow，因此没有远程 CI 结果可引用，本地完整测试仍由仓库现有检查入口执行。
+- Git commits：`7c839b3`（software-first policy）、`57c836e`（stage ownership）、`ed22794`（regression assertions）。
+- P30-01 验收项从代码与配置层面全部满足；下一阶段不再继续人物建模研究，进入 ComfyUI 本地视觉工厂 Adapter。
+
+NEXT：P30-02 ComfyUI 本地视觉工厂 Adapter。
