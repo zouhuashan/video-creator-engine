@@ -2,14 +2,15 @@
   "schema_version": 1,
   "policy": {
     "final_visual_route": "IMAGE_PROVIDER_ROUTER",
-    "provider_mode": "FALLBACK_OR_MANUAL",
+    "provider_mode": "LOCAL_FIRST_FALLBACK_REMOTE",
     "default_remote_provider": null,
     "high_quality_fallback_provider": "OPENAI_IMAGE",
     "character_bible_required_before_consistency_sensitive_shots": true,
     "human_review_required": true,
     "billable_remote_call_requires_confirmation": true,
     "reference_image_upload_requires_authorization": true,
-    "generated_assets_root": "lookdev/image-studio"
+    "generated_assets_root": "lookdev/image-studio",
+    "default_local_provider": "COMFYUI_IMAGE"
   },
   "providers": [
     {
@@ -31,7 +32,7 @@
     {
       "id": "COMFYUI_IMAGE",
       "adapter": "comfyui_image",
-      "status": "ADAPTER_SLOT",
+      "status": "ACTIVE",
       "remote": false,
       "generative": true,
       "role": "LOCAL_VISUAL_FACTORY",
@@ -42,7 +43,8 @@
         "rescue_shot"
       ],
       "web_surface": "AUTO PIPELINE",
-      "endpoint_env": "COMFYUI_BASE_URL"
+      "endpoint_env": "COMFYUI_BASE_URL",
+      "config_from": "config/providers/comfyui-image-provider.json"
     },
     {
       "id": "BLENDER_ANIME",
