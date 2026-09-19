@@ -34,6 +34,12 @@ OpenAI Image 是 VideoCreator 的高质量图片备用 Provider，用于角色�
 
 OpenAI Sora 与 OpenAI Image 使用同一个 `OPENAI_API_KEY` 时，当前 Web session 可复用已输入的 Sora key。
 
+## Provider Router
+
+`support/providers/image_provider_router.py` 是最终视觉的可执行路由层。它只做选择和门禁，不做网络请求：高质量最终视觉先进入 `IMAGE_PROVIDER_ROUTER`，当前没有更高优先级 Provider 时回退到 `OPENAI_IMAGE`；`BLENDER_ANIME` 固定为 `AUXILIARY_3D_CONTROL`，不能被当成最终画质 Provider。
+
+Router 同时强制执行远程计费确认和未来参考图上传授权。Web 状态 API 会返回路由摘要，页面直接显示当前最终视觉路由与 Blender 角色。
+
 ## API
 
 - `GET /api/image-studio/status?project_id=<project>`
@@ -41,7 +47,7 @@ OpenAI Sora 与 OpenAI Image 使用同一个 `OPENAI_API_KEY` 时，当前 Web s
 - `POST /api/image-studio/keyframe`
 - `POST /api/image-studio/review`
 
-远程生图请求必须携带 `confirm_billable=true`。Web 页面在发起请求前会显示确认框。
+远程生图请求必须携带 `confirm_billable=true`。Web 页面在发起请求前会显示确认框，Router 在生成函数内部再次校验，因此不能通过绕过前端直接触发未确认的计费调用。
 
 ## 输出
 
@@ -68,6 +74,10 @@ OpenAI Sora 与 OpenAI Image 使用同一个 `OPENAI_API_KEY` 时，当前 Web s
 - 柔软动漫脸和大而有层次的眼睛；
 - 禁止成年女性体态；
 - 禁止低模玩具/吉祥物读感。
+
+## 测试与零扣费约束
+
+`tests/test_image_provider_router.py` 只测试纯路由策略；`tests/test_image_studio.py` 的生成与 Web API 测试会 mock `OpenAIImageProvider.generate`，只启动本机临时 HTTP 服务，不访问真实 OpenAI 图片接口，也不会产生远程费用。
 
 ## 下一步
 
