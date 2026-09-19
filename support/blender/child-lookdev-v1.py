@@ -5,6 +5,7 @@ from pathlib import Path
 
 import bpy
 from mathutils import Vector
+from bpy_extras.object_utils import world_to_camera_view
 
 
 def parse_args():
@@ -271,6 +272,25 @@ def main():
         if obj.parent is None:
             obj.parent = root
     root.rotation_euler = (0.0,0.0,math.radians(-3.0))
+
+    bpy.context.view_layer.update()
+    head_center = head.matrix_world.translation
+    torso = bpy.data.objects.get("Torso")
+    skirt = bpy.data.objects.get("SkirtOuter")
+    checks = {
+        "head": head_center,
+        "torso": torso.matrix_world.translation if torso else Vector((0.0,0.0,1.84)),
+        "skirt": skirt.matrix_world.translation if skirt else Vector((0.0,0.0,0.95)),
+    }
+    projected = {}
+    for name, point in checks.items():
+        co = world_to_camera_view(scene, cam, point)
+        projected[name] = (float(co.x), float(co.y), float(co.z))
+        if not (0.12 <= co.x <= 0.88 and 0.08 <= co.y <= 0.94 and co.z > 0.0):
+            raise RuntimeError(f"child LookDev framing gate failed for {name}: {projected[name]}")
+    if projected["head"][1] <= projected["torso"][1]:
+        raise RuntimeError(f"child LookDev vertical framing invalid: {projected}")
+    print(f"VIDEO_CREATOR_CHILD_LOOKDEV_FRAMING_PASS projected={projected}")
 
     output = Path(a.output).expanduser().resolve()
     blend_output = Path(a.blend_output).expanduser().resolve()
