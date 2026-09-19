@@ -8,14 +8,20 @@
     "package_id": "mpfb",
     "target_version": "2.0.17",
     "phenotype": {
-      "age": "child",
-      "gender": "female",
-      "race": "asian",
-      "muscle": "minmuscle",
-      "weight": "averageweight",
-      "height": "minheight",
-      "proportions": "min"
-    }
+      "gender": 0,
+      "age": 0,
+      "muscle": 0.15,
+      "weight": 0.45,
+      "proportions": 0.35,
+      "height": 0.2,
+      "race": {
+        "asian": 1,
+        "caucasian": 0,
+        "african": 0
+      },
+      "note": "MPFB numeric macro values; gender 0=female, age 0=child"
+    },
+    "automation_api": "HumanService.create_human(macro_detail_dict=...)"
   },
   "outputs": {
     "image": "renders/lookdev/child-lookdev-v5.png",
