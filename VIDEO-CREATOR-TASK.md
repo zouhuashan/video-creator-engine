@@ -2825,6 +2825,17 @@ P28-02 v5 MPFB 检查门去 marker 化（2026-09-19）：
 - `check-mpfb.command` 与 `render-child-lookdev-v5.command` 现在以“Python exit code + 非空 status JSON”作为唯一技术门，不再 grep stdout marker；同时在 PASS 时打印实际 root package 和 Service API。
 - NEXT：用户 `git pull` 后重新执行 `./check-mpfb.command`。若 PASS，再直接执行 `./render-child-lookdev-v5.command`。
 
+P28-02 v5 MPFB 实际安装修复（2026-09-19）：
+
+- 用户实机输出已证明：Blender 5.2 三个已启用 extension repository 中都不存在 `mpfb/blender_manifest.toml`，因此此前所有 check/render 失败的最终根因是 MPFB 扩展并未真正安装到 Blender 5.2，而不是 module-name 推导问题。
+- `install-mpfb.command` 改为严格安装链，不再忽略非零返回码：
+  1. 强制 `--online-mode --command extension sync` 同步扩展仓库；
+  2. 执行 `extension list -s` 并确认 package id `mpfb` 确实出现在官方仓库列表；
+  3. 执行 `extension install -s -e mpfb` 安装并启用；
+  4. 运行 `check-mpfb.py`，必须实际发现物理 package、启用真实 module、成功临时 `create_human()` 且得到有效人体 Mesh 才 PASS。
+- 安装命令任何一步失败都会立即 FAIL 并打印对应日志尾，不再出现“安装失败但继续 validation”的假成功路径。
+- NEXT：用户先 `git pull`，然后重新执行 `./install-mpfb.command`；只有看到 `PASS MPFB ready` 后再运行 `./render-child-lookdev-v5.command`。
+
 P28-02 v5 MPFB extension repository discovery 修复（2026-09-19）：
 
 - 用户再次执行 `check-mpfb.command` 时 `operator.get_rna_type()` 抛出 `KeyError: MPFB_OT_create_human not found`。这证明 Blender 的 `bpy.ops` 动态代理存在并不代表 operator 类已真正加载；之前的 operator-only 存在性检查仍不可靠。
