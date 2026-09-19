@@ -2818,6 +2818,15 @@ P28-01 Web 运维脚本增量（2026-09-18）：
 - 支持 `VIDEO_CREATOR_WEB_HOST`、`VIDEO_CREATOR_WEB_PORT`、`VIDEO_CREATOR_PYTHON` 临时覆盖；新增 `docs/WEB-OPERATIONS.md` 并更新 README 的推荐启动方式。
 - 本增量不启动 ArcReel、不调用远程 AI、不改变 P28 人工审核状态；完成此运维入口后再继续非生成式动画路线实施。
 
+P28-02 Child LookDev v4 建模策略切换（2026-09-19）：
+
+- 用户实机提交 `child-lookdev-v3.png`；v3 虽进一步减弱公仔脸，但人工审核仍未通过：刘海成为硬块/立柱，袖子仍像胶囊体，身体仍可明显读出“基础 primitive 堆叠”，已确认继续微调球体/方块路线收益不足。
+- P28-02 v4 不再作为 v3 微调，而是切换建模策略为 `organic_curve_and_loft_mesh`；新增 `config/child-lookdev-v4.json`、`support/blender/child-lookdev-v4.py`、`render-child-lookdev-v4.command` 与回归测试。
+- 头发改为 Bezier Curve tapered strands：刘海、侧发使用连续曲线和半径 taper，保留 HairCap/双髻作为大形体，不再使用矩形卡片/立柱发片。
+- 躯干、裙摆、宽袖改为程序化 loft ellipse mesh：沿中心线生成连续椭圆截面并 Subdivision/Smooth，袖子从肩部到袖口逐渐放宽形成自然下垂 bell sleeve，不再以球/圆柱/胶囊直接充当最终布料体块。
+- 脸继续收小并加强 chin taper；眼睛进一步缩小并嵌入脸面；鼻嘴保持低存在感；正式配色、Principled 材质、暖 Rim + 冷 Fill、85mm 人像镜头和 framing gate 保持。
+- v4 技术成功仍只记 `PASS P28-02 v4 technical render`；人工审核保持 `PENDING`。NEXT：用户运行 `./render-child-lookdev-v4.command` 并提交 `renders/lookdev/child-lookdev-v4.png`；若 v4 仍明显是程序化低模公仔，则 P28-02 下一步不再继续堆 procedural primitive，而改为真实可编辑 base mesh / sculpt LookDev 路线。
+
 P28-02 Child LookDev v3 视觉迭代（2026-09-19）：
 
 - 用户实机提交 `child-lookdev-v2.png`；v2 相比 v1 已解决全白 clay、基础配色和眼神高光问题，但人工审核仍未通过：脸仍偏公仔/吉祥物，眼睛略外凸，刘海像五根立柱，侧发/双髻块状，袖子像圆管，服装仍偏几何玩具感。
