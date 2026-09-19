@@ -296,3 +296,7 @@ V5 deliberately validates the underlying continuous child basemesh before costum
 #### V5 MPFB service API
 
 V5 automation uses MPFB's scripting services instead of UI/Scene properties. Blender extension package prefixes are runtime-specific, so the script follows MPFB's official dynamic-import pattern and resolves `HumanService` and `TargetService` from loaded extension modules. Character creation then calls `HumanService.create_human(macro_detail_dict=...)` with numeric macro values such as female=0 and child age=0.
+
+#### V5 operator-only MPFB automation
+
+Blender 5.2 can register MPFB operators even when the extension's internal Python package path is not importable in background mode. V5 therefore treats `bpy.ops.mpfb.create_human()` as the only supported MPFB boundary. The generated continuous human mesh is then child-stylized directly through vertex proportion edits; no MPFB internal service module is required.
