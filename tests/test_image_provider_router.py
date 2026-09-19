@@ -26,6 +26,10 @@ class ImageProviderRouterTests(unittest.TestCase):
         with self.assertRaisesRegex(ImageProviderRouteError, "upload"):
             self.router.route("hero_frame", confirm_billable=True, reference_image=True)
 
+    def test_unimplemented_comfyui_slot_cannot_be_selected(self):
+        with self.assertRaises(ImageProviderRouteError):
+            self.router.route("shot_keyframe", preferred_provider="COMFYUI_IMAGE")
+
     def test_blender_is_auxiliary_not_final_visual_provider(self):
         description = self.router.describe()
         self.assertEqual(description["blender_role"], "AUXILIARY_3D_CONTROL")
