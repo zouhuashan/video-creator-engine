@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "provider_id": "openai_image",
+  "label": "OpenAI GPT-Image-2",
+  "capability": "image_generation",
+  "enabled": true,
+  "mode": "fallback",
+  "model": "gpt-image-2",
+  "base_url": "https://api.openai.com/v1",
+  "character_bible_size": "1536x1024",
+  "keyframe_size": "1024x1536",
+  "quality": "high",
+  "review_required": true,
+  "key_env": "OPENAI_API_KEY"
+}
