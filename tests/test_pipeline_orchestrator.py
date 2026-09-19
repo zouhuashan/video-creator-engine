@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from scripts.pipeline_orchestrator import pipeline_status, run_pipeline, update_pipeline_review, PipelineError
+from scripts.pipeline_orchestrator import _qc_with_retry, pipeline_status, run_pipeline, update_pipeline_review, PipelineError
 from support.providers.comfyui_image_provider import ComfyUIImageError
 
 
@@ -113,6 +113,21 @@ class PipelineOrchestratorTests(unittest.TestCase):
             self.assertEqual(stages["qc"]["status"], "PASS")
             self.assertTrue((project / "final.mp4").is_file())
             self.assertTrue(result["review"]["ready"])
+
+
+    def test_qc_auto_retry_is_bounded_and_records_attempts(self):
+        with tempfile.TemporaryDirectory() as directory:
+            video = Path(directory) / "final.mp4"
+            video.write_bytes(b"video")
+            failed = {"status":"FAIL","auto_retry":True,"retry_class":"TECHNICAL","checks":{}}
+            passed = {"status":"PASS","auto_retry":False,"retry_class":"NONE","checks":{}}
+            with patch("scripts.pipeline_orchestrator._auto_qc", side_effect=[failed, passed]), \
+                 patch("scripts.pipeline_orchestrator._repair_media_container", return_value={"status":"PASS","action":"TRANSCODE_CONTAINER_NORMALIZE"}) as repair:
+                result = _qc_with_retry(video, {"auto_retry":{"enabled":True,"max_attempts_per_stage":2}})
+            self.assertEqual(result["status"], "PASS")
+            self.assertEqual(result["attempt_count"], 2)
+            self.assertEqual(repair.call_count, 1)
+            self.assertEqual(result["attempts"][1]["repair"]["action"], "TRANSCODE_CONTAINER_NORMALIZE")
 
 
 
