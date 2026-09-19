@@ -185,3 +185,25 @@ body.rig-v2-open { overflow: hidden; }
 @media(max-width:600px){.image-provider-summary,.image-studio-actions,.image-key-row{grid-template-columns:1fr}.image-studio-gallery{grid-template-columns:1fr}.image-routing-banner{align-items:flex-start;flex-direction:column}.image-routing-banner span{text-align:left}}
 
 .image-review-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:2px}.image-review-actions .secondary-button{min-width:110px}
+
+
+/* P30 Software-first pipeline */
+.pipeline-panel{grid-column:1/-1}
+.pipeline-toolbar{display:grid;grid-template-columns:minmax(220px,1fr) auto auto;gap:12px;align-items:end}
+.pipeline-run-button,.pipeline-review-button{min-height:42px}
+.pipeline-progress{display:grid;grid-template-columns:150px 1fr;gap:14px;align-items:center;margin:16px 0 12px}
+.pipeline-progress>div:first-child{display:flex;flex-direction:column;gap:3px}.pipeline-progress small{color:var(--muted)}
+.pipeline-progress-track{height:8px;border-radius:999px;background:#151923;overflow:hidden;border:1px solid var(--line)}
+.pipeline-progress-track span{display:block;width:0;height:100%;background:linear-gradient(90deg,#8b6b4b,#df9b5a);transition:width .25s ease}
+.pipeline-stage-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+.pipeline-stage{display:grid;gap:5px;min-height:92px;padding:11px;border:1px solid var(--line);border-radius:10px;background:#0d1016}
+.pipeline-stage strong{font-size:11px}.pipeline-stage small{font-size:9px;line-height:1.45;color:var(--muted)}
+.pipeline-stage-status{width:max-content;font-size:8px;letter-spacing:.08em;padding:3px 6px;border:1px solid var(--line);border-radius:999px;color:var(--muted)}
+.pipeline-stage-status.pass,.pipeline-stage-status.ready{color:#8fd4a8;border-color:rgba(143,212,168,.35)}
+.pipeline-stage-status.planned{color:#e5b980;border-color:rgba(229,185,128,.35)}
+.pipeline-stage-status.blocked,.pipeline-stage-status.fail{color:#e58b8b;border-color:rgba(229,139,139,.35)}
+.pipeline-stage-status.waiting_review,.pipeline-stage-status.pending{color:#9fb4dd;border-color:rgba(159,180,221,.35)}
+.pipeline-preview{margin-top:16px}.pipeline-preview video{display:block;width:100%;max-height:680px;border-radius:12px;background:#050608;border:1px solid var(--line)}
+@media(max-width:1100px){.pipeline-stage-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:780px){.pipeline-toolbar{grid-template-columns:1fr}.pipeline-progress{grid-template-columns:1fr}.pipeline-stage-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){.pipeline-stage-grid{grid-template-columns:1fr}}
