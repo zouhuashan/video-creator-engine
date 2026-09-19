@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "shot_id": "SHOT-DEMO-001",
+  "character_ids": [
+    "CHAR-CHILD-001"
+  ],
+  "scene_id": "SCENE-CAMP-SUNSET-001",
+  "shot_type": "medium_close_up",
+  "camera": {
+    "framing": "three-quarter medium close-up",
+    "lens_language": "70-85mm portrait",
+    "angle": "slightly below child eye level",
+    "depth_of_field": "shallow-to-medium"
+  },
+  "action": "The little girl turns toward the adult off camera, lifts one hand slightly and speaks with a gentle hopeful expression.",
+  "lighting": "warm sunset back-right rim, soft cool-neutral face fill, protected highlights",
+  "environment": "ancient Chinese military camp at golden hour, canvas tents, wooden racks, restrained lanterns, distant figures and dusty haze",
+  "target_style": "cinematic guofeng stylized 3D animation"
+}
