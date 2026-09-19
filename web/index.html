@@ -26,6 +26,7 @@
           <button class="nav-item" data-view="studio" data-workspace="review"><span>09</span>审片与问题单</button>
           <button class="nav-item" data-view="studio" data-workspace="publish"><span>10</span>发布包</button>
           <button class="nav-item" data-view="projects"><span>▦</span>项目资产</button>
+          <button class="nav-item" data-view="imageStudio"><span>图</span>AI 生图</button>
           <button class="nav-item" data-view="providers"><span>◇</span>生成 Provider</button>
         </nav>
         <div class="sidebar-foot"><span class="pulse"></span><span>本地服务已连接</span><span id="serverVersion">v1.0</span></div>
@@ -75,6 +76,67 @@
             <div class="readiness-panel" id="studioReadiness"></div>
             <div class="studio-content" id="studioContent"><div class="empty-state">正在载入制作台…</div></div>
             <div class="studio-detail hidden" id="studioDetail"></div>
+          </div>
+        </section>
+
+        <section class="page-view hidden" id="imageStudioView">
+          <div class="image-studio-layout">
+            <div class="panel image-studio-control">
+              <div class="panel-heading">
+                <div><span class="section-kicker">P29 / IMAGE STUDIO</span><h2>AI 生图工作台</h2><p class="panel-subtitle">直接生成角色定妆板和镜头关键帧。结果自动保存进当前国漫项目，并保持人工审核门。</p></div>
+                <span class="status-dot" id="imageStudioStatus">CHECKING</span>
+              </div>
+
+              <label class="field-label" for="imageStudioProject">国漫项目</label>
+              <select id="imageStudioProject" class="select-field"></select>
+
+              <div class="image-provider-summary">
+                <div><small>Provider</small><strong id="imageStudioProvider">OpenAI Image</strong></div>
+                <div><small>模型</small><strong id="imageStudioModel">—</strong></div>
+                <div><small>审核</small><strong>人工确认</strong></div>
+              </div>
+
+              <div class="divider"></div>
+              <label class="field-label" for="imageStudioKey">OpenAI API Key</label>
+              <div class="form-row image-key-row">
+                <input id="imageStudioKey" class="text-field" type="password" autocomplete="off" placeholder="sk-…（仅保存在当前 Web 服务进程）" />
+                <button class="secondary-button" id="imageStudioSaveKey">保存 Key</button>
+              </div>
+              <p class="helper-text" id="imageStudioKeyHint">不会写入项目文件或日志。已有 OPENAI_API_KEY 环境变量时无需重复填写。</p>
+
+              <label class="field-label" for="imageStudioPrompt">附加要求（可选）</label>
+              <textarea id="imageStudioPrompt" class="prompt-field" rows="4" placeholder="例如：表情更灵动、发饰更克制、电影感更强。"></textarea>
+
+              <div class="image-studio-actions">
+                <button class="primary-button" id="generateCharacterBibleButton"><span>✦</span>生成角色定妆板</button>
+                <button class="secondary-button" id="generateKeyframeButton"><span>◈</span>生成镜头关键帧</button>
+              </div>
+              <p class="helper-text">点击生成会调用远程 OpenAI 图片 API，可能产生 API 费用；每次点击前会再次确认。</p>
+
+              <div class="image-lock-card" id="imageStudioCharacterLock">
+                <strong>CHAR-CHILD-001</strong>
+                <small>正在载入角色锁…</small>
+              </div>
+            </div>
+
+            <div class="panel image-studio-preview-panel">
+              <div class="panel-heading"><div><span class="section-kicker">VISUAL OUTPUT</span><h2>生成结果</h2></div><span class="muted" id="imageStudioReview">PENDING</span></div>
+              <div class="image-studio-empty" id="imageStudioEmpty">
+                <div class="empty-icon">图</div>
+                <div><strong>直接从这里生成最终视觉</strong><p>先生成角色定妆板，再生成镜头关键帧。无需打开终端。</p></div>
+              </div>
+              <div class="image-studio-result hidden" id="imageStudioResult">
+                <img id="imageStudioPreview" alt="AI 生图结果" />
+                <div class="image-studio-result-meta">
+                  <span class="result-chip" id="imageStudioResultType">—</span>
+                  <strong id="imageStudioResultPath">—</strong>
+                  <small id="imageStudioResultInfo">—</small>
+                </div>
+              </div>
+              <div class="divider"></div>
+              <div class="panel-heading compact"><div><span class="section-kicker">RECENT</span><h3>最近生成</h3></div><span class="muted" id="imageStudioCount">0 张</span></div>
+              <div class="image-studio-gallery" id="imageStudioGallery"><div class="empty-state">还没有 AI 生图资产。</div></div>
+            </div>
           </div>
         </section>
 
