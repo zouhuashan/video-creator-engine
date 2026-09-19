@@ -27,8 +27,8 @@ def load_config(path: Path = DEFAULT_CONFIG) -> dict[str, Any]:
 def validate_config(payload: Any) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise AnimationRouteConfigError("animation route config must be an object")
-    if payload.get("schema_version") != 1:
-        raise AnimationRouteConfigError("schema_version must be 1")
+    if payload.get("schema_version") not in {1, 2}:
+        raise AnimationRouteConfigError("schema_version must be 1 or 2")
 
     policy = payload.get("policy")
     routes = payload.get("routes")
@@ -89,7 +89,11 @@ def validate_config(payload: Any) -> dict[str, Any]:
         if production_target is None:
             raise AnimationRouteConfigError("production_target_route must reference a configured route")
         if production_target["remote"] or production_target["generative"]:
-            raise AnimationRouteConfigError("production target must be local and non-generative")
+            raise AnimationRouteConfigError("production target route must itself be local orchestration")
+        if payload.get("schema_version") == 2 and production_target.get("role") != "FINAL_VISUAL_DEFAULT":
+            raise AnimationRouteConfigError("schema v2 production target must be FINAL_VISUAL_DEFAULT")
+        if payload.get("schema_version") == 2 and policy.get("blender_role") != "AUXILIARY_3D_CONTROL":
+            raise AnimationRouteConfigError("schema v2 must demote Blender to AUXILIARY_3D_CONTROL")
 
     required_remote_gates = set(policy.get("remote_generation_requires") or [])
     if not {"upload_authorized", "confirm_billable"}.issubset(required_remote_gates):
@@ -115,6 +119,8 @@ def summary(payload: dict[str, Any]) -> dict[str, Any]:
         ],
         "candidate_routes": [item["id"] for item in routes if item["status"] in {"CANDIDATE", "OPTIONAL"}],
         "remote_generation_default_enabled": payload["policy"]["remote_generation_default_enabled"],
+        "final_visual_mode": payload["policy"].get("final_visual_mode"),
+        "blender_role": payload["policy"].get("blender_role"),
     }
 
 
