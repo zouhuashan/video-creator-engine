@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from scripts.pipeline_orchestrator import pipeline_status, run_pipeline, update_pipeline_review, PipelineError
+from support.providers.comfyui_image_provider import ComfyUIImageError
 
 
 class PipelineOrchestratorTests(unittest.TestCase):
@@ -100,10 +101,9 @@ class PipelineOrchestratorTests(unittest.TestCase):
                 target.write_bytes(b"final")
                 return {"status":"PASS","output":"final.mp4","finalizer":"ffmpeg"}
 
-            with patch("scripts.pipeline_orchestrator.ComfyUIImageProvider") as comfy, \
+            with patch("scripts.pipeline_orchestrator.ComfyUIImageProvider", side_effect=ComfyUIImageError("offline")), \
                  patch("scripts.pipeline_orchestrator.assemble_final", side_effect=fake_assemble), \
                  patch("scripts.pipeline_orchestrator._qc_with_retry", return_value={"status":"PASS","auto_retry":False,"attempt_count":1,"attempts":[]}):
-                comfy.side_effect = Exception("unused")
                 result = run_pipeline("demo-project", dry_run=False, projects_root=projects)
 
             stages = {item["id"]: item for item in result["stages"]}
