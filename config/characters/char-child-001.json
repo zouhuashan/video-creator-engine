@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "character_id": "CHAR-CHILD-001",
+  "name": "营地小女孩",
+  "role": "young female child",
+  "style_id": "STYLE-REF-GUOFENG-DIALOGUE-001",
+  "visual_lock": {
+    "age_read": "young child",
+    "face": "soft rounded child face, large expressive dark-brown eyes with layered iris and catchlights, tiny nose, tiny mouth, soft cheeks",
+    "hair": "dark black-brown twin buns, layered natural bangs, side locks, pale-cyan ribbons, restrained gold floral ornaments",
+    "costume": "pale cyan and ivory layered hanfu, crossed collar, sash, long soft sleeves, fine embroidered trim",
+    "body": "large-head juvenile proportion, short compact child body, soft limbs, never adult female silhouette",
+    "mood": "gentle, curious, warm, emotionally readable"
+  },
+  "render_lock": {
+    "medium": "high-end cinematic stylized 3D animation",
+    "shading": "soft PBR-informed anime/NPR, not flat cel cutout, not photoreal game render",
+    "lighting": "warm sunset rim light with cool-neutral face fill",
+    "palette": [
+      "warm amber",
+      "pale cyan",
+      "ivory",
+      "charcoal",
+      "muted steel blue"
+    ]
+  },
+  "consistency_rules": [
+    "must remain clearly a young child",
+    "must keep twin-bun hairstyle",
+    "must keep pale cyan and ivory hanfu",
+    "must keep soft anime face and large expressive eyes",
+    "must not develop adult breast, adult waist or adult leg proportions",
+    "must not become a toy, mascot, chibi figurine or primitive low-poly render"
+  ],
+  "status": "ACTIVE"
+}
