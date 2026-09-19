@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://videocreator.local/schemas/character-bible.schema.json",
+  "title": "VideoCreator Character Bible",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "character_id",
+    "name",
+    "role",
+    "style_id",
+    "visual_lock",
+    "render_lock",
+    "consistency_rules",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "character_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "role": {
+      "type": "string",
+      "minLength": 1
+    },
+    "style_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "visual_lock": {
+      "type": "object",
+      "required": [
+        "face",
+        "hair",
+        "costume",
+        "body",
+        "mood"
+      ],
+      "properties": {
+        "age_read": {
+          "type": "string"
+        },
+        "face": {
+          "type": "string",
+          "minLength": 1
+        },
+        "hair": {
+          "type": "string",
+          "minLength": 1
+        },
+        "costume": {
+          "type": "string",
+          "minLength": 1
+        },
+        "body": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mood": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "render_lock": {
+      "type": "object",
+      "required": [
+        "medium",
+        "shading",
+        "lighting",
+        "palette"
+      ],
+      "properties": {
+        "medium": {
+          "type": "string",
+          "minLength": 1
+        },
+        "shading": {
+          "type": "string",
+          "minLength": 1
+        },
+        "lighting": {
+          "type": "string",
+          "minLength": 1
+        },
+        "palette": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        }
+      }
+    },
+    "consistency_rules": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ACTIVE",
+        "DRAFT",
+        "RETIRED"
+      ]
+    }
+  }
+}
