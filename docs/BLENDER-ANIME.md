@@ -162,3 +162,18 @@ cache/reference-dialogue-blockout-frames/
 ```
 
 This is also the preferred basis for longer final renders because a failed or interrupted encode does not invalidate already-rendered frames.
+
+### Blockout framing gate
+
+The reference blockout now validates composition before rendering the full 144-frame sequence. Adult head/body and child head/body are projected through the active camera and must stay inside an 8%–92% normalized safe frame with positive depth. The adult head must also remain to the left of the child head.
+
+The camera uses a Track To constraint aimed at a dialogue-center Empty, so the push-in changes distance without losing the pair.
+
+A valid run must emit:
+
+```text
+VIDEO_CREATOR_REFERENCE_FRAMING_PASS
+VIDEO_CREATOR_REFERENCE_BLOCKOUT_FRAMES_PASS
+```
+
+Without the framing marker, `render-reference-demo.command` fails before encoding the MP4.
