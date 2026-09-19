@@ -72,7 +72,8 @@ from scripts.novel_edit_timelines import NovelEditTimelineError, load_edit_timel
 from scripts.novel_qc import NovelQCError, add_annotation, add_issue, compare as compare_qc, load_qc_report, summary as qc_summary, update_issue  # noqa: E402
 from scripts.novel_acceptance import NovelAcceptanceError, load_acceptance, summary as acceptance_summary  # noqa: E402
 from support.providers.openai_image_provider import OpenAIImageError, OpenAIImageProvider, character_bible_prompt, keyframe_prompt  # noqa: E402
-from support.providers.image_provider_router import ImageProviderRouter  # noqa: E402
+from support.providers.comfyui_image_provider import ComfyUIImageError, ComfyUIImageProvider  # noqa: E402
+from support.providers.image_provider_router import ImageProviderRouteError, ImageProviderRouter  # noqa: E402
 from scripts.pipeline_orchestrator import PipelineError, pipeline_status, run_pipeline, update_pipeline_review  # noqa: E402
 
 
@@ -466,6 +467,7 @@ def _source_import_summaries(project: Path) -> list[dict[str, object]]:
 
 
 IMAGE_PROVIDER_CONFIG_PATH = ROOT / "config" / "providers" / "openai-image-provider.json"
+COMFYUI_IMAGE_PROVIDER_CONFIG_PATH = ROOT / "config" / "providers" / "comfyui-image-provider.json"
 IMAGE_CHARACTER_CONFIG_PATH = ROOT / "config" / "characters" / "char-child-001.json"
 IMAGE_SHOT_CONFIG_PATH = ROOT / "config" / "shots" / "demo-shot-001.json"
 VISUAL_GENERATION_ROUTE_CONFIG_PATH = ROOT / "config" / "visual-generation-routes.json"
@@ -507,6 +509,53 @@ def _openai_image_status() -> dict[str, object]:
     }
 
 
+def _comfyui_base_url() -> str:
+    cfg = _load_repo_json(COMFYUI_IMAGE_PROVIDER_CONFIG_PATH)
+    runtime = RUNTIME_INTEGRATIONS.get("comfyui", {})
+    env_name = str(cfg.get("base_url_env") or "COMFYUI_BASE_URL")
+    return str(runtime.get("base_url") or os.environ.get(env_name) or cfg.get("default_base_url") or "http://127.0.0.1:8188").rstrip("/")
+
+
+def _comfyui_image_status() -> dict[str, object]:
+    cfg = _load_repo_json(COMFYUI_IMAGE_PROVIDER_CONFIG_PATH)
+    base_url = _comfyui_base_url()
+    runtime = RUNTIME_INTEGRATIONS.get("comfyui", {})
+    env_name = str(cfg.get("base_url_env") or "COMFYUI_BASE_URL")
+    result: dict[str, object] = {
+        "id": "comfyui_image",
+        "provider_id": "COMFYUI_IMAGE",
+        "label": str(cfg.get("label") or "ComfyUI Local"),
+        "configured": bool(base_url),
+        "connected": False,
+        "workflow_ready": False,
+        "remote": False,
+        "review_required": True,
+        "base_url": base_url,
+        "source": "session" if runtime.get("base_url") else ("environment" if os.environ.get(env_name) else "default"),
+        "routing_role": "LOCAL_VISUAL_FACTORY",
+        "final_visual_route": "IMAGE_PROVIDER_ROUTER",
+        "blender_role": "AUXILIARY_3D_CONTROL",
+        "checkpoint_count": 0,
+        "checkpoint": "",
+    }
+    try:
+        timeout = float(cfg.get("status_timeout_seconds") or 0.8)
+        provider = ComfyUIImageProvider(base_url, config_path=COMFYUI_IMAGE_PROVIDER_CONFIG_PATH, timeout_seconds=timeout)
+        health = provider.health(timeout_seconds=timeout)
+        checkpoints = provider.available_checkpoints(timeout_seconds=timeout)
+        result.update(
+            connected=bool(health.get("connected")),
+            workflow_ready=bool(checkpoints),
+            checkpoint_count=len(checkpoints),
+            checkpoint=provider.choose_checkpoint(checkpoints) if checkpoints else "",
+            device_count=int(health.get("device_count") or 0),
+            detail="本地 ComfyUI 已连接" if checkpoints else "ComfyUI 已连接，但没有可用 checkpoint",
+        )
+    except (ComfyUIImageError, ValueError) as error:
+        result["detail"] = str(error)
+    return result
+
+
 def _image_studio_inventory(project: Path) -> dict[str, object]:
     root = project / "lookdev" / "image-studio"
     items: list[dict[str, object]] = []
@@ -526,9 +575,17 @@ def _image_studio_inventory(project: Path) -> dict[str, object]:
             item["media_url"] = f"/media/{project.name}/{output}"
             item["metadata"] = _relative(project, meta_path)
             items.append(item)
+    comfyui = _comfyui_image_status()
+    openai = _openai_image_status()
     return {
         "project_id": project.name,
-        "provider": _openai_image_status(),
+        "provider": openai,
+        "providers": [
+            {"id": "AUTO", "label": "Auto Route", "configured": bool(comfyui.get("workflow_ready") or openai.get("configured")), "connected": bool(comfyui.get("workflow_ready")), "remote": False, "mode": "LOCAL_FIRST_FALLBACK_REMOTE"},
+            comfyui,
+            {**openai, "provider_id": "OPENAI_IMAGE"},
+        ],
+        "default_provider": "AUTO",
         "character": _load_repo_json(IMAGE_CHARACTER_CONFIG_PATH),
         "shot": _load_repo_json(IMAGE_SHOT_CONFIG_PATH),
         "routing": _image_provider_router().describe(),
@@ -544,50 +601,68 @@ def _generate_image_studio_asset(
     custom_prompt: str = "",
     confirm_billable: bool = False,
     upload_authorized: bool = False,
+    preferred_provider: str = "AUTO",
 ) -> dict[str, object]:
     if artifact_type not in {"character_bible", "keyframe"}:
         raise ValueError("unsupported image studio artifact type")
 
     capability = "character_bible" if artifact_type == "character_bible" else "shot_keyframe"
+    comfyui_status = _comfyui_image_status()
+    openai_status = _openai_image_status()
+    available: set[str] = set()
+    if comfyui_status.get("connected") and comfyui_status.get("workflow_ready"):
+        available.add("COMFYUI_IMAGE")
+    if openai_status.get("configured"):
+        available.add("OPENAI_IMAGE")
+    if not available:
+        raise ValueError("没有可用的 Image Provider：请启动本地 ComfyUI 或配置 OpenAI Image")
+
+    requested = str(preferred_provider or "AUTO").strip().upper()
+    if requested not in {"AUTO", "COMFYUI_IMAGE", "OPENAI_IMAGE"}:
+        raise ValueError("unsupported image provider preference")
     route = _image_provider_router().route(
         capability,
-        preferred_provider="OPENAI_IMAGE",
-        available_provider_ids={"OPENAI_IMAGE"},
+        preferred_provider=None if requested == "AUTO" else requested,
+        available_provider_ids=available,
         confirm_billable=confirm_billable,
         reference_image=False,
         upload_authorized=upload_authorized,
     )
-    if route["adapter"] != "openai_image":
-        raise ValueError("selected Image Provider adapter is not available in Image Studio")
 
-    cfg = _load_repo_json(IMAGE_PROVIDER_CONFIG_PATH)
     character = _load_repo_json(IMAGE_CHARACTER_CONFIG_PATH)
     shot = _load_repo_json(IMAGE_SHOT_CONFIG_PATH)
-    env_name = str(cfg.get("key_env") or "OPENAI_API_KEY")
-    api_key = RUNTIME_KEYS.get("openai_image") or RUNTIME_KEYS.get("openai_sora") or os.environ.get(env_name)
-    if not api_key:
-        raise ValueError("请先在 AI 生图页面配置 OpenAI API Key")
-
-    base_url = str(cfg.get("base_url") or "https://api.openai.com/v1")
-    model = str(cfg.get("model") or "gpt-image-2")
-    quality = str(cfg.get("quality") or "high")
-    provider = OpenAIImageProvider(str(api_key), model=model, base_url=base_url)
-
     stamp = time.strftime("%Y%m%d-%H%M%S") + f"-{time.time_ns() % 100000:05d}"
     if artifact_type == "character_bible":
         prompt = character_bible_prompt(character, custom_prompt)
-        size = str(cfg.get("character_bible_size") or "1536x1024")
         output_dir = project / "lookdev" / "image-studio" / "character-bible"
         output = output_dir / f"{stamp}-char-child-001.png"
         artifact_id = f"CHAR-BIBLE-{stamp}"
     else:
         prompt = keyframe_prompt(character, shot, custom_prompt)
-        size = str(cfg.get("keyframe_size") or "1024x1536")
         output_dir = project / "lookdev" / "image-studio" / "keyframes"
         output = output_dir / f"{stamp}-shot-demo-001.png"
         artifact_id = f"KEYFRAME-{stamp}"
 
-    result = provider.generate(prompt, output, size=size, quality=quality)
+    if route["adapter"] == "comfyui_image":
+        cfg = _load_repo_json(COMFYUI_IMAGE_PROVIDER_CONFIG_PATH)
+        size = str(cfg.get("character_bible_size") if artifact_type == "character_bible" else cfg.get("keyframe_size") or "1024x1536")
+        if artifact_type == "character_bible" and not cfg.get("character_bible_size"):
+            size = "1536x1024"
+        provider = ComfyUIImageProvider(_comfyui_base_url(), config_path=COMFYUI_IMAGE_PROVIDER_CONFIG_PATH)
+        result = provider.generate(prompt, output, size=size)
+    elif route["adapter"] == "openai_image":
+        cfg = _load_repo_json(IMAGE_PROVIDER_CONFIG_PATH)
+        env_name = str(cfg.get("key_env") or "OPENAI_API_KEY")
+        api_key = RUNTIME_KEYS.get("openai_image") or RUNTIME_KEYS.get("openai_sora") or os.environ.get(env_name)
+        if not api_key:
+            raise ValueError("请先在 AI 生图页面配置 OpenAI API Key")
+        size = str(cfg.get("character_bible_size") if artifact_type == "character_bible" else cfg.get("keyframe_size") or "1024x1536")
+        if artifact_type == "character_bible" and not cfg.get("character_bible_size"):
+            size = "1536x1024"
+        provider = OpenAIImageProvider(str(api_key), model=str(cfg.get("model") or "gpt-image-2"), base_url=str(cfg.get("base_url") or "https://api.openai.com/v1"))
+        result = provider.generate(prompt, output, size=size, quality=str(cfg.get("quality") or "high"))
+    else:
+        raise ValueError("selected Image Provider adapter is not implemented")
     relative = _relative(project, output)
     metadata = {
         "schema_version": 1,
@@ -609,6 +684,9 @@ def _generate_image_studio_asset(
         "provider_role": route["role"],
         "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "prompt": prompt,
+        "remote": bool(route["remote"]),
+        "fallback_chain": route.get("fallback_chain", []),
+        "provider_task_id": str(result.get("prompt_id") or ""),
     }
     metadata_path = output.with_suffix(".json")
     metadata_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -986,6 +1064,8 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
         if parsed.path == "/api/integrations/arcreel/status":
             return self._json(_integration_status()[0])
+        if parsed.path == "/api/integrations/comfyui/status":
+            return self._json(_comfyui_image_status())
         if parsed.path == "/api/projects":
             return self._json({"projects": self._projects()})
         if parsed.path == "/api/novel-anime/projects":
@@ -1358,7 +1438,7 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
         if route == "/api/settings/integrations":
             try:
                 return self._save_integration()
-            except (ValueError, KeyError, TypeError, json.JSONDecodeError, ArcReelError) as error:
+            except (ValueError, KeyError, TypeError, json.JSONDecodeError, ArcReelError, ComfyUIImageError) as error:
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
         if route == "/api/pipeline/run":
             try:
@@ -1394,8 +1474,6 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
         if route in {"/api/image-studio/character-bible", "/api/image-studio/keyframe"}:
             try:
                 payload = self._read_json()
-                if payload.get("confirm_billable") is not True:
-                    raise ValueError("远程生图需要明确确认 confirm_billable=true")
                 project = _safe_project(str(payload.get("project_id") or ""))
                 artifact_type = "character_bible" if route.endswith("/character-bible") else "keyframe"
                 result = _generate_image_studio_asset(
@@ -1404,9 +1482,10 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                     custom_prompt=str(payload.get("custom_prompt") or ""),
                     confirm_billable=payload.get("confirm_billable") is True,
                     upload_authorized=payload.get("upload_authorized") is True,
+                    preferred_provider=str(payload.get("provider_preference") or "AUTO"),
                 )
                 return self._json(result, HTTPStatus.CREATED)
-            except (ValueError, OpenAIImageError, OSError, KeyError, TypeError, json.JSONDecodeError) as error:
+            except (ValueError, OpenAIImageError, ComfyUIImageError, ImageProviderRouteError, OSError, KeyError, TypeError, json.JSONDecodeError) as error:
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
             except Exception as error:
                 return self._error(HTTPStatus.INTERNAL_SERVER_ERROR, f"image generation failed: {error}")
@@ -1804,9 +1883,17 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
     def _save_integration(self) -> None:
         payload = self._read_json()
         integration_id = str(payload.get("integration") or "")
+        base_url = str(payload.get("base_url") or "").strip()
+        if integration_id == "comfyui":
+            if not base_url:
+                RUNTIME_INTEGRATIONS.pop("comfyui", None)
+                return self._json(_comfyui_image_status())
+            provider = ComfyUIImageProvider(base_url, config_path=COMFYUI_IMAGE_PROVIDER_CONFIG_PATH, timeout_seconds=0.8)
+            provider.health(timeout_seconds=0.8)
+            RUNTIME_INTEGRATIONS["comfyui"] = {"base_url": provider.base_url}
+            return self._json(_comfyui_image_status())
         if integration_id != "arcreel":
             raise ValueError("unsupported integration")
-        base_url = str(payload.get("base_url") or "").strip()
         api_key = str(payload.get("api_key") or "").strip()
         if not base_url:
             RUNTIME_INTEGRATIONS.pop("arcreel", None)
