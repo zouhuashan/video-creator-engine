@@ -41,7 +41,7 @@ function renderPipeline() {
       <strong>${escapeHtml(pipelineStageLabel(stage.id))}</strong>
       <small>${escapeHtml(stage.detail || '')}</small>
     </div>
-  `).join('') : '<div class="empty-state">点击“创建整集（自动规划）”，软件会生成完整机器执行图。P30-01 不会自动触发远程计费。</div>';
+  `).join('') : '<div class="empty-state">点击“创建整集（本地执行）”，软件会真实执行可用本地步骤；远程计费仍不会被静默触发。</div>';
 
   const preview = String(data.preview || '');
   const previewWrap = $('#pipelinePreviewWrap');
@@ -69,13 +69,13 @@ async function runAutoPipeline() {
   if (!projectId) { log('没有可用国漫项目', true); return; }
   const button = $('#pipelineRunButton');
   button.disabled = true;
-  button.textContent = '自动规划中…';
-  log(`启动整集软件流水线：${projectId}`);
+  button.textContent = '整集执行中…';
+  log(`启动整集软件流水线（本地真实执行）：${projectId}`);
   try {
     state.pipeline = await api('/api/pipeline/run', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ project_id: projectId, dry_run: true }),
+      body: JSON.stringify({ project_id: projectId, dry_run: false, confirm_billable: false, image_provider: 'AUTO' }),
     });
     renderPipeline();
     log(`流水线完成：${state.pipeline.status} · ${state.pipeline.progress}%`);
@@ -83,7 +83,7 @@ async function runAutoPipeline() {
     log(error.message, true);
   } finally {
     button.disabled = false;
-    button.innerHTML = '<span>▶</span>创建整集（自动规划）';
+    button.innerHTML = '<span>▶</span>创建整集（本地执行）';
   }
 }
 
