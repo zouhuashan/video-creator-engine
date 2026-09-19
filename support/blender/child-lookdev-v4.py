@@ -42,6 +42,80 @@ def look_at(obj, target):
     obj.rotation_euler = direction.to_track_quat("-Z", "Y").to_euler()
 
 
+def evaluated_world_bbox_corners(objects):
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    corners = []
+    for obj in objects:
+        if obj.type not in {"MESH", "CURVE", "SURFACE", "FONT", "META"}:
+            continue
+        evaluated = obj.evaluated_get(depsgraph)
+        bbox = getattr(evaluated, "bound_box", None)
+        if not bbox:
+            continue
+        for corner in bbox:
+            corners.append(evaluated.matrix_world @ Vector(corner))
+    if not corners:
+        raise RuntimeError("child LookDev auto-frame found no geometry bounds")
+    return corners
+
+
+def auto_frame_character(scene, cam, target, child_objects, safe_margin=0.08):
+    bpy.context.view_layer.update()
+    corners = evaluated_world_bbox_corners(child_objects)
+    min_x = min(point.x for point in corners)
+    max_x = max(point.x for point in corners)
+    min_y = min(point.y for point in corners)
+    max_y = max(point.y for point in corners)
+    min_z = min(point.z for point in corners)
+    max_z = max(point.z for point in corners)
+
+    center = Vector(((min_x + max_x) * 0.5, (min_y + max_y) * 0.5, (min_z + max_z) * 0.5))
+    target.location = center
+    cam.location.x = center.x
+    cam.location.z = center.z + 0.03
+    cam.location.y = min_y - 3.5
+
+    best = None
+    for _ in range(80):
+        bpy.context.view_layer.update()
+        projected = [world_to_camera_view(scene, cam, point) for point in corners]
+        xs = [float(co.x) for co in projected]
+        ys = [float(co.y) for co in projected]
+        zs = [float(co.z) for co in projected]
+        bounds = {
+            "x_min": min(xs),
+            "x_max": max(xs),
+            "y_min": min(ys),
+            "y_max": max(ys),
+            "z_min": min(zs),
+            "z_max": max(zs),
+        }
+        best = bounds
+        if (
+            bounds["x_min"] >= safe_margin
+            and bounds["x_max"] <= 1.0 - safe_margin
+            and bounds["y_min"] >= safe_margin
+            and bounds["y_max"] <= 1.0 - safe_margin
+            and bounds["z_min"] > 0.0
+        ):
+            return {
+                "character_bounds": {
+                    "x_min": min_x,
+                    "x_max": max_x,
+                    "y_min": min_y,
+                    "y_max": max_y,
+                    "z_min": min_z,
+                    "z_max": max_z,
+                },
+                "camera_bounds": bounds,
+                "camera_location": tuple(float(value) for value in cam.location),
+                "target": tuple(float(value) for value in target.location),
+            }
+        cam.location.y -= 0.25
+
+    raise RuntimeError(f"child LookDev v4 auto-frame could not fit character: {best}")
+
+
 def uv_sphere(name, loc, scale, mat, segments=72, rings=36):
     bpy.ops.mesh.primitive_uv_sphere_add(segments=segments, ring_count=rings, location=loc)
     obj = bpy.context.object
@@ -296,9 +370,19 @@ def main():
     setup_world()
 
     build_stage()
+    stage_object_names = {obj.name for obj in scene.objects}
+
     head=build_face()
     build_hair()
     build_costume()
+
+    bpy.context.view_layer.update()
+    child_objects = [
+        obj for obj in scene.objects
+        if obj.name not in stage_object_names and obj.type in {"MESH", "CURVE"}
+    ]
+    if not child_objects:
+        raise RuntimeError("child LookDev v4 created no character geometry")
 
     bpy.ops.object.light_add(type="AREA",location=(3.4,1.7,4.7))
     key=bpy.context.object
@@ -327,12 +411,11 @@ def main():
 
     target=bpy.data.objects.new("LookdevTarget",None)
     bpy.context.collection.objects.link(target)
-    target.location=(0.0,0.0,1.98)
 
-    bpy.ops.object.camera_add(location=(0.0,-7.45,2.46))
+    bpy.ops.object.camera_add(location=(0.0,-6.0,2.0))
     cam=bpy.context.object
     cam.name="Camera"
-    cam.data.lens=85
+    cam.data.lens=72
     cam.data.sensor_width=36.0
     cam.data.dof.use_dof=True
     cam.data.dof.focus_object=head
@@ -343,19 +426,8 @@ def main():
     track.up_axis="UP_Y"
     scene.camera=cam
 
-    bpy.context.view_layer.update()
-    checks={
-        "head":head.matrix_world.translation,
-        "torso":bpy.data.objects["TorsoOuter"].matrix_world.translation,
-        "skirt":bpy.data.objects["SkirtOuter"].matrix_world.translation,
-    }
-    projected={}
-    for name,point in checks.items():
-        co=world_to_camera_view(scene,cam,point)
-        projected[name]=(float(co.x),float(co.y),float(co.z))
-        if not (0.10 <= co.x <= 0.90 and 0.06 <= co.y <= 0.95 and co.z > 0.0):
-            raise RuntimeError(f"child LookDev v4 framing gate failed for {name}: {projected[name]}")
-    print(f"VIDEO_CREATOR_CHILD_LOOKDEV_V4_FRAMING_PASS projected={projected}")
+    framing = auto_frame_character(scene, cam, target, child_objects, safe_margin=0.08)
+    print(f"VIDEO_CREATOR_CHILD_LOOKDEV_V4_FRAMING_PASS framing={framing}")
 
     output=Path(a.output).expanduser().resolve()
     blend_output=Path(a.blend_output).expanduser().resolve()
