@@ -236,3 +236,22 @@ renders/lookdev/child-lookdev-v3.blend
 ```
 
 V3 reduces eye/head scale, strengthens the child-face taper, removes raised blush discs, replaces vertical capsule bangs with flat ribbon hair locks, and replaces tube-like sleeves with drooping cloth masses. Technical render success does not close P28-02; human review remains required.
+
+### Child LookDev v4
+
+V4 changes the modeling strategy rather than incrementally adjusting v3 primitives.
+
+Run:
+
+```bash
+./render-child-lookdev-v4.command
+```
+
+Outputs:
+
+```text
+renders/lookdev/child-lookdev-v4.png
+renders/lookdev/child-lookdev-v4.blend
+```
+
+The main change is organic geometry generation: tapered Bezier hair strands replace block/card bangs, while torso, skirt and bell sleeves are built from continuous lofted elliptical sections with subdivision and smooth shading. The child face keeps a smaller integrated eye system and stronger chin taper. If this still reads as a procedural toy after human review, the next iteration will move to a real editable base-mesh/sculpt workflow rather than continuing to stack procedural primitives.
