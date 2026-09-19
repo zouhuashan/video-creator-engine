@@ -483,13 +483,14 @@ def _load_repo_json(path: Path) -> dict[str, object]:
 def _openai_image_status() -> dict[str, object]:
     cfg = _load_repo_json(IMAGE_PROVIDER_CONFIG_PATH)
     env_name = str(cfg.get("key_env") or "OPENAI_API_KEY")
-    configured = bool(RUNTIME_KEYS.get("openai_image") or os.environ.get(env_name))
+    runtime_key = RUNTIME_KEYS.get("openai_image") or RUNTIME_KEYS.get("openai_sora")
+    configured = bool(runtime_key or os.environ.get(env_name))
     return {
         "id": "openai_image",
         "label": str(cfg.get("label") or "OpenAI Image"),
         "model": str(cfg.get("model") or "gpt-image-2"),
         "configured": configured,
-        "source": "session" if RUNTIME_KEYS.get("openai_image") else ("environment" if os.environ.get(env_name) else "none"),
+        "source": "session" if runtime_key else ("environment" if os.environ.get(env_name) else "none"),
         "remote": True,
         "review_required": True,
         "key_env": env_name,
@@ -538,7 +539,7 @@ def _generate_image_studio_asset(
     character = _load_repo_json(IMAGE_CHARACTER_CONFIG_PATH)
     shot = _load_repo_json(IMAGE_SHOT_CONFIG_PATH)
     env_name = str(cfg.get("key_env") or "OPENAI_API_KEY")
-    api_key = RUNTIME_KEYS.get("openai_image") or os.environ.get(env_name)
+    api_key = RUNTIME_KEYS.get("openai_image") or RUNTIME_KEYS.get("openai_sora") or os.environ.get(env_name)
     if not api_key:
         raise ValueError("请先在 AI 生图页面配置 OpenAI API Key")
 
@@ -586,6 +587,37 @@ def _generate_image_studio_asset(
     return {
         **metadata,
         "media_url": f"/media/{project.name}/{relative}",
+        "metadata": _relative(project, metadata_path),
+    }
+
+
+def _update_image_studio_review(project: Path, payload: dict[str, object]) -> dict[str, object]:
+    metadata_rel = str(payload.get("metadata") or "").strip()
+    if not metadata_rel:
+        raise ValueError("metadata path is required")
+    metadata_path = _safe_project_file(project.name, metadata_rel)
+    if metadata_path.suffix.lower() != ".json" or "lookdev/image-studio/" not in metadata_path.as_posix():
+        raise ValueError("metadata is not an image-studio artifact")
+    try:
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValueError("image-studio metadata is invalid") from error
+    if not isinstance(metadata, dict):
+        raise ValueError("image-studio metadata must be an object")
+
+    status = str(payload.get("status") or "").strip().upper()
+    if status not in {"APPROVED", "CHANGES_REQUESTED", "PENDING"}:
+        raise ValueError("status must be APPROVED, CHANGES_REQUESTED or PENDING")
+    metadata["review_status"] = status
+    metadata["review_note"] = str(payload.get("note") or "").strip()
+    metadata["reviewed_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    metadata["reviewed_by"] = "human-web"
+    metadata_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    output = str(metadata.get("output") or "")
+    return {
+        **metadata,
+        "media_url": f"/media/{project.name}/{output}" if output else "",
         "metadata": _relative(project, metadata_path),
     }
 
@@ -1288,6 +1320,14 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
             try:
                 return self._save_integration()
             except (ValueError, KeyError, TypeError, json.JSONDecodeError, ArcReelError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+        if route == "/api/image-studio/review":
+            try:
+                payload = self._read_json()
+                project = _safe_project(str(payload.get("project_id") or ""))
+                result = _update_image_studio_review(project, payload)
+                return self._json(result)
+            except (ValueError, OSError, KeyError, TypeError, json.JSONDecodeError) as error:
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
         if route in {"/api/image-studio/character-bible", "/api/image-studio/keyframe"}:
             try:
