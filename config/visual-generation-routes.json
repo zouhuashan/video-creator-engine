@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "policy": {
+    "final_visual_route": "IMAGE_PROVIDER_ROUTER",
+    "provider_mode": "FALLBACK_OR_MANUAL",
+    "default_remote_provider": null,
+    "high_quality_fallback_provider": "OPENAI_IMAGE",
+    "character_bible_required_before_consistency_sensitive_shots": true,
+    "human_review_required": true,
+    "billable_remote_call_requires_confirmation": true,
+    "reference_image_upload_requires_authorization": true,
+    "generated_assets_root": "lookdev/image-studio"
+  },
+  "providers": [
+    {
+      "id": "OPENAI_IMAGE",
+      "adapter": "openai_image",
+      "status": "ACTIVE_FALLBACK",
+      "remote": true,
+      "generative": true,
+      "role": "HIGH_QUALITY_FALLBACK",
+      "capabilities": [
+        "character_bible",
+        "shot_keyframe",
+        "hero_frame",
+        "rescue_shot"
+      ],
+      "web_surface": "AI 生图",
+      "model_from": "config/providers/openai-image-provider.json"
+    },
+    {
+      "id": "BLENDER_ANIME",
+      "adapter": "blender_anime",
+      "status": "AUXILIARY",
+      "remote": false,
+      "generative": false,
+      "role": "AUXILIARY_3D_CONTROL",
+      "capabilities": [
+        "camera_blocking",
+        "pose_reference",
+        "scene_layout",
+        "lighting_reference",
+        "fx_assist"
+      ]
+    }
+  ]
+}
