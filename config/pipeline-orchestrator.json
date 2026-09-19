@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "mode": "SOFTWARE_FIRST",
+  "character_config": "config/characters/char-child-001.json",
+  "shot_config": "config/shots/demo-shot-001.json",
+  "default_video_provider": "LOCAL_KEN_BURNS",
+  "finalizer": "ffmpeg",
+  "subtitle_source": "SCRIPT_TTS_TIMING",
+  "asr_round_trip": false,
+  "blender_role": "AUXILIARY_3D_CONTROL",
+  "blender_final_visual_allowed": false,
+  "final_review": "HUMAN_REQUIRED",
+  "auto_retry": {
+    "enabled": true,
+    "max_attempts_per_stage": 2
+  }
+}
