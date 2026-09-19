@@ -1,4 +1,5 @@
 import argparse
+import importlib
 import sys
 from pathlib import Path
 
@@ -27,22 +28,14 @@ def principled(name, color, roughness=0.7, metallic=0.0):
     return mat
 
 
-def find_scene_prop(scene, fragment):
-    fragment = fragment.lower()
-    matches = [name for name in dir(scene) if fragment in name.lower()]
-    # Prefer properties with the documented NH prefix when available.
-    matches.sort(key=lambda name: (0 if "nh_" in name.lower() else 1, len(name)))
-    return matches[0] if matches else None
-
-
-def set_scene_prop(scene, fragment, value, required=True):
-    name = find_scene_prop(scene, fragment)
-    if not name:
-        if required:
-            raise RuntimeError(f"MPFB scene property not found for {fragment}")
-        return None
-    setattr(scene, name, value)
-    return name
+def dynamic_import(module_suffix, symbol):
+    """Import an MPFB extension symbol without assuming Blender's extension package prefix."""
+    for module_name in list(sys.modules):
+        if module_name.endswith(module_suffix):
+            module = importlib.import_module(module_name)
+            if hasattr(module, symbol):
+                return getattr(module, symbol)
+    raise RuntimeError(f"MPFB module/symbol unavailable: {module_suffix}.{symbol}")
 
 
 def evaluated_bounds(obj):
@@ -107,42 +100,49 @@ def auto_frame(scene, cam, target, obj, margin=0.10):
 
 
 def create_mpfb_child():
-    if not hasattr(bpy.ops, "mpfb") or not hasattr(bpy.ops.mpfb, "create_human"):
-        raise RuntimeError("MPFB is not installed/enabled")
+    # MPFB Blender extensions are installed under a runtime-specific package prefix,
+    # so use the same dynamic-import pattern as MPFB's official scripting samples.
+    HumanService = dynamic_import("mpfb.services.humanservice", "HumanService")
+    TargetService = dynamic_import("mpfb.services.targetservice", "TargetService")
 
-    scene = bpy.context.scene
-    applied = {}
-    applied["add_phenotype"] = set_scene_prop(scene, "add_phenotype", True)
-    set_scene_prop(scene, "add_breast", False, required=False)
-    applied["age"] = set_scene_prop(scene, "phenotype_age", "child")
-    applied["gender"] = set_scene_prop(scene, "phenotype_gender", "female")
-    applied["race"] = set_scene_prop(scene, "phenotype_race", "asian")
-    applied["muscle"] = set_scene_prop(scene, "phenotype_muscle", "minmuscle")
-    applied["weight"] = set_scene_prop(scene, "phenotype_weight", "averageweight")
-    applied["height"] = set_scene_prop(scene, "phenotype_height", "minheight")
-    applied["proportions"] = set_scene_prop(scene, "phenotype_proportions", "min")
-    set_scene_prop(scene, "phenotype_influence", 1.0, required=False)
-    set_scene_prop(scene, "scale_factor", "METER", required=False)
-    set_scene_prop(scene, "mask_helpers", True, required=False)
-    set_scene_prop(scene, "detailed_helpers", True, required=False)
-    set_scene_prop(scene, "extra_vertex_groups", True, required=False)
+    macro = TargetService.get_default_macro_info_dict()
+    # MPFB macro ranges are numeric: gender 0=female, 1=male; age 0=child, 1=old.
+    macro["gender"] = 0.0
+    macro["age"] = 0.0
+    macro["muscle"] = 0.15
+    macro["weight"] = 0.45
+    macro["proportions"] = 0.35
+    macro["height"] = 0.20
+    macro["cupsize"] = 0.0
+    macro["firmness"] = 0.50
+    macro["race"] = {
+        "asian": 1.0,
+        "caucasian": 0.0,
+        "african": 0.0,
+    }
 
-    before_names = {obj.name for obj in bpy.data.objects}
-    result = bpy.ops.mpfb.create_human()
-    if "FINISHED" not in result:
-        raise RuntimeError(f"MPFB create_human failed: {result}")
+    base = HumanService.create_human(
+        mask_helpers=True,
+        detailed_helpers=True,
+        extra_vertex_groups=True,
+        feet_on_ground=True,
+        scale=0.1,
+        macro_detail_dict=macro,
+    )
+    if base is None or base.type != "MESH":
+        raise RuntimeError("MPFB HumanService.create_human returned no basemesh")
 
-    if bpy.context.mode != "OBJECT":
-        bpy.ops.object.mode_set(mode="OBJECT")
-
-    created = [obj for obj in bpy.data.objects if obj.name not in before_names and obj.type == "MESH"]
-    if not created:
-        created = [obj for obj in bpy.context.selected_objects if obj.type == "MESH"]
-    if not created:
-        raise RuntimeError("MPFB created no mesh")
-
-    base = max(created, key=lambda obj: len(obj.data.vertices))
     base.name = "ChildMPFBBaseMesh"
+    applied = {
+        "api": "HumanService.create_human",
+        "gender": macro["gender"],
+        "age": macro["age"],
+        "muscle": macro["muscle"],
+        "weight": macro["weight"],
+        "proportions": macro["proportions"],
+        "height": macro["height"],
+        "race": dict(macro["race"]),
+    }
     return base, applied
 
 
