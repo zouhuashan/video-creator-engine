@@ -1,0 +1,34 @@
+{
+  "schema_version": 2,
+  "lookdev_id": "P28-02-CHILD-LOOKDEV-V2",
+  "based_on": "P28-02-CHILD-LOOKDEV-V1",
+  "style_id": "STYLE-REF-GUOFENG-DIALOGUE-001",
+  "role": "child_girl",
+  "outputs": {
+    "image": "renders/lookdev/child-lookdev-v2.png",
+    "blend": "renders/lookdev/child-lookdev-v2.blend"
+  },
+  "upgrades": [
+    "principled_node_materials",
+    "tapered_soft_face_shape",
+    "layered_eye_system",
+    "upper_lid_and_soft_brow_curves",
+    "soft_mouth_curve",
+    "grouped_bangs_and_side_locks",
+    "layered_hanfu_costume",
+    "controlled_sunset_key_and_cool_fill"
+  ],
+  "quality_gate": {
+    "status": "PENDING",
+    "requires": [
+      "child_not_mascot_or_toy",
+      "soft_cheeks_and_small_chin",
+      "eyes_read_as_eyes_not_embossed_discs",
+      "hair_reads_as_grouped_hair_masses",
+      "costume_has_inner_outer_layers",
+      "actual_pale_cyan_white_color_visible",
+      "warm_rim_cool_fill_visible",
+      "human_visual_review"
+    ]
+  }
+}
