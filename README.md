@@ -550,3 +550,16 @@ After the dialogue Blockout passes, generate the first formal child LookDev stil
 ```
 
 Review `renders/lookdev/child-lookdev-v1.png`. Command success is technical only; the visual gate remains human PENDING.
+
+
+### P28-02 MPFB child basemesh
+
+P28-02 no longer uses procedural primitive stacks for the child body. Install/check MPFB once, then render the real child basemesh checkpoint:
+
+```bash
+./install-mpfb.command
+./check-mpfb.command
+./render-child-lookdev-v5.command
+```
+
+Review `renders/lookdev/child-lookdev-v5.png`. Human visual approval remains required before costume/hair/rig work continues.
