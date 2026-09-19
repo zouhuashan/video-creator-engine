@@ -1,4 +1,4 @@
-const state = { projects: [], animeProjects: [], project: null, providers: [], integrations: [], studio: null, readiness: null, backups: null, studioProjectId: null, imageStudio: null, imageStudioProjectId: null, imageStudioSelected: null, selectedProvider: 'local_ken_burns', selectedImage: null, currentView: 'workspace', currentWorkspace: 'overview' };
+const state = { projects: [], animeProjects: [], project: null, providers: [], integrations: [], studio: null, readiness: null, backups: null, studioProjectId: null, imageStudio: null, imageStudioProjectId: null, imageStudioSelected: null, pipeline: null, pipelineProjectId: null, selectedProvider: 'local_ken_burns', selectedImage: null, currentView: 'workspace', currentWorkspace: 'overview' };
 
 const $ = (selector) => document.querySelector(selector);
 const escapeHtml = (value) => String(value).replace(/[&<>'"]/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
@@ -16,6 +16,91 @@ async function api(path, options = {}) {
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || `请求失败（${response.status}）`);
   return data;
+}
+
+function pipelineStageLabel(id) {
+  return ({ story:'故事', character:'角色', shot:'分镜', scene_control:'空间控制', prompt:'自动 Prompt', image:'关键帧', video:'动态镜头', tts:'配音', subtitles:'字幕', assembly:'FFmpeg 总装', qc:'自动 QC', review:'人工审核' })[id] || id;
+}
+
+function renderPipeline() {
+  const data = state.pipeline || { status: 'NOT_STARTED', progress: 0, stages: [], review: { ready: false, status: 'PENDING' }, next: 'RUN_PIPELINE' };
+  const select = $('#pipelineProjectSelect');
+  if (select) {
+    select.innerHTML = state.animeProjects.map((item) => `<option value="${escapeHtml(item.directory_id)}">${escapeHtml(item.title)}</option>`).join('');
+    if (state.pipelineProjectId) select.value = state.pipelineProjectId;
+  }
+  $('#pipelineStatus').textContent = data.status || 'NOT_STARTED';
+  $('#pipelineProgressText').textContent = `${Number(data.progress || 0)}%`;
+  $('#pipelineProgressBar').style.width = `${Math.max(0, Math.min(100, Number(data.progress || 0)))}%`;
+  $('#pipelineNext').textContent = data.next || '等待启动';
+
+  const stages = data.stages || [];
+  $('#pipelineStages').innerHTML = stages.length ? stages.map((stage) => `
+    <div class="pipeline-stage">
+      <span class="pipeline-stage-status ${escapeHtml(String(stage.status || '').toLowerCase())}">${escapeHtml(stage.status || 'PENDING')}</span>
+      <strong>${escapeHtml(pipelineStageLabel(stage.id))}</strong>
+      <small>${escapeHtml(stage.detail || '')}</small>
+    </div>
+  `).join('') : '<div class="empty-state">点击“创建整集（自动规划）”，软件会生成完整机器执行图。P30-01 不会自动触发远程计费。</div>';
+
+  const preview = String(data.preview || '');
+  const previewWrap = $('#pipelinePreviewWrap');
+  if (preview) {
+    previewWrap.classList.remove('hidden');
+    $('#pipelinePreview').src = `/media/${encodeURIComponent(data.project_id)}/${preview.split('/').map(encodeURIComponent).join('/')}`;
+  } else {
+    previewWrap.classList.add('hidden');
+    $('#pipelinePreview').removeAttribute('src');
+  }
+  const approve = $('#pipelineApproveButton');
+  approve.disabled = !Boolean(data.review?.ready);
+  approve.textContent = data.review?.status === 'APPROVED' ? '已人工确认' : '人工确认成片';
+}
+
+async function loadPipeline(projectId = state.pipelineProjectId || state.animeProjects[0]?.directory_id) {
+  if (!projectId) return;
+  state.pipelineProjectId = projectId;
+  state.pipeline = await api(`/api/pipeline/status?project_id=${encodeURIComponent(projectId)}`);
+  renderPipeline();
+}
+
+async function runAutoPipeline() {
+  const projectId = state.pipelineProjectId || state.animeProjects[0]?.directory_id;
+  if (!projectId) { log('没有可用国漫项目', true); return; }
+  const button = $('#pipelineRunButton');
+  button.disabled = true;
+  button.textContent = '自动规划中…';
+  log(`启动整集软件流水线：${projectId}`);
+  try {
+    state.pipeline = await api('/api/pipeline/run', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ project_id: projectId, dry_run: true }),
+    });
+    renderPipeline();
+    log(`流水线完成：${state.pipeline.status} · ${state.pipeline.progress}%`);
+  } catch (error) {
+    log(error.message, true);
+  } finally {
+    button.disabled = false;
+    button.innerHTML = '<span>▶</span>创建整集（自动规划）';
+  }
+}
+
+async function approvePipeline() {
+  const projectId = state.pipelineProjectId;
+  if (!projectId || !state.pipeline?.review?.ready) return;
+  try {
+    state.pipeline = await api('/api/pipeline/review', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ project_id: projectId, status: 'APPROVED', note: 'Web final review approved' }),
+    });
+    renderPipeline();
+    log('成片已人工确认；系统仍不会自动发布平台。');
+  } catch (error) {
+    log(error.message, true);
+  }
 }
 
 function renderStats() {
@@ -1035,7 +1120,11 @@ async function load() {
     state.animeProjects = animeProjects.projects;
     state.providers = health.providers;
     state.integrations = health.integrations || [];
-    if (state.animeProjects.length) await loadStudio(state.studioProjectId || state.animeProjects[0].directory_id);
+    if (state.animeProjects.length) {
+      await loadStudio(state.studioProjectId || state.animeProjects[0].directory_id);
+      state.pipelineProjectId = state.pipelineProjectId || state.animeProjects[0].directory_id;
+      await loadPipeline(state.pipelineProjectId);
+    }
     $('#projectSelect').innerHTML = state.projects.map((project) => `<option value="${escapeHtml(project.id)}">${escapeHtml(project.name)}</option>`).join('');
     renderProviders();
     renderProviderSettings();
@@ -1088,6 +1177,9 @@ async function generateStoryboard() {
   finally { button.innerHTML = '<span>◈</span>生成完整本地分镜'; button.disabled = false; }
 }
 
+$('#pipelineProjectSelect').addEventListener('change', (event) => loadPipeline(event.target.value).catch((error) => log(error.message, true)));
+$('#pipelineRunButton').addEventListener('click', runAutoPipeline);
+$('#pipelineApproveButton').addEventListener('click', approvePipeline);
 $('#imageStudioProject').addEventListener('change', (event) => loadImageStudio(event.target.value).catch((error) => log(error.message, true)));
 $('#imageStudioSaveKey').addEventListener('click', saveImageStudioKey);
 $('#generateCharacterBibleButton').addEventListener('click', () => generateImageStudio('character-bible'));
