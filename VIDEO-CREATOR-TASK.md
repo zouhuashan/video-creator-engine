@@ -2818,6 +2818,14 @@ P28-01 Web 运维脚本增量（2026-09-18）：
 - 支持 `VIDEO_CREATOR_WEB_HOST`、`VIDEO_CREATOR_WEB_PORT`、`VIDEO_CREATOR_PYTHON` 临时覆盖；新增 `docs/WEB-OPERATIONS.md` 并更新 README 的推荐启动方式。
 - 本增量不启动 ArcReel、不调用远程 AI、不改变 P28 人工审核状态；完成此运维入口后再继续非生成式动画路线实施。
 
+P28-02 Child LookDev v4 自动取景修复（2026-09-19）：
+
+- v4 首次实机执行被 framing gate 正确拦截：`TorsoOuter` 投影为 `y=-0.1144`，原因是 organic loft 躯干/裙摆比 v3 primitive 更长，而固定 85mm/固定距离镜头无法容纳整个人物；Blender 5.2 的 `World.use_nodes` / `Material.use_nodes` DeprecationWarning 只是 Blender 6.0 迁移提示，不是本次 FAIL 根因。
+- v4 改为全人物 evaluated bounding-box 自动取景：在 stage 创建后记录对象集合，再构建 Child，收集新增 Mesh/Curve；通过 evaluated depsgraph 读取包含 Curve/Modifier 后的真实 world-space bounding-box 角点。
+- 自动取景会计算角色几何中心，将 Camera/Target 对准该中心，并从近距离开始逐步后移 Camera，直到所有真实包围盒角点都进入 8% normalized safe frame 且深度为正；最多尝试 80 步，无法容纳则继续 FAIL。
+- 镜头焦距从固定 85mm 调整为 72mm portrait baseline，但最终距离由角色真实 bounds 自动决定；后续继续修改头发、袖子、裙摆时无需人工重新猜 Camera 参数。
+- NEXT：用户重新运行 `./render-child-lookdev-v4.command`；只有自动 framing PASS 后才真正渲染并提交 `child-lookdev-v4.png` 人工审核。
+
 P28-02 Child LookDev v4 建模策略切换（2026-09-19）：
 
 - 用户实机提交 `child-lookdev-v3.png`；v3 虽进一步减弱公仔脸，但人工审核仍未通过：刘海成为硬块/立柱，袖子仍像胶囊体，身体仍可明显读出“基础 primitive 堆叠”，已确认继续微调球体/方块路线收益不足。
