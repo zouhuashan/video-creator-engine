@@ -1,4 +1,4 @@
-const state = { projects: [], animeProjects: [], project: null, providers: [], integrations: [], studio: null, readiness: null, backups: null, studioProjectId: null, imageStudio: null, imageStudioProjectId: null, imageStudioSelected: null, pipeline: null, pipelineProjectId: null, selectedProvider: 'local_ken_burns', selectedImage: null, currentView: 'workspace', currentWorkspace: 'overview' };
+const state = { projects: [], animeProjects: [], project: null, providers: [], integrations: [], studio: null, readiness: null, backups: null, studioProjectId: null, imageStudio: null, imageStudioProjectId: null, imageStudioSelected: null, imageStudioProviderPreference: 'AUTO', pipeline: null, pipelineProjectId: null, selectedProvider: 'local_ken_burns', selectedImage: null, currentView: 'workspace', currentWorkspace: 'overview' };
 
 const $ = (selector) => document.querySelector(selector);
 const escapeHtml = (value) => String(value).replace(/[&<>'"]/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
@@ -891,17 +891,28 @@ function renderImageStudio() {
   select.innerHTML = projects.map((item) => `<option value="${escapeHtml(item.directory_id)}">${escapeHtml(item.title)}</option>`).join('');
   if (data?.project_id) select.value = data.project_id;
 
-  const provider = data?.provider || {};
+  const providers = data?.providers || [];
+  const openai = providers.find((item) => item.provider_id === 'OPENAI_IMAGE' || item.id === 'openai_image') || data?.provider || {};
+  const comfyui = providers.find((item) => item.provider_id === 'COMFYUI_IMAGE' || item.id === 'comfyui_image') || {};
   const routing = data?.routing || {};
-  $('#imageStudioProvider').textContent = provider.label || 'OpenAI Image';
-  $('#imageStudioModel').textContent = provider.model || '—';
-  $('#imageStudioStatus').textContent = provider.configured ? 'READY' : 'NEED KEY';
-  $('#imageStudioStatus').classList.toggle('off', !provider.configured);
-  $('#imageStudioRoute').textContent = routing.final_visual_route || provider.final_visual_route || 'IMAGE_PROVIDER_ROUTER';
-  $('#imageStudioBlenderRole').textContent = `Blender · ${routing.blender_role || provider.blender_role || 'AUXILIARY_3D_CONTROL'}`;
-  $('#imageStudioKeyHint').textContent = provider.configured
-    ? `已配置（${provider.source === 'environment' ? '环境变量' : '当前 Web 会话'}），密钥不会显示或写入文件。`
-    : '尚未配置。请在这里保存 OpenAI API Key；只保存在当前 Web 服务进程。';
+  const providerSelect = $('#imageStudioProviderSelect');
+  if (providerSelect) providerSelect.value = state.imageStudioProviderPreference || data?.default_provider || 'AUTO';
+  const localReady = Boolean(comfyui.connected && comfyui.workflow_ready);
+  const remoteReady = Boolean(openai.configured);
+  const preference = state.imageStudioProviderPreference || 'AUTO';
+  $('#imageStudioProvider').textContent = preference === 'COMFYUI_IMAGE' ? 'ComfyUI Local' : preference === 'OPENAI_IMAGE' ? (openai.label || 'OpenAI Image') : (localReady ? 'AUTO → ComfyUI' : 'AUTO → OpenAI fallback');
+  $('#imageStudioModel').textContent = localReady ? (comfyui.checkpoint || 'Local checkpoint') : (openai.model || '—');
+  $('#imageStudioStatus').textContent = (localReady || remoteReady) ? 'READY' : 'NO PROVIDER';
+  $('#imageStudioStatus').classList.toggle('off', !(localReady || remoteReady));
+  $('#imageStudioRoute').textContent = routing.final_visual_route || 'IMAGE_PROVIDER_ROUTER';
+  $('#imageStudioBlenderRole').textContent = \`Blender · \${routing.blender_role || 'AUXILIARY_3D_CONTROL'}\`;
+  $('#imageStudioComfyUrl').value = comfyui.base_url || 'http://127.0.0.1:8188';
+  $('#imageStudioComfyHint').textContent = localReady
+    ? \`本地 ComfyUI 已连接 · \${comfyui.checkpoint_count || 0} 个 checkpoint · 不产生远程 API 费用。\`
+    : \`本地 ComfyUI 未就绪：\${comfyui.detail || '请启动 ComfyUI 或修改地址'}\`;
+  $('#imageStudioKeyHint').textContent = openai.configured
+    ? \`OpenAI fallback 已配置（\${openai.source === 'environment' ? '环境变量' : '当前 Web 会话'}），密钥不会显示或写入文件。\`
+    : 'OpenAI 仅作为远程 fallback；未配置时 AUTO 不会产生远程调用。';
 
   const character = data?.character || {};
   const lock = character.visual_lock || {};
@@ -934,7 +945,7 @@ function showImageStudioResult(item) {
   $('#imageStudioPreview').src = item.media_url;
   $('#imageStudioResultType').textContent = item.artifact_type === 'character_bible' ? '角色定妆板' : '镜头关键帧';
   $('#imageStudioResultPath').textContent = item.output || '—';
-  $('#imageStudioResultInfo').textContent = `${item.model || 'OpenAI Image'} · ${item.size || ''} · 人工审核 ${item.review_status || 'PENDING'}`;
+  $('#imageStudioResultInfo').textContent = `${item.provider || 'Image Provider'} · ${item.model || ''} · ${item.size || ''} · 人工审核 ${item.review_status || 'PENDING'}`;
   $('#imageStudioReview').textContent = item.review_status || 'PENDING';
 }
 
@@ -963,6 +974,23 @@ async function saveImageStudioKey() {
     log('OpenAI Image Key 已保存到当前 Web 服务进程');
   } catch (error) { log(error.message, true); }
   finally { button.disabled = false; button.textContent = '保存 Key'; }
+}
+
+async function saveComfyUIEndpoint() {
+  const button = $('#imageStudioSaveComfy');
+  const baseUrl = $('#imageStudioComfyUrl').value.trim();
+  if (!baseUrl) { log('请输入 ComfyUI 地址', true); return; }
+  button.disabled = true;
+  button.textContent = '检测中…';
+  try {
+    const result = await api('/api/settings/integrations', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ integration: 'comfyui', base_url: baseUrl }),
+    });
+    await loadImageStudio(state.imageStudioProjectId);
+    log(\`ComfyUI：\${result.detail || (result.connected ? '连接正常' : '未连接')}\`);
+  } catch (error) { log(error.message, true); }
+  finally { button.disabled = false; button.textContent = '保存并检测'; }
 }
 
 async function reviewImageStudio(status) {
@@ -995,16 +1023,24 @@ async function reviewImageStudio(status) {
 async function generateImageStudio(kind) {
   const projectId = state.imageStudioProjectId || state.animeProjects[0]?.directory_id;
   if (!projectId) { log('没有可用的国漫项目', true); return; }
-  const provider = state.imageStudio?.provider || {};
-  if (!provider.configured) { log('请先保存 OpenAI API Key', true); return; }
+  const providers = state.imageStudio?.providers || [];
+  const openai = providers.find((item) => item.provider_id === 'OPENAI_IMAGE' || item.id === 'openai_image') || state.imageStudio?.provider || {};
+  const comfyui = providers.find((item) => item.provider_id === 'COMFYUI_IMAGE' || item.id === 'comfyui_image') || {};
+  const preference = state.imageStudioProviderPreference || 'AUTO';
+  const localReady = Boolean(comfyui.connected && comfyui.workflow_ready);
+  const usesRemote = preference === 'OPENAI_IMAGE' || (preference === 'AUTO' && !localReady);
   const label = kind === 'character-bible' ? '角色定妆板' : '镜头关键帧';
-  if (!window.confirm(`将调用 OpenAI ${provider.model || 'Image'} 生成${label}，可能产生 API 费用。确认继续？`)) return;
+  if (preference === 'COMFYUI_IMAGE' && !localReady) { log('ComfyUI 本地 Provider 尚未就绪', true); return; }
+  if (usesRemote) {
+    if (!openai.configured) { log('本地 ComfyUI 不可用，OpenAI fallback 也未配置', true); return; }
+    if (!window.confirm(\`将使用 OpenAI fallback 生成\${label}，可能产生 API 费用。确认继续？\`)) return;
+  }
 
   const button = kind === 'character-bible' ? $('#generateCharacterBibleButton') : $('#generateKeyframeButton');
   const original = button.innerHTML;
   button.disabled = true;
   button.textContent = '生成中…';
-  log(`开始生成${label}，请等待远程模型返回…`);
+  log(`开始生成${label} · ${usesRemote ? 'OpenAI fallback' : 'ComfyUI local'}…`);
   try {
     const result = await api(`/api/image-studio/${kind}`, {
       method: 'POST',
@@ -1012,7 +1048,8 @@ async function generateImageStudio(kind) {
       body: JSON.stringify({
         project_id: projectId,
         custom_prompt: $('#imageStudioPrompt').value.trim(),
-        confirm_billable: true,
+        confirm_billable: usesRemote,
+        provider_preference: preference,
       }),
     });
     showImageStudioResult(result);
@@ -1182,6 +1219,11 @@ $('#pipelineRunButton').addEventListener('click', runAutoPipeline);
 $('#pipelineApproveButton').addEventListener('click', approvePipeline);
 $('#imageStudioProject').addEventListener('change', (event) => loadImageStudio(event.target.value).catch((error) => log(error.message, true)));
 $('#imageStudioSaveKey').addEventListener('click', saveImageStudioKey);
+$('#imageStudioSaveComfy').addEventListener('click', saveComfyUIEndpoint);
+$('#imageStudioProviderSelect').addEventListener('change', (event) => {
+  state.imageStudioProviderPreference = event.target.value;
+  renderImageStudio();
+});
 $('#generateCharacterBibleButton').addEventListener('click', () => generateImageStudio('character-bible'));
 $('#generateKeyframeButton').addEventListener('click', () => generateImageStudio('keyframe'));
 $('#imageStudioApproveButton').addEventListener('click', () => reviewImageStudio('APPROVED'));
