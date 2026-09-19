@@ -26,10 +26,18 @@ fi
 echo "RUN  P28-02 Child LookDev v5 (MPFB basemesh)"
 : >"$LOG"
 
-if ! /usr/bin/arch -arm64 "$blender" --background --python-exit-code 1 --python "$ROOT/support/blender/check-mpfb.py" >>"$LOG" 2>&1; then
+STATUS="$ROOT/cache/mpfb-check.json"
+mkdir -p "$ROOT/cache"
+rm -f "$STATUS"
+if ! VIDEO_CREATOR_MPFB_STATUS="$STATUS" /usr/bin/arch -arm64 "$blender" --background --python-exit-code 1 --python "$ROOT/support/blender/check-mpfb.py" >>"$LOG" 2>&1; then
   echo "FAIL MPFB unavailable"
   echo "NEXT ./install-mpfb.command"
-  tail -n 100 "$LOG" 2>/dev/null || true
+  tail -n 120 "$LOG" 2>/dev/null || true
+  exit 1
+fi
+if [ ! -s "$STATUS" ]; then
+  echo "FAIL MPFB status file missing"
+  tail -n 120 "$LOG" 2>/dev/null || true
   exit 1
 fi
 
