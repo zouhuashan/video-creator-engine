@@ -494,6 +494,9 @@ def _openai_image_status() -> dict[str, object]:
         "remote": True,
         "review_required": True,
         "key_env": env_name,
+        "routing_role": "HIGH_QUALITY_FALLBACK",
+        "final_visual_route": "IMAGE_PROVIDER_ROUTER",
+        "blender_role": "AUXILIARY_3D_CONTROL",
     }
 
 
