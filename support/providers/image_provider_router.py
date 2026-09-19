@@ -57,7 +57,10 @@ class ImageProviderRouter:
 
     @staticmethod
     def _is_final_visual_provider(provider: dict[str, object]) -> bool:
-        return str(provider.get("role") or "") != "AUXILIARY_3D_CONTROL" and str(provider.get("status") or "") not in {"DISABLED", "BLOCKED"}
+        return (
+            str(provider.get("role") or "") != "AUXILIARY_3D_CONTROL"
+            and str(provider.get("status") or "") in {"ACTIVE", "ACTIVE_FALLBACK", "AVAILABLE_WHEN_CONFIGURED"}
+        )
 
     def route(
         self,
