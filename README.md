@@ -585,3 +585,10 @@ Skip further nude-basemesh iterations and render the full visual target directly
 ```
 
 Review `renders/lookdev/final-child-lookdev-001.png`. Human visual approval remains required.
+
+
+### Web AI 生图工作台
+
+VideoCreator 的高质量图片 fallback 已接入现有 Web Console。打开本地 Web Console 后选择左侧 **AI 生图**，即可在浏览器里配置当前会话的 OpenAI API Key、生成 `CHAR-CHILD-001` 角色定妆板和 `SHOT-DEMO-001` 镜头关键帧，并直接进行人工通过/退回审核。
+
+生成资产保存到项目的 `lookdev/image-studio/`，同时写入 review metadata；日常使用不要求执行单独的生图命令。远程调用可能产生 OpenAI API 费用，因此每次生成前 Web 会要求确认。
