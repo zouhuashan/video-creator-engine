@@ -122,8 +122,23 @@ def _first_existing(project: Path, patterns: tuple[str, ...]) -> Path | None:
     return None
 
 
-def _stage(stage_id: str, status: str, detail: str, **extra: Any) -> dict[str, Any]:
-    return {"id": stage_id, "status": status, "detail": detail, **extra}
+def _stage(
+    stage_id: str,
+    status: str,
+    detail: str,
+    *,
+    owner: str = "software",
+    human_action: bool = False,
+    **extra: Any,
+) -> dict[str, Any]:
+    return {
+        "id": stage_id,
+        "status": status,
+        "detail": detail,
+        "owner": owner,
+        "human_action": human_action,
+        **extra,
+    }
 
 
 def _scene_control_payload(character: dict[str, Any], shot: dict[str, Any]) -> dict[str, Any]:
@@ -373,6 +388,8 @@ def run_pipeline(
         "review",
         "READY" if review_ready else "BLOCKED",
         "human final review required before publication" if review_ready else "final review waits for assembled media and PASS QC",
+        owner="human",
+        human_action=True,
         human_required=True,
         review_status=review.get("status", "PENDING"),
     ))
@@ -394,6 +411,11 @@ def run_pipeline(
             "image": image_route,
             "video": video_route,
             "blender_role": "AUXILIARY_3D_CONTROL",
+        },
+        "automation_policy": {
+            **dict(cfg.get("execution_policy") or {}),
+            "software_owned_stages": [item["id"] for item in stages if item.get("owner") == "software"],
+            "human_owned_stages": [item["id"] for item in stages if item.get("owner") == "human"],
         },
         "review": {
             "required": True,
