@@ -552,7 +552,7 @@ def run_pipeline(
                 "tts",
                 str(tts_result.get("status") or "PASS"),
                 "local TTS stage completed without manual recording",
-                **tts_result,
+                **{key: value for key, value in tts_result.items() if key != "status"},
             ))
         except PipelineMediaError as error:
             stages.append(_stage("tts", "BLOCKED", f"TTS stage failed: {error}", provider="macos_say"))
@@ -583,7 +583,7 @@ def run_pipeline(
                 "subtitles",
                 str(subtitle_result.get("status") or "PASS"),
                 "subtitle stage completed from known script/timing without ASR",
-                **subtitle_result,
+                **{key: value for key, value in subtitle_result.items() if key != "status"},
             ))
         except PipelineMediaError as error:
             stages.append(_stage(
@@ -610,7 +610,12 @@ def run_pipeline(
                 subtitles=subtitles if isinstance(subtitles, Path) and subtitles.is_file() else None,
                 output=final_video,
             )
-            stages.append(_stage("assembly", "PASS", "FFmpeg assembled final.mp4", **assembly))
+            stages.append(_stage(
+                "assembly",
+                "PASS",
+                "FFmpeg assembled final.mp4",
+                **{key: value for key, value in assembly.items() if key != "status"},
+            ))
             qc = _qc_with_retry(final_video, cfg)
         except PipelineMediaError as error:
             stages.append(_stage("assembly", "BLOCKED", f"FFmpeg assembly failed: {error}"))
