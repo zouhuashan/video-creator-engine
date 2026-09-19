@@ -300,3 +300,9 @@ V5 automation uses MPFB's scripting services instead of UI/Scene properties. Ble
 #### V5 operator-only MPFB automation
 
 Blender 5.2 can register MPFB operators even when the extension's internal Python package path is not importable in background mode. V5 therefore treats `bpy.ops.mpfb.create_human()` as the only supported MPFB boundary. The generated continuous human mesh is then child-stylized directly through vertex proportion edits; no MPFB internal service module is required.
+
+#### V5 extension repository discovery
+
+Blender's `bpy.ops` proxy can exist even when the real operator class is not registered. V5 therefore discovers MPFB from Blender's own extension repository collection. For a repository that physically contains `mpfb/blender_manifest.toml`, the runtime module name is built as `bl_ext.<repo.module>.mpfb` and explicitly enabled with `bpy.ops.preferences.addon_enable`.
+
+The environment check then performs a real temporary `mpfb.create_human()` call and verifies that a substantial Mesh was created before reporting PASS. The temporary human is deleted immediately afterwards.
