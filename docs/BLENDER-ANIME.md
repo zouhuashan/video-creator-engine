@@ -198,3 +198,22 @@ renders/lookdev/child-lookdev-v1.blend
 The first pass locks child-specific proportions, large eyes/catchlights, soft round cheeks, minimal nose/mouth, double-bun hair silhouette, pale cyan/white layered costume and the reference warm-rim/cool-fill lighting language. A camera-space gate prevents an off-frame character from being reported as a valid render.
 
 A successful command means only **technical render PASS**. Human visual review remains PENDING until the still is inspected against the uploaded reference.
+
+### Child LookDev v2
+
+After visual review of v1, P28-02 remains open and moves to v2 rather than advancing to the adult character.
+
+Run:
+
+```bash
+./render-child-lookdev-v2.command
+```
+
+Outputs:
+
+```text
+renders/lookdev/child-lookdev-v2.png
+renders/lookdev/child-lookdev-v2.blend
+```
+
+V2 upgrades the child from a gray toy-like proxy toward an actual colored LookDev: Principled node materials, tapered soft face, layered eye structure with catchlights and upper lids, softer mouth/brows, grouped bangs and curved side locks, irregular double buns, layered pale-cyan/white hanfu, and controlled warm-rim/cool-fill lighting. Technical render success does not close P28-02; human review remains required.
