@@ -115,17 +115,30 @@
               <select id="imageStudioProject" class="select-field"></select>
 
               <div class="image-provider-summary">
-                <div><small>Provider</small><strong id="imageStudioProvider">OpenAI Image</strong></div>
+                <div><small>Provider</small><strong id="imageStudioProvider">AUTO</strong></div>
                 <div><small>模型</small><strong id="imageStudioModel">—</strong></div>
                 <div><small>审核</small><strong>人工确认</strong></div>
               </div>
+              <label class="field-label" for="imageStudioProviderSelect">生图路线</label>
+              <select id="imageStudioProviderSelect" class="select-field">
+                <option value="AUTO">AUTO · 本地优先 / OpenAI 回退</option>
+                <option value="COMFYUI_IMAGE">ComfyUI · 本地视觉工厂</option>
+                <option value="OPENAI_IMAGE">OpenAI Image · 高质量远程回退</option>
+              </select>
               <div class="image-routing-banner">
                 <div><small>最终视觉路由</small><strong id="imageStudioRoute">IMAGE_PROVIDER_ROUTER</strong></div>
                 <span id="imageStudioBlenderRole">Blender · AUXILIARY_3D_CONTROL</span>
               </div>
 
               <div class="divider"></div>
-              <label class="field-label" for="imageStudioKey">OpenAI API Key</label>
+              <label class="field-label" for="imageStudioComfyUrl">ComfyUI 本地地址</label>
+              <div class="form-row image-key-row">
+                <input id="imageStudioComfyUrl" class="text-field" type="url" autocomplete="off" value="http://127.0.0.1:8188" />
+                <button class="secondary-button" id="imageStudioSaveComfy">保存并检测</button>
+              </div>
+              <p class="helper-text" id="imageStudioComfyHint">AUTO 会优先检测本地 ComfyUI，无需手工拖节点。</p>
+
+              <label class="field-label" for="imageStudioKey">OpenAI API Key（Fallback）</label>
               <div class="form-row image-key-row">
                 <input id="imageStudioKey" class="text-field" type="password" autocomplete="off" placeholder="sk-…（仅保存在当前 Web 服务进程）" />
                 <button class="secondary-button" id="imageStudioSaveKey">保存 Key</button>
@@ -139,7 +152,7 @@
                 <button class="primary-button" id="generateCharacterBibleButton"><span>✦</span>生成角色定妆板</button>
                 <button class="secondary-button" id="generateKeyframeButton"><span>◈</span>生成镜头关键帧</button>
               </div>
-              <p class="helper-text">点击生成会调用远程 OpenAI 图片 API，可能产生 API 费用；每次点击前会再次确认。</p>
+              <p class="helper-text">AUTO 优先使用本地 ComfyUI；只有回退到 OpenAI 时才会弹出远程计费确认。</p>
 
               <div class="image-lock-card" id="imageStudioCharacterLock">
                 <strong>CHAR-CHILD-001</strong>
