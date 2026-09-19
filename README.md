@@ -504,14 +504,16 @@ The terminal prints `RUN`, `PASS` or `FAIL`, `RESULT`, and `NEXT`. Log lines use
 The directories under `skill/`, `adapters/`, `templates/`, `brand/`, `config/`, and `projects/` reserve the boundaries described in the task specification. Empty directories are retained with `.gitkeep` until their corresponding task adds implementation files.
 
 
-## Blender Anime final-image route
+## Blender Anime auxiliary 3D control route
 
-The deterministic animation stack now has two explicit roles:
+The current production split is explicit:
 
+- `IMAGE_PROVIDER_ROUTER`: default final-visual route for character bibles, shot keyframes, hero frames and visual-quality fallback.
+- `OPENAI_IMAGE`: active high-quality fallback/manual Image Provider behind the router and the human/billing gates.
 - `LOCAL_CUTOUT_RIG`: Animatic, dialogue blocking and shot timing.
-- `BLENDER_ANIME`: current final-image target using a real 3D character, Armature/IK, Toon/NPR, line art/Grease Pencil enhancement, camera, lighting and local FX.
+- `BLENDER_ANIME`: auxiliary 3D control only — camera blocking, pose reference, scene layout, lighting reference and FX assistance. It is not the default final-image producer.
 
-Godot cutout work is preserved as an experiment but is no longer the current final-image target.
+Godot cutout work is preserved as an experiment. Legacy Blender LookDev commands below remain for reproducibility and auxiliary reference work; they are not the current NEXT for final visual production.
 
 On Apple Silicon:
 
@@ -596,6 +598,6 @@ VideoCreator 的高质量图片 fallback 已接入现有 Web Console。打开本
 
 ## Final visual generation architecture
 
-The final visual target is now provider-routed rather than Blender-first. `IMAGE_PROVIDER_ROUTER` owns character-bible/keyframe/final-visual selection. OpenAI Image is an explicit high-quality fallback/manual provider with human review and billing confirmation. Blender remains available as `AUXILIARY_3D_CONTROL` for camera blocking, pose references, scene layout, lighting references and FX assistance.
+The final visual target is now provider-routed rather than Blender-first. `support/providers/image_provider_router.py` implements `IMAGE_PROVIDER_ROUTER` and owns character-bible/keyframe/final-visual selection without performing network I/O. OpenAI Image is an explicit high-quality fallback/manual provider with human review and billing confirmation. Blender remains available as `AUXILIARY_3D_CONTROL` for camera blocking, pose references, scene layout, lighting references and FX assistance.
 
 The local Web Console exposes this as **AI 生图** at `http://127.0.0.1:18765`; generated assets are stored under the selected project's `lookdev/image-studio/` and remain `PENDING` until human review.
