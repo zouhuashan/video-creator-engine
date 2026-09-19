@@ -43,6 +43,12 @@ if ! /usr/bin/arch -arm64 "$blender" --background --factory-startup --python "$S
   exit 1
 fi
 
+if ! grep -q "VIDEO_CREATOR_REFERENCE_FRAMING_PASS" "$LOG"; then
+  echo "FAIL Reference dialogue framing gate"
+  tail -n 100 "$LOG" 2>/dev/null || true
+  exit 1
+fi
+
 if ! grep -q "VIDEO_CREATOR_REFERENCE_BLOCKOUT_FRAMES_PASS" "$LOG"; then
   echo "FAIL Reference blockout frame marker missing"
   tail -n 100 "$LOG" 2>/dev/null || true
