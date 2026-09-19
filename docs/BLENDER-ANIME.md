@@ -337,3 +337,22 @@ renders/lookdev/child-lookdev-v6.blend
 ```
 
 The native MPFB child phenotype is the primary anatomy source. Only a small post-style push is applied afterwards for the target animation direction. Human visual review is still required.
+
+### FINAL-CHILD-LOOKDEV-001
+
+P28-02 no longer advances through additional nude basemesh checkpoints. The final child LookDev is rendered directly from the native MPFB child base and adds the complete target visual stack in one pass: stylized anime eyes/face read, twin-bun hair, layered pale-cyan/white hanfu, ornaments, cinematic sunset rim/fill lighting, shallow depth of field, and a historical camp background.
+
+Run:
+
+```bash
+./render-final-child-lookdev.command
+```
+
+Outputs:
+
+```text
+renders/lookdev/final-child-lookdev-001.png
+renders/lookdev/final-child-lookdev-001.blend
+```
+
+The acceptance question is now visual: does this read as the intended finished guofeng animation child? Technical render success alone does not pass P28-02.
