@@ -1,0 +1,33 @@
+{
+  "schema_version": 3,
+  "lookdev_id": "P28-02-CHILD-LOOKDEV-V3",
+  "based_on": "P28-02-CHILD-LOOKDEV-V2",
+  "style_id": "STYLE-REF-GUOFENG-DIALOGUE-001",
+  "role": "child_girl",
+  "outputs": {
+    "image": "renders/lookdev/child-lookdev-v3.png",
+    "blend": "renders/lookdev/child-lookdev-v3.blend"
+  },
+  "upgrades": [
+    "smaller_embedded_eyes",
+    "softer_tapered_face",
+    "no_raised_blush_discs",
+    "flat_ribbon_hair_locks",
+    "irregular_double_buns",
+    "drooping_wide_sleeves",
+    "less_toy_like_costume_volume",
+    "controlled_cinematic_light"
+  ],
+  "quality_gate": {
+    "status": "PENDING",
+    "requires": [
+      "reads_as_stylized_child_not_mascot",
+      "eyes_integrated_into_face",
+      "hair_reads_as_hair_not_vertical_capsules",
+      "sleeves_read_as_cloth_not_tubes",
+      "costume_has_layered_guofeng_silhouette",
+      "actual_material_colors_visible",
+      "human_visual_review"
+    ]
+  }
+}
