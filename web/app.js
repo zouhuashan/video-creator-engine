@@ -1,4 +1,4 @@
-const state = { projects: [], animeProjects: [], project: null, providers: [], integrations: [], studio: null, readiness: null, backups: null, studioProjectId: null, selectedProvider: 'local_ken_burns', selectedImage: null, currentView: 'workspace', currentWorkspace: 'overview' };
+const state = { projects: [], animeProjects: [], project: null, providers: [], integrations: [], studio: null, readiness: null, backups: null, studioProjectId: null, imageStudio: null, imageStudioProjectId: null, selectedProvider: 'local_ken_burns', selectedImage: null, currentView: 'workspace', currentWorkspace: 'overview' };
 
 const $ = (selector) => document.querySelector(selector);
 const escapeHtml = (value) => String(value).replace(/[&<>'"]/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
@@ -785,14 +785,126 @@ function setView(view, workspace = state.currentWorkspace) {
   state.currentView = view;
   if (view === 'studio') state.currentWorkspace = workspace;
   document.querySelectorAll('.nav-item').forEach((nav) => nav.classList.toggle('active', nav.dataset.view === view && (view !== 'studio' || nav.dataset.workspace === state.currentWorkspace)));
-  ['workspace', 'anime', 'studio', 'projects', 'providers'].forEach((name) => $(`#${name}View`).classList.toggle('hidden', name !== view));
+  ['workspace', 'anime', 'studio', 'imageStudio', 'projects', 'providers'].forEach((name) => $(`#${name}View`).classList.toggle('hidden', name !== view));
   $('#outputPanel').classList.toggle('hidden', view !== 'workspace');
   $('#logPanel')?.classList.toggle('hidden', view !== 'workspace');
   if (view === 'projects') renderProjectTable();
   if (view === 'anime') renderAnimeProjects();
   if (view === 'studio') renderStudio();
+  if (view === 'imageStudio') {
+    const target = state.imageStudioProjectId || state.animeProjects[0]?.directory_id;
+    if (target) loadImageStudio(target).catch((error) => log(error.message, true));
+  }
   if (view === 'providers') renderProviderSettings();
   window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function renderImageStudio() {
+  const data = state.imageStudio;
+  const select = $('#imageStudioProject');
+  const projects = state.animeProjects || [];
+  select.innerHTML = projects.map((item) => `<option value="${escapeHtml(item.directory_id)}">${escapeHtml(item.title)}</option>`).join('');
+  if (data?.project_id) select.value = data.project_id;
+
+  const provider = data?.provider || {};
+  $('#imageStudioProvider').textContent = provider.label || 'OpenAI Image';
+  $('#imageStudioModel').textContent = provider.model || '—';
+  $('#imageStudioStatus').textContent = provider.configured ? 'READY' : 'NEED KEY';
+  $('#imageStudioStatus').classList.toggle('off', !provider.configured);
+  $('#imageStudioKeyHint').textContent = provider.configured
+    ? `已配置（${provider.source === 'environment' ? '环境变量' : '当前 Web 会话'}），密钥不会显示或写入文件。`
+    : '尚未配置。请在这里保存 OpenAI API Key；只保存在当前 Web 服务进程。';
+
+  const character = data?.character || {};
+  const lock = character.visual_lock || {};
+  $('#imageStudioCharacterLock').innerHTML = `<strong>${escapeHtml(character.character_id || 'CHAR-CHILD-001')} · ${escapeHtml(character.name || '营地小女孩')}</strong><small>${escapeHtml(lock.face || '')}</small><small>${escapeHtml(lock.hair || '')}</small><small>${escapeHtml(lock.costume || '')}</small>`;
+
+  const items = data?.items || [];
+  $('#imageStudioCount').textContent = `${items.length} 张`;
+  if (!items.length) {
+    $('#imageStudioGallery').innerHTML = '<div class="empty-state">还没有 AI 生图资产。</div>';
+    return;
+  }
+  $('#imageStudioGallery').innerHTML = items.map((item, index) => `
+    <button class="image-studio-thumb" data-image-studio-index="${index}">
+      <img src="${escapeHtml(item.media_url)}" alt="${escapeHtml(item.artifact_type || 'image')}" loading="lazy">
+      <span><strong>${escapeHtml(item.artifact_type === 'character_bible' ? '角色定妆板' : '镜头关键帧')}</strong><small>${escapeHtml(item.model || '')} · ${escapeHtml(item.review_status || 'PENDING')}</small></span>
+    </button>
+  `).join('');
+  document.querySelectorAll('[data-image-studio-index]').forEach((button) => button.addEventListener('click', () => {
+    const item = items[Number(button.dataset.imageStudioIndex)];
+    showImageStudioResult(item);
+  }));
+  if ($('#imageStudioResult').classList.contains('hidden')) showImageStudioResult(items[0]);
+}
+
+function showImageStudioResult(item) {
+  if (!item) return;
+  $('#imageStudioEmpty').classList.add('hidden');
+  $('#imageStudioResult').classList.remove('hidden');
+  $('#imageStudioPreview').src = item.media_url;
+  $('#imageStudioResultType').textContent = item.artifact_type === 'character_bible' ? '角色定妆板' : '镜头关键帧';
+  $('#imageStudioResultPath').textContent = item.output || '—';
+  $('#imageStudioResultInfo').textContent = `${item.model || 'OpenAI Image'} · ${item.size || ''} · 人工审核 ${item.review_status || 'PENDING'}`;
+  $('#imageStudioReview').textContent = item.review_status || 'PENDING';
+}
+
+async function loadImageStudio(projectId = state.imageStudioProjectId || state.animeProjects[0]?.directory_id) {
+  if (!projectId) return;
+  state.imageStudioProjectId = projectId;
+  state.imageStudio = await api(`/api/image-studio/status?project_id=${encodeURIComponent(projectId)}`);
+  renderImageStudio();
+}
+
+async function saveImageStudioKey() {
+  const button = $('#imageStudioSaveKey');
+  const input = $('#imageStudioKey');
+  const key = input.value.trim();
+  if (!key) { log('请输入 OpenAI API Key', true); return; }
+  button.disabled = true;
+  button.textContent = '保存中…';
+  try {
+    await api('/api/settings/keys', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider: 'openai_image', key }),
+    });
+    input.value = '';
+    await loadImageStudio(state.imageStudioProjectId);
+    log('OpenAI Image Key 已保存到当前 Web 服务进程');
+  } catch (error) { log(error.message, true); }
+  finally { button.disabled = false; button.textContent = '保存 Key'; }
+}
+
+async function generateImageStudio(kind) {
+  const projectId = state.imageStudioProjectId || state.animeProjects[0]?.directory_id;
+  if (!projectId) { log('没有可用的国漫项目', true); return; }
+  const provider = state.imageStudio?.provider || {};
+  if (!provider.configured) { log('请先保存 OpenAI API Key', true); return; }
+  const label = kind === 'character-bible' ? '角色定妆板' : '镜头关键帧';
+  if (!window.confirm(`将调用 OpenAI ${provider.model || 'Image'} 生成${label}，可能产生 API 费用。确认继续？`)) return;
+
+  const button = kind === 'character-bible' ? $('#generateCharacterBibleButton') : $('#generateKeyframeButton');
+  const original = button.innerHTML;
+  button.disabled = true;
+  button.textContent = '生成中…';
+  log(`开始生成${label}，请等待远程模型返回…`);
+  try {
+    const result = await api(`/api/image-studio/${kind}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        project_id: projectId,
+        custom_prompt: $('#imageStudioPrompt').value.trim(),
+        confirm_billable: true,
+      }),
+    });
+    showImageStudioResult(result);
+    await loadImageStudio(projectId);
+    showImageStudioResult(result);
+    log(`${label}生成完成：${result.output}`);
+  } catch (error) { log(error.message, true); }
+  finally { button.disabled = false; button.innerHTML = original; }
 }
 
 async function loadStudio(projectId = state.studioProjectId || state.animeProjects[0]?.directory_id) {
@@ -898,6 +1010,10 @@ async function load() {
     renderProviderSettings();
     renderProjectTable();
     renderAnimeProjects();
+    if (state.animeProjects.length) {
+      state.imageStudioProjectId = state.imageStudioProjectId || state.animeProjects[0].directory_id;
+      await loadImageStudio(state.imageStudioProjectId);
+    }
     if (state.projects.length) await loadProject(state.projects.find((project) => project.id === 'jinghua-yuan-local-pilot')?.id || state.projects[0].id);
     log(`已载入 ${state.projects.length} 个项目和 ${state.providers.length} 条 Provider 路线`);
   } catch (error) { log(error.message, true); }
@@ -941,6 +1057,10 @@ async function generateStoryboard() {
   finally { button.innerHTML = '<span>◈</span>生成完整本地分镜'; button.disabled = false; }
 }
 
+$('#imageStudioProject').addEventListener('change', (event) => loadImageStudio(event.target.value).catch((error) => log(error.message, true)));
+$('#imageStudioSaveKey').addEventListener('click', saveImageStudioKey);
+$('#generateCharacterBibleButton').addEventListener('click', () => generateImageStudio('character-bible'));
+$('#generateKeyframeButton').addEventListener('click', () => generateImageStudio('keyframe'));
 $('#projectSelect').addEventListener('change', (event) => loadProject(event.target.value).catch((error) => log(error.message, true)));
 $('#billableConfirm').addEventListener('change', updateGenerateButton);
 $('#generateButton').addEventListener('click', generate);
