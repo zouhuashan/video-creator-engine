@@ -563,3 +563,14 @@ P28-02 no longer uses procedural primitive stacks for the child body. Install/ch
 ```
 
 Review `renders/lookdev/child-lookdev-v5.png`. Human visual approval remains required before costume/hair/rig work continues.
+
+
+### P28-02 native child checkpoint
+
+After the MPFB adult-basemesh checkpoint, render the native child phenotype checkpoint:
+
+```bash
+./render-child-lookdev-v6.command
+```
+
+Review `renders/lookdev/child-lookdev-v6.png`. Technical PASS does not close P28-02; human visual approval remains required.
