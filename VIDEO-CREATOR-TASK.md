@@ -2818,6 +2818,14 @@ P28-01 Web 运维脚本增量（2026-09-18）：
 - 支持 `VIDEO_CREATOR_WEB_HOST`、`VIDEO_CREATOR_WEB_PORT`、`VIDEO_CREATOR_PYTHON` 临时覆盖；新增 `docs/WEB-OPERATIONS.md` 并更新 README 的推荐启动方式。
 - 本增量不启动 ArcReel、不调用远程 AI、不改变 P28 人工审核状态；完成此运维入口后再继续非生成式动画路线实施。
 
+P28-02 v5 MPFB 官方 Service API 修复（2026-09-19）：
+
+- v5 首次实机确认 MPFB 已安装且 `bpy.ops.mpfb.create_human` 可用，但脚本在创建人物前失败：`Scene` 中不存在猜测的 `add_phenotype` 属性。该 FAIL 不是 framing 问题，而是错误依赖 MPFB UI/Scene 属性。
+- 对照 MPFB 官方 scripting API 后改为官方 Service 路线：通过 extension-safe dynamic import 获取 `HumanService` / `TargetService`，用 `TargetService.get_default_macro_info_dict()` 构建标准 macro 字典，再直接调用 `HumanService.create_human(macro_detail_dict=macro)`。
+- phenotype 现在使用 MPFB 实际数值语义：`gender=0.0` female、`age=0.0` child、Asian race=1.0，并设置轻肌肉/平均体重/偏幼比例；不再扫描或写任何 Scene UI property。
+- `check-mpfb.py` 同步升级：除 operator 外，还必须成功加载 `HumanService.create_human` 和 `TargetService.get_default_macro_info_dict`，避免“插件 UI 可用但自动化 Service 不可用”时误报 PASS。
+- NEXT：无需重装 MPFB；用户 `git pull` 后直接重新执行 `./render-child-lookdev-v5.command`。
+
 P28-02 Child LookDev v5 MPFB real basemesh 切换（2026-09-19）：
 
 - 用户实机提交 v4：自动取景与 organic curve/loft 已正常工作，但人工审核仍不通过；角色仍明显是程序化玩偶，说明 procedural primitive/loft 路线已达到质量上限。
