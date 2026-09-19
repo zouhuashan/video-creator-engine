@@ -292,3 +292,7 @@ renders/lookdev/child-lookdev-v5.blend
 ```
 
 V5 deliberately validates the underlying continuous child basemesh before costume/hair polish. It uses MPFB child phenotype settings and preserves real face, shoulder, arm and hand topology. The image is a base-mesh quality gate, not a final costume approval.
+
+#### V5 MPFB service API
+
+V5 automation uses MPFB's scripting services instead of UI/Scene properties. Blender extension package prefixes are runtime-specific, so the script follows MPFB's official dynamic-import pattern and resolves `HumanService` and `TargetService` from loaded extension modules. Character creation then calls `HumanService.create_human(macro_detail_dict=...)` with numeric macro values such as female=0 and child age=0.
