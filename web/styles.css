@@ -181,3 +181,5 @@ body.rig-v2-open { overflow: hidden; }
 .status-dot.off{color:#efad6a}
 @media(max-width:980px){.image-studio-layout{grid-template-columns:1fr}.image-studio-gallery{grid-template-columns:repeat(2,minmax(0,1fr))}.image-studio-empty{min-height:320px}}
 @media(max-width:600px){.image-provider-summary,.image-studio-actions,.image-key-row{grid-template-columns:1fr}.image-studio-gallery{grid-template-columns:1fr}}
+
+.image-review-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:2px}.image-review-actions .secondary-button{min-width:110px}
