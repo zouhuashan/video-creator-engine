@@ -59,7 +59,7 @@ class VideoProviderRouter:
         candidates = [
             item
             for item in self._providers.values()
-            if str(item.get("status") or "") not in {"DISABLED", "BLOCKED"}
+            if str(item.get("status") or "") in {"ACTIVE", "AVAILABLE_WHEN_CONFIGURED"}
             and capability in item.get("capabilities", [])
             and (available is None or str(item.get("id")) in available)
         ]
