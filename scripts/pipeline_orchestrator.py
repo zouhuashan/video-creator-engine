@@ -393,20 +393,20 @@ def run_pipeline(
                         raise PipelineError("ComfyUI provider became unavailable")
                     result = comfyui.generate(prompt, output, size="1024x1536")
                 elif image_route["adapter"] == "openai_image":
-                    cfg = _load_json(ROOT / "config" / "providers" / "openai-image-provider.json")
-                    api_key = os.environ.get(str(cfg.get("key_env") or "OPENAI_API_KEY"))
+                    image_cfg = _load_json(ROOT / "config" / "providers" / "openai-image-provider.json")
+                    api_key = os.environ.get(str(image_cfg.get("key_env") or "OPENAI_API_KEY"))
                     if not api_key:
                         raise PipelineError("OpenAI fallback key is unavailable")
                     provider = OpenAIImageProvider(
                         api_key,
-                        model=str(cfg.get("model") or "gpt-image-2"),
-                        base_url=str(cfg.get("base_url") or "https://api.openai.com/v1"),
+                        model=str(image_cfg.get("model") or "gpt-image-2"),
+                        base_url=str(image_cfg.get("base_url") or "https://api.openai.com/v1"),
                     )
                     result = provider.generate(
                         prompt,
                         output,
-                        size=str(cfg.get("keyframe_size") or "1024x1536"),
-                        quality=str(cfg.get("quality") or "high"),
+                        size=str(image_cfg.get("keyframe_size") or "1024x1536"),
+                        quality=str(image_cfg.get("quality") or "high"),
                     )
                 else:
                     raise PipelineError("selected Image Provider adapter is not executable")
@@ -573,7 +573,7 @@ def update_pipeline_review(
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("project_id")
-    parser.add_argument("--execute", action="store_true", help="reserve execute mode; P30-01 remains provider-gated")
+    parser.add_argument("--execute", action="store_true", help="execute available local stages; remote billing remains gated")
     args = parser.parse_args()
     try:
         result = run_pipeline(args.project_id, dry_run=not args.execute)
