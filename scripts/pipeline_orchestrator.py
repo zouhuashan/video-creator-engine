@@ -28,6 +28,7 @@ from support.providers.image_provider_router import ImageProviderRouteError, Ima
 from support.providers.comfyui_image_provider import ComfyUIImageError, ComfyUIImageProvider
 from support.providers.openai_image_provider import OpenAIImageProvider, keyframe_prompt
 from support.providers.video_provider_router import VideoProviderRouter
+from scripts.pipeline_media_stages import PipelineMediaError, assemble_final, ensure_subtitles, ensure_tts
 
 STAGE_ORDER = (
     "story",
@@ -461,30 +462,91 @@ def run_pipeline(
         stages.append(_stage("video", "PLANNED", "VideoProvider route resolved", route=video_route))
 
     voice = _first_existing(project, ("voice/*.wav", "audio/**/*.wav", "audio/**/*.mp3"))
-    stages.append(_stage(
-        "tts",
-        "PASS" if voice else "PLANNED",
-        "TTS/audio asset resolved" if voice else "TTS Provider will synthesize script lines",
-        asset=_relative(project, voice),
-    ))
+    tts_result: dict[str, Any] | None = None
+    if voice:
+        tts_result = {"status": "PASS", "asset": _relative(project, voice), "reused": True, "provider": "existing"}
+        stages.append(_stage("tts", "PASS", "existing TTS/audio asset reused", **tts_result))
+    elif dry_run:
+        stages.append(_stage(
+            "tts",
+            "PLANNED",
+            "dry-run: local TTS will reuse existing audio or synthesize known timeline text",
+            provider="macos_say",
+        ))
+    else:
+        try:
+            tts_result = ensure_tts(project)
+            voice = project / str(tts_result.get("asset")) if tts_result.get("asset") else None
+            stages.append(_stage(
+                "tts",
+                str(tts_result.get("status") or "PASS"),
+                "local TTS stage completed without manual recording",
+                **tts_result,
+            ))
+        except PipelineMediaError as error:
+            stages.append(_stage("tts", "BLOCKED", f"TTS stage failed: {error}", provider="macos_say"))
 
-    subtitles = _first_existing(project, ("*.srt", "*.ass", "subtitles/**/*.srt", "subtitles/**/*.ass"))
-    stages.append(_stage(
-        "subtitles",
-        "PASS" if subtitles else "PLANNED",
-        "subtitle asset resolved" if subtitles else "subtitles will be built from script/TTS timing; Whisper round-trip is disabled",
-        asset=_relative(project, subtitles),
-        subtitle_source="SCRIPT_TTS_TIMING",
-        asr_round_trip=False,
-    ))
+    subtitles = _first_existing(project, ("*.srt", "*.ass", "subtitles/**/*.srt", "subtitles/**/*.ass", "renders/**/*.srt"))
+    subtitle_result: dict[str, Any] | None = None
+    if subtitles:
+        subtitle_result = {"status": "PASS", "asset": _relative(project, subtitles), "reused": True, "source": "existing", "asr_round_trip": False}
+        stages.append(_stage(
+            "subtitles",
+            "PASS",
+            "existing subtitle asset reused",
+            **subtitle_result,
+        ))
+    elif dry_run:
+        stages.append(_stage(
+            "subtitles",
+            "PLANNED",
+            "dry-run: subtitles will be built from script/TTS timing; Whisper round-trip is disabled",
+            subtitle_source="SCRIPT_TTS_TIMING",
+            asr_round_trip=False,
+        ))
+    else:
+        try:
+            subtitle_result = ensure_subtitles(project)
+            subtitles = project / str(subtitle_result.get("asset")) if subtitle_result.get("asset") else None
+            stages.append(_stage(
+                "subtitles",
+                str(subtitle_result.get("status") or "PASS"),
+                "subtitle stage completed from known script/timing without ASR",
+                **subtitle_result,
+            ))
+        except PipelineMediaError as error:
+            stages.append(_stage(
+                "subtitles",
+                "BLOCKED",
+                f"subtitle stage failed: {error}",
+                subtitle_source="SCRIPT_TTS_TIMING",
+                asr_round_trip=False,
+            ))
 
     final_video = project / "final.mp4"
     if final_video.is_file():
-        stages.append(_stage("assembly", "PASS", "FFmpeg final output exists", asset="final.mp4"))
+        stages.append(_stage("assembly", "PASS", "existing FFmpeg final output reused", asset="final.mp4", reused=True))
         qc = _auto_qc(final_video)
-    else:
-        stages.append(_stage("assembly", "PLANNED", "FFmpeg finalizer will assemble video/audio/subtitles"))
+    elif dry_run:
+        stages.append(_stage("assembly", "PLANNED", "dry-run: FFmpeg finalizer will assemble available video/audio/subtitles"))
         qc = _auto_qc(existing_video)
+    elif existing_video:
+        try:
+            assembly = assemble_final(
+                project,
+                existing_video,
+                audio=voice if isinstance(voice, Path) and voice.is_file() else None,
+                subtitles=subtitles if isinstance(subtitles, Path) and subtitles.is_file() else None,
+                output=final_video,
+            )
+            stages.append(_stage("assembly", "PASS", "FFmpeg assembled final.mp4", **assembly))
+            qc = _auto_qc(final_video)
+        except PipelineMediaError as error:
+            stages.append(_stage("assembly", "BLOCKED", f"FFmpeg assembly failed: {error}"))
+            qc = _auto_qc(existing_video)
+    else:
+        stages.append(_stage("assembly", "BLOCKED", "no video asset is available for FFmpeg assembly"))
+        qc = _auto_qc(None)
     stages.append(_stage("qc", qc["status"], "automatic media QC", report=qc, auto_retry=bool(qc.get("auto_retry"))))
 
     review_ready = final_video.is_file() and qc.get("status") == "PASS"
@@ -502,7 +564,7 @@ def run_pipeline(
         review_status=review.get("status", "PENDING"),
     ))
 
-    pass_like = {"PASS", "READY", "PLANNED"}
+    pass_like = {"PASS", "READY", "PLANNED", "SKIPPED"}
     completed = sum(1 for item in stages if item["status"] in pass_like)
     hard_blocked = any(item["status"] == "BLOCKED" and item["id"] not in {"review"} for item in stages)
     status = "DRY_RUN_PASS" if dry_run and not hard_blocked else ("READY_FOR_REVIEW" if review_ready else "IN_PROGRESS")
