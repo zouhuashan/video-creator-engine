@@ -255,3 +255,9 @@ renders/lookdev/child-lookdev-v4.blend
 ```
 
 The main change is organic geometry generation: tapered Bezier hair strands replace block/card bangs, while torso, skirt and bell sleeves are built from continuous lofted elliptical sections with subdivision and smooth shading. The child face keeps a smaller integrated eye system and stronger chin taper. If this still reads as a procedural toy after human review, the next iteration will move to a real editable base-mesh/sculpt workflow rather than continuing to stack procedural primitives.
+
+#### V4 automatic character framing
+
+V4 no longer assumes a fixed character height. After organic Mesh/Curve geometry is built, the script evaluates the actual Blender dependency graph, collects the character's world-space bounding-box corners, centers the camera target on those bounds, and moves the portrait camera backward until every corner fits inside an 8% normalized safe frame.
+
+This replaces the previous three-center-point gate and prevents longer lofted skirts, sleeves or hair curves from silently falling outside the frame.
