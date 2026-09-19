@@ -261,3 +261,34 @@ The main change is organic geometry generation: tapered Bezier hair strands repl
 V4 no longer assumes a fixed character height. After organic Mesh/Curve geometry is built, the script evaluates the actual Blender dependency graph, collects the character's world-space bounding-box corners, centers the camera target on those bounds, and moves the portrait camera backward until every corner fits inside an 8% normalized safe frame.
 
 This replaces the previous three-center-point gate and prevents longer lofted skirts, sleeves or hair curves from silently falling outside the frame.
+
+### Child LookDev v5 — MPFB real basemesh
+
+V4 confirmed that procedural primitive/loft modeling still reads as a toy. P28-02 therefore stops that strategy and switches to a real continuous human base mesh through MPFB.
+
+First-time setup:
+
+```bash
+./install-mpfb.command
+```
+
+Environment check:
+
+```bash
+./check-mpfb.command
+```
+
+Render v5:
+
+```bash
+./render-child-lookdev-v5.command
+```
+
+Outputs:
+
+```text
+renders/lookdev/child-lookdev-v5.png
+renders/lookdev/child-lookdev-v5.blend
+```
+
+V5 deliberately validates the underlying continuous child basemesh before costume/hair polish. It uses MPFB child phenotype settings and preserves real face, shoulder, arm and hand topology. The image is a base-mesh quality gate, not a final costume approval.
