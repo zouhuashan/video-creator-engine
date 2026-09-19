@@ -2818,6 +2818,15 @@ P28-01 Web 运维脚本增量（2026-09-18）：
 - 支持 `VIDEO_CREATOR_WEB_HOST`、`VIDEO_CREATOR_WEB_PORT`、`VIDEO_CREATOR_PYTHON` 临时覆盖；新增 `docs/WEB-OPERATIONS.md` 并更新 README 的推荐启动方式。
 - 本增量不启动 ArcReel、不调用远程 AI、不改变 P28 人工审核状态；完成此运维入口后再继续非生成式动画路线实施。
 
+P28-02 Child LookDev v5 MPFB real basemesh 切换（2026-09-19）：
+
+- 用户实机提交 v4：自动取景与 organic curve/loft 已正常工作，但人工审核仍不通过；角色仍明显是程序化玩偶，说明 procedural primitive/loft 路线已达到质量上限。
+- 按既定质量门停止继续 v5/v6 堆 primitive，正式切换到真实连续人体 base mesh。选用 MPFB（MakeHuman Community Blender extension）作为本地非生成式人体基座；目标版本 2.0.17，Blender 5.2 可用。
+- 新增 `install-mpfb.command` / `check-mpfb.command` / `support/blender/check-mpfb.py`：使用 Blender 官方 extension CLI 安装并启用 package id `mpfb`，随后验证 `bpy.ops.mpfb.create_human` 可用。
+- 新增 `config/child-lookdev-v5.json` / `support/blender/child-lookdev-v5.py` / `render-child-lookdev-v5.command`：通过 MPFB child/female/asian/minheight phenotype 创建连续儿童 basemesh，归一化目标身高，保留真实脸/肩/臂/手拓扑，使用 EEVEE 简单 LookDev 灯光和自动取景输出 v5 PNG + BLEND。
+- v5 是“真实 base mesh 质量门”，暂不把古装/头发/正式表情叠回去；先确认底层人体是否脱离公仔感。只有 base mesh 人审通过，才在该真实拓扑上继续 stylize、衣服、头发和 rig。
+- P28-02 仍保持 `HUMAN REVIEW=PENDING`。NEXT：本机执行 `./install-mpfb.command`（首次）→ `./render-child-lookdev-v5.command`，提交 `renders/lookdev/child-lookdev-v5.png`。
+
 P28-02 Child LookDev v4 自动取景修复（2026-09-19）：
 
 - v4 首次实机执行被 framing gate 正确拦截：`TorsoOuter` 投影为 `y=-0.1144`，原因是 organic loft 躯干/裙摆比 v3 primitive 更长，而固定 85mm/固定距离镜头无法容纳整个人物；Blender 5.2 的 `World.use_nodes` / `Material.use_nodes` DeprecationWarning 只是 Blender 6.0 迁移提示，不是本次 FAIL 根因。
