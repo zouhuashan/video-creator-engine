@@ -2825,6 +2825,17 @@ P28-02 v5 MPFB 检查门去 marker 化（2026-09-19）：
 - `check-mpfb.command` 与 `render-child-lookdev-v5.command` 现在以“Python exit code + 非空 status JSON”作为唯一技术门，不再 grep stdout marker；同时在 PASS 时打印实际 root package 和 Service API。
 - NEXT：用户 `git pull` 后重新执行 `./check-mpfb.command`。若 PASS，再直接执行 `./render-child-lookdev-v5.command`。
 
+P29 Web AI 生图工作台（2026-09-19）：
+
+- 用户要求 OpenAI 生图备用路线必须直接落到现有 Web Console，禁止把日常使用建立在终端命令上。
+- 新增 OpenAI 图片 Provider 配置、`CHAR-CHILD-001` 角色视觉锁、`SHOT-DEMO-001` 镜头配置和 dependency-free `support/providers/openai_image_provider.py`；默认模型为 GPT-Image-2，Provider 定位为 fallback / high-quality keyframe route。
+- Web Console 新增独立导航 `AI 生图`，直接在 `http://127.0.0.1:18765` 完成：选择国漫项目、输入/保存 OpenAI API Key（仅当前服务进程）、生成角色定妆板、生成镜头关键帧、页面预览最近资产、人工标记 APPROVED / CHANGES_REQUESTED。
+- 后端新增 `GET /api/image-studio/status`、`POST /api/image-studio/character-bible`、`POST /api/image-studio/keyframe`、`POST /api/image-studio/review`。远程生成仍要求显式计费确认；前端每次点击生成都会二次确认。
+- 生图结果直接写入当前项目 `lookdev/image-studio/`，因此现有 `/media` 和项目媒体扫描可立即读取，不形成脱离 VideoCreator 的聊天旁路资产；每张图同步写 metadata JSON，默认 `review_status=PENDING`。
+- OpenAI API Key 不写磁盘、不返回前端、不进入日志；如果当前 Web 进程已有 Sora 使用的 OpenAI Key，AI 生图会复用同一 session key。
+- 当前状态：Web/API/Provider/Review 代码已落库；真实远程生图需要在用户本地 Web 服务加载新代码并由用户点击验证，未执行前不得标记为远程实机 PASS。
+- NEXT：用户在 Web 的 `AI 生图` 页面点击生成 `CHAR-CHILD-001` 角色定妆板，人工审核通过后再生成首个镜头关键帧；随后把 APPROVED 关键帧接入 motion/video provider。
+
 P28-02 最终 LookDev 拉通（2026-09-19）：
 
 - 用户明确反馈当前推进过慢，要求停止持续研究人物建模，直接拉通 LookDev 并产生最终视觉效果。该要求升级为当前 P28-02 唯一 NEXT；后续不再以“裸体 basemesh checkpoint”作为阶段产物。
