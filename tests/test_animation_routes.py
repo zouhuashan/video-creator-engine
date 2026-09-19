@@ -47,16 +47,21 @@ class AnimationRouteConfigTests(unittest.TestCase):
         self.assertIn("mesh_deformation", route["visual_quality_gate"]["requires"])
 
 
-    def test_blender_anime_is_final_image_target(self):
+    def test_image_provider_router_is_final_visual_target(self):
         payload = load_config()
-        self.assertEqual(payload["policy"]["production_target_route"], "BLENDER_ANIME")
-        route = next(item for item in payload["routes"] if item["id"] == "BLENDER_ANIME")
-        self.assertFalse(route["implemented"])
+        self.assertEqual(payload["policy"]["production_target_route"], "IMAGE_PROVIDER_ROUTER")
+        route = next(item for item in payload["routes"] if item["id"] == "IMAGE_PROVIDER_ROUTER")
+        self.assertTrue(route["implemented"])
         self.assertFalse(route["remote"])
         self.assertFalse(route["generative"])
-        self.assertEqual(route["production_channel"], "5.2 LTS")
-        self.assertEqual(route["role"], "FINAL_IMAGE_TARGET")
-        self.assertEqual(route["visual_quality_gate"]["status"], "NOT_PASSED")
+        self.assertEqual(route["role"], "FINAL_VISUAL_DEFAULT")
+        self.assertEqual(route["adapter"], "image_provider_router")
+
+        blender = next(item for item in payload["routes"] if item["id"] == "BLENDER_ANIME")
+        self.assertTrue(blender["implemented"])
+        self.assertEqual(blender["status"], "AUXILIARY")
+        self.assertEqual(blender["role"], "AUXILIARY_3D_CONTROL")
+        self.assertNotIn("serialized_final_shot", blender["use_cases"])
 
     def test_godot_is_deferred_experiment(self):
         payload = load_config()
