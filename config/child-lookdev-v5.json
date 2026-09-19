@@ -1,0 +1,35 @@
+{
+  "schema_version": 5,
+  "lookdev_id": "P28-02-CHILD-LOOKDEV-V5",
+  "based_on": "P28-02-CHILD-LOOKDEV-V4",
+  "style_id": "STYLE-REF-GUOFENG-DIALOGUE-001",
+  "modeling_strategy": "mpfb_real_basemesh",
+  "mpfb": {
+    "package_id": "mpfb",
+    "target_version": "2.0.17",
+    "phenotype": {
+      "age": "child",
+      "gender": "female",
+      "race": "asian",
+      "muscle": "minmuscle",
+      "weight": "averageweight",
+      "height": "minheight",
+      "proportions": "min"
+    }
+  },
+  "outputs": {
+    "image": "renders/lookdev/child-lookdev-v5.png",
+    "blend": "renders/lookdev/child-lookdev-v5.blend"
+  },
+  "quality_gate": {
+    "status": "PENDING",
+    "requires": [
+      "continuous_human_basemesh",
+      "real_face_topology",
+      "real_shoulders_arms_hands",
+      "child_phenotype",
+      "no_primitive_stack_body",
+      "human_visual_review"
+    ]
+  }
+}
