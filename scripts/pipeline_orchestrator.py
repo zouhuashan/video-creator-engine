@@ -177,7 +177,43 @@ def _auto_qc(video_path: Path | None) -> dict[str, Any]:
     has_video = any(item.get("codec_type") == "video" for item in streams if isinstance(item, dict))
     has_audio = any(item.get("codec_type") == "audio" for item in streams if isinstance(item, dict))
     duration = float((probe.get("format") or {}).get("duration") or 0.0)
-    status = "PASS" if has_video and duration > 0 else "FAIL"
+
+    anomaly = {
+        "scanner_available": False,
+        "black_frame_detected": False,
+        "freeze_detected": False,
+    }
+    ffmpeg = shutil.which("ffmpeg")
+    if ffmpeg and has_video:
+        scan = subprocess.run(
+            [
+                ffmpeg,
+                "-hide_banner",
+                "-loglevel",
+                "info",
+                "-i",
+                str(video_path),
+                "-vf",
+                "blackdetect=d=0.5:pix_th=0.10,freezedetect=n=-50dB:d=2",
+                "-an",
+                "-f",
+                "null",
+                "-",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        scan_log = scan.stderr or ""
+        if scan.returncode == 0:
+            anomaly["scanner_available"] = True
+            anomaly["black_frame_detected"] = "black_start:" in scan_log
+            anomaly["freeze_detected"] = "freeze_start:" in scan_log
+        else:
+            anomaly["scanner_error"] = scan_log[-800:] or "ffmpeg anomaly scan failed"
+
+    anomaly_failed = bool(anomaly["black_frame_detected"] or anomaly["freeze_detected"])
+    status = "PASS" if has_video and duration > 0 and not anomaly_failed else "FAIL"
     return {
         "status": status,
         "checks": {
@@ -186,6 +222,7 @@ def _auto_qc(video_path: Path | None) -> dict[str, Any]:
             "video_stream": has_video,
             "audio_stream": has_audio,
             "duration_positive": duration > 0,
+            "anomaly_scan": anomaly,
         },
         "duration_seconds": round(duration, 3),
         "auto_retry": status == "FAIL",
