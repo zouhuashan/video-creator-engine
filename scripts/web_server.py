@@ -73,6 +73,7 @@ from scripts.novel_qc import NovelQCError, add_annotation, add_issue, compare as
 from scripts.novel_acceptance import NovelAcceptanceError, load_acceptance, summary as acceptance_summary  # noqa: E402
 from support.providers.openai_image_provider import OpenAIImageError, OpenAIImageProvider, character_bible_prompt, keyframe_prompt  # noqa: E402
 from support.providers.image_provider_router import ImageProviderRouter  # noqa: E402
+from scripts.pipeline_orchestrator import PipelineError, pipeline_status, run_pipeline, update_pipeline_review  # noqa: E402
 
 
 PROVIDER_TYPES = {
@@ -972,6 +973,17 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                 return self._json(_image_studio_inventory(project))
             except (ValueError, OSError) as error:
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
+        if parsed.path == "/api/pipeline/status":
+            query = {}
+            if parsed.query:
+                from urllib.parse import parse_qs
+                query = parse_qs(parsed.query)
+            project_id = str((query.get("project_id") or [""])[0]).strip()
+            try:
+                _safe_project(project_id)
+                return self._json(pipeline_status(project_id))
+            except (ValueError, OSError, PipelineError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
         if parsed.path == "/api/integrations/arcreel/status":
             return self._json(_integration_status()[0])
         if parsed.path == "/api/projects":
@@ -1347,6 +1359,29 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
             try:
                 return self._save_integration()
             except (ValueError, KeyError, TypeError, json.JSONDecodeError, ArcReelError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+        if route == "/api/pipeline/run":
+            try:
+                payload = self._read_json()
+                project_id = str(payload.get("project_id") or "").strip()
+                _safe_project(project_id)
+                result = run_pipeline(project_id, dry_run=payload.get("dry_run") is not False)
+                return self._json(result, HTTPStatus.CREATED)
+            except (ValueError, OSError, KeyError, TypeError, json.JSONDecodeError, PipelineError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+        if route == "/api/pipeline/review":
+            try:
+                payload = self._read_json()
+                project_id = str(payload.get("project_id") or "").strip()
+                _safe_project(project_id)
+                result = update_pipeline_review(
+                    project_id,
+                    str(payload.get("status") or ""),
+                    note=str(payload.get("note") or ""),
+                    reviewer="human-web",
+                )
+                return self._json(result)
+            except (ValueError, OSError, KeyError, TypeError, json.JSONDecodeError, PipelineError) as error:
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
         if route == "/api/image-studio/review":
             try:
