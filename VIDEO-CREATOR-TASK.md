@@ -2818,6 +2818,15 @@ P28-01 Web 运维脚本增量（2026-09-18）：
 - 支持 `VIDEO_CREATOR_WEB_HOST`、`VIDEO_CREATOR_WEB_PORT`、`VIDEO_CREATOR_PYTHON` 临时覆盖；新增 `docs/WEB-OPERATIONS.md` 并更新 README 的推荐启动方式。
 - 本增量不启动 ArcReel、不调用远程 AI、不改变 P28 人工审核状态；完成此运维入口后再继续非生成式动画路线实施。
 
+P28-02 Child LookDev v1 执行开始（2026-09-19）：
+
+- P28-02 已正式进入实现，不再停留在规格讨论；新增 `config/child-lookdev-v1.json`、`support/blender/child-lookdev-v1.py`、`render-child-lookdev.command` 和回归测试。
+- Child LookDev v1 为完全本地 Blender 程序化静帧：幼态大头身比、圆脸、大眼/虹膜/高光、弱鼻小嘴、脸颊红润、双髻/刘海/侧发、浅蓝白古风交领/裙摆/宽袖/腰带/发饰；光照按参考视频使用暖夕阳 Rim + 冷面部 Fill + 轻眼神光，72mm + 浅景深。
+- 固定产物：`renders/lookdev/child-lookdev-v1.png` 与 `renders/lookdev/child-lookdev-v1.blend`；当前仅验证角色 LookDev，不包含完整 Rig/动画。
+- 新增 camera-space framing gate：头部、躯干、裙摆中心必须落在静帧安全画框内且纵向关系正确，防止技术渲染成功但人物构图失效。
+- 技术渲染成功只输出 `PASS P28-02 technical render`；P28-02 人工视觉审核仍为 `PENDING`，必须由用户确认幼态感、五官、双髻、服装层次和参考光感后才能进入 P28-03。
+- NEXT：用户本机执行 `./render-child-lookdev.command` 并提交 `child-lookdev-v1.png`；根据实际静帧直接迭代，未通过前不开始成年男主正式 LookDev。
+
 P28-01 双角色 Blockout 构图/父级位移修复（2026-09-19）：
 
 - 用户上传首版 `reference-dialogue-blockout.mp4` 后抽帧检查发现主体几乎全部落到画外，只剩右侧局部角色边缘；该产物视觉 FAIL，不能用于判断 Blender 路线质量。
