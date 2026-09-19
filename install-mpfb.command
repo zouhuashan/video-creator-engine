@@ -28,14 +28,14 @@ echo "RUN  Install/enable MPFB"
 if ! /usr/bin/arch -arm64 "$blender" --command extension install -s -e mpfb >>"$LOG" 2>&1; then
   # If already installed, installation can report a non-zero status on some builds.
   # Validate the operator before treating this as fatal.
-  if ! /usr/bin/arch -arm64 "$blender" --background --python "$ROOT/support/blender/check-mpfb.py" >>"$LOG" 2>&1; then
+  if ! /usr/bin/arch -arm64 "$blender" --background --python-exit-code 1 --python "$ROOT/support/blender/check-mpfb.py" >>"$LOG" 2>&1; then
     echo "FAIL MPFB install/enable"
     tail -n 140 "$LOG" 2>/dev/null || true
     exit 1
   fi
 fi
 
-if ! /usr/bin/arch -arm64 "$blender" --background --python "$ROOT/support/blender/check-mpfb.py" >>"$LOG" 2>&1; then
+if ! /usr/bin/arch -arm64 "$blender" --background --python-exit-code 1 --python "$ROOT/support/blender/check-mpfb.py" >>"$LOG" 2>&1; then
   echo "FAIL MPFB validation"
   tail -n 140 "$LOG" 2>/dev/null || true
   exit 1
