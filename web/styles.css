@@ -159,6 +159,8 @@ body.rig-v2-open { overflow: hidden; }
 .image-provider-summary>div{display:grid;gap:5px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.025)}
 .image-provider-summary small{font-size:9px;color:var(--muted);text-transform:uppercase}
 .image-provider-summary strong{font-size:11px;overflow-wrap:anywhere}
+.image-routing-banner{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 14px;padding:10px 12px;border:1px solid rgba(223,155,90,.28);border-radius:10px;background:rgba(223,155,90,.055)}
+.image-routing-banner>div{display:grid;gap:4px}.image-routing-banner small{font-size:9px;color:var(--muted);text-transform:uppercase}.image-routing-banner strong{font-size:10px}.image-routing-banner span{font-size:9px;color:var(--muted);text-align:right}
 .image-key-row{grid-template-columns:minmax(0,1fr) auto;align-items:end}
 .image-studio-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
 .image-lock-card{display:grid;gap:6px;margin-top:14px;padding:12px;border:1px solid rgba(223,155,90,.32);border-radius:12px;background:rgba(223,155,90,.06)}
@@ -180,6 +182,6 @@ body.rig-v2-open { overflow: hidden; }
 .image-studio-thumb small{font-size:8px;color:var(--muted)}
 .status-dot.off{color:#efad6a}
 @media(max-width:980px){.image-studio-layout{grid-template-columns:1fr}.image-studio-gallery{grid-template-columns:repeat(2,minmax(0,1fr))}.image-studio-empty{min-height:320px}}
-@media(max-width:600px){.image-provider-summary,.image-studio-actions,.image-key-row{grid-template-columns:1fr}.image-studio-gallery{grid-template-columns:1fr}}
+@media(max-width:600px){.image-provider-summary,.image-studio-actions,.image-key-row{grid-template-columns:1fr}.image-studio-gallery{grid-template-columns:1fr}.image-routing-banner{align-items:flex-start;flex-direction:column}.image-routing-banner span{text-align:left}}
 
 .image-review-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:2px}.image-review-actions .secondary-button{min-width:110px}
