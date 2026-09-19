@@ -217,3 +217,22 @@ renders/lookdev/child-lookdev-v2.blend
 ```
 
 V2 upgrades the child from a gray toy-like proxy toward an actual colored LookDev: Principled node materials, tapered soft face, layered eye structure with catchlights and upper lids, softer mouth/brows, grouped bangs and curved side locks, irregular double buns, layered pale-cyan/white hanfu, and controlled warm-rim/cool-fill lighting. Technical render success does not close P28-02; human review remains required.
+
+### Child LookDev v3
+
+V3 is the direct response to the user-reviewed v2 still. It keeps the successful color/lighting foundation but attacks the remaining toy/mascot read.
+
+Run:
+
+```bash
+./render-child-lookdev-v3.command
+```
+
+Outputs:
+
+```text
+renders/lookdev/child-lookdev-v3.png
+renders/lookdev/child-lookdev-v3.blend
+```
+
+V3 reduces eye/head scale, strengthens the child-face taper, removes raised blush discs, replaces vertical capsule bangs with flat ribbon hair locks, and replaces tube-like sleeves with drooping cloth masses. Technical render success does not close P28-02; human review remains required.
