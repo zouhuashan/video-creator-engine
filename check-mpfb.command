@@ -3,6 +3,8 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 LOG="$ROOT/logs/mpfb-check.log"
+STATUS="$ROOT/cache/mpfb-check.json"
+mkdir -p "$ROOT/logs" "$ROOT/cache"
 
 find_blender() {
   local candidate
@@ -20,17 +22,24 @@ if [ -z "$blender" ]; then
 fi
 
 : >"$LOG"
+rm -f "$STATUS"
 echo "RUN  Check MPFB"
-if ! /usr/bin/arch -arm64 "$blender" --background --python-exit-code 1 --python "$ROOT/support/blender/check-mpfb.py" >>"$LOG" 2>&1; then
+if ! VIDEO_CREATOR_MPFB_STATUS="$STATUS" /usr/bin/arch -arm64 "$blender"   --background   --python-exit-code 1   --python "$ROOT/support/blender/check-mpfb.py" >>"$LOG" 2>&1; then
   echo "FAIL MPFB unavailable"
-  tail -n 100 "$LOG" 2>/dev/null || true
+  tail -n 140 "$LOG" 2>/dev/null || true
   exit 1
 fi
 
-grep -q "VIDEO_CREATOR_MPFB_PASS" "$LOG" || {
-  echo "FAIL MPFB validation marker missing"
-  tail -n 120 "$LOG" 2>/dev/null || true
+if [ ! -s "$STATUS" ]; then
+  echo "FAIL MPFB status file missing"
+  tail -n 140 "$LOG" 2>/dev/null || true
   exit 1
-}
+fi
 
 echo "PASS MPFB ready"
+python3 - "$STATUS" <<'PY'
+import json, sys
+p=json.load(open(sys.argv[1], encoding="utf-8"))
+print("ROOT", p.get("root_package"))
+print("API ", p.get("service_api"))
+PY
