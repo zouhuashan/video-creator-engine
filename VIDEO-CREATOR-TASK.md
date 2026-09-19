@@ -3295,3 +3295,33 @@ P30-01 执行记录（2026-09-19）：
 - P30-01 验收项从代码与配置层面全部满足；下一阶段不再继续人物建模研究，进入 ComfyUI 本地视觉工厂 Adapter。
 
 NEXT：P30-02 ComfyUI 本地视觉工厂 Adapter。
+
+
+## P30-02 ComfyUI 本地视觉工厂 Adapter
+Status: IN_PROGRESS
+
+目标：把 ComfyUI 从预留插槽升级为 VideoCreator Engine 可直接调用的本地视觉 Provider。用户不进入 ComfyUI 手工拖节点；Web 与 Pipeline 通过 HTTP API 自动完成健康检查、模型发现、Workflow 提交、任务轮询、图片下载、资产登记和人工审核。
+
+强制边界：
+
+- 默认 AUTO 路由必须本地优先：ComfyUI 可用时优先 `COMFYUI_IMAGE`，不可用时才考虑 `OPENAI_IMAGE` 高质量 fallback。
+- ComfyUI 只作为 Provider，被 Pipeline Orchestrator 调度，不成为新的主工作台。
+- 本地 ComfyUI 不需要 API Key；端点来自 Web 会话、`COMFYUI_BASE_URL` 或本地默认地址，不写入项目资产 metadata。
+- OpenAI fallback 仍受远程计费确认门约束；AUTO 不得静默产生远程费用。
+- 生成资产继续保存到 `lookdev/image-studio/`，`review_status=PENDING`，人工通过前不得视为正式资产。
+- Blender 继续固定为 `AUXILIARY_3D_CONTROL`，不得恢复为最终视觉生产器。
+- dry-run 禁止真实生成；execute 才允许调用本地 Provider。
+
+验收：
+
+```text
+PASS: ComfyUI Image Adapter can health-check, discover checkpoint, queue workflow, poll and download output
+PASS: ImageProvider Router supports local-first AUTO and OpenAI fallback
+PASS: Web Image Studio exposes AUTO / ComfyUI / OpenAI without requiring terminal operations
+PASS: Pipeline execute can call ComfyUI while dry-run stays side-effect free
+PASS: output metadata defaults to PENDING human review
+PASS: no API secret is persisted
+PASS: regression tests cover local provider and routing
+```
+
+NEXT：完成 P30-02 实现与自动回归；通过后继续 P30-03 TTS / 字幕 / FFmpeg 执行化。
