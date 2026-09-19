@@ -2825,6 +2825,15 @@ P28-02 v5 MPFB 检查门去 marker 化（2026-09-19）：
 - `check-mpfb.command` 与 `render-child-lookdev-v5.command` 现在以“Python exit code + 非空 status JSON”作为唯一技术门，不再 grep stdout marker；同时在 PASS 时打印实际 root package 和 Service API。
 - NEXT：用户 `git pull` 后重新执行 `./check-mpfb.command`。若 PASS，再直接执行 `./render-child-lookdev-v5.command`。
 
+P28-02 v5 MPFB extension repository discovery 修复（2026-09-19）：
+
+- 用户再次执行 `check-mpfb.command` 时 `operator.get_rna_type()` 抛出 `KeyError: MPFB_OT_create_human not found`。这证明 Blender 的 `bpy.ops` 动态代理存在并不代表 operator 类已真正加载；之前的 operator-only 存在性检查仍不可靠。
+- 根据 Blender 5.2 Extensions API，扩展仓库提供真实 `repo.module` 与 `repo.directory`；扩展 Python module 名应按当前仓库动态组成 `bl_ext.<repo.module>.mpfb`，不能硬编码 `blender_org` / `user_default`。
+- `check-mpfb.py` 现在扫描 `bpy.context.preferences.extensions.repos`，只接受存在 `<repo.directory>/mpfb/blender_manifest.toml` 的真实安装；随后调用 `bpy.ops.preferences.addon_enable(module=真实模块名)` 主动加载 MPFB。
+- check 不再读取 operator RNA 元数据，而是执行真实 smoke：调用一次 `bpy.ops.mpfb.create_human()`，确认 FINISHED、确实创建 Mesh 且主体顶点数 >1000，再删除所有临时对象并写 status JSON。只有真实创建成功才 PASS。
+- `child-lookdev-v5.py` 同步加入相同 extension repo discovery/enable，保证 check PASS 与实际 render 使用完全相同的加载路径。
+- NEXT：用户 `git pull` 后重新执行 `./check-mpfb.command`；如果 PASS，再执行 v5 render。
+
 P28-02 v5 MPFB operator-only 自动化修复（2026-09-19）：
 
 - 用户执行新版 `./check-mpfb.command` 时，`bpy.ops.mpfb.create_human` 已注册，但后台 Blender 无法 import `bl_ext.blender_org.mpfb` 或 `mpfb`；说明扩展内部 package path 在当前 Blender 5.2 安装中不可作为稳定自动化接口。
