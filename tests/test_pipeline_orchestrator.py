@@ -27,6 +27,18 @@ class PipelineOrchestratorTests(unittest.TestCase):
             self.assertEqual(stages["image"]["status"], "PLANNED")
             self.assertFalse(stages["subtitles"]["asr_round_trip"])
             self.assertTrue(stages["review"]["human_required"])
+            self.assertEqual(stages["review"]["owner"], "human")
+            self.assertTrue(stages["review"]["human_action"])
+            for stage_id, stage in stages.items():
+                if stage_id != "review":
+                    self.assertEqual(stage["owner"], "software")
+                    self.assertFalse(stage["human_action"])
+            policy = result["automation_policy"]
+            self.assertTrue(policy["software_first"])
+            self.assertTrue(policy["manual_creation_forbidden_by_default"])
+            self.assertEqual(policy["user_actions"], ["SELECT_INPUT", "FINAL_REVIEW", "MANUAL_PUBLISH"])
+            self.assertEqual(policy["human_owned_stages"], ["review"])
+            self.assertNotIn("review", policy["software_owned_stages"])
 
             status = pipeline_status("demo-project", projects)
             self.assertEqual(status["run_manifest"], "pipeline/run.json")
