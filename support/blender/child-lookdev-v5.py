@@ -127,7 +127,7 @@ def create_mpfb_child():
     set_scene_prop(scene, "detailed_helpers", True, required=False)
     set_scene_prop(scene, "extra_vertex_groups", True, required=False)
 
-    before = set(bpy.data.objects)
+    before_names = {obj.name for obj in bpy.data.objects}
     result = bpy.ops.mpfb.create_human()
     if "FINISHED" not in result:
         raise RuntimeError(f"MPFB create_human failed: {result}")
@@ -135,7 +135,7 @@ def create_mpfb_child():
     if bpy.context.mode != "OBJECT":
         bpy.ops.object.mode_set(mode="OBJECT")
 
-    created = [obj for obj in bpy.data.objects if obj not in before and obj.type == "MESH"]
+    created = [obj for obj in bpy.data.objects if obj.name not in before_names and obj.type == "MESH"]
     if not created:
         created = [obj for obj in bpy.context.selected_objects if obj.type == "MESH"]
     if not created:
