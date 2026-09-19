@@ -539,3 +539,14 @@ cache/reference-dialogue-blockout.blend
 ```
 
 This blockout intentionally uses proxy geometry. Judge only adult/child proportion contrast, eye-lines, staging, sunset key/fill, depth of field, camera push and six-second dialogue pacing. Final character quality begins only after this blockout is accepted.
+
+
+### P28-02 Child LookDev
+
+After the dialogue Blockout passes, generate the first formal child LookDev still:
+
+```bash
+./render-child-lookdev.command
+```
+
+Review `renders/lookdev/child-lookdev-v1.png`. Command success is technical only; the visual gate remains human PENDING.
