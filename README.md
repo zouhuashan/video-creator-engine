@@ -574,3 +574,14 @@ After the MPFB adult-basemesh checkpoint, render the native child phenotype chec
 ```
 
 Review `renders/lookdev/child-lookdev-v6.png`. Technical PASS does not close P28-02; human visual approval remains required.
+
+
+### Final child LookDev
+
+Skip further nude-basemesh iterations and render the full visual target directly:
+
+```bash
+./render-final-child-lookdev.command
+```
+
+Review `renders/lookdev/final-child-lookdev-001.png`. Human visual approval remains required.
