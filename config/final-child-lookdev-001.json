@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "lookdev_id": "FINAL-CHILD-LOOKDEV-001",
+  "source_basemesh": "P28-02-CHILD-LOOKDEV-V6",
+  "style_id": "STYLE-REF-GUOFENG-DIALOGUE-001",
+  "intent": "final_visual_target_gate",
+  "character": {
+    "age_read": "young child",
+    "face": "large expressive eyes, soft cheeks, tiny nose and mouth",
+    "hair": "dark twin buns, layered bangs, side locks, cyan ribbons, gold ornaments",
+    "costume": "pale cyan and white layered hanfu with crossed collar, sash and long sleeves"
+  },
+  "render": {
+    "engine": "BLENDER_EEVEE",
+    "resolution": [
+      720,
+      1280
+    ],
+    "lens_mm": 82,
+    "framing": "three-quarter portrait",
+    "lighting": "warm sunset rim + cool-neutral face fill + soft eye light",
+    "background": "historical camp silhouettes with haze and shallow DOF"
+  },
+  "quality_gate": {
+    "status": "PENDING",
+    "requires": [
+      "reads_as_finished_guofeng_animation_child",
+      "not_a_nude_basemesh",
+      "not_a_primitive_toy",
+      "anime_face_is_primary_visual_read",
+      "hair_and_costume_silhouette_match_reference_direction",
+      "warm_rim_and_background_depth_visible",
+      "human_visual_review"
+    ]
+  },
+  "outputs": {
+    "image": "renders/lookdev/final-child-lookdev-001.png",
+    "blend": "renders/lookdev/final-child-lookdev-001.blend"
+  }
+}
