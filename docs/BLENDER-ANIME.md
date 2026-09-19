@@ -306,3 +306,13 @@ Blender 5.2 can register MPFB operators even when the extension's internal Pytho
 Blender's `bpy.ops` proxy can exist even when the real operator class is not registered. V5 therefore discovers MPFB from Blender's own extension repository collection. For a repository that physically contains `mpfb/blender_manifest.toml`, the runtime module name is built as `bl_ext.<repo.module>.mpfb` and explicitly enabled with `bpy.ops.preferences.addon_enable`.
 
 The environment check then performs a real temporary `mpfb.create_human()` call and verifies that a substantial Mesh was created before reporting PASS. The temporary human is deleted immediately afterwards.
+
+#### V5 strict MPFB installation
+
+A missing `mpfb/blender_manifest.toml` in all enabled Blender extension repositories means MPFB is not actually installed. The installer now performs repository sync, verifies that the official package list contains `mpfb`, installs/enables the package, and finally runs the real human-creation probe. A failed install is no longer treated as potentially acceptable.
+
+The first-time command remains:
+
+```bash
+./install-mpfb.command
+```
