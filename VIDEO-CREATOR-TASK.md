@@ -2825,6 +2825,13 @@ P28-02 v5 MPFB 检查门去 marker 化（2026-09-19）：
 - `check-mpfb.command` 与 `render-child-lookdev-v5.command` 现在以“Python exit code + 非空 status JSON”作为唯一技术门，不再 grep stdout marker；同时在 PASS 时打印实际 root package 和 Service API。
 - NEXT：用户 `git pull` 后重新执行 `./check-mpfb.command`。若 PASS，再直接执行 `./render-child-lookdev-v5.command`。
 
+P28-02 MPFB check/install status-file 统一（2026-09-19）：
+
+- 用户执行 `./check-mpfb.command` 出现 `FAIL MPFB validation marker missing`；该输出对应旧版 grep-marker 检查逻辑，而当前仓库的 `check-mpfb.command` 已升级为 status JSON 文件校验。
+- 为消除三个命令判定方式不一致，`install-mpfb.command` 同步改为与 check/render 相同机制：通过环境变量 `VIDEO_CREATOR_MPFB_STATUS` 要求 `check-mpfb.py` 写入 `cache/mpfb-check.json`，只以状态文件存在且 Python 退出码为 0 判定 PASS，不再 grep 控制台 marker。
+- `render-child-lookdev-v5.command` 已使用同一 status-file 机制；后续 MPFB 检查/安装/渲染三条链统一。
+- NEXT：用户先 `git pull`，再执行 `./check-mpfb.command`；若 PASS，直接 `./render-child-lookdev-v5.command`，无需重装。
+
 P28-02 v5 MPFB 官方 Service API 修复（2026-09-19）：
 
 - v5 首次实机确认 MPFB 已安装且 `bpy.ops.mpfb.create_human` 可用，但脚本在创建人物前失败：`Scene` 中不存在猜测的 `add_phenotype` 属性。该 FAIL 不是 framing 问题，而是错误依赖 MPFB UI/Scene 属性。
