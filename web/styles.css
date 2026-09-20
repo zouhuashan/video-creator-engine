@@ -252,3 +252,12 @@ body.rig-v2-open { overflow: hidden; }
 .image-studio-result.hidden{display:none !important}
 .image-studio-preview-error{display:none;padding:12px;border:1px solid rgba(220,96,96,.35);border-radius:10px;background:rgba(220,96,96,.06);color:#e7a4a4;font-size:10px;line-height:1.55}
 .image-studio-preview-error.visible{display:block}
+
+
+.image-character-repair{display:grid;gap:12px;margin-top:12px;padding:14px;border:1px solid rgba(239,173,106,.38);border-radius:12px;background:rgba(239,173,106,.055)}
+.image-character-repair.hidden{display:none !important}
+.image-character-repair>div{display:grid;gap:5px}
+.image-character-repair strong{font-size:11px}
+.image-character-repair small{color:var(--muted);font-size:9px;line-height:1.55}
+.image-character-repair .novel-file-drop{margin:0}
+.image-character-repair .secondary-button{width:100%}
