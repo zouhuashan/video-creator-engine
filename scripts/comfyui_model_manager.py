@@ -33,7 +33,7 @@ MODEL_CATALOG: dict[str, dict[str, Any]] = {
     DEFAULT_MODEL_ID: {
         "id": DEFAULT_MODEL_ID,
         "label": "Animagine XL 4.0",
-        "purpose": "动漫 / 国风动漫基础 checkpoint",
+        "purpose": "动漫基础 checkpoint（国风由系统风格锁 / 可选 LoRA 加强）",
         "filename": "animagine-xl-4.0.safetensors",
         "source": "CagliostroLab / Hugging Face",
         "source_page": "https://huggingface.co/cagliostrolab/animagine-xl-4.0",
