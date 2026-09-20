@@ -79,6 +79,40 @@ class WebServerTests(unittest.TestCase):
                 resolved = web_server._safe_project("demo%2Dproject")
             self.assertEqual(resolved, project.resolve())
 
+    def test_character_repair_syncs_only_matching_import_metadata_without_text(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            imports = project / "sources" / "imports"
+            imports.mkdir(parents=True)
+            matching = imports / "matching.json"
+            other = imports / "other.json"
+            matching.write_text(json.dumps({
+                "source_sha256": "a" * 64,
+                "full_text_stored": False,
+                "extraction": {"provider": "old", "characters": []},
+            }), encoding="utf-8")
+            other.write_text(json.dumps({
+                "source_sha256": "b" * 64,
+                "full_text_stored": False,
+                "extraction": {"provider": "old", "characters": []},
+            }), encoding="utf-8")
+
+            count = web_server._sync_import_character_extraction(
+                project,
+                source_sha256="a" * 64,
+                provider="local_lexicon",
+                characters=[{"id": "CHR-TEST-001", "name": "顾临渊", "mentions": [], "total_mentions": 4}],
+            )
+
+            updated = json.loads(matching.read_text(encoding="utf-8"))
+            untouched = json.loads(other.read_text(encoding="utf-8"))
+            self.assertEqual(count, 1)
+            self.assertEqual(updated["extraction"]["provider"], "local_lexicon")
+            self.assertEqual(updated["extraction"]["characters"][0]["name"], "顾临渊")
+            self.assertFalse(updated["full_text_stored"])
+            self.assertNotIn("source_text", updated)
+            self.assertEqual(untouched["extraction"]["characters"], [])
+
     def test_project_file_boundary_rejects_traversal(self):
         with self.assertRaises(ValueError):
             web_server._safe_project_file("jinghua-yuan-series", "../../.env.example")
@@ -214,6 +248,15 @@ class WebServerTests(unittest.TestCase):
         self.assertIn('/api/novel-anime/import', app)
         self.assertIn('OWNED_OR_LICENSED', app)
         self.assertIn("TextDecoder('utf-8', { fatal: true })", app)
+
+    def test_web_exposes_character_repair_flow(self):
+        index = (web_server.WEB_ROOT / "index.html").read_text(encoding="utf-8")
+        app = (web_server.WEB_ROOT / "app.js").read_text(encoding="utf-8")
+        self.assertIn('id="imageStudioCharacterSourceFile"', index)
+        self.assertIn('id="imageStudioCharacterRepairButton"', index)
+        self.assertIn("/api/image-studio/character-candidates", app)
+        self.assertIn("repairImageStudioCharacters", app)
+        self.assertIn("handleCharacterBibleAction", app)
 
     def test_web_exposes_managed_comfyui_controls(self):
         index = (web_server.WEB_ROOT / "index.html").read_text(encoding="utf-8")
