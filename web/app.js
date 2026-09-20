@@ -64,6 +64,32 @@ async function loadPipeline(projectId = state.pipelineProjectId || state.animePr
   renderPipeline();
 }
 
+async function runPipelinePreflight() {
+  const projectId = state.pipelineProjectId || state.animeProjects[0]?.directory_id;
+  if (!projectId) { log('没有可用国漫项目', true); return; }
+  const button = $('#pipelinePreflightButton');
+  button.disabled = true;
+  button.textContent = '自检中…';
+  try {
+    const result = await api(`/api/pipeline/preflight?project_id=${encodeURIComponent(projectId)}`);
+    const comfy = result.comfyui || {};
+    const tools = result.tools || {};
+    const summary = [
+      `ComfyUI ${comfy.connected && comfy.checkpoint_count ? 'READY' : 'BLOCKED'}`,
+      `FFmpeg ${tools.ffmpeg ? 'READY' : 'MISSING'}`,
+      `ffprobe ${tools.ffprobe ? 'READY' : 'MISSING'}`,
+      `TTS ${tools.macos_say ? 'READY' : 'DEGRADED'}`,
+    ].join(' · ');
+    $('#pipelineNext').textContent = result.status === 'READY' ? `环境就绪 · ${summary}` : `环境阻断 · ${(result.blockers || []).join('；')}`;
+    log(`流水线环境自检：${result.status} · ${summary}`, result.status !== 'READY');
+  } catch (error) {
+    log(error.message, true);
+  } finally {
+    button.disabled = false;
+    button.innerHTML = '<span>✓</span>环境自检';
+  }
+}
+
 async function runAutoPipeline() {
   const projectId = state.pipelineProjectId || state.animeProjects[0]?.directory_id;
   if (!projectId) { log('没有可用国漫项目', true); return; }
@@ -1215,6 +1241,7 @@ async function generateStoryboard() {
 }
 
 $('#pipelineProjectSelect').addEventListener('change', (event) => loadPipeline(event.target.value).catch((error) => log(error.message, true)));
+$('#pipelinePreflightButton').addEventListener('click', runPipelinePreflight);
 $('#pipelineRunButton').addEventListener('click', runAutoPipeline);
 $('#pipelineApproveButton').addEventListener('click', approvePipeline);
 $('#imageStudioProject').addEventListener('change', (event) => loadImageStudio(event.target.value).catch((error) => log(error.message, true)));
