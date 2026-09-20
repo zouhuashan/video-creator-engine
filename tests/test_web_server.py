@@ -383,6 +383,46 @@ class WebServerTests(unittest.TestCase):
         anime = web_server._image_style_preset("ANIME_DEFAULT")
         self.assertEqual(anime["lora_id"], "")
 
+    def test_cinematic_3d_final_route_refuses_local_animagine_fallback(self):
+        project = web_server._safe_project("jinghua-yuan-series")
+        with patch.object(web_server, "_comfyui_image_status", return_value={
+            "connected": True,
+            "workflow_ready": True,
+            "checkpoint": "animagine-xl-4.0.safetensors",
+            "loras": [],
+        }), patch.object(web_server, "_openai_image_status", return_value={
+            "configured": False,
+            "id": "openai_image",
+            "provider_id": "OPENAI_IMAGE",
+        }):
+            with self.assertRaisesRegex(ValueError, "需要最终视觉 Provider"):
+                web_server._generate_image_studio_asset(
+                    project,
+                    artifact_type="character_bible",
+                    preferred_provider="AUTO",
+                    style_preset="CINEMATIC_3D_DONGHUA",
+                )
+
+    def test_cinematic_3d_final_route_rejects_explicit_comfyui(self):
+        project = web_server._safe_project("jinghua-yuan-series")
+        with patch.object(web_server, "_comfyui_image_status", return_value={
+            "connected": True,
+            "workflow_ready": True,
+            "checkpoint": "animagine-xl-4.0.safetensors",
+            "loras": [],
+        }), patch.object(web_server, "_openai_image_status", return_value={
+            "configured": True,
+            "id": "openai_image",
+            "provider_id": "OPENAI_IMAGE",
+        }):
+            with self.assertRaisesRegex(ValueError, "不能使用 Animagine 本地预览"):
+                web_server._generate_image_studio_asset(
+                    project,
+                    artifact_type="character_bible",
+                    preferred_provider="COMFYUI_IMAGE",
+                    style_preset="CINEMATIC_3D_DONGHUA",
+                )
+
     def test_web_exposes_managed_comfyui_controls(self):
         index = (web_server.WEB_ROOT / "index.html").read_text(encoding="utf-8")
         app = (web_server.WEB_ROOT / "app.js").read_text(encoding="utf-8")
