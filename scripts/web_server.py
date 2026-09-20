@@ -77,7 +77,7 @@ from support.providers.openai_image_provider import OpenAIImageError, OpenAIImag
 from support.providers.comfyui_image_provider import ComfyUIImageError, ComfyUIImageProvider  # noqa: E402
 from support.providers.image_provider_router import ImageProviderRouteError, ImageProviderRouter  # noqa: E402
 from scripts.pipeline_orchestrator import PipelineError, pipeline_preflight, pipeline_status, run_pipeline, update_pipeline_review  # noqa: E402
-from scripts.novel_web_import import MAX_WEB_UPLOAD_BYTES, NovelWebImportError, create_project_from_web_upload  # noqa: E402
+from scripts.novel_web_import import MAX_WEB_UPLOAD_BYTES, NovelWebImportError, create_project_from_web_upload, promote_character_candidates, recover_project_characters  # noqa: E402
 from scripts.comfyui_service_manager import ComfyUIServiceError, service_status as comfyui_service_status, start_service as start_comfyui_service, stop_service as stop_comfyui_service  # noqa: E402
 from scripts.comfyui_installer import ComfyUIInstallError, start_background_install as start_comfyui_install, status as comfyui_install_status  # noqa: E402
 from scripts.comfyui_model_manager import ComfyUIModelError, start_background_install as start_comfyui_model_install, status as comfyui_model_status  # noqa: E402
@@ -682,6 +682,7 @@ def _reanalyze_project_character_candidates(
         characters=characters,
     )
     write_character_candidates(project, payload)
+    promotion = promote_character_candidates(project, payload)
     import_updates = _sync_import_character_extraction(
         project,
         source_sha256=source_sha,
@@ -704,6 +705,8 @@ def _reanalyze_project_character_candidates(
         "full_text_stored": False,
         "source_sha256": source_sha,
         "import_metadata_updated": import_updates,
+        "story_bible_character_count": int(promotion.get("character_count") or 0),
+        "story_bible_promoted": bool(promotion.get("promoted")),
     }
 
 
@@ -712,6 +715,16 @@ def _project_image_character(project: Path) -> tuple[dict[str, object], bool, st
     manifest = project / NOVEL_ANIME_MANIFEST
     if not manifest.is_file():
         return demo, True, "global-demo"
+
+    # Old P31 imports may have persisted extraction candidates but left the
+    # Story Bible empty.  Repair that chain automatically from project metadata;
+    # never fall back to the global demo character for a novel project.
+    try:
+        recovery = recover_project_characters(project)
+        if recovery.get("promoted"):
+            _NOVEL_PROJECT_CACHE.clear()
+    except (NovelWebImportError, OSError, ValueError):
+        recovery = {"status": "BLOCKED"}
 
     try:
         bible = load_bible(project)
@@ -747,7 +760,7 @@ def _project_image_character(project: Path) -> tuple[dict[str, object], bool, st
             "role": "当前小说项目暂无角色资料",
             "visual_lock": {
                 "age_read": "",
-                "face": "请重新选择原 TXT，在 Web 中补全角色候选",
+                "face": "项目会自动从已保存的导入元数据恢复角色；无需重新上传 TXT",
                 "hair": "—",
                 "costume": "—",
                 "body": "—",
@@ -1371,6 +1384,29 @@ def _rig_coverage(project: Path) -> dict[str, object]:
     return {"project_id": project.name, "covered_shot_count": covered, "total_shot_count": total, "coverage_percent": round(covered / total * 100, 1) if total else 0.0, "roles": ordered, "missing_character_ids": [str(item["character_id"]) for item in ordered if not item["rig_ready"]]}
 
 
+def _delete_novel_project(project_id: str, *, confirmed: bool) -> dict[str, object]:
+    if confirmed is not True:
+        raise ValueError("project deletion requires confirm_delete=true")
+    project = _safe_project(project_id)
+    manifest_path = project / NOVEL_ANIME_MANIFEST
+    if not manifest_path.is_file():
+        raise ValueError("only novel-anime projects can be deleted from this endpoint")
+    manifest = load_novel_anime_project(manifest_path)
+    title = str(manifest.get("title") or project.name)
+
+    shutil.rmtree(project)
+    _NOVEL_PROJECT_CACHE.clear()
+    remaining = _novel_anime_projects()
+    default_project_id = str(remaining[0].get("directory_id") or "") if remaining else ""
+    return {
+        "status": "DELETED",
+        "project_id": project_id,
+        "title": title,
+        "default_project_id": default_project_id,
+        "remaining_project_count": len(remaining),
+    }
+
+
 class VideoCreatorHandler(BaseHTTPRequestHandler):
     server_version = "VideoCreatorWeb/1.0"
 
@@ -1822,6 +1858,30 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
             except Exception as error:
                 return self._error(HTTPStatus.INTERNAL_SERVER_ERROR, f"novel import failed: {error}")
+        if route == "/api/novel-anime/delete":
+            try:
+                payload = self._read_json()
+                result = _delete_novel_project(
+                    str(payload.get("project_id") or ""),
+                    confirmed=payload.get("confirm_delete") is True,
+                )
+                return self._json(result)
+            except (ValueError, NovelAnimeProjectError, OSError, KeyError, TypeError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+        if route == "/api/image-studio/character-bootstrap":
+            try:
+                payload = self._read_json()
+                project = _safe_project(str(payload.get("project_id") or ""))
+                result = recover_project_characters(project)
+                _NOVEL_PROJECT_CACHE.clear()
+                status = HTTPStatus.OK if result.get("status") == "READY" else HTTPStatus.CONFLICT
+                return self._json({
+                    **result,
+                    "project_id": project.name,
+                    "full_text_stored": False,
+                }, status)
+            except (NovelWebImportError, ValueError, OSError, KeyError, TypeError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
         if route == "/api/comfyui/install/start":
             try:
                 return self._json(start_comfyui_install(), HTTPStatus.ACCEPTED)
