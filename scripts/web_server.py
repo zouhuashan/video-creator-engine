@@ -967,6 +967,7 @@ def _image_studio_inventory(project: Path) -> dict[str, object]:
             items.append(item)
     comfyui = _comfyui_image_status()
     openai = _openai_image_status()
+    styles = _image_style_presets()
     character, character_ready, character_source = _project_image_character(project)
     return {
         "project_id": project.name,
@@ -977,6 +978,8 @@ def _image_studio_inventory(project: Path) -> dict[str, object]:
             {**openai, "provider_id": "OPENAI_IMAGE"},
         ],
         "default_provider": "AUTO",
+        "default_style_preset": styles["default_preset"],
+        "style_presets": styles["presets"],
         "character": character,
         "character_ready": character_ready,
         "character_source": character_source,
