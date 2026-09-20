@@ -88,6 +88,10 @@ class ComfyUIImageProviderTests(unittest.TestCase):
 
         workflow = FakeComfyHandler.workflow
         self.assertEqual(workflow["1"]["class_type"], "CheckpointLoaderSimple")
+        self.assertIn("Chinese guofeng donghua", workflow["2"]["inputs"]["text"])
+        self.assertIn("hanfu", workflow["2"]["inputs"]["text"])
+        self.assertIn("school uniform", workflow["3"]["inputs"]["text"])
+        self.assertIn("modern clothing", workflow["3"]["inputs"]["text"])
         self.assertEqual(workflow["4"]["inputs"]["width"], 1024)
         self.assertEqual(workflow["4"]["inputs"]["height"], 1536)
         self.assertEqual(workflow["7"]["class_type"], "SaveImage")
@@ -125,6 +129,9 @@ class ComfyUIImageProviderTests(unittest.TestCase):
         config = json.loads(config_path.read_text(encoding="utf-8"))
         self.assertGreaterEqual(float(config["timeout_seconds"]), 300.0)
         self.assertGreaterEqual(float(config["status_timeout_seconds"]), 2.0)
+        self.assertEqual(config["style_profile"], "GUOFENG_ANCIENT_CHINA")
+        self.assertIn("Chinese guofeng donghua", config["positive_prompt_prefix"])
+        self.assertIn("school uniform", config["negative_prompt"])
 
     def test_generate_rejects_invalid_client_id(self):
         provider = ComfyUIImageProvider(self.base_url, timeout_seconds=2)
