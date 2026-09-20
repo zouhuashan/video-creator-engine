@@ -223,3 +223,5 @@ body.rig-v2-open { overflow: hidden; }
 .novel-import-result .secondary-button{width:auto;white-space:nowrap}
 .novel-import-result.hidden{display:none}
 @media(max-width:760px){.novel-import-grid{grid-template-columns:1fr}.novel-import-result{align-items:stretch;flex-direction:column}.novel-import-result .secondary-button{width:100%}}
+
+.comfy-service-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:9px}.comfy-service-actions .secondary-button{width:auto}.comfy-service-actions .status-dot{margin-left:auto}.comfy-service-actions button:disabled{opacity:.45;cursor:not-allowed}@media(max-width:620px){.comfy-service-actions .status-dot{margin-left:0}.comfy-service-actions .secondary-button{flex:1}}
