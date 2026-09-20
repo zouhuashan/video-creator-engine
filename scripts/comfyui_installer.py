@@ -153,10 +153,14 @@ def _find_uv() -> str | None:
 
 def _managed_uv_env(base_env: dict[str, str] | None = None) -> dict[str, str]:
     env = dict(base_env or os.environ)
+    # Do not combine UV_MANAGED_PYTHON with UV_PYTHON_PREFERENCE. The managed
+    # runtime is already pinned by the exact installation request and by the
+    # exact interpreter path passed to "uv venv".
+    env.pop("UV_MANAGED_PYTHON", None)
+    env.pop("UV_PYTHON_PREFERENCE", None)
+    env.pop("UV_NO_MANAGED_PYTHON", None)
     env["UV_PYTHON_INSTALL_DIR"] = str(MANAGED_PYTHON_DIR)
     env["UV_PYTHON_BIN_DIR"] = str(MANAGED_PYTHON_BIN_DIR)
-    env["UV_PYTHON_PREFERENCE"] = "only-managed"
-    env["UV_MANAGED_PYTHON"] = "1"
     env["UV_NO_MODIFY_PATH"] = "1"
     return env
 
@@ -303,6 +307,9 @@ def _python_candidates() -> list[str]:
         if _apple_silicon_host():
             machine = _python_machine(resolved)
             if machine not in {"arm64", "aarch64"}:
+                continue
+            healthy, _ = _python_runtime_healthy(resolved, require_arm64=True)
+            if not healthy:
                 continue
         unique.append(resolved)
     return unique
