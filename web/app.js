@@ -1,4 +1,4 @@
-const state = { projects: [], animeProjects: [], project: null, providers: [], integrations: [], studio: null, readiness: null, backups: null, activeNovelProjectId: null, studioProjectId: null, imageStudio: null, imageStudioProjectId: null, imageStudioSelected: null, imageStudioProviderPreference: 'AUTO', pipeline: null, pipelineProjectId: null, novelImportResult: null, selectedProvider: 'local_ken_burns', selectedImage: null, currentView: 'workspace', currentWorkspace: 'overview' };
+const state = { projects: [], animeProjects: [], project: null, providers: [], integrations: [], studio: null, readiness: null, backups: null, activeNovelProjectId: null, studioProjectId: null, imageStudio: null, imageStudioProjectId: null, imageStudioSelected: null, imageStudioProviderPreference: 'AUTO', imageStudioCharacterRepairAutoGenerate: false, pipeline: null, pipelineProjectId: null, novelImportResult: null, selectedProvider: 'local_ken_burns', selectedImage: null, currentView: 'workspace', currentWorkspace: 'overview' };
 const ACTIVE_NOVEL_PROJECT_KEY = 'videocreator.activeNovelProjectId.v1';
 
 function storedActiveNovelProjectId() {
@@ -1148,9 +1148,21 @@ function renderImageStudio() {
   const lock = character.visual_lock || {};
   $('#imageStudioCharacterLock').innerHTML = `<strong>${escapeHtml(character.character_id || 'PROJECT CHARACTER')} · ${escapeHtml(character.name || '项目角色')}</strong><small>${escapeHtml(lock.face || '')}</small><small>${escapeHtml(lock.hair || '')}</small><small>${escapeHtml(lock.costume || '')}</small>`;
   const characterButton = $('#generateCharacterBibleButton');
-  characterButton.disabled = !characterReady || !(localReady || remoteReady);
-  characterButton.title = characterReady ? '' : '当前小说项目尚未抽取角色资料，已阻止使用全局演示角色。';
-  if (!characterReady) characterButton.textContent = '角色资料待抽取';
+  const repairPanel = $('#imageStudioCharacterRepair');
+  const candidateSummary = data?.character_candidates || {};
+  repairPanel.classList.toggle('hidden', characterReady);
+  characterButton.disabled = !(localReady || remoteReady);
+  characterButton.title = characterReady
+    ? ''
+    : '此旧项目缺角色候选；点击后选择当初导入的 TXT，系统会校验 SHA256、补全角色并继续生成。';
+  characterButton.innerHTML = characterReady
+    ? '<span>✦</span>生成角色定妆板'
+    : '<span>＋</span>选择原 TXT 并补全角色';
+  if (!characterReady) {
+    $('#imageStudioCharacterSourceHint').textContent = candidateSummary.source_file_name
+      ? `请选择原底本：${candidateSummary.source_file_name}。系统会校验 SHA256，不会保存正文。`
+      : '请选择当初导入的原小说 TXT。系统会校验 SHA256，不会保存正文。';
+  }
 
   const items = data?.items || [];
   const recentElsewhere = data?.recent_elsewhere || [];
@@ -1427,6 +1439,64 @@ async function stopComfyUIService() {
     button.disabled = false;
     button.innerHTML = '■ 停止';
   }
+}
+
+async function repairImageStudioCharacters({ autoGenerate = false } = {}) {
+  const projectId = resolveActiveNovelProject(state.imageStudioProjectId);
+  const input = $('#imageStudioCharacterSourceFile');
+  const file = input.files?.[0];
+  if (!projectId) { log('没有可用的国漫项目', true); return; }
+  if (!file) {
+    state.imageStudioCharacterRepairAutoGenerate = Boolean(autoGenerate);
+    input.click();
+    return;
+  }
+
+  const button = $('#imageStudioCharacterRepairButton');
+  const mainButton = $('#generateCharacterBibleButton');
+  button.disabled = true;
+  mainButton.disabled = true;
+  button.textContent = '正在抽取角色…';
+  mainButton.textContent = '正在补全角色…';
+
+  try {
+    const sourceText = await readNovelTxt(file);
+    const result = await api('/api/image-studio/character-candidates', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        project_id: projectId,
+        source_name: file.name,
+        source_text: sourceText,
+      }),
+    });
+    const names = (result.characters || []).map((item) => item.name).filter(Boolean);
+    log(`角色资料补全完成：${result.character_count || names.length} 个候选${names.length ? ' · ' + names.slice(0, 6).join('、') : ''}`);
+    await loadImageStudio(projectId);
+    if (state.imageStudio?.character_ready === false) {
+      throw new Error('角色候选已写入，但项目仍未解锁；请查看角色抽取结果。');
+    }
+    $('#imageStudioCharacterSourceHint').textContent = `已校验原底本并补全 ${result.character_count || names.length} 个角色候选；正文未保存。`;
+    if (autoGenerate) {
+      state.imageStudioCharacterRepairAutoGenerate = false;
+      await generateImageStudio('character-bible');
+    }
+  } catch (error) {
+    log(error.message, true);
+  } finally {
+    button.disabled = false;
+    button.textContent = '补全角色候选';
+    await loadImageStudio(projectId).catch(() => {});
+  }
+}
+
+async function handleCharacterBibleAction() {
+  if (state.imageStudio?.character_ready === false) {
+    state.imageStudioCharacterRepairAutoGenerate = true;
+    $('#imageStudioCharacterSourceFile').click();
+    return;
+  }
+  await generateImageStudio('character-bible');
 }
 
 async function reviewImageStudio(status) {
@@ -1850,7 +1920,22 @@ $('#imageStudioProviderSelect').addEventListener('change', (event) => {
   state.imageStudioProviderPreference = event.target.value;
   renderImageStudio();
 });
-$('#generateCharacterBibleButton').addEventListener('click', () => generateImageStudio('character-bible'));
+$('#generateCharacterBibleButton').addEventListener('click', handleCharacterBibleAction);
+$('#imageStudioCharacterRepairButton').addEventListener('click', () => repairImageStudioCharacters({ autoGenerate: false }));
+$('#imageStudioCharacterSourceFile').addEventListener('change', async (event) => {
+  const file = event.target.files?.[0];
+  $('#imageStudioCharacterSourceName').textContent = file?.name || '选择原小说 TXT';
+  if (!file) {
+    state.imageStudioCharacterRepairAutoGenerate = false;
+    return;
+  }
+  $('#imageStudioCharacterSourceHint').textContent = `${(file.size / 1024 / 1024).toFixed(2)} MB · 将先校验与当前项目原始 SHA256 一致，再补全角色候选。`;
+  if (state.imageStudioCharacterRepairAutoGenerate) {
+    const autoGenerate = state.imageStudioCharacterRepairAutoGenerate;
+    state.imageStudioCharacterRepairAutoGenerate = false;
+    await repairImageStudioCharacters({ autoGenerate });
+  }
+});
 $('#generateKeyframeButton').addEventListener('click', () => generateImageStudio('keyframe'));
 $('#imageStudioApproveButton').addEventListener('click', () => reviewImageStudio('APPROVED'));
 $('#imageStudioChangesButton').addEventListener('click', () => reviewImageStudio('CHANGES_REQUESTED'));
