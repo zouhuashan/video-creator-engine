@@ -86,7 +86,15 @@ function log(message, isError = false) {
 
 async function api(path, options = {}) {
   const response = await fetch(path, options);
-  const data = await response.json();
+  const raw = await response.text();
+  let data = {};
+  if (raw) {
+    try { data = JSON.parse(raw); }
+    catch (_) {
+      if (!response.ok) throw new Error(`请求失败（${response.status}）：后端未返回有效 JSON；若刚更新了 VideoCreator，请重启一次 Web 服务。`);
+      throw new Error('后端返回了无法解析的数据');
+    }
+  }
   if (!response.ok) throw new Error(data.error || `请求失败（${response.status}）`);
   return data;
 }
