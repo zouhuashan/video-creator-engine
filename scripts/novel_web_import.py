@@ -37,7 +37,7 @@ from scripts.novel_edit_timelines import build_edit_timelines, write_edit_timeli
 from scripts.novel_qc import build_qc_report, write_qc_report
 
 
-MAX_WEB_UPLOAD_BYTES = MAX_SOURCE_BYTES + 4 * 1024 * 1024
+MAX_WEB_UPLOAD_BYTES = MAX_SOURCE_BYTES * 2 + 1024 * 1024
 RIGHTS_MODES = {"OWNED_OR_LICENSED", "TECHNICAL_TEST"}
 
 
