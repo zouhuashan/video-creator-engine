@@ -13,9 +13,9 @@
     "mood": "gentle, curious, warm, emotionally readable"
   },
   "render_lock": {
-    "medium": "premium Chinese guofeng donghua, painterly 2D/2.5D animation",
-    "shading": "refined anime/NPR with Chinese animation aesthetics, soft volumetric light, subtle ink-painting color restraint, not photoreal and not flat cel cutout",
-    "lighting": "warm sunset rim light with cool-neutral face fill",
+    "medium": "premium cinematic 3D Chinese donghua, high-end stylized NPR character render",
+    "shading": "fully modeled volumetric 3D forms, sculpted face, dimensional hair masses and strands, layered cloth with visible thickness, stylized toon/NPR shading with believable PBR material response, soft subsurface skin, never flat 2D illustration",
+    "lighting": "cinematic three-point lighting with warm key, cool-neutral fill, controlled rim light, volumetric atmosphere and real depth of field",
     "palette": [
       "warm amber",
       "pale cyan",
