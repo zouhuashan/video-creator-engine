@@ -2340,7 +2340,7 @@ P18 架构与数据底座
 # 41. 当前方向与下一任务
 
 ```text
-NEXT: P30-02 ComfyUI 本地视觉工厂 Adapter
+NEXT: P30-06 Mac runtime smoke（外部运行时门）
 ```
 
 任务：
@@ -3339,7 +3339,7 @@ NEXT：P30-03 TTS / 字幕 / FFmpeg 执行化。
 
 
 ## P30-03 TTS / 字幕 / FFmpeg 执行化
-Status: IN_PROGRESS
+Status: PASS
 
 目标：把 P30-01 中仍为 PLANNED 的 TTS、字幕和 Assembly 阶段变成可真实执行的软件步骤，最大化复用现有 `generate_local_tts.py`、音频资产、字幕和 FFmpeg 能力，不再要求用户手工录音、对字幕或进剪辑软件。
 
@@ -3364,4 +3364,66 @@ PASS: Web can request execute mode without terminal commands
 PASS: final review remains human-gated
 ```
 
-NEXT：完成 P30-03 后继续 P30-04 Auto QC / Auto Retry / Web 一键整集执行。
+P30-03 执行记录（2026-09-20）：
+
+- 新增 `scripts/pipeline_media_stages.py`：优先复用现有音频/字幕；需要生成时使用本地 TTS 与已知 mouth-cues/script timing，字幕不做 Whisper/ASR 回环。
+- `assemble_final()` 统一使用 FFmpeg 组装视频、音频与字幕为 `final.mp4`，支持无音频/无字幕降级路径；已有合格产物优先复用。
+- Pipeline execute 模式已真实调用 TTS、Subtitle、Assembly；dry-run 保持只规划不产生媒体。
+- Web “创建整集”已从 dry-run 切换为本地 execute，仍固定 `confirm_billable=false`，不会静默触发远程费用。
+- 专项测试覆盖现有音频复用、脚本时间轴字幕生成和 FFmpeg mapping；关键提交：`4f908a2`、`8db94db`、`a4321da`、`1e11e02`、`290f445`。
+- P30-03 代码范围完成，用户不需要手工录音、对字幕或进入 Premiere/After Effects。
+
+NEXT：P30-04 Auto QC / Auto Retry / Web 一键整集执行。
+
+## P30-04 Auto QC / Auto Retry / Web 一键整集执行
+Status: PASS
+
+目标：让本地流水线在生成/复用媒体后自动执行技术 QC，并对可安全修复的技术故障做有界重试；视觉异常不得无限转码重试，最终成片继续由人工审核。
+
+执行记录（2026-09-20）：
+
+- `_auto_qc()` 使用 ffprobe 检查媒体、视频流、音频流和时长，并通过 FFmpeg blackdetect/freezedetect 检查黑帧与冻结帧。
+- `_qc_with_retry()` 引入有界自动重试，次数读取 `config/pipeline-orchestrator.json` 的 `max_attempts_per_stage`；仅技术类故障允许容器规范化转码后重试。
+- 黑帧/冻结帧归类为 `VISUAL_REGEN_REQUIRED`，不会进入无意义转码循环。
+- 每次 QC attempt 与 repair action 写入 run manifest，Web 可直接看到阶段状态；最终 review 只有在 `final.mp4` 存在且 QC PASS 时才进入 READY。
+- Web 主按钮现在执行真实本地流水线；远程 Image/Video Provider 仍受显式授权与计费确认门保护。
+- 关键提交：`5faced3`、`24493f9`、`eb7054b`、`1f58c9d`、`4000465`。
+- P30-04 PASS；自动修复仍严格限制在技术层，不修改剧情、核心事实、审美选择或发布决定。
+
+NEXT：P30-05 VideoProvider 本地执行化。
+
+## P30-05 VideoProvider 本地执行化
+Status: PASS
+
+目标：消除 Video stage 的最后一个“只规划不执行”断点；当存在人工审核通过的 keyframe 时，由软件自动生成本地动态镜头，再继续 TTS / 字幕 / FFmpeg / QC。
+
+执行记录（2026-09-20）：
+
+- `scripts/pipeline_orchestrator.py` 已接入现有 `LocalKenBurnsVideo` + `VideoGenerationRequest`：没有现成视频且 keyframe 已 `APPROVED` 时，execute 自动生成 `generated/<shot>-local.mp4`。
+- 新生成但尚未审核的 keyframe 会让 Video stage 明确进入 `WAITING_REVIEW`，不会绕过人工视觉质量门。
+- 已有视频继续优先复用；dry-run 只显示 VideoProvider 计划，不生成媒体。
+- run manifest 记录 provider、duration、image_count、remote_generation、route 和 reused 标志；本地默认路线不会产生远程费用。
+- 回归测试覆盖“只有 APPROVED keyframe 才能驱动本地视频”和“PENDING keyframe 必须等待人工审核”。
+- 关键提交：`4cbf231`、`3fcbb7a`、`d856c27`。
+- P30-05 PASS；至此软件链已具备 Image → Local Video → TTS → Subtitle → FFmpeg → QC → Human Review 的真实执行路径。
+
+NEXT：P30-06 Web 本机运行环境自检与最终 runtime smoke。
+
+## P30-06 Web 本机运行环境自检与最终 runtime smoke
+Status: BLOCKED
+
+已完成的仓库侧工作：
+
+- 新增 `pipeline_preflight()`，无副作用检查 FFmpeg、ffprobe、macOS say、ComfyUI health/checkpoint、已审核 Character Bible / Keyframe。
+- 新增 Web API `/api/pipeline/preflight` 和“环境自检”按钮；用户不需要终端即可看到 ComfyUI / FFmpeg / ffprobe / TTS 的 READY / BLOCKED / DEGRADED。
+- 自检不会生成媒体、不会写 API Secret、不会触发远程计费。
+- 新增非破坏性 preflight 回归测试。
+- 关键提交：`015b4a3`、`8ba93a5`、`8870d26`、`33ff085`、`a2c64c0`。
+
+当前唯一阻塞：
+
+- GitHub 连接器无法访问用户 Mac 的 `127.0.0.1:8188`、本地 GPU/ComfyUI checkpoint、FFmpeg 二进制和 Web 端口 `18765`，因此不能在本对话中伪造“真实 Mac runtime smoke PASS”。
+- GitHub HEAD 当前没有可读取的 commit status；仓库已配置 P30 回归 workflow，但本连接器没有返回可引用的运行状态，因此保持诚实的 BLOCKED，而不是虚报 CI / 本机验收。
+- 代码层工作已完成；解除该阻塞只需在用户 Mac 更新仓库后，从 Web 点击“环境自检”与“创建整集（本地执行）”，得到真实运行结果。
+
+NEXT：P30-06 Mac runtime smoke（外部运行时门；仓库代码无剩余实现项）。
