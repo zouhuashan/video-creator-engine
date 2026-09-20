@@ -625,11 +625,14 @@ def _comfyui_image_status() -> dict[str, object]:
         provider = ComfyUIImageProvider(base_url, config_path=COMFYUI_IMAGE_PROVIDER_CONFIG_PATH, timeout_seconds=timeout)
         health = provider.health(timeout_seconds=timeout)
         checkpoints = provider.available_checkpoints(timeout_seconds=timeout)
+        loras = provider.available_loras(timeout_seconds=timeout)
         result.update(
             connected=bool(health.get("connected")),
             workflow_ready=bool(checkpoints),
             checkpoint_count=len(checkpoints),
             checkpoint=provider.choose_checkpoint(checkpoints) if checkpoints else "",
+            lora_count=len(loras),
+            loras=loras,
             device_count=int(health.get("device_count") or 0),
             detail="本地 ComfyUI 已连接" if checkpoints else "ComfyUI 已连接，但没有可用 checkpoint",
         )
@@ -647,6 +650,10 @@ def _comfyui_image_status() -> dict[str, object]:
         result["model_installer"] = comfyui_model_status()
     except (ComfyUIModelError, ValueError, OSError) as error:
         result["model_installer"] = {"status": "ERROR", "detail": str(error), "installed": False}
+    try:
+        result["lora_installer"] = comfyui_lora_status()
+    except (ComfyUILoraError, ValueError, OSError) as error:
+        result["lora_installer"] = {"status": "ERROR", "detail": str(error), "installed": False}
     return result
 
 
