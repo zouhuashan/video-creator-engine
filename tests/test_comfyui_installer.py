@@ -141,6 +141,35 @@ class ComfyUIInstallerTests(unittest.TestCase):
             bootstrap.assert_called_once()
             self.assertTrue((install_dir / ".venv" / "bin" / "python").is_file())
 
+    def test_external_pip_bootstrap_targets_only_the_venv(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            install_dir = root / "ComfyUI"
+            venv_python = install_dir / ".venv" / "bin" / "python"
+            venv_python.parent.mkdir(parents=True)
+            venv_python.write_text("", encoding="utf-8")
+            calls = []
+
+            def fake_run(command, *, cwd, log, label, env=None):
+                calls.append((command, label))
+
+            with patch.object(installer, "INSTALL_DIR", install_dir), \
+                 patch.object(installer, "_run", side_effect=fake_run):
+                with (root / "install.log").open("wb") as log:
+                    installer._bootstrap_venv_pip(
+                        "/opt/homebrew/python3.14",
+                        venv_python,
+                        log,
+                        {"PIP_CERT": "/tmp/cert.pem"},
+                    )
+
+            command, label = calls[0]
+            self.assertEqual(label, "BOOTSTRAP_VENV_PIP")
+            self.assertEqual(command[:5], [
+                "/opt/homebrew/python3.14", "-m", "pip", "--python", str(venv_python)
+            ])
+            self.assertIn("install", command)
+
     def test_existing_venv_without_pip_is_bootstrapped_externally(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
