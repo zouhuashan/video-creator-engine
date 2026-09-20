@@ -182,15 +182,15 @@
               </div>
               <label class="field-label" for="imageStudioProviderSelect">生图路线</label>
               <select id="imageStudioProviderSelect" class="select-field">
-                <option value="AUTO">AUTO · 本地优先 / OpenAI 回退</option>
+                <option value="AUTO">AUTO · 最终视觉按风格路由 / 本地概念预览</option>
                 <option value="COMFYUI_IMAGE">ComfyUI · 本地视觉工厂</option>
                 <option value="OPENAI_IMAGE">OpenAI Image · 高质量远程回退</option>
               </select>
               <label class="field-label" for="imageStudioStylePreset">画面风格</label>
               <select id="imageStudioStylePreset" class="select-field">
-                <option value="CINEMATIC_3D_DONGHUA">电影级 3D 国漫</option>
+                <option value="CINEMATIC_3D_DONGHUA">参考视频·电影级 3D 国漫</option>
               </select>
-              <p class="helper-text" id="imageStudioStyleHint">《照骨灯》默认电影级 3D 国漫；AUTO 有 OpenAI Image 时优先最终视觉，本地 Animagine 仅作低成本预览。</p>
+              <p class="helper-text" id="imageStudioStyleHint">《照骨灯》默认参考视频·电影级 3D 国漫；该最终 LookDev 路线必须使用最终视觉 Provider，本地 Animagine 只保留给概念预览，不再静默回退。</p>
               <div class="image-routing-banner">
                 <div><small>最终视觉路由</small><strong id="imageStudioRoute">IMAGE_PROVIDER_ROUTER</strong></div>
                 <span id="imageStudioBlenderRole">Blender · AUXILIARY_3D_CONTROL</span>
@@ -247,7 +247,7 @@
                 <small class="comfy-model-detail" id="imageStudioComfyLoraDetail">未安装时仍可使用 Prompt 风格锁；安装后中国古风 / 仙侠 / 武侠 / 水墨预设自动增强。</small>
               </div>
 
-              <label class="field-label" for="imageStudioKey">OpenAI API Key（3D 最终视觉 / Fallback）</label>
+              <label class="field-label" for="imageStudioKey">OpenAI API Key（参考视频 3D 最终视觉）</label>
               <div class="form-row image-key-row">
                 <input id="imageStudioKey" class="text-field" type="password" autocomplete="off" placeholder="sk-…（仅保存在当前 Web 服务进程）" />
                 <button class="secondary-button" id="imageStudioSaveKey">保存 Key</button>
@@ -268,7 +268,7 @@
                 </div>
                 <div class="image-generation-progress-track"><span id="imageStudioGenerationProgressBar"></span></div>
               </div>
-              <p class="helper-text">AUTO 优先使用本地 ComfyUI；只有回退到 OpenAI 时才会弹出远程计费确认。</p>
+              <p class="helper-text">参考视频·电影级 3D 国漫不会再使用 Animagine 生成 LOCAL_PREVIEW；插画类预设仍可继续走本地 ComfyUI。</p>
 
               <div class="image-lock-card" id="imageStudioCharacterLock">
                 <strong>PROJECT CHARACTER</strong>
