@@ -54,9 +54,11 @@ class ComfyUIServiceManagerTests(unittest.TestCase):
             self.assertEqual(result["action"], "STARTED")
 
     def test_stop_refuses_external_comfyui_process(self):
-        with patch.object(manager, "_load_state", return_value={}),              patch.object(manager, "_owned_process", return_value=False),              patch.object(manager.STATE_PATH, "unlink", return_value=None),              patch.object(manager, "service_status", return_value={"connected": True, "state": "RUNNING"}):
-            with self.assertRaisesRegex(manager.ComfyUIServiceError, "外部 ComfyUI"):
-                manager.stop_service("http://127.0.0.1:8188")
+        with tempfile.TemporaryDirectory() as directory:
+            state_path = Path(directory) / "comfyui-service.json"
+            with patch.object(manager, "_load_state", return_value={}), patch.object(manager, "_owned_process", return_value=False), patch.object(manager, "STATE_PATH", state_path), patch.object(manager, "service_status", return_value={"connected": True, "state": "RUNNING"}):
+                with self.assertRaisesRegex(manager.ComfyUIServiceError, "外部 ComfyUI"):
+                    manager.stop_service("http://127.0.0.1:8188")
 
 
 if __name__ == "__main__":
