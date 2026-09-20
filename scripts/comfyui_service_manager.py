@@ -459,6 +459,8 @@ def start_service(base_url: str) -> dict[str, Any]:
                 command.extend(["--extra-model-paths-config", str(extra_models)])
     with LOG_PATH.open("ab") as log:
         log.write(f"\n=== VideoCreator ComfyUI start {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n".encode())
+        log.write(f"python={python}\n".encode("utf-8", errors="replace"))
+        log.write(f"home={home}\n".encode("utf-8", errors="replace"))
         log.flush()
         try:
             dependency_sync = _sync_project_dependencies(home, python, log)
