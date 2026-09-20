@@ -153,14 +153,30 @@ def _write_install_state(payload: dict[str, Any]) -> None:
 
 
 def _runtime_dependency_smoke(python: Path, home: Path) -> tuple[bool, str]:
+    requirements = home / "requirements.txt"
+    if not requirements.is_file():
+        return False, "requirements.txt missing"
     check = (
         "import json;"
+        "from importlib.metadata import version,PackageNotFoundError;"
+        "from packaging.requirements import Requirement;"
+        "from pathlib import Path;"
+        "issues=[];"
+        "lines=Path('requirements.txt').read_text(encoding='utf-8').splitlines();"
+        "\nfor raw in lines:\n"
+        " line=raw.strip()\n"
+        " if not line or line.startswith('#') or line.startswith('-'): continue\n"
+        " try: req=Requirement(line)\n"
+        " except Exception: continue\n"
+        " if req.marker is not None and not req.marker.evaluate(): continue\n"
+        " try: installed=version(req.name)\n"
+        " except PackageNotFoundError: issues.append([req.name,'MISSING','']); continue\n"
+        " if req.specifier and installed not in req.specifier: issues.append([req.name,'VERSION',installed+' not in '+str(req.specifier)])\n"
         "mods=['filelock','sqlalchemy','alembic','aiohttp','yaml','PIL','numpy','torch'];"
-        "failed=[];"
         "\nfor m in mods:\n"
         " try: __import__(m)\n"
-        " except Exception as e: failed.append([m,type(e).__name__,str(e)])\n"
-        "print(json.dumps({'failed':failed}))"
+        " except Exception as e: issues.append([m,type(e).__name__,str(e)])\n"
+        "print(json.dumps({'issues':issues}))"
     )
     try:
         result = subprocess.run(
@@ -169,19 +185,19 @@ def _runtime_dependency_smoke(python: Path, home: Path) -> tuple[bool, str]:
             text=True,
             cwd=home,
             check=False,
-            timeout=30,
+            timeout=45,
         )
     except (OSError, subprocess.SubprocessError) as error:
         return False, str(error)
     if result.returncode != 0:
-        return False, (result.stderr or result.stdout or "dependency smoke failed").strip()[-2000:]
+        return False, (result.stderr or result.stdout or "dependency smoke failed").strip()[-3000:]
     try:
         payload = json.loads(result.stdout.strip().splitlines()[-1])
     except (json.JSONDecodeError, IndexError):
         return False, "dependency smoke returned invalid JSON"
-    failed = payload.get("failed") if isinstance(payload, dict) else None
-    if failed:
-        return False, "; ".join(f"{item[0]}: {item[1]} {item[2]}" for item in failed[:8])
+    issues = payload.get("issues") if isinstance(payload, dict) else None
+    if issues:
+        return False, "; ".join(f"{item[0]}: {item[1]} {item[2]}" for item in issues[:12])
     return True, ""
 
 
