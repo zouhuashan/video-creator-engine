@@ -260,8 +260,12 @@ class WebServerTests(unittest.TestCase):
         self.assertIn("无需重新上传 TXT", index)
 
     def test_web_exposes_project_delete_action(self):
+        index = (web_server.WEB_ROOT / "index.html").read_text(encoding="utf-8")
         app = (web_server.WEB_ROOT / "app.js").read_text(encoding="utf-8")
         self.assertIn("data-delete-anime-project", app)
+        self.assertIn('id="imageStudioDeleteProjectButton"', index)
+        self.assertIn("deleteCurrentImageStudioProject", app)
+        self.assertIn("imageStudioDeleteProjectButton", app)
         self.assertIn("/api/novel-anime/delete", app)
         self.assertIn("confirm_delete: true", app)
 
