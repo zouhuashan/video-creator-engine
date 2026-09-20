@@ -47,6 +47,14 @@ function resolveActiveNovelProject(preferred = '') {
   return valid(storedActiveNovelProjectId()) || projects[0].directory_id;
 }
 
+function novelProjectOptionLabel(project) {
+  const title = String(project?.title || project?.directory_id || '未命名项目');
+  const sameTitleCount = (state.animeProjects || []).filter((item) => String(item.title || '') === String(project?.title || '')).length;
+  if (sameTitleCount <= 1) return title;
+  const id = String(project?.directory_id || '');
+  return `${title} · ${id.slice(-8) || id}`;
+}
+
 function setActiveNovelProject(projectId, { persist = true } = {}) {
   const value = String(projectId || '').trim();
   if (!value || !state.animeProjects.some((item) => item.directory_id === value)) return '';
@@ -91,7 +99,7 @@ function renderPipeline() {
   const data = state.pipeline || { status: 'NOT_STARTED', progress: 0, stages: [], review: { ready: false, status: 'PENDING' }, next: 'RUN_PIPELINE' };
   const select = $('#pipelineProjectSelect');
   if (select) {
-    select.innerHTML = state.animeProjects.map((item) => `<option value="${escapeHtml(item.directory_id)}">${escapeHtml(item.title)}</option>`).join('');
+    select.innerHTML = state.animeProjects.map((item) => `<option value="${escapeHtml(item.directory_id)}">${escapeHtml(novelProjectOptionLabel(item))}</option>`).join('');
     if (state.pipelineProjectId) select.value = state.pipelineProjectId;
   }
   $('#pipelineStatus').textContent = data.status || 'NOT_STARTED';
@@ -962,7 +970,7 @@ function renderStudio() {
   $('#studioTitle').textContent = active.title;
   $('#studioSubtitle').textContent = active.description;
   const select = $('#studioProjectSelect');
-  select.innerHTML = state.animeProjects.map((item) => `<option value="${escapeHtml(item.directory_id)}">${escapeHtml(item.title)}</option>`).join('');
+  select.innerHTML = state.animeProjects.map((item) => `<option value="${escapeHtml(item.directory_id)}">${escapeHtml(novelProjectOptionLabel(item))}</option>`).join('');
   select.value = state.studio.directory_id;
   $('#studioTabs').innerHTML = workspaces.map((item) => `<button class="studio-tab${item.id === active.id ? ' active' : ''}" data-studio-workspace="${escapeHtml(item.id)}">${escapeHtml(item.title)}</button>`).join('');
   document.querySelectorAll('[data-studio-workspace]').forEach((button) => button.addEventListener('click', () => { state.currentWorkspace = button.dataset.studioWorkspace; $('#studioDetail').classList.add('hidden'); renderStudio(); }));
@@ -1098,7 +1106,7 @@ async function deleteCurrentImageStudioProject() {
     await load(result.default_project_id || '');
     if (result.default_project_id) {
       setView('imageStudio');
-      log(`已删除《${result.title || project.title}》，已切换到剩余项目。`);
+      log(`已删除《${result.title || project.title}》 [${projectId}]，剩余 ${Number(result.remaining_project_count || 0)} 个项目，已切换到剩余项目。`);
     } else {
       setView('anime');
       log(`已删除《${result.title || project.title}》，当前已没有国漫项目。`);
@@ -1115,7 +1123,7 @@ function renderImageStudio() {
   const data = state.imageStudio;
   const select = $('#imageStudioProject');
   const projects = state.animeProjects || [];
-  select.innerHTML = projects.map((item) => `<option value="${escapeHtml(item.directory_id)}">${escapeHtml(item.title)}</option>`).join('');
+  select.innerHTML = projects.map((item) => `<option value="${escapeHtml(item.directory_id)}">${escapeHtml(novelProjectOptionLabel(item))}</option>`).join('');
   const activeProjectId = resolveActiveNovelProject(data?.project_id || state.imageStudioProjectId);
   if (activeProjectId) select.value = activeProjectId;
   const activeProject = projects.find((item) => item.directory_id === activeProjectId);
