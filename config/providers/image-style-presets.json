@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "default_preset": "GUOFENG_ANCIENT_CHINA",
+  "presets": [
+    {
+      "id": "GUOFENG_ANCIENT_CHINA",
+      "label": "中国古风",
+      "description": "古代中国 / 汉服 / 东方古典审美；《照骨灯》默认",
+      "positive_prompt_prefix": "masterpiece, best quality, Chinese guofeng donghua, ancient China, traditional Chinese aesthetics, hanfu, crossed-collar robe, layered silk and linen, wide sleeves, sash, traditional Chinese hairstyle, jade hairpin, restrained embroidery, elegant Chinese costume silhouette, ink-wash inspired palette, cinematic Chinese animation character design",
+      "negative_prompt": "watermark, text, logo, malformed hands, extra fingers, duplicate limbs, identity drift, low quality, modern clothing, contemporary fashion, school uniform, sailor uniform, JK uniform, blazer, necktie, shirt and tie, T-shirt, hoodie, miniskirt, modern short skirt, sneakers, high heels, office wear, western business suit, Japanese schoolgirl, modern city, cyberpunk, sci-fi streetwear",
+      "remote_direction": "Ancient Chinese guofeng donghua. Use unmistakably Chinese pre-modern costume language: hanfu or role-appropriate period robes, crossed collars, layered fabric, wide sleeves or practical bracers, sash/belt, traditional Chinese hair ornaments, restrained jade/metal details, low-saturation ink-wash-inspired color harmony. Avoid Japanese school-anime fashion and all modern clothing.",
+      "lora_id": "sdxl-chinese-style-illustration",
+      "lora_strength": 0.72
+    },
+    {
+      "id": "XIANXIA_DONGHUA",
+      "label": "仙侠国漫",
+      "description": "仙门 / 云雾 / 飘逸长袍 / 玉饰 / 灵气",
+      "positive_prompt_prefix": "masterpiece, best quality, Chinese xianxia donghua, ancient China fantasy, immortal cultivation world, elegant layered hanfu, flowing long robes, wide sleeves, jade ornaments, Chinese hair crown and hairpin, cloud mist, ethereal light, restrained spiritual aura, cinematic Chinese animation",
+      "negative_prompt": "watermark, text, logo, malformed hands, extra fingers, duplicate limbs, low quality, modern clothing, school uniform, sailor uniform, JK uniform, blazer, necktie, T-shirt, hoodie, miniskirt, sneakers, western fantasy armor, modern city, cyberpunk, sci-fi",
+      "remote_direction": "Chinese xianxia donghua in an ancient cultivation world. Favor flowing layered hanfu, long robes, wide sleeves, jade ornaments, traditional Chinese hair crowns and hairpins, cloud mist and restrained ethereal light. Do not use Japanese school uniforms, modern fashion, western business clothing or sci-fi streetwear.",
+      "lora_id": "sdxl-chinese-style-illustration",
+      "lora_strength": 0.68
+    },
+    {
+      "id": "WUXIA_DONGHUA",
+      "label": "武侠国漫",
+      "description": "江湖 / 劲装 / 护臂 / 束发 / 刀剑气质",
+      "positive_prompt_prefix": "masterpiece, best quality, Chinese wuxia donghua, ancient China jianghu, practical hanfu, martial robe, crossed collar, fitted layered garment, sash, leather bracers, cloth boots, traditional Chinese tied hair, hair crown, restrained sword hero aesthetic, cinematic Chinese animation",
+      "negative_prompt": "watermark, text, logo, malformed hands, extra fingers, duplicate limbs, low quality, modern clothing, school uniform, sailor uniform, JK uniform, blazer, necktie, T-shirt, hoodie, miniskirt, sneakers, tactical military gear, cyberpunk, sci-fi armor",
+      "remote_direction": "Chinese wuxia donghua set in the jianghu. Use practical role-appropriate hanfu or martial robes, crossed collars, layered fitted garments, sash, bracers, cloth boots and traditional tied hair. Keep the silhouette Chinese and pre-modern; avoid school uniforms, modern fashion, tactical gear and sci-fi armor.",
+      "lora_id": "sdxl-chinese-style-illustration",
+      "lora_strength": 0.62
+    },
+    {
+      "id": "INK_GUOFENG",
+      "label": "水墨国风",
+      "description": "写意 / 淡彩 / 留白 / 宣纸与水墨韵味",
+      "positive_prompt_prefix": "masterpiece, best quality, Chinese ink-wash donghua, shuimo aesthetic, ancient China, elegant hanfu, traditional Chinese costume, expressive ink brush edges, rice-paper texture impression, muted mineral pigments, generous negative space, atmospheric mist, refined 2D 2.5D Chinese animation",
+      "negative_prompt": "watermark, text, logo, malformed hands, extra fingers, duplicate limbs, low quality, photoreal glossy 3D, modern clothing, school uniform, sailor uniform, JK uniform, blazer, necktie, T-shirt, hoodie, miniskirt, sneakers, neon cyberpunk, modern city",
+      "remote_direction": "Chinese ink-wash guofeng animation. Preserve readable anime character design while using restrained shuimo brush language, muted mineral pigments, mist and negative space. Costume must remain ancient Chinese hanfu/period dress. Avoid modern fashion, Japanese school uniforms, glossy game-render aesthetics and neon sci-fi styling.",
+      "lora_id": "sdxl-chinese-style-illustration",
+      "lora_strength": 0.78
+    },
+    {
+      "id": "ANIME_DEFAULT",
+      "label": "默认动漫",
+      "description": "不加载国风 LoRA；保留普通动漫生成能力",
+      "positive_prompt_prefix": "masterpiece, best quality, premium anime character design, coherent character sheet, refined 2D 2.5D animation",
+      "negative_prompt": "watermark, text, logo, malformed hands, extra fingers, duplicate limbs, identity drift, low quality",
+      "remote_direction": "Premium coherent anime character design. Follow the project's character identity and costume notes without forcing a specific historical Chinese style.",
+      "lora_id": null,
+      "lora_strength": 0
+    }
+  ]
+}
