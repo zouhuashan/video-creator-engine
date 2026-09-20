@@ -240,6 +240,71 @@ def _macos_system_proxies() -> list[str]:
     return proxies
 
 
+def _clash_verge_proxies() -> list[str]:
+    curl = shutil.which("curl")
+    if not curl:
+        return []
+    sockets: list[Path] = []
+    exact = [
+        Path("/tmp/verge/verge-mihomo.sock"),
+        Path("/tmp/verge/mihomo.sock"),
+    ]
+    for item in exact:
+        if item.exists():
+            sockets.append(item)
+    verge_dir = Path("/tmp/verge")
+    if verge_dir.is_dir():
+        for item in verge_dir.glob("*.sock"):
+            if item not in sockets:
+                sockets.append(item)
+
+    for socket_path in sockets:
+        try:
+            result = subprocess.run(
+                [
+                    curl,
+                    "--silent",
+                    "--show-error",
+                    "--fail",
+                    "--max-time",
+                    "3",
+                    "--unix-socket",
+                    str(socket_path),
+                    "http://localhost/configs",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError):
+            continue
+        if result.returncode != 0:
+            continue
+        try:
+            payload = json.loads(result.stdout)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(payload, dict):
+            continue
+
+        proxies: list[str] = []
+        for key, scheme in (
+            ("mixed-port", "http"),
+            ("port", "http"),
+            ("socks-port", "socks5h"),
+        ):
+            try:
+                port = int(payload.get(key) or 0)
+            except (TypeError, ValueError):
+                port = 0
+            if 1 <= port <= 65535:
+                proxies.append(f"{scheme}://127.0.0.1:{port}")
+        if proxies:
+            return proxies
+    return []
+
+
 def _proxy_candidates() -> list[str]:
     candidates: list[str] = []
     for key in (
@@ -250,6 +315,7 @@ def _proxy_candidates() -> list[str]:
         proxy = _normalize_proxy(os.environ.get(key, ""))
         if proxy:
             candidates.append(proxy)
+    candidates.extend(_clash_verge_proxies())
     candidates.extend(_macos_system_proxies())
 
     unique: list[str] = []
