@@ -305,6 +305,7 @@ class ComfyUIInstallerTests(unittest.TestCase):
                  patch.object(installer, "choose_bootstrap_runtime", return_value=("/usr/bin/python3", {"PATH": "/usr/bin"}, "/etc/ssl/cert.pem")), \
                  patch.object(installer, "_clone_or_repair", side_effect=fake_clone), \
                  patch.object(installer, "_ensure_venv", side_effect=fake_venv), \
+                 patch.object(installer, "_probe_requirements", return_value=None), \
                  patch.object(installer, "_install_torch", side_effect=fake_torch), \
                  patch.object(installer, "_install_requirements", side_effect=fake_requirements), \
                  patch.object(installer, "_verify", return_value={"torch": "test", "mps_built": True, "mps_available": True}):
