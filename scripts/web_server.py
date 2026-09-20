@@ -133,6 +133,21 @@ def _media_url(project: Path, relative_path: str) -> str:
     return f"/media/{project_part}/{path_part}"
 
 
+def _image_file_valid(path: Path) -> bool:
+    try:
+        with path.open("rb") as handle:
+            head = handle.read(16)
+    except OSError:
+        return False
+    if head.startswith(b"\x89PNG\r\n\x1a\n"):
+        return True
+    if head.startswith(b"\xff\xd8\xff"):
+        return True
+    if len(head) >= 12 and head[:4] == b"RIFF" and head[8:12] == b"WEBP":
+        return True
+    return False
+
+
 def _media_files(project: Path) -> list[dict[str, str]]:
     files = []
     for path in sorted(project.rglob("*")):
@@ -596,6 +611,11 @@ def _image_studio_inventory(project: Path) -> dict[str, object]:
                 continue
             item = dict(meta)
             item["media_url"] = _media_url(project, output)
+            item["media_valid"] = _image_file_valid(output_path)
+            try:
+                item["media_bytes"] = output_path.stat().st_size
+            except OSError:
+                item["media_bytes"] = 0
             item["metadata"] = _relative(project, meta_path)
             items.append(item)
     comfyui = _comfyui_image_status()
@@ -717,11 +737,15 @@ def _generate_image_studio_asset(
         "fallback_chain": route.get("fallback_chain", []),
         "provider_task_id": str(result.get("prompt_id") or ""),
     }
+    if not _image_file_valid(output):
+        raise ValueError("Image Provider returned a file that is not a valid PNG/JPEG/WebP image")
     metadata_path = output.with_suffix(".json")
     metadata_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return {
         **metadata,
         "media_url": _media_url(project, relative),
+        "media_valid": True,
+        "media_bytes": output.stat().st_size,
         "metadata": _relative(project, metadata_path),
     }
 
