@@ -280,7 +280,9 @@ def promote_character_candidates(project_dir: Path, candidate_payload: dict[str,
 
     bible["characters"] = characters
     if bible_exists:
-        bible["revision"] = int(bible.get("revision") or 1) + 1
+        # This repairs data that should have been present in the same import;
+        # keep the existing revision so already-built downstream packages do
+        # not become stale solely because of the P31 persistence bug.
         bible["updated_at"] = utc_timestamp()
     write_bible(project_dir, bible, overwrite=bible_exists)
     bind_continuity_refs(project_dir)
