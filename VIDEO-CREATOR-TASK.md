@@ -3434,6 +3434,17 @@ P30-06 追加修复（2026-09-20，针对 Web 报错“未检测到 ComfyUI 安�
 - 官方当前仍支持 Apple Silicon；ComfyUI 文档建议独立环境并在 Apple Silicon 使用 PyTorch nightly，PyTorch 当前 MPS 后端仍为官方支持路径。
 - 当前 GitHub connector 仍未返回 workflow run/status，因此不虚报 CI PASS；真实 clone/pip/MPS 安装必须在用户 Mac 上执行。
 
+P30-06 安装器第六轮修复（2026-09-20，真实 Mac 日志）：
+
+- 第七次真实安装已正确选中 Homebrew arm64 Python 3.14，并使用 `/opt/homebrew/etc/ca-certificates/cert.pem`；旧 x86_64 MacPorts venv 被自动删除。
+- 新阻塞发生在 `python3.14 -m venv`：标准 venv 在内部调用 `ensurepip --upgrade --default-pip` 时失败，导致 `CREATE_VENV` 退出。
+- Python 3.14 官方 `venv` 明确支持 `--without-pip`；安装器新增自动 fallback：标准 venv 创建失败 → 清理半成品 → `venv --without-pip` → 使用外层已验证可联网的 bootstrap Python 执行 `pip --python <venv_python> install --upgrade pip setuptools wheel`，绕开坏掉的 ensurepip。
+- 若外层 pip 无法跨解释器注入，且本机已有 `uv`，自动 fallback 到 `uv pip install --python <venv_python>`；两者都失败才真正报错。
+- 已存在但缺 pip 的半成品 venv 也会被识别，不需要用户手动删除目录；安装器直接给该 venv 注入 pip 后继续。
+- TLS 校验仍保持开启，CA 仍来自此前验证通过的 Homebrew/macOS trust；没有使用 trusted-host 或关闭证书验证。
+- 回归新增：ensurepip 创建失败 → `--without-pip` fallback；已有 venv 缺 pip → 外部注入；外层 pip 命令必须通过 `--python <venv>` 定向目标环境。
+- 关键提交：`df5b711`、`24dcf52`、`dcdb5a0`。
+
 P30-06 安装器第五轮修复（2026-09-20，真实 Mac 日志）：
 
 - 第六次真实日志显示自动 fallback 已从 x86_64 MacPorts Python 3.13 切到 x86_64 MacPorts Python 3.12；该 runtime 能安装 x86 PyTorch 2.2.2，但随后在最新 ComfyUI requirements 的 `comfy-angle` 处失败。
