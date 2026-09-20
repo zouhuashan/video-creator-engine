@@ -192,6 +192,9 @@ class WebServerTests(unittest.TestCase):
         self.assertIn('/api/comfyui/service/start', app)
         self.assertIn('/api/comfyui/service/stop', app)
         self.assertIn('/api/comfyui/service/status', app)
+        self.assertIn('id="imageStudioInstallComfy"', index)
+        self.assertIn('/api/comfyui/install/start', app)
+        self.assertIn('/api/comfyui/install/status', app)
 
     def test_character_asset_inventory_exposes_registered_turnarounds(self):
         assets = web_server._character_asset_inventory(web_server._safe_project("jinghua-yuan-series"))
