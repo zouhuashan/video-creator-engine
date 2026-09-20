@@ -93,6 +93,10 @@ class PipelineOrchestratorTests(unittest.TestCase):
                     "remote_generation": False,
                 })()
 
+        def _fake_assemble(project_path, video, **kwargs):
+            (project_path / "final.mp4").write_bytes(b"final")
+            return {"status":"PASS","output":"final.mp4","finalizer":"ffmpeg"}
+
         with tempfile.TemporaryDirectory() as directory:
             projects = Path(directory)
             project = projects / "demo-project"
@@ -112,9 +116,7 @@ class PipelineOrchestratorTests(unittest.TestCase):
                  patch("scripts.pipeline_orchestrator.ComfyUIImageProvider", side_effect=ComfyUIImageError("offline")), \
                  patch("scripts.pipeline_orchestrator.ensure_tts", return_value={"status":"SKIPPED","asset":"","provider":"none"}), \
                  patch("scripts.pipeline_orchestrator.ensure_subtitles", return_value={"status":"SKIPPED","asset":"","asr_round_trip":False}), \
-                 patch("scripts.pipeline_orchestrator.assemble_final", side_effect=lambda project_path, video, **kwargs: (
-                     (project_path / "final.mp4").write_bytes(b"final") or {"status":"PASS","output":"final.mp4","finalizer":"ffmpeg"}
-                 )), \
+                 patch("scripts.pipeline_orchestrator.assemble_final", side_effect=_fake_assemble), \
                  patch("scripts.pipeline_orchestrator._qc_with_retry", return_value={"status":"PASS","auto_retry":False,"attempt_count":1,"attempts":[]}):
                 result = run_pipeline("demo-project", dry_run=False, projects_root=projects)
 
