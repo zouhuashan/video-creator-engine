@@ -241,7 +241,13 @@ def choose_bootstrap_runtime() -> tuple[str, dict[str, str], str]:
         raise ComfyUIInstallError("未找到 Python 3.10–3.14；建议安装 Homebrew python@3.13 或 python@3.12")
 
     failures: list[str] = []
-    # First try each Python with its own default trust configuration.
+    exported: Path | None = None
+    cached_bundles: list[Path] | None = None
+
+    # Preserve Python preference order. ComfyUI currently recommends 3.13,
+    # with 3.12 as a fallback; 3.14 works but may have custom-node issues.
+    # Therefore repair TLS for each preferred interpreter before considering
+    # the next interpreter.
     for executable in candidates:
         env = _network_env()
         ok, detail = _https_probe(executable, env)
@@ -250,24 +256,25 @@ def choose_bootstrap_runtime() -> tuple[str, dict[str, str], str]:
             if default_bundle is not None:
                 return executable, _network_env(default_bundle), str(default_bundle)
             return executable, env, "python-default"
-
         failures.append(f"{executable}: {detail.splitlines()[-1] if detail else 'TLS failed'}")
 
-    # On macOS, export the trust roots that the machine actually trusts. This
-    # fixes MacPorts/python.org/OpenSSL trust-store drift without disabling TLS.
-    exported = _export_macos_trust_bundle()
-    bundles = _candidate_ca_bundles()
-    if exported is not None and exported not in bundles:
-        bundles.insert(0, exported)
-    for bundle in bundles:
-        for executable in candidates:
-            env = _network_env(bundle)
-            ok, detail = _https_probe(executable, env)
-            if ok:
-                return executable, env, str(bundle)
-            failures.append(f"{executable} + {bundle}: {detail.splitlines()[-1] if detail else 'TLS failed'}")
+        if cached_bundles is None:
+            exported = _export_macos_trust_bundle()
+            cached_bundles = _candidate_ca_bundles()
+            if exported is not None and exported not in cached_bundles:
+                cached_bundles.insert(0, exported)
 
-    summary = " | ".join(failures[-6:])
+        for bundle in cached_bundles:
+            repaired_env = _network_env(bundle)
+            repaired, repaired_detail = _https_probe(executable, repaired_env)
+            if repaired:
+                return executable, repaired_env, str(bundle)
+            failures.append(
+                f"{executable} + {bundle}: "
+                f"{repaired_detail.splitlines()[-1] if repaired_detail else 'TLS failed'}"
+            )
+
+    summary = " | ".join(failures[-8:])
     raise ComfyUIInstallError(
         "所有可用 Python 都无法通过 PyPI HTTPS 证书校验。"
         "已尝试 macOS Keychain 与常见 CA bundle；不会使用 --trusted-host 或关闭 SSL。"
