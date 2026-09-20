@@ -178,12 +178,23 @@ class ComfyUIImageProvider:
         temporary.write_bytes(data)
         temporary.replace(output_path)
 
-    def generate(self, prompt: str, output_path: Path, *, size: str, negative_prompt: str | None = None) -> dict[str, Any]:
+    def generate(
+        self,
+        prompt: str,
+        output_path: Path,
+        *,
+        size: str,
+        negative_prompt: str | None = None,
+        client_id: str | None = None,
+    ) -> dict[str, Any]:
         checkpoints = self.available_checkpoints()
         checkpoint = self.choose_checkpoint(checkpoints)
         prefix = f"videocreator/{Path(output_path).stem}-{uuid.uuid4().hex[:8]}"
         workflow = self.build_workflow(prompt, size=size, checkpoint=checkpoint, filename_prefix=prefix, negative_prompt=negative_prompt)
-        queued = self._request_json("/prompt", method="POST", payload={"prompt": workflow, "client_id": uuid.uuid4().hex})
+        client_id = str(client_id or uuid.uuid4().hex).strip()
+        if not client_id or len(client_id) > 128 or any(ch not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.:" for ch in client_id):
+            raise ComfyUIImageError("invalid ComfyUI client_id")
+        queued = self._request_json("/prompt", method="POST", payload={"prompt": workflow, "client_id": client_id})
         prompt_id = str(queued.get("prompt_id") or "").strip()
         if not prompt_id:
             raise ComfyUIImageError("ComfyUI did not return prompt_id")
@@ -198,7 +209,7 @@ class ComfyUIImageProvider:
             raise ComfyUIImageError("ComfyUI generation timed out")
         output_path = Path(output_path)
         self._download_image(image, output_path)
-        return {"provider": self.provider_id, "model": checkpoint, "size": size, "quality": "local", "output": str(output_path), "prompt_id": prompt_id, "workflow": "builtin_txt2img_v1", "server_image": image}
+        return {"provider": self.provider_id, "model": checkpoint, "size": size, "quality": "local", "output": str(output_path), "prompt_id": prompt_id, "client_id": client_id, "workflow": "builtin_txt2img_v1", "server_image": image}
 
 
 __all__ = ["ComfyUIImageError", "ComfyUIImageProvider"]
