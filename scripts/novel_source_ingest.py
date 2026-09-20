@@ -31,6 +31,64 @@ class NovelSourceIngestError(RuntimeError):
     """Raised when source authorization, parsing, or persistence fails."""
 
 
+GENERIC_CHARACTER_TERMS = {
+    "男人", "女人", "男子", "女子", "少年", "少女", "青年", "老人", "老者", "孩子", "小孩",
+    "父亲", "母亲", "父母", "师父", "师傅", "先生", "夫人", "姑娘", "公子", "小姐", "掌柜",
+    "众人", "两人", "三人", "一人", "那人", "此人", "对方", "自己", "时候", "片刻",
+}
+SPEECH_SUFFIX = (
+    "说道", "说", "问道", "问", "答道", "答", "喊道", "喊", "叫道", "叫",
+    "笑道", "叹道", "喝道", "低声道", "轻声道", "沉声道", "冷声道",
+)
+SPEAKER_PATTERNS = (
+    re.compile(r"(?:^|[。！？!?；;，,、“”‘’\s])([\u4e00-\u9fff]{2,4})(?=[：:][“\"‘'])"),
+    re.compile(
+        r"(?:^|[。！？!?；;，,、“”‘’\s])([\u4e00-\u9fff]{2,4})(?="
+        + "|".join(re.escape(item) for item in sorted(SPEECH_SUFFIX, key=len, reverse=True))
+        + r")"
+    ),
+)
+
+
+def infer_character_lexicon(chapters: tuple[ChapterText, ...], ip_code: str, *, limit: int = 16) -> list[dict[str, Any]]:
+    """Infer conservative Chinese character-name candidates from dialogue attribution.
+
+    This is intentionally not a general NER model.  It only promotes repeated
+    2–4 Han-character speaker labels found next to dialogue punctuation or
+    speech verbs, keeping false positives lower than a broad noun heuristic.
+    """
+    scores: dict[str, dict[str, int]] = {}
+    for chapter_index, chapter in enumerate(chapters):
+        text = chapter.text
+        for pattern in SPEAKER_PATTERNS:
+            for match in pattern.finditer(text):
+                name = match.group(1).strip()
+                if name in GENERIC_CHARACTER_TERMS:
+                    continue
+                if any(token in name for token in ("这个", "那个", "什么", "怎么", "已经", "没有", "只是", "然后")):
+                    continue
+                item = scores.setdefault(name, {"speaker_hits": 0, "first": chapter_index * 10_000_000 + match.start()})
+                item["speaker_hits"] += 1
+                item["first"] = min(item["first"], chapter_index * 10_000_000 + match.start())
+
+    ranked: list[tuple[str, int, int, int]] = []
+    for name, item in scores.items():
+        total_mentions = sum(chapter.text.count(name) for chapter in chapters)
+        if item["speaker_hits"] < 1 or total_mentions < 2:
+            continue
+        ranked.append((name, item["speaker_hits"], total_mentions, item["first"]))
+    ranked.sort(key=lambda item: (-item[1], -item[2], item[3], item[0]))
+
+    return [
+        {
+            "id": f"CHR-{ip_code}-AUTO-{index:03d}",
+            "name": name,
+            "aliases": [],
+        }
+        for index, (name, _speaker_hits, _mentions, _first) in enumerate(ranked[: max(1, int(limit))], start=1)
+    ]
+
+
 def _sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
@@ -165,6 +223,8 @@ def ingest_source(project_dir: Path, edition_id: str, source_file: Path, *, lexi
     ip_code = catalog["ip_id"].removeprefix("IP-")
     chapters = _assign_chapter_ids(split_chapters(source_text, ip_code), catalog, edition_id, ip_code)
     lexicon = _load_lexicon(lexicon_file)
+    if not lexicon.get("characters"):
+        lexicon["characters"] = infer_character_lexicon(chapters, ip_code)
     try:
         extraction = LocalLexiconExtractor().extract(chapters, lexicon)
     except StoryExtractionError as error:
