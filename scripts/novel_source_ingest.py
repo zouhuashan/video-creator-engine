@@ -49,35 +49,94 @@ SPEAKER_PATTERNS = (
     ),
 )
 
+ACTION_SUFFIX = (
+    "抬头", "低头", "回头", "转身", "起身", "坐下", "站起", "站住",
+    "走来", "走去", "走进", "走出", "上前", "退后", "停下", "离开", "来到",
+    "看向", "望向", "盯着", "看着", "望着", "凝视", "打量",
+    "点头", "摇头", "皱眉", "挑眉", "闭眼", "睁眼",
+    "伸手", "抬手", "收手", "握住", "抓住", "接过", "推开", "拉住", "抱住", "扶住",
+    "笑了", "笑道", "轻笑", "冷笑", "苦笑", "叹息", "沉默", "开口",
+    "问道", "说道", "答道", "喊道", "叫道", "喝道",
+)
+ACTION_PATTERN = re.compile(
+    r"(?:^|[。！？!?；;，,、“”‘’\s])"
+    r"(?:只见|忽见|此时|这时|随后|片刻后|转眼间)?"
+    r"([\u4e00-\u9fff]{2,4})"
+    r"(?=(?:缓缓|忽然|突然|随即|便|却|又|正|仍|只是)?(?:"
+    + "|".join(re.escape(item) for item in sorted(ACTION_SUFFIX, key=len, reverse=True))
+    + r"))"
+)
+VOCATIVE_PATTERN = re.compile(r"[“\"‘]([\u4e00-\u9fff]{2,4})(?=[，,！!？?…])")
+GENERIC_CHARACTER_SUFFIXES = ("男子", "女子", "少年", "少女", "老人", "老者", "孩子", "小孩", "众人")
+GENERIC_NAME_FRAGMENTS = {
+    "只见", "忽见", "此时", "这时", "随后", "片刻", "眼前", "身后", "门外", "屋内",
+    "一个", "一名", "那名", "这名", "那位", "这位", "对面", "旁边", "终于", "忽然",
+    "突然", "缓缓", "轻轻", "慢慢", "微微", "顿时", "立刻", "马上", "已经", "似乎",
+}
+
 
 def infer_character_lexicon(chapters: tuple[ChapterText, ...], ip_code: str, *, limit: int = 16) -> list[dict[str, Any]]:
-    """Infer conservative Chinese character-name candidates from dialogue attribution.
+    """Infer conservative Chinese character candidates without storing prose.
 
-    This is intentionally not a general NER model.  It only promotes repeated
-    2–4 Han-character speaker labels found next to dialogue punctuation or
-    speech verbs, keeping false positives lower than a broad noun heuristic.
+    Strong dialogue attribution remains the highest-confidence signal.  To
+    support narration-heavy web novels, repeated 2–4 Han-character subjects
+    before character actions and quoted vocatives are also scored.  A
+    candidate must still recur in the source, keeping this deliberately more
+    conservative than general-purpose Chinese NER.
     """
+
+    def plausible(name: str) -> bool:
+        name = str(name or "").strip()
+        if not 2 <= len(name) <= 4:
+            return False
+        if name in GENERIC_CHARACTER_TERMS:
+            return False
+        if any(name.endswith(suffix) for suffix in GENERIC_CHARACTER_SUFFIXES):
+            return False
+        if any(fragment in name for fragment in GENERIC_NAME_FRAGMENTS):
+            return False
+        if any(token in name for token in ("这个", "那个", "什么", "怎么", "已经", "没有", "只是", "然后")):
+            return False
+        return bool(re.fullmatch(r"[\u4e00-\u9fff]{2,4}", name))
+
     scores: dict[str, dict[str, int]] = {}
+
+    def hit(name: str, kind: str, position: int) -> None:
+        if not plausible(name):
+            return
+        item = scores.setdefault(
+            name,
+            {"speaker_hits": 0, "action_hits": 0, "vocative_hits": 0, "first": position},
+        )
+        item[kind] += 1
+        item["first"] = min(item["first"], position)
+
     for chapter_index, chapter in enumerate(chapters):
         text = chapter.text
+        offset = chapter_index * 10_000_000
         for pattern in SPEAKER_PATTERNS:
             for match in pattern.finditer(text):
-                name = match.group(1).strip()
-                if name in GENERIC_CHARACTER_TERMS:
-                    continue
-                if any(token in name for token in ("这个", "那个", "什么", "怎么", "已经", "没有", "只是", "然后")):
-                    continue
-                item = scores.setdefault(name, {"speaker_hits": 0, "first": chapter_index * 10_000_000 + match.start()})
-                item["speaker_hits"] += 1
-                item["first"] = min(item["first"], chapter_index * 10_000_000 + match.start())
+                hit(match.group(1), "speaker_hits", offset + match.start())
+        for match in ACTION_PATTERN.finditer(text):
+            hit(match.group(1), "action_hits", offset + match.start())
+        for match in VOCATIVE_PATTERN.finditer(text):
+            hit(match.group(1), "vocative_hits", offset + match.start())
 
-    ranked: list[tuple[str, int, int, int]] = []
+    ranked: list[tuple[str, int, int, int, int, int]] = []
     for name, item in scores.items():
         total_mentions = sum(chapter.text.count(name) for chapter in chapters)
-        if item["speaker_hits"] < 1 or total_mentions < 2:
+        speaker_hits = int(item["speaker_hits"])
+        action_hits = int(item["action_hits"])
+        vocative_hits = int(item["vocative_hits"])
+        strong_contexts = speaker_hits + action_hits + vocative_hits
+        if total_mentions < 2:
             continue
-        ranked.append((name, item["speaker_hits"], total_mentions, item["first"]))
-    ranked.sort(key=lambda item: (-item[1], -item[2], item[3], item[0]))
+        if speaker_hits < 1 and vocative_hits < 1 and action_hits < 2:
+            continue
+        score = speaker_hits * 8 + vocative_hits * 6 + action_hits * 3 + min(total_mentions, 20)
+        ranked.append((name, score, speaker_hits, action_hits, vocative_hits, int(item["first"])))
+
+    ranked.sort(key=lambda item: (-item[1], -item[2], -item[3], -item[4], item[5], item[0]))
 
     return [
         {
@@ -85,7 +144,8 @@ def infer_character_lexicon(chapters: tuple[ChapterText, ...], ip_code: str, *, 
             "name": name,
             "aliases": [],
         }
-        for index, (name, _speaker_hits, _mentions, _first) in enumerate(ranked[: max(1, int(limit))], start=1)
+        for index, (name, _score, _speaker_hits, _action_hits, _vocative_hits, _first)
+        in enumerate(ranked[: max(1, int(limit))], start=1)
     ]
 
 
