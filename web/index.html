@@ -186,6 +186,11 @@
                 <option value="COMFYUI_IMAGE">ComfyUI · 本地视觉工厂</option>
                 <option value="OPENAI_IMAGE">OpenAI Image · 高质量远程回退</option>
               </select>
+              <label class="field-label" for="imageStudioStylePreset">画面风格</label>
+              <select id="imageStudioStylePreset" class="select-field">
+                <option value="GUOFENG_ANCIENT_CHINA">中国古风</option>
+              </select>
+              <p class="helper-text" id="imageStudioStyleHint">《照骨灯》默认中国古风；每种风格自动切换 Prompt / Negative / 可选 LoRA。</p>
               <div class="image-routing-banner">
                 <div><small>最终视觉路由</small><strong id="imageStudioRoute">IMAGE_PROVIDER_ROUTER</strong></div>
                 <span id="imageStudioBlenderRole">Blender · AUXILIARY_3D_CONTROL</span>
@@ -224,6 +229,22 @@
                   <span id="imageStudioComfyModelProgressBar"></span>
                 </div>
                 <small class="comfy-model-detail" id="imageStudioComfyModelDetail">ComfyUI 核心安装完成后即可一键安装；下载支持断点续传。</small>
+              </div>
+
+              <div class="comfy-model-card" id="imageStudioComfyLoraCard">
+                <div class="comfy-model-head">
+                  <div><small>OPTIONAL STYLE LORA</small><strong id="imageStudioComfyLoraName">中国国风 LoRA</strong></div>
+                  <span class="status-dot off" id="imageStudioComfyLoraStatus">NOT INSTALLED</span>
+                </div>
+                <p id="imageStudioComfyLoraMeta">SDXL 国风插画增强 · 约 0.34 GB · openrail++ · 安装后自动由中国古风预设加载</p>
+                <div class="comfy-model-actions">
+                  <button class="secondary-button small-button" id="imageStudioInstallLora">↓ 安装国风 LoRA</button>
+                  <span class="muted" id="imageStudioComfyLoraSize">0%</span>
+                </div>
+                <div class="comfy-model-progress">
+                  <span id="imageStudioComfyLoraProgressBar"></span>
+                </div>
+                <small class="comfy-model-detail" id="imageStudioComfyLoraDetail">未安装时仍可使用 Prompt 风格锁；安装后中国古风 / 仙侠 / 武侠 / 水墨预设自动增强。</small>
               </div>
 
               <label class="field-label" for="imageStudioKey">OpenAI API Key（Fallback）</label>
