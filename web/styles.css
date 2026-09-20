@@ -227,3 +227,11 @@ body.rig-v2-open { overflow: hidden; }
 .comfy-service-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:9px}.comfy-service-actions .secondary-button{width:auto}.comfy-service-actions .status-dot{margin-left:auto}.comfy-service-actions button:disabled{opacity:.45;cursor:not-allowed}@media(max-width:620px){.comfy-service-actions .status-dot{margin-left:0}.comfy-service-actions .secondary-button{flex:1}}
 
 .comfy-install-progress{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:10px;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:#0f1218}.comfy-install-progress>div{display:grid;gap:4px}.comfy-install-progress strong{font-size:11px}.comfy-install-progress small{color:var(--muted);font-size:9px}.comfy-install-progress.hidden{display:none}@media(max-width:620px){.comfy-install-progress{align-items:flex-start;flex-direction:column}}
+
+
+.comfy-model-card{display:grid;gap:10px;margin-top:12px;padding:13px;border:1px solid rgba(105,213,160,.24);border-radius:12px;background:rgba(105,213,160,.045)}
+.comfy-model-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.comfy-model-head>div{display:grid;gap:4px}.comfy-model-head small{font-size:8px;color:var(--muted);letter-spacing:.08em}.comfy-model-head strong{font-size:12px}
+.comfy-model-card p{margin:0;color:var(--muted);font-size:9px;line-height:1.55}.comfy-model-actions{display:flex;align-items:center;gap:10px}.comfy-model-actions .secondary-button{width:auto}.comfy-model-actions .muted{margin-left:auto;font-size:10px}
+.comfy-model-progress{height:7px;border-radius:999px;overflow:hidden;border:1px solid var(--line);background:#0b0e13}.comfy-model-progress span{display:block;width:0;height:100%;background:linear-gradient(90deg,#4c765f,#69d5a0);transition:width .25s ease}
+.comfy-model-detail{color:var(--muted);font-size:9px;line-height:1.5;overflow-wrap:anywhere}
+@media(max-width:620px){.comfy-model-head,.comfy-model-actions{align-items:flex-start;flex-direction:column}.comfy-model-actions .muted{margin-left:0}.comfy-model-actions .secondary-button{width:100%}}
