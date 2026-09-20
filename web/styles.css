@@ -245,3 +245,10 @@ body.rig-v2-open { overflow: hidden; }
 .image-generation-progress-head>span{font-size:11px;font-weight:700}
 .image-generation-progress-track{height:8px;border-radius:999px;overflow:hidden;border:1px solid var(--line);background:#0b0e13}
 .image-generation-progress-track>span{display:block;width:0;height:100%;background:linear-gradient(90deg,#4c765f,#69d5a0);transition:width .2s ease}
+
+
+/* Image Studio state visibility must beat component display rules. */
+.image-studio-empty.hidden,
+.image-studio-result.hidden{display:none !important}
+.image-studio-preview-error{display:none;padding:12px;border:1px solid rgba(220,96,96,.35);border-radius:10px;background:rgba(220,96,96,.06);color:#e7a4a4;font-size:10px;line-height:1.55}
+.image-studio-preview-error.visible{display:block}
