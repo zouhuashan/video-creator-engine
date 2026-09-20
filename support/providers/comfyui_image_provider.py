@@ -129,6 +129,9 @@ class ComfyUIImageProvider:
         positive = str(prompt or "").strip()
         if not positive:
             raise ComfyUIImageError("image prompt is empty")
+        prefix = str(self.config.get("positive_prompt_prefix") or "").strip()
+        if prefix:
+            positive = f"{prefix}, {positive}"
         negative = str(negative_prompt if negative_prompt is not None else self.config.get("negative_prompt") or "watermark, text, logo, malformed hands, extra fingers, duplicate limbs, low quality")
         chosen_seed = int(seed if seed is not None else time.time_ns() % (2**53 - 1))
         return {
