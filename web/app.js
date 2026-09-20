@@ -1005,18 +1005,43 @@ function renderImageStudio() {
   $('#imageStudioBlenderRole').textContent = `Blender · ${routing.blender_role || 'AUXILIARY_3D_CONTROL'}`;
   $('#imageStudioComfyUrl').value = comfyui.base_url || 'http://127.0.0.1:8188';
   const service = comfyui.service || {};
+  const installer = comfyui.installer || {};
   const serviceState = service.state || (localReady ? 'RUNNING' : 'UNKNOWN');
+  const installRunning = installer.status === 'RUNNING';
+  const installReady = Boolean(installer.installed || service.installed);
   $('#imageStudioComfyServiceStatus').textContent = serviceState;
   $('#imageStudioComfyServiceStatus').classList.toggle('off', serviceState !== 'RUNNING');
-  $('#imageStudioStartComfy').disabled = Boolean(service.managed) || Boolean(service.connected);
+  $('#imageStudioInstallComfy').disabled = installRunning || serviceState === 'RUNNING';
+  $('#imageStudioInstallComfy').textContent = installRunning ? '安装中…' : (installReady ? '↻ 修复 / 更新 ComfyUI' : '↓ 安装 ComfyUI');
+  $('#imageStudioStartComfy').disabled = installRunning || !installReady || Boolean(service.managed) || Boolean(service.connected);
   $('#imageStudioStopComfy').disabled = !Boolean(service.managed);
   $('#imageStudioComfyHint').textContent = localReady
     ? `本地 ComfyUI 已连接 · ${comfyui.checkpoint_count || 0} 个 checkpoint · 不产生远程 API 费用。`
     : `${service.detail || 'ComfyUI 服务未就绪'} · ${comfyui.detail || ''}`.replace(/ · $/, '');
+
+  const progress = $('#imageStudioComfyInstallProgress');
+  if (installRunning || installer.status === 'FAIL' || installer.status === 'PASS') {
+    progress.classList.remove('hidden');
+    $('#imageStudioComfyInstallStep').textContent = installer.step || '—';
+    $('#imageStudioComfyInstallDetail').textContent = installer.detail || '—';
+    $('#imageStudioComfyInstallState').textContent = installer.status || '—';
+  } else {
+    progress.classList.add('hidden');
+  }
+
   const installHint = $('#imageStudioComfyInstallHint');
-  if (serviceState === 'NOT_INSTALLED') {
+  if (installRunning) {
     installHint.classList.remove('hidden');
-    installHint.textContent = 'VideoCreator 没有检测到 ComfyUI 安装目录。启动按钮不会自动安装大型模型；安装完成后或设置 COMFYUI_HOME 后可由这里直接启动。';
+    installHint.textContent = `正在安装核心运行环境 · 日志：${installer.log_path || 'logs/comfyui-install.log'}。不会自动下载 checkpoint 模型。`;
+  } else if (serviceState === 'NOT_INSTALLED') {
+    installHint.classList.remove('hidden');
+    installHint.textContent = '未检测到 ComfyUI。可以直接点击“安装 ComfyUI”；核心环境会安装到项目 .dependencies/ComfyUI，不污染系统 Python，也不会自动下载大型模型。';
+  } else if (installer.status === 'PASS' && !comfyui.checkpoint_count) {
+    installHint.classList.remove('hidden');
+    installHint.textContent = 'ComfyUI 核心已安装。当前还没有 checkpoint 模型；服务可以启动，但生图还需要下一步选择模型。';
+  } else if (installer.status === 'FAIL') {
+    installHint.classList.remove('hidden');
+    installHint.textContent = `ComfyUI 安装失败：${installer.detail || '请查看安装日志'} · ${installer.log_path || 'logs/comfyui-install.log'}`;
   } else if (service.home) {
     installHint.classList.remove('hidden');
     installHint.textContent = `检测目录：${service.home} · 日志：${service.log_path || 'logs/comfyui-service.log'}`;
@@ -1115,6 +1140,47 @@ async function waitForComfyUIReady(maxChecks = 24) {
     await new Promise((resolve) => window.setTimeout(resolve, 1000));
   }
   return api('/api/comfyui/service/status');
+}
+
+async function refreshComfyUIInstallStatus() {
+  const installer = await api('/api/comfyui/install/status');
+  if (state.imageStudio) {
+    const providers = state.imageStudio.providers || [];
+    const comfyui = providers.find((item) => item.provider_id === 'COMFYUI_IMAGE' || item.id === 'comfyui_image');
+    if (comfyui) comfyui.installer = installer;
+    renderImageStudio();
+  }
+  return installer;
+}
+
+async function installComfyUI() {
+  const button = $('#imageStudioInstallComfy');
+  button.disabled = true;
+  button.textContent = '安装中…';
+  try {
+    await api('/api/comfyui/install/start', { method: 'POST' });
+    log('ComfyUI 核心安装已启动；不会自动下载 checkpoint 模型。');
+    let installer = await refreshComfyUIInstallStatus();
+    for (let index = 0; index < 600 && installer.status === 'RUNNING'; index += 1) {
+      await new Promise((resolve) => window.setTimeout(resolve, 2000));
+      installer = await refreshComfyUIInstallStatus();
+    }
+    await loadImageStudio(state.imageStudioProjectId);
+    if (installer.status === 'PASS') {
+      log('ComfyUI 核心安装完成。下一步可以启动服务；若没有 checkpoint，页面会继续提示模型未安装。');
+    } else if (installer.status !== 'RUNNING') {
+      log(`ComfyUI 安装未完成：${installer.detail || installer.status || '未知错误'}`, true);
+    }
+  } catch (error) {
+    log(error.message, true);
+    await loadImageStudio(state.imageStudioProjectId).catch(() => {});
+  } finally {
+    button.disabled = false;
+    const providers = state.imageStudio?.providers || [];
+    const comfyui = providers.find((item) => item.provider_id === 'COMFYUI_IMAGE' || item.id === 'comfyui_image') || {};
+    const installed = Boolean(comfyui.installer?.installed || comfyui.service?.installed);
+    button.textContent = installed ? '↻ 修复 / 更新 ComfyUI' : '↓ 安装 ComfyUI';
+  }
 }
 
 async function startComfyUIService() {
@@ -1390,6 +1456,7 @@ $('#pipelineApproveButton').addEventListener('click', approvePipeline);
 $('#imageStudioProject').addEventListener('change', (event) => loadImageStudio(event.target.value).catch((error) => log(error.message, true)));
 $('#imageStudioSaveKey').addEventListener('click', saveImageStudioKey);
 $('#imageStudioSaveComfy').addEventListener('click', saveComfyUIEndpoint);
+$('#imageStudioInstallComfy').addEventListener('click', installComfyUI);
 $('#imageStudioStartComfy').addEventListener('click', startComfyUIService);
 $('#imageStudioStopComfy').addEventListener('click', stopComfyUIService);
 $('#imageStudioProviderSelect').addEventListener('change', (event) => {
