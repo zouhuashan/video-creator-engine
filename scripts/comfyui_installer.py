@@ -313,6 +313,8 @@ def _venv_matches_bootstrap(venv_python: Path, bootstrap_python: str, env: dict[
         return False, "cannot identify Python runtime"
     if bootstrap[:2] != existing[:2]:
         return False, f"Python version changed: venv={existing[0]}.{existing[1]} bootstrap={bootstrap[0]}.{bootstrap[1]}"
+    if bootstrap[2] != existing[2]:
+        return False, f"Python runtime changed: venv_base={existing[2]} bootstrap_base={bootstrap[2]}"
     ok, detail = _https_probe(str(venv_python), env)
     if not ok:
         return False, f"existing venv TLS probe failed: {detail.splitlines()[-1] if detail else 'unknown TLS failure'}"
@@ -323,12 +325,11 @@ def _rebuild_venv(log, reason: str) -> None:
     venv_dir = INSTALL_DIR / ".venv"
     if not venv_dir.exists():
         return
-    backup = INSTALL_DIR / f".venv.broken-{int(time.time())}"
     log.write(f"rebuilding venv: {reason}\n".encode("utf-8", errors="replace"))
-    log.write(f"moving old venv to {backup}\n".encode("utf-8", errors="replace"))
+    log.write(b"removing disposable stale venv\n")
     log.flush()
     try:
-        venv_dir.rename(backup)
+        shutil.rmtree(venv_dir)
     except OSError as error:
         raise ComfyUIInstallError(f"无法重建旧虚拟环境: {error}") from error
 
