@@ -92,6 +92,13 @@ class ComfyUIImageProviderTests(unittest.TestCase):
         self.assertEqual(workflow["4"]["inputs"]["height"], 1536)
         self.assertEqual(workflow["7"]["class_type"], "SaveImage")
 
+    def test_image_payload_magic_validation(self):
+        self.assertTrue(ComfyUIImageProvider._valid_image_payload(b"\x89PNG\r\n\x1a\nrest"))
+        self.assertTrue(ComfyUIImageProvider._valid_image_payload(b"\xff\xd8\xffrest"))
+        self.assertTrue(ComfyUIImageProvider._valid_image_payload(b"RIFF1234WEBPrest"))
+        self.assertFalse(ComfyUIImageProvider._valid_image_payload(b"<html>proxy error</html>"))
+        self.assertFalse(ComfyUIImageProvider._valid_image_payload(b""))
+
     def test_generate_rejects_invalid_client_id(self):
         provider = ComfyUIImageProvider(self.base_url, timeout_seconds=2)
         with tempfile.TemporaryDirectory() as directory:
