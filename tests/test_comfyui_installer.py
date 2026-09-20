@@ -35,7 +35,9 @@ class ComfyUIInstallerTests(unittest.TestCase):
             self.assertIn(installer.MANAGED_PYTHON_REQUEST, command)
             self.assertIn("--install-dir", command)
             self.assertEqual(env["UV_PYTHON_INSTALL_DIR"], str(managed_dir))
-            self.assertEqual(env["UV_PYTHON_PREFERENCE"], "only-managed")
+            self.assertNotIn("UV_MANAGED_PYTHON", env)
+            self.assertNotIn("UV_PYTHON_PREFERENCE", env)
+            self.assertNotIn("UV_NO_MANAGED_PYTHON", env)
 
     def test_uv_managed_venv_uses_seed_and_exact_private_python(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -112,6 +114,28 @@ class ComfyUIInstallerTests(unittest.TestCase):
             self.assertEqual(result["status"], "PASS")
             self.assertEqual(result["python_source"], "uv-managed-project-private")
             system_runtime.assert_not_called()
+
+    def test_managed_uv_env_scrubs_mutually_exclusive_python_policy(self):
+        env = installer._managed_uv_env({
+            "UV_MANAGED_PYTHON": "1",
+            "UV_PYTHON_PREFERENCE": "only-managed",
+            "UV_NO_MANAGED_PYTHON": "1",
+            "PATH": "/usr/bin",
+        })
+        self.assertNotIn("UV_MANAGED_PYTHON", env)
+        self.assertNotIn("UV_PYTHON_PREFERENCE", env)
+        self.assertNotIn("UV_NO_MANAGED_PYTHON", env)
+        self.assertEqual(env["UV_NO_MODIFY_PATH"], "1")
+
+    def test_apple_silicon_rejects_broken_arm64_system_python(self):
+        with patch.object(installer.shutil, "which", side_effect=lambda name: "/opt/homebrew/python3.14" if name == "python3.14" else None), \
+             patch.object(installer, "_python_version", return_value=(3, 14)), \
+             patch.object(installer, "_apple_silicon_host", return_value=True), \
+             patch.object(installer, "_python_machine", return_value="arm64"), \
+             patch.object(installer, "_python_runtime_healthy", return_value=(False, "platform.mac_ver() returned empty value")), \
+             patch.object(installer.sys, "executable", "/opt/homebrew/python3.14"):
+            candidates = installer._python_candidates()
+        self.assertNotIn("/opt/homebrew/python3.14", candidates)
 
     def test_apple_silicon_rejects_x86_python_candidate(self):
         with patch.object(installer.shutil, "which", side_effect=lambda name: {
