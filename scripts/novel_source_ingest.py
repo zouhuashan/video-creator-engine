@@ -89,6 +89,30 @@ def infer_character_lexicon(chapters: tuple[ChapterText, ...], ip_code: str, *, 
     ]
 
 
+def extract_character_candidates_from_text(source_text: str, ip_code: str) -> dict[str, Any]:
+    normalized = str(source_text or "").replace("\r\n", "\n").replace("\r", "\n").strip()
+    if not normalized:
+        raise NovelSourceIngestError("source text is empty")
+    source_bytes = normalized.encode("utf-8")
+    if len(source_bytes) > MAX_SOURCE_BYTES:
+        raise NovelSourceIngestError(f"source text exceeds {MAX_SOURCE_BYTES // (1024 * 1024)} MB")
+    chapters = split_chapters(normalized, ip_code)
+    lexicon = {
+        "characters": infer_character_lexicon(chapters, ip_code),
+        "locations": [],
+        "props": [],
+    }
+    try:
+        extraction = LocalLexiconExtractor().extract(chapters, lexicon)
+    except StoryExtractionError as error:
+        raise NovelSourceIngestError(str(error)) from error
+    return {
+        "source_sha256": _sha256_bytes(source_bytes),
+        "chapter_count": len(chapters),
+        "provider": extraction.provider,
+        "characters": list(extraction.characters),
+    }
+
 def _sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
