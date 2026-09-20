@@ -49,6 +49,16 @@ class WebServerTests(unittest.TestCase):
         self.assertNotIn("secret-value", str(openai))
         self.assertEqual(openai["env"], "OPENAI_API_KEY")
 
+    def test_image_file_valid_detects_png_and_rejects_html(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            png = root / "ok.png"
+            png.write_bytes(b"\x89PNG\r\n\x1a\nrest")
+            html = root / "bad.png"
+            html.write_bytes(b"<html>not an image</html>")
+            self.assertTrue(web_server._image_file_valid(png))
+            self.assertFalse(web_server._image_file_valid(html))
+
     def test_media_url_encodes_each_path_segment(self):
         project = Path("/tmp/demo-project")
         url = web_server._media_url(
