@@ -20,6 +20,60 @@ class ComfyUIServiceManagerTests(unittest.TestCase):
         self.assertFalse(result["installed"])
         self.assertFalse(result["managed"])
 
+    def test_isolated_python_env_removes_web_python_contamination(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            home = root / "ComfyUI"
+            venv = home / ".venv"
+            python = venv / "bin" / "python"
+            python.parent.mkdir(parents=True)
+            python.write_text("", encoding="utf-8")
+
+            polluted = {
+                "PYTHONPATH": str(root / ".web-python"),
+                "PYTHONHOME": "/tmp/python-home",
+                "PYTHONUSERBASE": "/tmp/user-base",
+                "PYTHONSTARTUP": "/tmp/startup.py",
+                "PATH": "/usr/bin",
+                "HTTPS_PROXY": "http://127.0.0.1:7897",
+            }
+            with patch.dict(manager.os.environ, polluted, clear=True):
+                env = manager._isolated_python_env(home, python)
+
+            self.assertNotIn("PYTHONPATH", env)
+            self.assertNotIn("PYTHONHOME", env)
+            self.assertNotIn("PYTHONUSERBASE", env)
+            self.assertNotIn("PYTHONSTARTUP", env)
+            self.assertEqual(env["PYTHONNOUSERSITE"], "1")
+            self.assertEqual(env["VIRTUAL_ENV"], str(venv))
+            self.assertTrue(env["PATH"].startswith(str(venv / "bin")))
+            self.assertEqual(env["HTTPS_PROXY"], "http://127.0.0.1:7897")
+
+    def test_dependency_smoke_uses_isolated_env_and_native_pillow_imports(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            home = root / "ComfyUI"
+            home.mkdir()
+            (home / "requirements.txt").write_text("pillow\n", encoding="utf-8")
+            python = home / ".venv" / "bin" / "python"
+            python.parent.mkdir(parents=True)
+            python.write_text("", encoding="utf-8")
+            completed = Mock(returncode=0, stdout='{"issues":[]}\n', stderr="")
+
+            with patch.dict(manager.os.environ, {"PYTHONPATH": str(root / ".web-python")}, clear=True), \
+                 patch.object(manager.subprocess, "run", return_value=completed) as run:
+                ok, detail = manager._runtime_dependency_smoke(python, home)
+
+            self.assertTrue(ok)
+            self.assertEqual(detail, "")
+            kwargs = run.call_args.kwargs
+            self.assertNotIn("PYTHONPATH", kwargs["env"])
+            command = run.call_args.args[0]
+            script = command[2]
+            self.assertIn("PIL.Image", script)
+            self.assertIn("PIL._imaging", script)
+            self.assertIn("WEB_PYTHON_CONTAMINATION", script)
+
     def test_python_for_preserves_venv_symlink_path(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
