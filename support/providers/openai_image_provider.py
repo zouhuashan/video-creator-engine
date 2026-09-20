@@ -120,9 +120,19 @@ def character_bible_prompt(
     extra = str(custom_prompt or "").strip()
     style = str(style_direction or "").strip()
     forbidden = str(forbidden_direction or "").strip()
+    is_3d = "3d" in style.lower()
     parts = [
-        "Create one polished production character-design board for a premium animated series. ",
+        (
+            "Create one polished 3D production character-turnaround board for a premium animated feature. "
+            if is_3d
+            else "Create one polished production character-design board for a premium animated series. "
+        ),
         f"Style direction: {style}. " if style else "Use a premium Chinese guofeng donghua direction. ",
+        (
+            "Every panel must be a camera render of the same fully modeled three-dimensional character; preserve true volume, perspective, material thickness and consistent studio lighting. Do not present flat painted views. "
+            if is_3d
+            else ""
+        ),
         "The SAME character must appear consistently in every panel. ",
         "Include: large hero portrait, front full body, three-quarter full body, side profile, ",
         "back view, five facial expressions, and small costume/hair detail callouts. ",
@@ -131,7 +141,11 @@ def character_bible_prompt(
         f"Body: {lock['body']}. Mood: {lock['mood']}. ",
         f"Rendering: {render['medium']}; {render['shading']}. Lighting: {render['lighting']}. ",
         f"Palette: {', '.join(render['palette'])}. ",
-        "Use a clean elegant concept-board layout with a neutral warm background. ",
+        (
+            "Use a clean premium 3D turnaround-sheet layout with a neutral studio cyclorama/background; the beauty portrait should feel like a finished film character render. "
+            if is_3d
+            else "Use a clean elegant concept-board layout with a neutral warm background. "
+        ),
         f"Forbidden style/content: {forbidden}. " if forbidden else "No app UI, no watermark, no random extra characters. ",
         f"Hard consistency rules: {rules}. ",
     ]
@@ -154,8 +168,13 @@ def keyframe_prompt(
     extra = str(custom_prompt or "").strip()
     style = str(style_direction or "").strip()
     forbidden = str(forbidden_direction or "").strip()
+    is_3d = "3d" in style.lower()
     parts = [
-        "Create a finished cinematic keyframe for a premium animated series. ",
+        (
+            "Create a finished cinematic 3D keyframe for a premium animated feature. "
+            if is_3d
+            else "Create a finished cinematic keyframe for a premium animated series. "
+        ),
         f"Style direction: {style}. " if style else "Use a premium Chinese guofeng donghua set in ancient China / Chinese fantasy. ",
         f"The hero must exactly match the locked identity for {character['name']} ({character['role']}). ",
         f"Locked face: {lock['face']}. Locked hair: {lock['hair']}. ",
@@ -165,7 +184,11 @@ def keyframe_prompt(
         f"Camera: {camera['framing']}, {camera['lens_language']}, {camera['angle']}, ",
         f"DOF {camera['depth_of_field']}. ",
         f"Visual medium: {render['medium']}; {render['shading']}. ",
-        "Composition should feel like a frame from a high-end animated feature: readable eye-line, layered cloth, natural hair masses, cinematic atmospheric depth, refined anime/NPR finish. ",
+        (
+            "Composition must read as a true 3D film frame: sculpted facial volume, dimensional hair geometry, cloth thickness and folds, perspective, contact shadows, cinematic key/fill/rim lighting, atmospheric depth and real depth of field; stylized NPR/toon finish with believable material response. "
+            if is_3d
+            else "Composition should feel like a frame from a high-end animated feature: readable eye-line, layered cloth, natural hair masses, cinematic atmospheric depth, refined anime/NPR finish. "
+        ),
     ]
     if forbidden:
         parts.append(f"Forbidden style/content: {forbidden}. ")
