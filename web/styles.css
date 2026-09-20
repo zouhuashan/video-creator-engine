@@ -261,3 +261,4 @@ body.rig-v2-open { overflow: hidden; }
 .image-character-repair small{color:var(--muted);font-size:9px;line-height:1.55}
 .image-character-repair .novel-file-drop{margin:0}
 .image-character-repair .secondary-button{width:100%}
+\n.repository-row button.danger-action{border-color:rgba(225,98,98,.45);background:rgba(225,98,98,.08);color:#f0a1a1}.repository-row button.danger-action:hover{background:rgba(225,98,98,.16)}\n
