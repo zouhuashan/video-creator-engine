@@ -1136,9 +1136,29 @@ function renderImageStudio() {
   $('#imageStudioCharacterLock').innerHTML = `<strong>${escapeHtml(character.character_id || 'CHAR-CHILD-001')} · ${escapeHtml(character.name || '营地小女孩')}</strong><small>${escapeHtml(lock.face || '')}</small><small>${escapeHtml(lock.hair || '')}</small><small>${escapeHtml(lock.costume || '')}</small>`;
 
   const items = data?.items || [];
+  const recentElsewhere = data?.recent_elsewhere || [];
   $('#imageStudioCount').textContent = `${items.length} 张`;
   if (!items.length) {
-    $('#imageStudioGallery').innerHTML = '<div class="empty-state">还没有 AI 生图资产。</div>';
+    if (recentElsewhere.length) {
+      $('#imageStudioGallery').innerHTML = recentElsewhere.map((item) => `
+        <button class="image-studio-thumb image-studio-foreign-thumb" data-image-studio-project="${escapeHtml(item.project_id)}">
+          <img src="${escapeHtml(item.media_url)}" alt="${escapeHtml(item.artifact_type || 'image')}" loading="lazy">
+          <span>
+            <strong>其他项目最近生成</strong>
+            <small>属于《${escapeHtml(item.project_title || item.project_id)}》 · 点击切换查看</small>
+          </span>
+        </button>
+      `).join('');
+      document.querySelectorAll('[data-image-studio-project]').forEach((button) => button.addEventListener('click', () => {
+        const projectId = setActiveNovelProject(button.dataset.imageStudioProject);
+        if (!projectId) return;
+        loadImageStudio(projectId)
+          .then(() => log(`已切换到包含最近生图的项目：${projectId}`))
+          .catch((error) => log(error.message, true));
+      }));
+    } else {
+      $('#imageStudioGallery').innerHTML = '<div class="empty-state">当前项目还没有 AI 生图资产。</div>';
+    }
     return;
   }
   $('#imageStudioGallery').innerHTML = items.map((item, index) => `
@@ -1201,9 +1221,10 @@ function showImageStudioResult(item) {
   $('#imageStudioReview').textContent = item.review_status || 'PENDING';
 }
 
-async function loadImageStudio(projectId = state.imageStudioProjectId || state.animeProjects[0]?.directory_id) {
+async function loadImageStudio(projectId = resolveActiveNovelProject(state.imageStudioProjectId)) {
   if (!projectId) return;
-  state.imageStudioProjectId = projectId;
+  if (state.animeProjects.some((item) => item.directory_id === projectId)) setActiveNovelProject(projectId);
+  else state.imageStudioProjectId = projectId;
   state.imageStudio = await api(`/api/image-studio/status?project_id=${encodeURIComponent(projectId)}`);
   renderImageStudio();
 }
