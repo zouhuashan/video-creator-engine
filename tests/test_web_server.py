@@ -249,14 +249,84 @@ class WebServerTests(unittest.TestCase):
         self.assertIn('OWNED_OR_LICENSED', app)
         self.assertIn("TextDecoder('utf-8', { fatal: true })", app)
 
-    def test_web_exposes_character_repair_flow(self):
+    def test_web_exposes_automatic_character_bootstrap_without_txt_reupload(self):
         index = (web_server.WEB_ROOT / "index.html").read_text(encoding="utf-8")
         app = (web_server.WEB_ROOT / "app.js").read_text(encoding="utf-8")
-        self.assertIn('id="imageStudioCharacterSourceFile"', index)
+        self.assertNotIn('id="imageStudioCharacterSourceFile"', index)
         self.assertIn('id="imageStudioCharacterRepairButton"', index)
-        self.assertIn("/api/image-studio/character-candidates", app)
-        self.assertIn("repairImageStudioCharacters", app)
+        self.assertIn("/api/image-studio/character-bootstrap", app)
+        self.assertIn("bootstrapImageStudioCharacters", app)
         self.assertIn("handleCharacterBibleAction", app)
+        self.assertIn("无需重新上传 TXT", index)
+
+    def test_web_exposes_project_delete_action(self):
+        app = (web_server.WEB_ROOT / "app.js").read_text(encoding="utf-8")
+        self.assertIn("data-delete-anime-project", app)
+        self.assertIn("/api/novel-anime/delete", app)
+        self.assertIn("confirm_delete: true", app)
+
+    def test_delete_novel_project_removes_project_and_returns_newest_default(self):
+        with tempfile.TemporaryDirectory() as directory:
+            projects_root = Path(directory)
+            older = projects_root / "older"
+            newer = projects_root / "newer"
+            write_project(older, build_project("older", "OLD", "旧项目"))
+            write_project(newer, build_project("newer", "NEW", "新项目"))
+            NovelAnimeRepository(older).initialize()
+            NovelAnimeRepository(newer).initialize()
+            NovelAnimeRuntime(older).initialize()
+            NovelAnimeRuntime(newer).initialize()
+            write_catalog(older, build_catalog("older", "IP-OLD", "旧项目"))
+            write_catalog(newer, build_catalog("newer", "IP-NEW", "新项目"))
+            write_bible(older, build_bible(older))
+            write_bible(newer, build_bible(newer))
+            write_plan(older, build_plan(older))
+            write_plan(newer, build_plan(newer))
+            write_episode_planning(older, build_episode_planning(older))
+            write_episode_planning(newer, build_episode_planning(newer))
+            write_script_package(older, build_script_package(older))
+            write_script_package(newer, build_script_package(newer))
+            write_report(older, audit_story(older))
+            write_report(newer, audit_story(newer))
+            write_visual_bible(older, build_visual_bible(older))
+            write_visual_bible(newer, build_visual_bible(newer))
+            write_character_designs(older, build_character_designs(older))
+            write_character_designs(newer, build_character_designs(newer))
+            write_environment_assets(older, build_environment_assets(older))
+            write_environment_assets(newer, build_environment_assets(newer))
+            write_asset_review(older, build_asset_review(older))
+            write_asset_review(newer, build_asset_review(newer))
+            write_shot_breakdown(older, build_shot_breakdown(older))
+            write_shot_breakdown(newer, build_shot_breakdown(newer))
+            write_storyboard(older, build_storyboard(older))
+            write_storyboard(newer, build_storyboard(newer))
+            write_animatic(older, build_animatic(older))
+            write_animatic(newer, build_animatic(newer))
+            write_review(older, build_review(older))
+            write_review(newer, build_review(newer))
+            write_voice_profiles(older, build_voice_profiles(older))
+            write_voice_profiles(newer, build_voice_profiles(newer))
+            write_audio_assets(older, build_audio_assets(older))
+            write_audio_assets(newer, build_audio_assets(newer))
+            write_audio_mix(older, build_audio_mix(older))
+            write_audio_mix(newer, build_audio_mix(newer))
+            write_dynamic_shots(older, build_dynamic_shots(older))
+            write_dynamic_shots(newer, build_dynamic_shots(newer))
+            write_edit_timelines(older, build_edit_timelines(older))
+            write_edit_timelines(newer, build_edit_timelines(newer))
+            write_qc_report(older, build_qc_report(older))
+            write_qc_report(newer, build_qc_report(newer))
+
+            with patch.object(web_server, "PROJECTS_ROOT", projects_root):
+                web_server._NOVEL_PROJECT_CACHE.clear()
+                with self.assertRaisesRegex(ValueError, "confirm_delete"):
+                    web_server._delete_novel_project("older", confirmed=False)
+                result = web_server._delete_novel_project("older", confirmed=True)
+
+            self.assertEqual(result["status"], "DELETED")
+            self.assertFalse(older.exists())
+            self.assertEqual(result["default_project_id"], "newer")
+            self.assertTrue(newer.exists())
 
     def test_web_exposes_managed_comfyui_controls(self):
         index = (web_server.WEB_ROOT / "index.html").read_text(encoding="utf-8")
