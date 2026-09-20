@@ -4,11 +4,41 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from scripts.pipeline_orchestrator import _qc_with_retry, pipeline_status, run_pipeline, update_pipeline_review, PipelineError
+from scripts.pipeline_orchestrator import _qc_with_retry, pipeline_preflight, pipeline_status, run_pipeline, update_pipeline_review, PipelineError
 from support.providers.comfyui_image_provider import ComfyUIImageError
 
 
 class PipelineOrchestratorTests(unittest.TestCase):
+    def test_preflight_reports_local_runtime_without_generating_media(self):
+        class FakeComfy:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def health(self, **kwargs):
+                return {"connected": True}
+
+            def available_checkpoints(self, **kwargs):
+                return ["local-test.safetensors"]
+
+            def choose_checkpoint(self, checkpoints):
+                return checkpoints[0]
+
+        with tempfile.TemporaryDirectory() as directory:
+            projects = Path(directory)
+            project = projects / "demo-project"
+            project.mkdir()
+            (project / "novel-anime-project.json").write_text('{"project_id":"demo-project"}\n', encoding="utf-8")
+            with patch("scripts.pipeline_orchestrator.ComfyUIImageProvider", FakeComfy), \
+                 patch("scripts.pipeline_orchestrator.shutil.which", side_effect=lambda name: f"/usr/bin/{name}"):
+                result = pipeline_preflight("demo-project", projects)
+            self.assertEqual(result["status"], "READY")
+            self.assertTrue(result["comfyui"]["connected"])
+            self.assertEqual(result["comfyui"]["checkpoint"], "local-test.safetensors")
+            self.assertTrue(result["tools"]["ffmpeg"])
+            self.assertTrue(result["tools"]["ffprobe"])
+            self.assertEqual(result["blockers"], [])
+            self.assertFalse((project / "pipeline").exists())
+
     def test_dry_run_builds_machine_manifest_without_remote_generation(self):
         with tempfile.TemporaryDirectory() as directory:
             projects = Path(directory)
