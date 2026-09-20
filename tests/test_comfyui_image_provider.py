@@ -11,6 +11,7 @@ from support.providers.comfyui_image_provider import ComfyUIImageProvider
 
 class FakeComfyHandler(BaseHTTPRequestHandler):
     workflow = None
+    client_id = None
 
     def log_message(self, *_args):
         pass
@@ -47,6 +48,7 @@ class FakeComfyHandler(BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length", "0"))
         payload = json.loads(self.rfile.read(length).decode())
         type(self).workflow = payload["prompt"]
+        type(self).client_id = payload.get("client_id")
         self._json({"prompt_id": "prompt-1", "number": 1})
 
 
@@ -70,10 +72,17 @@ class ComfyUIImageProviderTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "frame.png"
-            result = provider.generate("premium guofeng animation frame", output, size="1024x1536")
+            result = provider.generate(
+                "premium guofeng animation frame",
+                output,
+                size="1024x1536",
+                client_id="videocreator-test-client",
+            )
             self.assertEqual(result["provider"], "comfyui_image")
             self.assertEqual(result["model"], "guofeng-test.safetensors")
             self.assertEqual(result["prompt_id"], "prompt-1")
+            self.assertEqual(result["client_id"], "videocreator-test-client")
+            self.assertEqual(FakeComfyHandler.client_id, "videocreator-test-client")
             self.assertTrue(output.is_file())
             self.assertGreater(output.stat().st_size, 8)
 
@@ -82,6 +91,18 @@ class ComfyUIImageProviderTests(unittest.TestCase):
         self.assertEqual(workflow["4"]["inputs"]["width"], 1024)
         self.assertEqual(workflow["4"]["inputs"]["height"], 1536)
         self.assertEqual(workflow["7"]["class_type"], "SaveImage")
+
+    def test_generate_rejects_invalid_client_id(self):
+        provider = ComfyUIImageProvider(self.base_url, timeout_seconds=2)
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "frame.png"
+            with self.assertRaisesRegex(Exception, "client_id"):
+                provider.generate(
+                    "test",
+                    output,
+                    size="1024x1024",
+                    client_id="bad client id with spaces",
+                )
 
 
 if __name__ == "__main__":
