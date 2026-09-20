@@ -7,7 +7,7 @@ from adapters.story_extraction import ChapterText, LocalLexiconExtractor
 from scripts.novel_anime_project import build_project, load_project, write_project
 from scripts.novel_anime_repository import NovelAnimeRepository
 from scripts.novel_source_catalog import build_catalog, load_catalog, write_catalog
-from scripts.novel_source_ingest import NovelSourceIngestError, ingest_source, split_chapters
+from scripts.novel_source_ingest import NovelSourceIngestError, extract_character_candidates_from_text, ingest_source, split_chapters
 
 
 class NovelSourceIngestTests(unittest.TestCase):
@@ -49,6 +49,31 @@ class NovelSourceIngestTests(unittest.TestCase):
         self.assertEqual([chapter.title for chapter in chapters], ["第一回 开端", "第2回 转折"])
         self.assertEqual([chapter.chapter_id for chapter in chapters], ["CH-JHY-0001", "CH-JHY-0002"])
         self.assertEqual([(chapter.line_start, chapter.line_end) for chapter in chapters], [(2, 2), (4, 4)])
+
+    def test_narration_heavy_character_extraction_uses_action_context(self):
+        source = (
+            "第一章 灯影\n"
+            "顾临渊缓缓抬头，看向墙上的照骨灯。沈照雪站起身，走到窗前。\n"
+            "顾临渊转身望向沈照雪。沈照雪低头沉默片刻。\n"
+            "第二章 夜行\n"
+            "顾临渊走进长廊，沈照雪随后走来。顾临渊点头，沈照雪抬手推开木门。\n"
+        )
+        result = extract_character_candidates_from_text(source, "ZGD")
+        names = [item["name"] for item in result["characters"]]
+        self.assertIn("顾临渊", names)
+        self.assertIn("沈照雪", names)
+
+    def test_character_extraction_rejects_generic_narrative_subjects(self):
+        source = (
+            "第一章\n"
+            "少年缓缓抬头。白衣男子转身离开。此时众人站起身。\n"
+            "少年再次低头，白衣男子走出房门，众人随后离开。\n"
+        )
+        result = extract_character_candidates_from_text(source, "GEN")
+        names = [item["name"] for item in result["characters"]]
+        self.assertNotIn("少年", names)
+        self.assertNotIn("白衣男子", names)
+        self.assertNotIn("众人", names)
 
     def test_authorized_import_updates_catalog_manifest_and_repository(self):
         with tempfile.TemporaryDirectory() as directory:
