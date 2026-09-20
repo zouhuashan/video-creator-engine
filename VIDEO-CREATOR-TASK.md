@@ -3731,7 +3731,7 @@ Status: CODE PASS / LOCAL WEB REVERIFY
 - ComfyUI history 若真实 execution_error，Web 现在可得到具体 node_type + exception_message；若确实超时，错误会带 elapsed seconds 与 prompt_id，并明确说明本地任务可能仍在运行，不再只返回模糊“workflow failed”。
 - P31 regression 已覆盖角色自动恢复、项目删除、新默认项目以及 ComfyUI Image Provider 的 MPS 超时/错误详情回归。
 - GitHub 连接器当前仍未返回可读取的 workflow run/status，因此不虚报 CI PASS；代码与回归用例已提交，真实 Mac Web smoke 仍以用户本机结果为准。
-- 关键提交：`04c92969`、`2f504616`、`9226bc4f`、`8fc1ad79`、`07e5582a`、`3c4d1536`、`2baab40d`、`6c9b62bb`、`57bcdac7`、`76d886d3`、`2e83eb77`。
+- 关键提交：`04c92969`、`2f504616`、`9226bc4f`、`8fc1ad79`、`07e5582a`、`3c4d1536`、`2baab40d`、`6c9b62bb`、`57bcdac7`、`76d886d3`、`2e83eb77`、`6ec48dfb`。
 
 当前 Web 验收路径：
 
