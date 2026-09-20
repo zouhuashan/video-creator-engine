@@ -729,8 +729,7 @@ def _pip_dry_run(command: list[str], *, log, env: dict[str, str], label: str) ->
 
 
 def _install_torch(python: Path, log, env: dict[str, str]) -> str:
-    is_apple = platform.system() == "Darwin" and platform.machine().lower() in {"arm64", "aarch64"}
-    if not is_apple:
+    if not _apple_silicon_host():
         return "system"
 
     nightly = [
