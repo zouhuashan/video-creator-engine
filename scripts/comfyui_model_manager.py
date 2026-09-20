@@ -26,6 +26,7 @@ CHECKPOINT_DIR = COMFYUI_DIR / "models" / "checkpoints"
 LOG_DIR = ROOT / "logs"
 LOG_PATH = LOG_DIR / "comfyui-model-install.log"
 STATE_PATH = LOG_DIR / "comfyui-model-install.json"
+INSTALL_STATE_PATH = LOG_DIR / "comfyui-install.json"
 
 DEFAULT_MODEL_ID = "animagine-xl-4.0"
 MODEL_CATALOG: dict[str, dict[str, Any]] = {
@@ -62,6 +63,31 @@ def _write_state(status: str, step: str, detail: str, **extra: Any) -> dict[str,
     tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     tmp.replace(STATE_PATH)
     return payload
+
+
+def _sync_core_install_model_state(*, installed: bool, model: dict[str, Any] | None = None) -> None:
+    try:
+        payload = json.loads(INSTALL_STATE_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return
+    if not isinstance(payload, dict):
+        return
+    payload["models_installed"] = bool(installed)
+    payload["model_checkpoint_present"] = bool(installed)
+    if installed and model is not None:
+        payload["checkpoint_model_id"] = str(model.get("id") or "")
+        payload["checkpoint_filename"] = str(model.get("filename") or "")
+        payload["checkpoint_sha256"] = str(model.get("sha256") or "")
+        payload["checkpoint_verified_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    elif not installed:
+        for key in ("checkpoint_model_id", "checkpoint_filename", "checkpoint_sha256", "checkpoint_verified_at"):
+            payload.pop(key, None)
+    tmp = INSTALL_STATE_PATH.with_suffix(".tmp")
+    try:
+        tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        tmp.replace(INSTALL_STATE_PATH)
+    except OSError:
+        tmp.unlink(missing_ok=True)
 
 
 def _load_state() -> dict[str, Any]:
@@ -167,6 +193,8 @@ def status(model_id: str = DEFAULT_MODEL_ID) -> dict[str, Any]:
         and state.get("model_id") == model_id
         and state.get("sha256") == model["sha256"]
     )
+    if installed:
+        _sync_core_install_model_state(installed=True, model=model)
 
     return {
         **state,
@@ -463,6 +491,7 @@ def install(model_id: str = DEFAULT_MODEL_ID) -> dict[str, Any]:
     LOG_DIR.mkdir(parents=True, exist_ok=True)
 
     if _valid_target(model):
+        _sync_core_install_model_state(installed=True, model=model)
         return _write_state(
             "PASS",
             "COMPLETE",
@@ -528,6 +557,7 @@ def install(model_id: str = DEFAULT_MODEL_ID) -> dict[str, Any]:
 
             target = _target(model)
             partial.replace(target)
+            _sync_core_install_model_state(installed=True, model=model)
             return _write_state(
                 "PASS",
                 "COMPLETE",
