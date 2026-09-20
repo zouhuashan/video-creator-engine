@@ -1078,6 +1078,39 @@ async function openImportedNovelStudio() {
     log(`进入新项目制作台：${result.title}`);
   } catch (error) { log(error.message, true); }
 }
+async function deleteCurrentImageStudioProject() {
+  const projectId = String($('#imageStudioProject')?.value || state.imageStudioProjectId || '').trim();
+  const project = state.animeProjects.find((item) => item.directory_id === projectId);
+  if (!projectId || !project) { log('当前没有可删除的国漫项目', true); return; }
+  if (!window.confirm(`确认删除《${project.title}》？\n\n项目目录、已生成图片和项目数据库都会删除，此操作不可撤销。`)) return;
+
+  const button = $('#imageStudioDeleteProjectButton');
+  button.disabled = true;
+  button.textContent = '删除中…';
+  try {
+    const result = await api('/api/novel-anime/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ project_id: projectId, confirm_delete: true }),
+    });
+    clearActiveNovelProject();
+    if (state.novelImportResult?.directory_id === projectId) state.novelImportResult = null;
+    await load(result.default_project_id || '');
+    if (result.default_project_id) {
+      setView('imageStudio');
+      log(`已删除《${result.title || project.title}》，已切换到剩余项目。`);
+    } else {
+      setView('anime');
+      log(`已删除《${result.title || project.title}》，当前已没有国漫项目。`);
+    }
+  } catch (error) {
+    log(error.message, true);
+  } finally {
+    button.textContent = '删除当前项目';
+    button.disabled = !(state.animeProjects || []).length;
+  }
+}
+
 function renderImageStudio() {
   const data = state.imageStudio;
   const select = $('#imageStudioProject');
@@ -1089,6 +1122,11 @@ function renderImageStudio() {
   $('#imageStudioActiveProjectHint').textContent = activeProject
     ? `当前生成目标：《${activeProject.title}》 · ${activeProject.directory_id}`
     : '当前生成目标：未选择项目';
+  const deleteProjectButton = $('#imageStudioDeleteProjectButton');
+  if (deleteProjectButton) {
+    deleteProjectButton.disabled = !activeProject;
+    deleteProjectButton.title = activeProject ? `删除《${activeProject.title}》` : '当前没有可删除项目';
+  }
 
   const providers = data?.providers || [];
   const openai = providers.find((item) => item.provider_id === 'OPENAI_IMAGE' || item.id === 'openai_image') || data?.provider || {};
@@ -1925,6 +1963,7 @@ $('#imageStudioProject').addEventListener('change', (event) => {
   const projectId = setActiveNovelProject(event.target.value);
   if (projectId) loadImageStudio(projectId).catch((error) => log(error.message, true));
 });
+$('#imageStudioDeleteProjectButton').addEventListener('click', deleteCurrentImageStudioProject);
 $('#imageStudioSaveKey').addEventListener('click', saveImageStudioKey);
 $('#imageStudioSaveComfy').addEventListener('click', saveComfyUIEndpoint);
 $('#imageStudioInstallComfy').addEventListener('click', installComfyUI);
