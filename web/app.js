@@ -1,6 +1,6 @@
-const state = { projects: [], animeProjects: [], project: null, providers: [], integrations: [], studio: null, readiness: null, backups: null, activeNovelProjectId: null, studioProjectId: null, imageStudio: null, imageStudioProjectId: null, imageStudioSelected: null, imageStudioProviderPreference: 'AUTO', imageStudioStylePreset: 'GUOFENG_ANCIENT_CHINA', pipeline: null, pipelineProjectId: null, novelImportResult: null, selectedProvider: 'local_ken_burns', selectedImage: null, currentView: 'workspace', currentWorkspace: 'overview' };
+const state = { projects: [], animeProjects: [], project: null, providers: [], integrations: [], studio: null, readiness: null, backups: null, activeNovelProjectId: null, studioProjectId: null, imageStudio: null, imageStudioProjectId: null, imageStudioSelected: null, imageStudioProviderPreference: 'AUTO', imageStudioStylePreset: 'CINEMATIC_3D_DONGHUA', pipeline: null, pipelineProjectId: null, novelImportResult: null, selectedProvider: 'local_ken_burns', selectedImage: null, currentView: 'workspace', currentWorkspace: 'overview' };
 const ACTIVE_NOVEL_PROJECT_KEY = 'videocreator.activeNovelProjectId.v1';
-const IMAGE_STYLE_PROJECT_KEY_PREFIX = 'videocreator.imageStylePreset.v1.';
+const IMAGE_STYLE_PROJECT_KEY_PREFIX = 'videocreator.imageStylePreset.v2.';
 
 function storedImageStylePreset(projectId) {
   const id = String(projectId || '').trim();
@@ -1170,19 +1170,31 @@ function renderImageStudio() {
   if (styleSelect) {
     styleSelect.innerHTML = stylePresets.map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.label)}</option>`).join('');
     if (!stylePresets.some((item) => item.id === state.imageStudioStylePreset)) {
-      state.imageStudioStylePreset = data?.default_style_preset || stylePresets[0]?.id || 'GUOFENG_ANCIENT_CHINA';
+      state.imageStudioStylePreset = data?.default_style_preset || stylePresets[0]?.id || 'CINEMATIC_3D_DONGHUA';
     }
     styleSelect.value = state.imageStudioStylePreset;
   }
   const activeStyle = stylePresets.find((item) => item.id === state.imageStudioStylePreset) || stylePresets[0] || {};
   $('#imageStudioStyleHint').textContent = activeStyle.description
-    ? `${activeStyle.description} · Prompt / Negative 自动切换${activeStyle.lora_id ? ' · 支持 LoRA 自动增强' : ''}`
+    ? `${activeStyle.description} · Prompt / Negative 自动切换${activeStyle.lora_id ? ' · 支持 LoRA 自动增强' : ''}${activeStyle.preferred_provider === 'OPENAI_IMAGE' ? ' · AUTO 优先高质量最终视觉' : ''}`
     : '每种风格自动切换 Prompt / Negative / 可选 LoRA。';
   const localReady = Boolean(comfyui.connected && comfyui.workflow_ready);
   const remoteReady = Boolean(openai.configured);
   const preference = state.imageStudioProviderPreference || 'AUTO';
-  $('#imageStudioProvider').textContent = preference === 'COMFYUI_IMAGE' ? 'ComfyUI Local' : preference === 'OPENAI_IMAGE' ? (openai.label || 'OpenAI Image') : (localReady ? 'AUTO → ComfyUI' : 'AUTO → OpenAI fallback');
-  $('#imageStudioModel').textContent = localReady ? (comfyui.checkpoint || 'Local checkpoint') : (openai.model || '—');
+  const autoPrefersRemote = preference === 'AUTO' && activeStyle.preferred_provider === 'OPENAI_IMAGE' && remoteReady;
+  const autoUsesLocalPreview = preference === 'AUTO' && activeStyle.render_role === 'FINAL_VISUAL' && !autoPrefersRemote && localReady;
+  $('#imageStudioProvider').textContent = preference === 'COMFYUI_IMAGE'
+    ? (activeStyle.render_role === 'FINAL_VISUAL' ? 'ComfyUI · LOCAL PREVIEW' : 'ComfyUI Local')
+    : preference === 'OPENAI_IMAGE'
+      ? (openai.label || 'OpenAI Image')
+      : autoPrefersRemote
+        ? 'AUTO → OpenAI Final'
+        : autoUsesLocalPreview
+          ? 'AUTO → ComfyUI Preview'
+          : (localReady ? 'AUTO → ComfyUI' : 'AUTO → OpenAI');
+  $('#imageStudioModel').textContent = (preference === 'OPENAI_IMAGE' || autoPrefersRemote)
+    ? (openai.model || 'OpenAI Image')
+    : localReady ? (comfyui.checkpoint || 'Local checkpoint') : (openai.model || '—');
   $('#imageStudioStatus').textContent = (localReady || remoteReady) ? 'READY' : 'NO PROVIDER';
   $('#imageStudioStatus').classList.toggle('off', !(localReady || remoteReady));
   $('#imageStudioRoute').textContent = routing.final_visual_route || 'IMAGE_PROVIDER_ROUTER';
@@ -1257,15 +1269,17 @@ function renderImageStudio() {
   $('#imageStudioInstallLora').textContent = loraRunning ? '下载中…' : (loraInstalled ? (loraRecognized ? '✓ 国风 LoRA 已启用' : '✓ 已安装，待刷新') : '↓ 安装国风 LoRA');
   $('#imageStudioComfyLoraSize').textContent = `${loraPercent.toFixed(1)}%${loraExpected ? ` · ${(loraDownloaded / 1024 / 1024).toFixed(0)} / ${(loraExpected / 1024 / 1024).toFixed(0)} MB` : ''}`;
   $('#imageStudioComfyLoraProgressBar').style.width = `${loraPercent}%`;
-  $('#imageStudioComfyLoraDetail').textContent = loraRecognized
-    ? `ComfyUI 已识别 ${lora.filename}；中国古风 / 仙侠 / 武侠 / 水墨预设会自动加载。`
-    : loraInstalled
-      ? `LoRA 已安装；需要 ComfyUI 刷新模型列表后自动启用。`
-      : loraRunning
-        ? `${loraInstaller.detail || '正在下载国风 LoRA'} · 支持断点续传 · ${loraInstaller.log_path || 'logs/comfyui-lora-install.log'}`
-        : loraInstaller.status === 'FAIL'
-          ? `LoRA 安装失败：${loraInstaller.detail || '可重新点击继续断点下载'}`
-          : '未安装时仍使用 Prompt 风格锁；安装后由国风预设自动加载，无需手工拖 ComfyUI 节点。';
+  $('#imageStudioComfyLoraDetail').textContent = activeStyle.id === 'CINEMATIC_3D_DONGHUA'
+    ? '当前“电影级 3D 国漫”不会加载这颗插画 LoRA；它会把画面拉回 2D。该 LoRA 仅供中国古风插画 / 仙侠 / 武侠 / 水墨预设使用。'
+    : loraRecognized
+      ? `ComfyUI 已识别 ${lora.filename}；当前插画类国风预设可自动加载。`
+      : loraInstalled
+        ? `LoRA 已安装；需要 ComfyUI 刷新模型列表后自动启用。`
+        : loraRunning
+          ? `${loraInstaller.detail || '正在下载国风 LoRA'} · 支持断点续传 · ${loraInstaller.log_path || 'logs/comfyui-lora-install.log'}`
+          : loraInstaller.status === 'FAIL'
+            ? `LoRA 安装失败：${loraInstaller.detail || '可重新点击继续断点下载'}`
+            : '未安装时仍可用 Prompt 风格锁；该 LoRA 只增强 2D/2.5D 国风插画预设。';
 
   const installHint = $('#imageStudioComfyInstallHint');
   if (installRunning) {
@@ -1340,7 +1354,7 @@ function renderImageStudio() {
   $('#imageStudioGallery').innerHTML = items.map((item, index) => `
     <button class="image-studio-thumb" data-image-studio-index="${index}">
       <img src="${escapeHtml(imageStudioMediaUrl(item))}" alt="${escapeHtml(item.artifact_type || 'image')}" loading="lazy">
-      <span><strong>${escapeHtml(item.artifact_type === 'character_bible' ? '角色定妆板' : '镜头关键帧')}</strong><small>${escapeHtml(item.style_label || '未记录风格')} · ${escapeHtml(item.lora_applied ? 'LoRA ON' : 'Prompt only')} · ${escapeHtml(item.review_status || 'PENDING')}</small></span>
+      <span><strong>${escapeHtml(item.artifact_type === 'character_bible' ? '角色定妆板' : '镜头关键帧')}</strong><small>${escapeHtml(item.style_label || '未记录风格')} · ${escapeHtml(item.render_role || 'UNSPECIFIED')} · ${escapeHtml(item.review_status || 'PENDING')}</small></span>
     </button>
   `).join('');
   document.querySelectorAll('[data-image-studio-index]').forEach((button) => button.addEventListener('click', () => {
@@ -1393,7 +1407,7 @@ function showImageStudioResult(item) {
   }
   $('#imageStudioResultType').textContent = item.artifact_type === 'character_bible' ? '角色定妆板' : '镜头关键帧';
   $('#imageStudioResultPath').textContent = item.output || '—';
-  $('#imageStudioResultInfo').textContent = `${item.provider || 'Image Provider'} · ${item.model || ''} · ${item.style_label || '未记录风格'} · ${item.lora_applied ? `LoRA ${item.lora_name || 'ON'} @ ${Number(item.lora_strength || 0).toFixed(2)}` : 'Prompt only'} · ${item.size || ''} · 人工审核 ${item.review_status || 'PENDING'}`;
+  $('#imageStudioResultInfo').textContent = `${item.provider || 'Image Provider'} · ${item.model || ''} · ${item.style_label || '未记录风格'} · ${item.render_role || 'UNSPECIFIED'} · ${item.lora_applied ? `LoRA ${item.lora_name || 'ON'} @ ${Number(item.lora_strength || 0).toFixed(2)}` : 'No illustration LoRA'} · ${item.size || ''} · 人工审核 ${item.review_status || 'PENDING'}`;
   $('#imageStudioReview').textContent = item.review_status || 'PENDING';
 }
 
@@ -1404,7 +1418,7 @@ async function loadImageStudio(projectId = resolveActiveNovelProject(state.image
   state.imageStudio = await api(`/api/image-studio/status?project_id=${encodeURIComponent(projectId)}`);
   const validStyles = state.imageStudio?.style_presets || [];
   const remembered = storedImageStylePreset(projectId);
-  const defaultPreset = state.imageStudio?.default_style_preset || 'GUOFENG_ANCIENT_CHINA';
+  const defaultPreset = state.imageStudio?.default_style_preset || 'CINEMATIC_3D_DONGHUA';
   state.imageStudioStylePreset = validStyles.some((item) => item.id === remembered)
     ? remembered
     : defaultPreset;
@@ -1858,8 +1872,14 @@ async function generateImageStudio(kind) {
   const openai = providers.find((item) => item.provider_id === 'OPENAI_IMAGE' || item.id === 'openai_image') || state.imageStudio?.provider || {};
   const comfyui = providers.find((item) => item.provider_id === 'COMFYUI_IMAGE' || item.id === 'comfyui_image') || {};
   const preference = state.imageStudioProviderPreference || 'AUTO';
+  const activeStyle = (state.imageStudio?.style_presets || []).find((item) => item.id === state.imageStudioStylePreset)
+    || (state.imageStudio?.style_presets || [])[0]
+    || {};
   const localReady = Boolean(comfyui.connected && comfyui.workflow_ready);
-  const usesRemote = preference === 'OPENAI_IMAGE' || (preference === 'AUTO' && !localReady);
+  const remoteReady = Boolean(openai.configured);
+  const autoPrefersRemote = preference === 'AUTO' && activeStyle.preferred_provider === 'OPENAI_IMAGE' && remoteReady;
+  const usesRemote = preference === 'OPENAI_IMAGE' || autoPrefersRemote || (preference === 'AUTO' && !localReady);
+  const localFinalPreview = !usesRemote && activeStyle.render_role === 'FINAL_VISUAL';
   const label = kind === 'character-bible' ? '角色定妆板' : '镜头关键帧';
   if (kind === 'character-bible' && state.imageStudio?.character_ready === false) {
     log('当前小说项目尚未抽取角色资料；已阻止使用全局演示角色生成。', true);
@@ -1867,8 +1887,11 @@ async function generateImageStudio(kind) {
   }
   if (preference === 'COMFYUI_IMAGE' && !localReady) { log('ComfyUI 本地 Provider 尚未就绪', true); return; }
   if (usesRemote) {
-    if (!openai.configured) { log('本地 ComfyUI 不可用，OpenAI fallback 也未配置', true); return; }
-    if (!window.confirm(`将使用 OpenAI fallback 生成${label}，可能产生 API 费用。确认继续？`)) return;
+    if (!openai.configured) { log('当前最终视觉路线需要 OpenAI Image，但尚未配置 API Key', true); return; }
+    const reason = activeStyle.render_role === 'FINAL_VISUAL' ? '电影级 3D 国漫最终视觉' : 'OpenAI Image';
+    if (!window.confirm(`将使用 ${reason} 生成${label}，可能产生 API 费用。确认继续？`)) return;
+  } else if (localFinalPreview) {
+    log('当前电影级 3D 国漫使用 Animagine 本地回退：仅作为 LOCAL PREVIEW，不能代表最终 3D 国漫画质。', true);
   }
 
   const button = kind === 'character-bible' ? $('#generateCharacterBibleButton') : $('#generateKeyframeButton');
@@ -1883,8 +1906,7 @@ async function generateImageStudio(kind) {
   button.dataset.generating = 'true';
   button.textContent = '生成中…';
   const projectTitle = state.animeProjects.find((item) => item.directory_id === projectId)?.title || projectId;
-  const activeStyle = (state.imageStudio?.style_presets || []).find((item) => item.id === state.imageStudioStylePreset);
-  log(`开始生成${label} · 项目《${projectTitle}》 · 风格 ${activeStyle?.label || state.imageStudioStylePreset} · ${usesRemote ? 'OpenAI fallback' : 'ComfyUI local'}…`);
+  log(`开始生成${label} · 项目《${projectTitle}》 · 风格 ${activeStyle?.label || state.imageStudioStylePreset} · ${usesRemote ? 'OpenAI FINAL' : (localFinalPreview ? 'ComfyUI LOCAL PREVIEW' : 'ComfyUI local')}…`);
   try {
     if (!usesRemote) {
       progressSocket = await openComfyUIProgressSocket(comfyui.base_url || 'http://127.0.0.1:8188', clientId, progressView, button);
@@ -1900,7 +1922,7 @@ async function generateImageStudio(kind) {
         custom_prompt: $('#imageStudioPrompt').value.trim(),
         confirm_billable: usesRemote,
         provider_preference: preference,
-        style_preset: state.imageStudioStylePreset || state.imageStudio?.default_style_preset || 'GUOFENG_ANCIENT_CHINA',
+        style_preset: state.imageStudioStylePreset || state.imageStudio?.default_style_preset || 'CINEMATIC_3D_DONGHUA',
         comfyui_client_id: clientId,
       }),
     });
