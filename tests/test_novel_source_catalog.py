@@ -84,6 +84,13 @@ class NovelSourceCatalogTests(unittest.TestCase):
         with self.assertRaisesRegex(NovelSourceCatalogError, "cannot enable script adaptation"):
             validate_catalog(catalog)
 
+    def test_local_upload_uri_is_valid_source_provenance(self):
+        catalog = self.catalog_with_edition()
+        catalog["editions"][0]["source_url"] = "local://upload/jinghua-yuan-series/source.txt"
+        catalog["locators"][0]["source_url"] = "local://upload/jinghua-yuan-series/source.txt#chapter-1"
+        validated = validate_catalog(catalog)
+        self.assertTrue(validated["editions"][0]["source_url"].startswith("local://upload/"))
+
     def test_rejects_credentialed_urls_and_reversed_ranges(self):
         catalog = self.catalog_with_edition()
         catalog["editions"][0]["source_url"] = "https://user:secret@example.org/book"
