@@ -3434,6 +3434,16 @@ P30-06 追加修复（2026-09-20，针对 Web 报错“未检测到 ComfyUI 安�
 - 官方当前仍支持 Apple Silicon；ComfyUI 文档建议独立环境并在 Apple Silicon 使用 PyTorch nightly，PyTorch 当前 MPS 后端仍为官方支持路径。
 - 当前 GitHub connector 仍未返回 workflow run/status，因此不虚报 CI PASS；真实 clone/pip/MPS 安装必须在用户 Mac 上执行。
 
+P30-06 首张本地角色定妆图真实执行（2026-09-20 14:23 CST）：
+
+- 用户在 Web 点击「生成角色定妆板」后，ComfyUI 实际已成功执行完整 24-step workflow；日志 `24/24`，KSampler 采样约 `197s`，整条 prompt `258.81s`。
+- 当前问题不是生成失败，而是 Web 采用同步 HTTP 等待，约 4 分钟期间只有按钮文字变化，没有采样步进度，用户感知为“没反应”。
+- Image Studio 已接入 ComfyUI 官方 WebSocket 进度通道：Web 生成前创建唯一 client id，后端排队 `/prompt` 时复用同一 client id；浏览器监听 `/ws?clientId=...` 的 `progress` / `progress_state` / `execution_start` / `execution_success` / `execution_error`。
+- Web 新增角色/关键帧生成进度卡，实时显示 `value/max`（例如 `1/24 → 24/24`）、百分比与按钮进度；若 WebSocket 不可用，仍显示已运行秒数，不再出现无反馈长等待。
+- ComfyUI provider 新增受限 `client_id` 参数并校验允许字符，结果 metadata 回传 client id；新增回归验证 `/prompt` 确实使用 Web 传入的 client id，并拒绝非法 client id。
+- 首张图真实性能基线：Animagine XL 4.0 + Apple MPS + 24 steps，prompt 总耗时约 259 秒。后续性能优化以此为基线，优先考虑预览档降低 steps/分辨率，最终定妆再跑高质量档。
+- 关键提交：`d2e34af`、`5f30beb`、`c3b7407`、`2ea4636`、`18ba479`、`11c5ce7`。
+
 P30-06 Web Python 路径污染修复（2026-09-20 14:08 CST，真实 Mac 日志）：
 
 - venv 路径修复后真实启动已正确显示 `python=.dependencies/ComfyUI/.venv/bin/python` 且 `dependency_sync=SKIP already-current`，证明解释器选择和 requirements 指纹均正确。
