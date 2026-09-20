@@ -335,6 +335,14 @@ class WebServerTests(unittest.TestCase):
             self.assertEqual(result["remaining_project_ids"], ["newer"])
             self.assertTrue(newer.exists())
 
+    def test_image_studio_explains_guofeng_style_lock(self):
+        index = (web_server.WEB_ROOT / "index.html").read_text(encoding="utf-8")
+        app = (web_server.WEB_ROOT / "app.js").read_text(encoding="utf-8")
+        self.assertIn("系统已默认强制中国古风古装", index)
+        self.assertIn("动漫基础模型", index)
+        self.assertNotIn("安装国漫基础模型", index)
+        self.assertIn("国风由系统风格锁加强", app)
+
     def test_web_exposes_managed_comfyui_controls(self):
         index = (web_server.WEB_ROOT / "index.html").read_text(encoding="utf-8")
         app = (web_server.WEB_ROOT / "app.js").read_text(encoding="utf-8")
