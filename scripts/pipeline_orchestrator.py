@@ -28,6 +28,7 @@ from support.providers.image_provider_router import ImageProviderRouteError, Ima
 from support.providers.comfyui_image_provider import ComfyUIImageError, ComfyUIImageProvider
 from support.providers.openai_image_provider import OpenAIImageProvider, keyframe_prompt
 from support.providers.video_provider_router import VideoProviderRouter
+from adapters.video_generation import LocalKenBurnsVideo, VideoGenerationError, VideoGenerationRequest, normalize_image_paths
 from scripts.pipeline_media_stages import PipelineMediaError, assemble_final, ensure_subtitles, ensure_tts
 
 STAGE_ORDER = (
@@ -528,9 +529,49 @@ def run_pipeline(
     )
     existing_video = _first_existing(project, ("final.mp4", "generated/*.mp4", "renders/**/*.mp4"))
     if existing_video:
-        stages.append(_stage("video", "PASS", "existing project video resolved", asset=_relative(project, existing_video), route=video_route))
+        stages.append(_stage("video", "PASS", "existing project video resolved", asset=_relative(project, existing_video), route=video_route, reused=True))
+    elif dry_run:
+        stages.append(_stage("video", "PLANNED", "dry-run: VideoProvider route resolved without generation", route=video_route))
+    elif approved_keyframe and video_route.get("provider_id") == "LOCAL_KEN_BURNS":
+        keyframe_path = project / str(approved_keyframe.get("output") or "")
+        output = project / "generated" / f"{shot.get('shot_id', 'shot')}-local.mp4"
+        try:
+            request = VideoGenerationRequest(
+                image_paths=normalize_image_paths((keyframe_path,)),
+                output_path=output,
+                shot_duration_seconds=float(shot.get("duration_seconds") or 4.0),
+                fps=int(shot.get("fps") or 30),
+                width=int(shot.get("width") or 1080),
+                height=int(shot.get("height") or 1920),
+                transition_seconds=0.4,
+                prompt_text=prompt,
+                model="local_ken_burns",
+            )
+            result = LocalKenBurnsVideo().generate(request)
+            existing_video = result.output_path
+            stages.append(_stage(
+                "video",
+                "PASS",
+                "local VideoProvider generated motion from approved keyframe",
+                asset=_relative(project, result.output_path),
+                provider=result.provider,
+                duration_seconds=result.duration_seconds,
+                image_count=result.image_count,
+                remote_generation=result.remote_generation,
+                route=video_route,
+                reused=False,
+            ))
+        except (VideoGenerationError, OSError) as error:
+            stages.append(_stage("video", "BLOCKED", f"local VideoProvider failed: {error}", route=video_route))
     else:
-        stages.append(_stage("video", "PLANNED", "VideoProvider route resolved", route=video_route))
+        image_stage = next((item for item in stages if item.get("id") == "image"), {})
+        waiting_on_image_review = image_stage.get("status") == "WAITING_REVIEW"
+        stages.append(_stage(
+            "video",
+            "WAITING_REVIEW" if waiting_on_image_review else "BLOCKED",
+            "video generation waits for approved keyframe" if waiting_on_image_review else "no approved keyframe is available for local VideoProvider",
+            route=video_route,
+        ))
 
     voice = _first_existing(project, ("voice/*.wav", "audio/**/*.wav", "audio/**/*.mp3"))
     tts_result: dict[str, Any] | None = None
