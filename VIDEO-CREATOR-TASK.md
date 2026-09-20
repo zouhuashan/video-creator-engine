@@ -2340,7 +2340,7 @@ P18 架构与数据底座
 # 41. 当前方向与下一任务
 
 ```text
-NEXT: P30-06 Mac runtime smoke（外部运行时门）
+NEXT: P31-02 Web 小说导入本机 smoke（与 P30-06 合并验证）
 ```
 
 任务：
@@ -3427,3 +3427,45 @@ Status: BLOCKED
 - 代码层工作已完成；解除该阻塞只需在用户 Mac 更新仓库后，从 Web 点击“环境自检”与“创建整集（本地执行）”，得到真实运行结果。
 
 NEXT：P30-06 Mac runtime smoke（外部运行时门；仓库代码无剩余实现项）。
+
+
+---
+
+# 45. P31 — Web 小说导入工作台（2026-09-20）
+
+## P31-01 新建小说 + TXT 上传
+Status: PASS
+
+目标：用户不再通过终端手工创建小说项目、编辑 Source Catalog 或执行 ingest 脚本；从 Web 直接完成“新建独立小说项目 → 上传 TXT → 权利模式 → 自动切章 → 初始化制作台”。
+
+实现：
+
+- Web 左侧新增「导入小说」；输入小说名、作者、首季集数、使用模式并选择 UTF-8 TXT 后即可创建。
+- 浏览器先做 UTF-8 fatal decode 与 20 MB 文件大小检查；后端 `/api/novel-anime/import` 使用独立大请求上限，不放宽其他 API 的 64 KB 安全边界。
+- 新增 `scripts/novel_web_import.py`：自动生成安全 Project ID / IP Code，创建 P18 核心 manifest、Repository、Runtime、Source Catalog，调用现有 `novel_source_ingest` 自动切章，并初始化 P19～P27 制作台骨架。
+- 本地 TXT 使用明确的 `local://upload/... `来源 URI，不伪造公网 source URL；`novel_source_catalog.py` 仅为该本地来源类型扩展 URI 校验。
+- 上传正文只写入项目内临时文件供 ingest 使用，完成或失败后立即删除；正式导入产物仍保持 `full_text_stored=false`，只保存章节索引、哈希、行号和抽取候选。
+- 权利模式当前提供：
+  - `OWNED_OR_LICENSED`：用户明确确认自己是作者或已获得改编授权，可进入本地改编链；状态使用现有 `LICENSED` 契约，但 `publication_allowed=false`，不会自动获得发布权限。
+  - `TECHNICAL_TEST`：仅本地技术测试，不解锁正式 script adaptation。
+- 公版/第三方授权发布仍要求既有来源证据和人工审核；上传成功不会绕过发布门。
+- 导入成功后 Web 显示章节数、首季集数和权限状态，并提供「进入制作台」按钮。
+- 新增 `tests/test_novel_web_import.py`，覆盖正式作者/授权导入、技术测试导入、制作台初始化、临时 TXT 清理和“正文不落库”；Source Catalog 与 Web 静态入口回归同步补齐。
+- 新增 `.github/workflows/p31-novel-import-regression.yml`，包含 Python compile、Node JS syntax check 和 P31 单测。当前 GitHub 连接器没有返回 workflow run/status，因此不虚报 CI PASS；代码范围按仓库契约已完成。
+- 关键提交：`6c29868`、`55a7a30`、`b0e4f55`、`e88abe3`、`5cd394e`、`84b6f19`、`8c1f18e`、`5971daa`、`cee1c1c`、`dd79084`、`a76333e`、`c0dec96`。
+
+用户操作边界现在是：
+
+```text
+打开 Web
+→ 导入小说
+→ 填小说名 / 作者 / 首季集数
+→ 选择权利模式
+→ 选择 TXT
+→ 创建项目并导入小说
+→ 进入制作台
+```
+
+不需要命令行。
+
+NEXT：P31-02 Web 小说导入本机 smoke（与 P30-06 合并验证）。
