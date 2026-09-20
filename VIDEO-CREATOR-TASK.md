@@ -3420,6 +3420,22 @@ Status: BLOCKED
 - 新增非破坏性 preflight 回归测试。
 - 关键提交：`015b4a3`、`8ba93a5`、`8870d26`、`33ff085`、`a2c64c0`。
 
+P30-06 追加修复（2026-09-20，针对 Web 报错“未检测到 ComfyUI 安装目录”）：
+
+- 新增 `scripts/comfyui_installer.py`：Web 可一键安装/修复 ComfyUI 核心到固定目录 `.dependencies/ComfyUI`，不污染系统 Python。
+- 安装流程固定为：检查 git / 磁盘 / Python 3.10–3.14 → clone 官方 `Comfy-Org/ComfyUI` → 独立 `.venv` → Apple Silicon 优先 PyTorch nightly、失败自动回退稳定版 → `requirements.txt` → torch/MPS 自检。
+- Python 选择优先 `python3.13`、`python3.12`，再兼容 3.14/系统 python；适配当前用户机器已有 Homebrew Python 的现实情况。
+- Web 新增「安装 ComfyUI」按钮和安装进度：STARTING / CLONE / CREATE_VENV / INSTALL_TORCH_NIGHTLY / INSTALL_REQUIREMENTS / COMPLETE / FAIL。
+- 安装通过独立后台进程执行，状态与日志分别写到 `logs/comfyui-install.json` / `logs/comfyui-install.log`；Web 可轮询，不需要终端。
+- 更新已有受管安装时使用 `git pull --ff-only`，不做 `reset --hard`，避免破坏本地配置。
+- 安装器不会下载 checkpoint / LoRA / VAE 等大型模型；核心安装完成后明确显示“尚未安装 checkpoint”，模型下载必须由用户在 Web 显式选择。
+- 新增 `tests/test_comfyui_installer.py`，覆盖 Python 选择、安全后台启动、不下载模型和中断恢复；P30 Provider Regression workflow 已纳入 installer compile/test。
+- 关键提交：`1bc3a25`、`69894df`、`57dc16c`、`6cad9e3`、`efa07fe`、`e8e4d35`、`3379d72`、`242b21c`、`7ab8b19`、`5dc587a`。
+- 官方当前仍支持 Apple Silicon；ComfyUI 文档建议独立环境并在 Apple Silicon 使用 PyTorch nightly，PyTorch 当前 MPS 后端仍为官方支持路径。
+- 当前 GitHub connector 仍未返回 workflow run/status，因此不虚报 CI PASS；真实 clone/pip/MPS 安装必须在用户 Mac 上执行。
+
+NEXT：P30-06/P31-02 Mac Web smoke：先「安装 ComfyUI」→「启动 ComfyUI」→ 再处理 checkpoint 模型显式安装。
+
 P30-06 追加修复（2026-09-20，针对 Web 报错 `Connection refused`）：
 
 - 新增 `scripts/comfyui_service_manager.py`，把 ComfyUI 从“仅 Provider 检测”升级为受控本地服务：status / start / stop。
