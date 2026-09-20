@@ -110,6 +110,62 @@ class ComfyUIInstallerTests(unittest.TestCase):
         self.assertFalse(matches)
         self.assertIn("runtime changed", reason)
 
+    def test_create_venv_falls_back_to_without_pip_when_ensurepip_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            install_dir = root / "ComfyUI"
+            labels = []
+            commands = []
+
+            def fake_run(command, *, cwd, log, label, env=None):
+                labels.append(label)
+                commands.append(command)
+                if label == "CREATE_VENV":
+                    partial = install_dir / ".venv" / "bin" / "python"
+                    partial.parent.mkdir(parents=True, exist_ok=True)
+                    partial.write_text("partial", encoding="utf-8")
+                    raise installer.ComfyUIInstallError("ensurepip failed")
+                if label == "CREATE_VENV_NO_PIP":
+                    python = install_dir / ".venv" / "bin" / "python"
+                    python.parent.mkdir(parents=True, exist_ok=True)
+                    python.write_text("new", encoding="utf-8")
+
+            with patch.object(installer, "INSTALL_DIR", install_dir), \
+                 patch.object(installer, "_run", side_effect=fake_run), \
+                 patch.object(installer, "_bootstrap_venv_pip", return_value=None) as bootstrap:
+                with (root / "install.log").open("wb") as log:
+                    installer._create_venv("/opt/homebrew/python3.14", log, {"PATH": "/usr/bin"})
+
+            self.assertEqual(labels, ["CREATE_VENV", "CREATE_VENV_NO_PIP"])
+            self.assertIn("--without-pip", commands[1])
+            bootstrap.assert_called_once()
+            self.assertTrue((install_dir / ".venv" / "bin" / "python").is_file())
+
+    def test_existing_venv_without_pip_is_bootstrapped_externally(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            install_dir = root / "ComfyUI"
+            python = install_dir / ".venv" / "bin" / "python"
+            python.parent.mkdir(parents=True)
+            python.write_text("", encoding="utf-8")
+            labels = []
+
+            def fake_run(command, *, cwd, log, label, env=None):
+                labels.append(label)
+
+            with patch.object(installer, "INSTALL_DIR", install_dir), \
+                 patch.object(installer, "_venv_matches_bootstrap", return_value=(True, "")), \
+                 patch.object(installer, "_https_probe", return_value=(True, "")), \
+                 patch.object(installer, "_pip_available", return_value=False), \
+                 patch.object(installer, "_bootstrap_venv_pip", return_value=None) as bootstrap, \
+                 patch.object(installer, "_run", side_effect=fake_run):
+                with (root / "install.log").open("wb") as log:
+                    result = installer._ensure_venv("/opt/homebrew/python3.14", log, {})
+
+            self.assertEqual(result, python)
+            bootstrap.assert_called_once_with("/opt/homebrew/python3.14", python, unittest.mock.ANY, {})
+            self.assertEqual(labels, ["UPGRADE_PIP"])
+
     def test_stale_venv_is_deleted_and_recreated_before_pip(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -131,6 +187,7 @@ class ComfyUIInstallerTests(unittest.TestCase):
             with patch.object(installer, "INSTALL_DIR", install_dir), \
                  patch.object(installer, "_venv_matches_bootstrap", return_value=(False, "Python version changed")), \
                  patch.object(installer, "_https_probe", return_value=(True, "")), \
+                 patch.object(installer, "_pip_available", return_value=True), \
                  patch.object(installer, "_run", side_effect=fake_run):
                 with (root / "install.log").open("wb") as log:
                     python = installer._ensure_venv("/opt/homebrew/python3.14", log, {})
