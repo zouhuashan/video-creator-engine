@@ -114,7 +114,7 @@ def character_bible_prompt(character: dict[str, Any], custom_prompt: str = "") -
     extra = str(custom_prompt or "").strip()
     return (
         "Create one polished production character-design board for a premium Chinese guofeng "
-        "cinematic 3D animated series. The SAME girl must appear consistently in every panel. "
+        "cinematic 3D animated series. The SAME character must appear consistently in every panel. "
         "Include: large hero portrait, front full body, three-quarter full body, side profile, "
         "back view, five facial expressions, and small costume/hair detail callouts. "
         f"Character: {character['name']}, {character['role']}. "
@@ -136,7 +136,7 @@ def keyframe_prompt(character: dict[str, Any], shot: dict[str, Any], custom_prom
     extra = str(custom_prompt or "").strip()
     return (
         "Create a finished cinematic keyframe for a premium guofeng stylized 3D animated series. "
-        "The hero is a clearly young East Asian girl, not an adult and not a toy. "
+        f"The hero must exactly match the locked identity for {character['name']} ({character['role']}). "
         f"Locked face: {lock['face']}. Locked hair: {lock['hair']}. "
         f"Locked costume: {lock['costume']}. Locked body read: {lock['body']}. "
         f"Action: {shot['action']} "
