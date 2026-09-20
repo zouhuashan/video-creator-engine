@@ -64,6 +64,8 @@ jobs:
             tests.test_web_server.WebServerTests.test_delete_novel_project_removes_project_and_returns_newest_default \
             tests.test_web_server.WebServerTests.test_image_studio_explains_cinematic_3d_default_and_blocks_local_preview \
             tests.test_web_server.WebServerTests.test_image_style_presets_default_to_cinematic_3d_and_keep_illustration_lora_separate \
+            tests.test_web_server.WebServerTests.test_cinematic_3d_final_route_refuses_local_animagine_fallback \
+            tests.test_web_server.WebServerTests.test_cinematic_3d_final_route_rejects_explicit_comfyui \
             tests.test_comfyui_image_provider \
             tests.test_comfyui_lora_manager \
             tests.test_openai_image_provider
