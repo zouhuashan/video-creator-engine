@@ -37,4 +37,9 @@ jobs:
         run: node --check web/app.js
       - name: Run P31 regression
         run: |
-          python -m unittest             tests.test_novel_source_catalog             tests.test_novel_web_import
+          python -m unittest \
+            tests.test_novel_source_catalog \
+            tests.test_novel_web_import \
+            tests.test_web_server.WebServerTests.test_web_exposes_automatic_character_bootstrap_without_txt_reupload \
+            tests.test_web_server.WebServerTests.test_web_exposes_project_delete_action \
+            tests.test_web_server.WebServerTests.test_delete_novel_project_removes_project_and_returns_newest_default
