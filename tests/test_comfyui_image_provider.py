@@ -30,6 +30,8 @@ class FakeComfyHandler(BaseHTTPRequestHandler):
             return self._json({"system": {"comfyui_version": "test"}, "devices": [{"name": "test-gpu"}]})
         if parsed.path == "/object_info/CheckpointLoaderSimple":
             return self._json({"CheckpointLoaderSimple": {"input": {"required": {"ckpt_name": [["guofeng-test.safetensors"], {}]}}}})
+        if parsed.path == "/object_info/LoraLoader":
+            return self._json({"LoraLoader": {"input": {"required": {"lora_name": [["guofeng-style.safetensors"], {}]}}}})
         if parsed.path == "/history/prompt-1":
             return self._json({"prompt-1": {"outputs": {"7": {"images": [{"filename": "frame.png", "subfolder": "videocreator", "type": "output"}]}}}})
         if parsed.path == "/view":
@@ -95,6 +97,28 @@ class ComfyUIImageProviderTests(unittest.TestCase):
         self.assertEqual(workflow["4"]["inputs"]["width"], 1024)
         self.assertEqual(workflow["4"]["inputs"]["height"], 1536)
         self.assertEqual(workflow["7"]["class_type"], "SaveImage")
+
+    def test_lora_workflow_routes_model_and_clip_through_loader(self):
+        provider = ComfyUIImageProvider(self.base_url, timeout_seconds=2)
+        self.assertEqual(provider.available_loras(), ["guofeng-style.safetensors"])
+        workflow = provider.build_workflow(
+            "ancient Chinese swordswoman",
+            size="1024x1536",
+            checkpoint="guofeng-test.safetensors",
+            filename_prefix="videocreator/test",
+            positive_prompt_prefix="Chinese wuxia donghua, hanfu",
+            negative_prompt="school uniform, modern clothing",
+            lora_name="guofeng-style.safetensors",
+            lora_strength=0.72,
+        )
+        self.assertEqual(workflow["8"]["class_type"], "LoraLoader")
+        self.assertEqual(workflow["8"]["inputs"]["lora_name"], "guofeng-style.safetensors")
+        self.assertEqual(workflow["8"]["inputs"]["strength_model"], 0.72)
+        self.assertEqual(workflow["2"]["inputs"]["clip"], ["8", 1])
+        self.assertEqual(workflow["3"]["inputs"]["clip"], ["8", 1])
+        self.assertEqual(workflow["5"]["inputs"]["model"], ["8", 0])
+        self.assertIn("Chinese wuxia donghua", workflow["2"]["inputs"]["text"])
+        self.assertIn("school uniform", workflow["3"]["inputs"]["text"])
 
     def test_image_payload_magic_validation(self):
         self.assertTrue(ComfyUIImageProvider._valid_image_payload(b"\x89PNG\r\n\x1a\nrest"))
