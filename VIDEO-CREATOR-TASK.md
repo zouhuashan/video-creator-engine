@@ -3434,6 +3434,15 @@ P30-06 追加修复（2026-09-20，针对 Web 报错“未检测到 ComfyUI 安�
 - 官方当前仍支持 Apple Silicon；ComfyUI 文档建议独立环境并在 Apple Silicon 使用 PyTorch nightly，PyTorch 当前 MPS 后端仍为官方支持路径。
 - 当前 GitHub connector 仍未返回 workflow run/status，因此不虚报 CI PASS；真实 clone/pip/MPS 安装必须在用户 Mac 上执行。
 
+P30-06 安装器第八轮修复（2026-09-20，真实 Mac 日志）：
+
+- 第九次真实安装未进入 managed Python 下载，原因是 uv 收到互斥配置：`UV_MANAGED_PYTHON=1` 与 `UV_PYTHON_PREFERENCE=only-managed` 同时存在，uv 直接返回 `cannot be used with --python-preference`。
+- 官方 uv 文档说明 `UV_MANAGED_PYTHON` 对应 `--managed-python`，`UV_PYTHON_PREFERENCE` 是独立的 Python preference 设置；managed Python 已经由精确 request `cpython-3.13-macos-aarch64-none` 与精确解释器路径绑定，不需要再叠加两套策略。
+- `_managed_uv_env()` 现在主动移除 `UV_MANAGED_PYTHON`、`UV_PYTHON_PREFERENCE`、`UV_NO_MANAGED_PYTHON`，仅保留项目私有安装目录、bin 目录、CA 环境与 `UV_NO_MODIFY_PATH=1`。
+- system fallback 进一步收紧：Apple Silicon 候选 Python 除了必须为 arm64/aarch64，还必须通过 `_python_runtime_healthy()`；`platform.mac_ver()` 为空的 Homebrew Python 3.14 会在候选阶段直接剔除，不再重复进入已知坏链路。
+- 回归新增：managed uv env 必须清理互斥策略变量；Apple Silicon 必须拒绝 runtime health check 失败的 arm64 系统 Python。
+- 关键提交：`c6d4273`、`49c3c27`。
+
 P30-06 安装器第七轮修复（2026-09-20，真实 Mac 日志）：
 
 - 第八次真实安装已进入 Homebrew arm64 Python 3.14，但该解释器生成的半成品 venv 被 uv 判定为 broken：`platform.mac_ver() returned an empty value`；外层 pip `--python <venv>` 同时触发 pip 内部 `No module named pip._internal.operations.install.wheel`。继续修系统 Python 3.14 不再有价值。
