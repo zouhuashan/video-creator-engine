@@ -3420,6 +3420,18 @@ Status: BLOCKED
 - 新增非破坏性 preflight 回归测试。
 - 关键提交：`015b4a3`、`8ba93a5`、`8870d26`、`33ff085`、`a2c64c0`。
 
+P30-06 追加修复（2026-09-20，针对 Web 报错 `Connection refused`）：
+
+- 新增 `scripts/comfyui_service_manager.py`，把 ComfyUI 从“仅 Provider 检测”升级为受控本地服务：status / start / stop。
+- Web AI 生图页新增「启动 ComfyUI」「停止」和服务状态；“保存并检测”现在先保存地址，即使服务未启动也不会因为 connection refused 而拒绝保存。
+- 服务管理器只允许管理 loopback `http://127.0.0.1/localhost`，固定执行检测到的 `main.py`，禁止用户传任意命令。
+- Stop 只允许终止由 VideoCreator 启动并持有 PID state 的 ComfyUI；检测到外部/Desktop 自己启动的 ComfyUI 时拒绝误杀。
+- 自动发现 `COMFYUI_HOME`、仓库 `.dependencies/ComfyUI`、`~/ComfyUI`、`~/Documents/ComfyUI`、`~/ComfyUI-Installs/*/ComfyUI` 以及 macOS Desktop App resources；Desktop 模式会读取 Application Support 的 `config.json/basePath` 与其 `.venv`。
+- 日志写入 `logs/comfyui-service.log`，PID/state 写入被 gitignore 的 `logs/comfyui-service.json`；不写 API Key。
+- 新增 `tests/test_comfyui_service_manager.py`，覆盖 loopback 限制、未安装状态、固定启动命令和禁止停止外部进程；P30 regression workflow 已纳入该模块。
+- 关键提交：`bd02f77`、`1f7837e`、`907d75c`、`aa8e18e`、`7e23960`、`ccc2177`、`9db4ab6`、`15997f3`、`24be554`。
+- 当前 GitHub connector 仍未返回 workflow run/status，因此不虚报 CI PASS。
+
 当前唯一阻塞：
 
 - GitHub 连接器无法访问用户 Mac 的 `127.0.0.1:8188`、本地 GPU/ComfyUI checkpoint、FFmpeg 二进制和 Web 端口 `18765`，因此不能在本对话中伪造“真实 Mac runtime smoke PASS”。
