@@ -10,9 +10,11 @@ on:
       - "scripts/pipeline_orchestrator.py"
       - "scripts/web_server.py"
       - "scripts/comfyui_service_manager.py"
+      - "scripts/comfyui_installer.py"
       - "web/**"
       - "tests/test_comfyui_image_provider.py"
       - "tests/test_comfyui_service_manager.py"
+      - "tests/test_comfyui_installer.py"
       - "tests/test_image_provider_router.py"
       - "tests/test_pipeline_orchestrator.py"
       - "tests/test_pipeline_media_stages.py"
@@ -40,12 +42,14 @@ jobs:
             scripts/pipeline_orchestrator.py \
             scripts/pipeline_media_stages.py \
             scripts/web_server.py \
-            scripts/comfyui_service_manager.py
+            scripts/comfyui_service_manager.py \
+            scripts/comfyui_installer.py
       - name: Run P30 unit regression
         run: |
           python -m unittest \
             tests.test_comfyui_image_provider \
             tests.test_comfyui_service_manager \
+            tests.test_comfyui_installer \
             tests.test_image_provider_router \
             tests.test_pipeline_orchestrator \
             tests.test_pipeline_media_stages
