@@ -1407,6 +1407,8 @@ def _delete_novel_project(project_id: str, *, confirmed: bool) -> dict[str, obje
         "title": title,
         "default_project_id": default_project_id,
         "remaining_project_count": len(remaining),
+        "remaining_project_ids": [str(item.get("directory_id") or "") for item in remaining],
+        "deleted_verified": not project.exists(),
     }
 
 
