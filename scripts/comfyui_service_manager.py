@@ -152,6 +152,27 @@ def _write_install_state(payload: dict[str, Any]) -> None:
     tmp.replace(INSTALL_STATE_PATH)
 
 
+def _isolated_python_env(home: Path, python: Path | None = None) -> dict[str, str]:
+    env = dict(os.environ)
+    # VideoCreator Web may add .web-python through PYTHONPATH. Managed ComfyUI
+    # must never inherit that path because binary extensions (Pillow, NumPy,
+    # torch, etc.) belong to the ComfyUI venv ABI.
+    for key in (
+        "PYTHONPATH",
+        "PYTHONHOME",
+        "PYTHONUSERBASE",
+        "PYTHONSTARTUP",
+    ):
+        env.pop(key, None)
+    env["PYTHONNOUSERSITE"] = "1"
+    venv_dir = home / ".venv"
+    if python is not None and venv_dir.is_dir():
+        env["VIRTUAL_ENV"] = str(venv_dir)
+        current_path = env.get("PATH", "")
+        env["PATH"] = str(venv_dir / "bin") + (os.pathsep + current_path if current_path else "")
+    return env
+
+
 def _venv_identity(python: Path, home: Path) -> tuple[bool, str]:
     check = (
         "import json,sys;"
@@ -163,6 +184,7 @@ def _venv_identity(python: Path, home: Path) -> tuple[bool, str]:
             capture_output=True,
             text=True,
             cwd=home,
+            env=_isolated_python_env(home, python),
             check=False,
             timeout=10,
         )
@@ -197,7 +219,7 @@ def _runtime_dependency_smoke(python: Path, home: Path) -> tuple[bool, str]:
     if not requirements.is_file():
         return False, "requirements.txt missing"
     check = (
-        "import json;"
+        "import importlib,json,sys;"
         "from importlib.metadata import version,PackageNotFoundError;"
         "from packaging.requirements import Requirement;"
         "from pathlib import Path;"
@@ -212,10 +234,12 @@ def _runtime_dependency_smoke(python: Path, home: Path) -> tuple[bool, str]:
         " try: installed=version(req.name)\n"
         " except PackageNotFoundError: issues.append([req.name,'MISSING','']); continue\n"
         " if req.specifier and installed not in req.specifier: issues.append([req.name,'VERSION',installed+' not in '+str(req.specifier)])\n"
-        "mods=['filelock','sqlalchemy','alembic','aiohttp','yaml','PIL','numpy','torch'];"
+        "mods=['filelock','sqlalchemy','alembic','aiohttp','yaml','PIL.Image','PIL._imaging','numpy','torch'];"
         "\nfor m in mods:\n"
-        " try: __import__(m)\n"
+        " try: importlib.import_module(m)\n"
         " except Exception as e: issues.append([m,type(e).__name__,str(e)])\n"
+        "bad_paths=[p for p in sys.path if '.web-python' in p];"
+        "\nfor p in bad_paths:\n issues.append(['sys.path','WEB_PYTHON_CONTAMINATION',p])\n"
         "print(json.dumps({'issues':issues}))"
     )
     try:
@@ -224,6 +248,7 @@ def _runtime_dependency_smoke(python: Path, home: Path) -> tuple[bool, str]:
             capture_output=True,
             text=True,
             cwd=home,
+            env=_isolated_python_env(home, python),
             check=False,
             timeout=45,
         )
@@ -241,8 +266,8 @@ def _runtime_dependency_smoke(python: Path, home: Path) -> tuple[bool, str]:
     return True, ""
 
 
-def _dependency_env() -> dict[str, str]:
-    env = dict(os.environ)
+def _dependency_env(home: Path, python: Path) -> dict[str, str]:
+    env = _isolated_python_env(home, python)
     state = _load_install_state()
     ca_source = str(state.get("ca_source") or "").strip()
     if ca_source:
@@ -299,7 +324,7 @@ def _sync_project_dependencies(home: Path, python: Path, log) -> dict[str, Any]:
         stdin=subprocess.DEVNULL,
         stdout=log,
         stderr=subprocess.STDOUT,
-        env=_dependency_env(),
+        env=_dependency_env(home, python),
         check=False,
     )
     if result.returncode != 0:
@@ -461,6 +486,12 @@ def start_service(base_url: str) -> dict[str, Any]:
         log.write(f"\n=== VideoCreator ComfyUI start {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n".encode())
         log.write(f"python={python}\n".encode("utf-8", errors="replace"))
         log.write(f"home={home}\n".encode("utf-8", errors="replace"))
+        log.write(
+            f"python_env_isolated={str(home.resolve() == PROJECT_COMFYUI_HOME.resolve()).lower()} "
+            f"parent_pythonpath_present={str(bool(os.environ.get('PYTHONPATH'))).lower()}\n".encode(
+                "utf-8", errors="replace"
+            )
+        )
         log.flush()
         try:
             dependency_sync = _sync_project_dependencies(home, python, log)
@@ -469,9 +500,15 @@ def start_service(base_url: str) -> dict[str, Any]:
         except Exception as error:
             raise ComfyUIServiceError(f"ComfyUI 启动前依赖自检失败: {error}") from error
         try:
+            process_env = (
+                _isolated_python_env(home, python)
+                if home.resolve() == PROJECT_COMFYUI_HOME.resolve()
+                else dict(os.environ)
+            )
             process = subprocess.Popen(
                 command,
                 cwd=home,
+                env=process_env,
                 stdin=subprocess.DEVNULL,
                 stdout=log,
                 stderr=subprocess.STDOUT,
