@@ -3752,3 +3752,37 @@ Status: CODE PASS / LOCAL WEB REVERIFY
 不需要重新上传 TXT，不需要命令行。
 
 NEXT：完成一次《照骨灯》Web 本机复验：删除重复项目 → 确认真实项目角色 → 重新生成角色定妆板；若仍失败，以页面新暴露的具体 ComfyUI node/error 为下一修复输入。
+
+
+## P31-03 AI 生图中国古风风格锁
+Status: CODE PASS / LOCAL WEB REVERIFY
+
+执行记录（2026-09-20）：
+
+- 真实 Web 结果显示 Animagine XL 4.0 虽能稳定生成动漫角色定妆板，但视觉明显偏日系二次元 / 现代制服，不符合《照骨灯》的中国古风定位。
+- 根因不是单一 Prompt 缺词：共享角色 Prompt 原先同时包含 `Chinese guofeng` 与 `cinematic 3D animated series`，而项目角色 costume fallback 只写了模糊的 `period costume`；Animagine 本身又是通用动漫 checkpoint，因此会优先落到其熟悉的现代 anime 服装分布。
+- `config/providers/comfyui-image-provider.json` 新增 `style_profile=GUOFENG_ANCIENT_CHINA` 与默认正向 Prompt 前缀，固定包含 Chinese guofeng donghua / ancient China / wuxia / xianxia / hanfu / crossed-collar robe / layered fabric / traditional Chinese hair ornament / ink-wash-inspired palette。
+- 本地 ComfyUI Provider 在构建 workflow 时会自动把上述风格前缀置于用户 Prompt 前面；用户不需要每次在 Web 手工复制整段国风关键词。
+- negative prompt 加强为硬排除 modern clothing / contemporary fashion / school uniform / sailor uniform / JK uniform / blazer / necktie / T-shirt / hoodie / miniskirt / sneakers / office wear / modern city / cyberpunk 等现代或日系校园服装。
+- Character Bible / Keyframe 的共享系统 Prompt 改为“premium Chinese guofeng donghua / ancient China / Chinese fantasy / wuxia-xianxia”，明确要求汉服、交领、层叠面料、宽袖/护臂、腰封、中国传统发饰与克制玉石/金属配件，并显式禁止现代制服。
+- 小说项目角色缺少已审核服装设计时，Image Studio 的 costume fallback 不再使用模糊 `source-consistent period costume`，而是明确中国古代角色适配汉服/袍服，并禁止 Japanese school uniform。
+- 默认 render lock 从 `cinematic stylized 3D animation` 调整为 `premium Chinese guofeng donghua, painterly 2D/2.5D animation`，消除和 Animagine 本地 checkpoint 的语义冲突。
+- Web 不再把 Animagine XL 4.0 标成“国漫基础模型”；改为“动漫基础 checkpoint（国风由系统风格锁 / 可选 LoRA 加强）”。附加要求输入框也明确“系统已默认强制中国古风古装”。
+- 回归覆盖正向前缀、hanfu 关键词、school uniform / modern clothing 负向约束，以及 Web 风格锁说明。
+- 当前仍不把 Animagine 误认为专用中国国风模型：如果风格锁后仍偏日系，下一步是在当前 ComfyUI workflow 增加可选国风 LoRA / 专用 guofeng checkpoint，由 Web 一键选择；不替换现有已验证的 Animagine 基础模型即可完成渐进升级。
+- 关键提交：`55145b64`、`792a3705`、`98018479`、`933a2bcd`、`9052827e`、`6ddd6805`、`9c403d3d`、`e5a48a0e`、`0b9be582`、`18d37ba6`。
+
+当前 Web 复验：
+
+```text
+重启一次 VideoCreator Web（后端 Python / Provider Prompt 已更新）
+→ AI 生图
+→ 附加要求可留空，直接“生成角色定妆板”
+→ 期望：角色整体仍是动漫，但服装/发型/配色必须明显进入中国古风古装语义
+→ 不应再次出现 JK / 水手服 / 西式校服 / T 恤短裙 / 运动鞋等现代服装
+```
+
+手工需要进一步加强时，只在“附加要求”里写具体朝代/美术方向，例如：
+`宋制汉服，交领右衽，月白与黛青，墨色长发，玉簪，衣料厚重，低饱和水墨配色，武侠国漫角色设定，禁止现代服饰与日系校园制服。`
+
+NEXT：本机重生成一张《照骨灯》角色定妆板确认“古风服装命中率”；若仍明显偏日系，进入 P31-04 Web 可选国风 LoRA / 专用 checkpoint。
