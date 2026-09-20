@@ -618,6 +618,7 @@ def _generate_image_studio_asset(
     confirm_billable: bool = False,
     upload_authorized: bool = False,
     preferred_provider: str = "AUTO",
+    comfyui_client_id: str = "",
 ) -> dict[str, object]:
     if artifact_type not in {"character_bible", "keyframe"}:
         raise ValueError("unsupported image studio artifact type")
@@ -665,7 +666,12 @@ def _generate_image_studio_asset(
         if artifact_type == "character_bible" and not cfg.get("character_bible_size"):
             size = "1536x1024"
         provider = ComfyUIImageProvider(_comfyui_base_url(), config_path=COMFYUI_IMAGE_PROVIDER_CONFIG_PATH)
-        result = provider.generate(prompt, output, size=size)
+        result = provider.generate(
+            prompt,
+            output,
+            size=size,
+            client_id=comfyui_client_id or None,
+        )
     elif route["adapter"] == "openai_image":
         cfg = _load_repo_json(IMAGE_PROVIDER_CONFIG_PATH)
         env_name = str(cfg.get("key_env") or "OPENAI_API_KEY")
@@ -1568,6 +1574,7 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                     confirm_billable=payload.get("confirm_billable") is True,
                     upload_authorized=payload.get("upload_authorized") is True,
                     preferred_provider=str(payload.get("provider_preference") or "AUTO"),
+                    comfyui_client_id=str(payload.get("comfyui_client_id") or "").strip(),
                 )
                 return self._json(result, HTTPStatus.CREATED)
             except (ValueError, OpenAIImageError, ComfyUIImageError, ImageProviderRouteError, OSError, KeyError, TypeError, json.JSONDecodeError) as error:
