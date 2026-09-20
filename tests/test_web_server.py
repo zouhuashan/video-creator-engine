@@ -266,6 +266,7 @@ class WebServerTests(unittest.TestCase):
         self.assertIn('id="imageStudioDeleteProjectButton"', index)
         self.assertIn("deleteCurrentImageStudioProject", app)
         self.assertIn("imageStudioDeleteProjectButton", app)
+        self.assertIn("novelProjectOptionLabel", app)
         self.assertIn("/api/novel-anime/delete", app)
         self.assertIn("confirm_delete: true", app)
 
@@ -328,8 +329,10 @@ class WebServerTests(unittest.TestCase):
                 result = web_server._delete_novel_project("older", confirmed=True)
 
             self.assertEqual(result["status"], "DELETED")
+            self.assertTrue(result["deleted_verified"])
             self.assertFalse(older.exists())
             self.assertEqual(result["default_project_id"], "newer")
+            self.assertEqual(result["remaining_project_ids"], ["newer"])
             self.assertTrue(newer.exists())
 
     def test_web_exposes_managed_comfyui_controls(self):
