@@ -6,7 +6,6 @@ from __future__ import annotations
 import hashlib
 import re
 import shutil
-import tempfile
 import time
 from pathlib import Path
 from typing import Any
@@ -207,11 +206,9 @@ def create_project_from_web_upload(
 
         temp_root = project_dir / ".videocreator" / "upload-tmp"
         temp_root.mkdir(parents=True, exist_ok=True)
-        descriptor, temp_name = tempfile.mkstemp(prefix="novel-", suffix=".txt", dir=temp_root)
-        temp_path = Path(temp_name)
+        temp_path = temp_root / source_name
         try:
-            with open(descriptor, "wb", closefd=True) as handle:
-                handle.write(source_bytes)
+            temp_path.write_bytes(source_bytes)
             import_result = ingest_source(
                 project_dir,
                 edition_id,
