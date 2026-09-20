@@ -3434,6 +3434,18 @@ P30-06 追加修复（2026-09-20，针对 Web 报错“未检测到 ComfyUI 安�
 - 官方当前仍支持 Apple Silicon；ComfyUI 文档建议独立环境并在 Apple Silicon 使用 PyTorch nightly，PyTorch 当前 MPS 后端仍为官方支持路径。
 - 当前 GitHub connector 仍未返回 workflow run/status，因此不虚报 CI PASS；真实 clone/pip/MPS 安装必须在用户 Mac 上执行。
 
+P30-06 Image Studio 预览修复（2026-09-20 14:27 CST，真实 Web 截图）：
+
+- 首张角色定妆图 ComfyUI 已执行完成，但 Web 预览出现黑框/alt 文本，且“空状态”与结果区同时显示。
+- 已确认一个确定前端 bug：全局 `.hidden{display:none}` 定义在前，而后续 `.image-studio-empty{display:flex}` / `.image-studio-result{display:grid}` 覆盖了 display，导致隐藏状态失效。新增 `.image-studio-empty.hidden,.image-studio-result.hidden{display:none !important}`。
+- 媒体 URL 链路加固：后端新增 `_media_url()`，对 project id 和每个相对路径 segment 做 URL quote；`_safe_project()` 支持 URL-decoded project id；Image Studio inventory 和生成返回统一使用编码后的 `/media/...`。
+- 前端不再直接信任历史 `media_url`；由 `project_id + output` 逐段 `encodeURIComponent` 重建同源 URL，并带生成版本 query 避免旧缓存。
+- Web 预览新增 `onerror` 可见错误提示与日志；若媒体 GET 失败会直接显示具体 URL，不再只剩黑框。
+- ComfyUI provider 新增 PNG/JPEG/WebP magic header 校验，非图片 bytes（例如 HTML 错误页）不会再保存成 `.png`。
+- Image Studio inventory 新增 `media_valid` / `media_bytes`；旧资产刷新后即可区分“URL 加载失败”和“文件本体无效”。新生成结果只有文件头合法才允许返回成功。
+- 新增 provider/media URL/image file validation 回归；`web/app.js` 已做 V8 syntax compile，结果 PASS。
+- 关键提交：`5fb6d51`、`6d79152`、`1c09455`、`b3a3ebc`、`8cd265c`、`b38f4c3`、`1758a6e`、`967dcd7`、`aeba753`。
+
 P30-06 首张本地角色定妆图真实执行（2026-09-20 14:23 CST）：
 
 - 用户在 Web 点击「生成角色定妆板」后，ComfyUI 实际已成功执行完整 24-step workflow；日志 `24/24`，KSampler 采样约 `197s`，整条 prompt `258.81s`。
