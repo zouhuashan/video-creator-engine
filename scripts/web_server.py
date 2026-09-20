@@ -12,6 +12,7 @@ import json
 import mimetypes
 import os
 import re
+import shutil
 import sys
 import threading
 import time
@@ -1395,6 +1396,8 @@ def _delete_novel_project(project_id: str, *, confirmed: bool) -> dict[str, obje
     title = str(manifest.get("title") or project.name)
 
     shutil.rmtree(project)
+    if project.exists():
+        raise OSError(f"project directory still exists after deletion: {project.name}")
     _NOVEL_PROJECT_CACHE.clear()
     remaining = _novel_anime_projects()
     default_project_id = str(remaining[0].get("directory_id") or "") if remaining else ""
