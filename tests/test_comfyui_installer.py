@@ -7,6 +7,28 @@ import scripts.comfyui_installer as installer
 
 
 class ComfyUIInstallerTests(unittest.TestCase):
+    def test_apple_silicon_rejects_x86_python_candidate(self):
+        with patch.object(installer.shutil, "which", side_effect=lambda name: {
+                 "python3.13": "/opt/local/python3.13",
+                 "python3.14": "/opt/homebrew/python3.14",
+             }.get(name)), \
+             patch.object(installer, "_python_version", return_value=(3, 13)), \
+             patch.object(installer, "_apple_silicon_host", return_value=True), \
+             patch.object(installer, "_python_machine", side_effect=lambda executable: "x86_64" if "opt/local" in executable else "arm64"), \
+             patch.object(installer.sys, "executable", "/opt/homebrew/python3.14"):
+            candidates = installer._python_candidates()
+
+        self.assertNotIn("/opt/local/python3.13", candidates)
+        self.assertIn("/opt/homebrew/python3.14", candidates)
+
+    def test_non_apple_host_does_not_apply_arm64_filter(self):
+        with patch.object(installer.shutil, "which", side_effect=lambda name: "/usr/local/python3.13" if name == "python3.13" else None), \
+             patch.object(installer, "_python_version", return_value=(3, 13)), \
+             patch.object(installer, "_apple_silicon_host", return_value=False), \
+             patch.object(installer.sys, "executable", "/usr/local/python3.13"):
+            candidates = installer._python_candidates()
+        self.assertIn("/usr/local/python3.13", candidates)
+
     def test_choose_bootstrap_python_prefers_supported_versions(self):
         with patch.object(installer, "_python_candidates", return_value=["/opt/python3.13"]), \
              patch.object(installer, "_https_probe", return_value=(True, "")), \
