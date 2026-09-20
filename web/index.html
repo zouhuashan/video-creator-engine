@@ -236,6 +236,13 @@
                 <button class="primary-button" id="generateCharacterBibleButton"><span>✦</span>生成角色定妆板</button>
                 <button class="secondary-button" id="generateKeyframeButton"><span>◈</span>生成镜头关键帧</button>
               </div>
+              <div class="image-generation-progress hidden" id="imageStudioGenerationProgress">
+                <div class="image-generation-progress-head">
+                  <div><strong id="imageStudioGenerationTitle">正在生成</strong><small id="imageStudioGenerationDetail">等待 ComfyUI 开始执行…</small></div>
+                  <span id="imageStudioGenerationPercent">0%</span>
+                </div>
+                <div class="image-generation-progress-track"><span id="imageStudioGenerationProgressBar"></span></div>
+              </div>
               <p class="helper-text">AUTO 优先使用本地 ComfyUI；只有回退到 OpenAI 时才会弹出远程计费确认。</p>
 
               <div class="image-lock-card" id="imageStudioCharacterLock">
