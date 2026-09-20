@@ -60,7 +60,7 @@ class NovelWebImportTests(unittest.TestCase):
             )
             self.assertTrue((project / "story-bible" / "world.json").is_file())
             self.assertTrue((project / "story-bible" / "image-studio-character-candidates.json").is_file())
-            self.assertTrue((project / "series-plan.json").is_file())
+            self.assertTrue((project / "writing-room" / "series-plan.json").is_file())
             self.assertFalse((project / ".videocreator" / "upload-tmp").exists())
 
             import_payload = json.loads((project / result["import"]["output"]).read_text(encoding="utf-8"))
