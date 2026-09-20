@@ -3838,3 +3838,66 @@ Status: CODE PASS / LOCAL WEB REVERIFY
 如果暂时不安装 LoRA，也可以直接选择“中国古风”生成；结果详情会明确显示 `Prompt only`，便于和 LoRA ON 的结果做 A/B 对比。
 
 NEXT：完成《照骨灯》本机 Web smoke（LoRA 安装 → READY → 中国古风定妆板）；若出现具体 LoraLoader / model compatibility 错误，按 Web 暴露的节点错误继续修；若技术链 PASS 但国风强度仍不足，再微调 LoRA strength 或增加第二个汉服专用 LoRA / 国风专用 checkpoint，而不是继续盲目堆 Prompt。
+
+
+## P31-05 《照骨灯》最终视觉纠偏：电影级 3D 国漫
+Status: CODE PASS / LOCAL WEB REVERIFY
+
+执行记录（2026-09-20）：
+
+- 用户真实生成结果确认：P31-04 的“中国古风 + sdxl-chinese-style-illustration LoRA”已经能稳定得到汉服、中国发饰和古风配色，但最终仍是明显的 2D/水彩/设定插画，缺少真正 3D 国漫需要的体积、透视、材质、灯光和景深。
+- 该结果不是单一提示词失败，而是系统方向存在冲突：
+  - P31-03 曾把默认 render lock 改为 `painterly 2D/2.5D animation`；
+  - 当前国风 LoRA 本身就是 `Chinese style illustration`，会进一步强化平面插画分布；
+  - Animagine XL 4.0 是动漫基础 checkpoint，不应再被当作电影级 3D 国漫最终画质生产器。
+- 新增并设为全局默认风格：`CINEMATIC_3D_DONGHUA` / “电影级 3D 国漫”。
+  - 目标固定为真正立体的高质量 3D 中国国漫：fully modeled volumetric character、sculpted facial planes、dimensional hair、layered cloth thickness、NPR/Toon + believable PBR material response、subsurface skin、cinematic key/fill/rim light、volumetric atmosphere、perspective、real depth of field。
+  - 负向明确排除 flat illustration / 2D drawing / watercolor / ink-paper painting / lineart / cel cutout / cardboard cutout / flat concept illustration / visual novel art / no-depth render。
+- “电影级 3D 国漫”**不加载** `sdxl-chinese-style-illustration`。该 LoRA 保留给“中国古风插画 / 仙侠 / 武侠 / 水墨”等概念预览预设，避免插画 LoRA 再把最终角色压回平面。
+- 旧“中国古风”重命名为“中国古风插画”，render role 明确为 `CONCEPT_PREVIEW`；不再与最终 3D 视觉混淆。
+- 默认角色 render lock 从 2D/2.5D 恢复为 `premium cinematic 3D Chinese donghua`；final 3D preset 在运行时会覆盖项目旧 Visual Bible 中遗留的 2D rendering/art-direction，避免旧项目继续把最终生成拉回平面。
+- Character Bible Prompt 对 3D 风格改为真正 `3D production character-turnaround board`：
+  - 每个视图必须是同一个 fully modeled 3D character 的 camera render；
+  - 保留真实体积、透视、材质厚度和统一 studio lighting；
+  - beauty portrait 必须像 finished film character render；
+  - 明确禁止 flat painted views。
+- Keyframe Prompt 对 3D 风格强制 true 3D film frame：sculpted face volume、dimensional hair geometry、cloth thickness/folds、contact shadows、film lighting、atmospheric depth、real DOF、NPR/PBR 材质响应。
+- Provider 路由按风格升级：
+  - `CINEMATIC_3D_DONGHUA` 的 `preferred_provider=OPENAI_IMAGE`、`render_role=FINAL_VISUAL`；
+  - Web 选择 `AUTO + 电影级 3D 国漫` 且 OpenAI Image 已配置时，优先走 OpenAI 最终视觉，而不是本地 Animagine；
+  - OpenAI 未配置时仍允许本地 ComfyUI 回退，但结果明确标记 `LOCAL_PREVIEW`，不再冒充最终画质；
+  - 用户显式选择 ComfyUI 时同样允许低成本预览。
+- Image Studio 的项目风格 localStorage key 从 v1 升级为 v2，旧项目之前记住的“中国古风插画”不会继续覆盖新的 3D 默认值；《照骨灯》重新进入页面后默认应切到“电影级 3D 国漫”。
+- Web 结果 metadata / 详情现在记录并展示 `FINAL_VISUAL` / `LOCAL_PREVIEW` / `CONCEPT_PREVIEW`，同时 3D 风格下 LoRA 卡明确显示 `NOT USED BY 3D`。
+- 新增 3D Prompt regression，锁定 turnaround 必须 true volume、finished film character render，keyframe 必须 true 3D film frame / cloth thickness / real DOF；P31 CI 已纳入。
+- 关键提交：`2db9f89b`、`ecc9633d`、`d1829746`、`37cd2132`、`2aac2812`、`3c5480f7`、`ee51ca37`、`f44d13ff`、`f6e8a2d8`、`f9bee2bd`、`bb2d63f7`、`40b38b26`。
+
+当前 Web 验收路径：
+
+```text
+重启一次 VideoCreator Web
+→ AI 生图
+→ 画面风格应默认：电影级 3D 国漫
+→ 国风插画 LoRA 卡应显示：NOT USED BY 3D
+→ Provider 保持 AUTO
+
+如果 OpenAI Image 已配置：
+  → 顶部 Provider 应显示 AUTO → OpenAI Final
+  → 点击“生成角色定妆板”
+  → 确认一次可能产生 API 费用
+  → 结果详情应包含：电影级 3D 国漫 · FINAL_VISUAL · No illustration LoRA
+
+如果 OpenAI Image 未配置：
+  → 页面明确提示 AUTO 只能生成 LOCAL PREVIEW
+  → Animagine 本地结果只用于低成本构图/角色方向预览，不作为最终 3D 验收
+
+最终视觉验收：
+  → 角色必须有明显头面体积、鼻梁/颧骨/下颌转折
+  → 头发必须是有体积的发束/发丝，不是平涂轮廓
+  → 汉服必须有衣料厚度、褶皱、层叠与真实遮挡关系
+  → 光照必须有 key/fill/rim、接触阴影、体积光
+  → 画面必须有透视与景深
+  → 禁止水彩纸感、平面插画、二维纸片、视觉小说立绘
+```
+
+NEXT：在《照骨灯》上生成一张 `FINAL_VISUAL` 角色定妆板做真实视觉验收；如 OpenAI 最终视觉仍不匹配，再基于该真实结果微调 3D art direction，而不是继续给 Animagine 叠插画 LoRA。
