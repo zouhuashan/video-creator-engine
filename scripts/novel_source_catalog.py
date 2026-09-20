@@ -108,8 +108,10 @@ def _text(value: Any, label: str, *, allow_empty: bool = False, maximum: int = 2
 def _url(value: Any, label: str) -> str:
     text = _text(value, label, maximum=2000)
     parsed = urlsplit(text)
-    if parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.username or parsed.password:
-        raise NovelSourceCatalogError(f"{label} must be an absolute http(s) URL without credentials")
+    remote = parsed.scheme in {"http", "https"} and bool(parsed.hostname)
+    local_upload = parsed.scheme == "local" and parsed.hostname == "upload"
+    if not (remote or local_upload) or parsed.username or parsed.password:
+        raise NovelSourceCatalogError(f"{label} must be an absolute http(s) URL or local://upload URI without credentials")
     return text
 
 
