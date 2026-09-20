@@ -1047,6 +1047,15 @@ def _generate_image_studio_asset(
     local_route = route["adapter"] == "comfyui_image"
     style_direction = str(preset.get("remote_direction") or "")
     forbidden_direction = "" if local_route else str(preset.get("negative_prompt") or "")
+    if str(preset.get("render_role") or "").upper() == "FINAL_VISUAL":
+        character = deepcopy(character)
+        existing_render = character.get("render_lock") if isinstance(character.get("render_lock"), dict) else {}
+        character["render_lock"] = {
+            "medium": "premium cinematic 3D Chinese donghua, high-end stylized NPR production render",
+            "shading": "fully modeled volumetric 3D forms, sculpted facial planes, dimensional hair geometry, layered cloth with visible thickness, stylized toon/NPR shading with believable PBR material response, soft subsurface skin, contact shadows, never flat illustration",
+            "lighting": "film-quality key/fill/rim lighting with controlled volumetric atmosphere, perspective and real depth of field",
+            "palette": list(existing_render.get("palette") or []),
+        }
     shot = _load_repo_json(IMAGE_SHOT_CONFIG_PATH)
     stamp = time.strftime("%Y%m%d-%H%M%S") + f"-{time.time_ns() % 100000:05d}"
     if artifact_type == "character_bible":
