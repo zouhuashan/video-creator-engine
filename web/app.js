@@ -1047,6 +1047,10 @@ function renderImageStudio() {
   select.innerHTML = projects.map((item) => `<option value="${escapeHtml(item.directory_id)}">${escapeHtml(item.title)}</option>`).join('');
   const activeProjectId = resolveActiveNovelProject(data?.project_id || state.imageStudioProjectId);
   if (activeProjectId) select.value = activeProjectId;
+  const activeProject = projects.find((item) => item.directory_id === activeProjectId);
+  $('#imageStudioActiveProjectHint').textContent = activeProject
+    ? `当前生成目标：《${activeProject.title}》 · ${activeProject.directory_id}`
+    : '当前生成目标：未选择项目';
 
   const providers = data?.providers || [];
   const openai = providers.find((item) => item.provider_id === 'OPENAI_IMAGE' || item.id === 'openai_image') || data?.provider || {};
