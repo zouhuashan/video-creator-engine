@@ -12,13 +12,17 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
-from scripts.novel_anime_project import build_project, utc_timestamp, write_project
+from scripts.novel_anime_project import MANIFEST_NAME, build_project, load_project, utc_timestamp, write_project
 from scripts.novel_anime_repository import NovelAnimeRepository
 from scripts.novel_anime_runtime import NovelAnimeRuntime
-from scripts.novel_source_catalog import build_catalog, write_catalog
+from scripts.novel_source_catalog import build_catalog, load_catalog, write_catalog
 from scripts.novel_source_ingest import MAX_SOURCE_BYTES, ingest_source
-from scripts.novel_character_candidates import build_character_candidates, write_character_candidates
-from scripts.novel_story_bible import build_bible, bind_continuity_refs, write_bible
+from scripts.novel_character_candidates import (
+    build_character_candidates,
+    load_character_candidates,
+    write_character_candidates,
+)
+from scripts.novel_story_bible import build_bible, bind_continuity_refs, load_bible, write_bible
 from scripts.novel_series_plan import build_plan, write_plan
 from scripts.novel_episode_planning import build_episode_planning, write_episode_planning
 from scripts.novel_episode_script import build_script_package, write_script_package
@@ -41,6 +45,7 @@ from scripts.novel_qc import build_qc_report, write_qc_report
 
 MAX_WEB_UPLOAD_BYTES = MAX_SOURCE_BYTES * 2 + 1024 * 1024
 RIGHTS_MODES = {"OWNED_OR_LICENSED", "TECHNICAL_TEST"}
+MAX_AUTO_STORY_CHARACTERS = 12
 
 
 class NovelWebImportError(RuntimeError):
@@ -134,9 +139,229 @@ def _configure_catalog(
     return catalog, edition_id, formal
 
 
-def _initialize_workspace(project_dir: Path) -> None:
-    """Create the existing production-desk skeleton using the same P18-P27 builders."""
-    write_bible(project_dir, build_bible(project_dir))
+def _import_payloads(project_dir: Path) -> list[tuple[Path, dict[str, Any]]]:
+    result: list[tuple[Path, dict[str, Any]]] = []
+    imports_root = Path(project_dir) / "sources" / "imports"
+    if not imports_root.is_dir():
+        return result
+    for path in sorted(imports_root.glob("*.json"), key=lambda item: item.stat().st_mtime_ns, reverse=True):
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if isinstance(payload, dict):
+            result.append((path, payload))
+    return result
+
+
+def _matching_existing_project(projects_root: Path, title: str, source_sha256: str) -> tuple[Path, Path, dict[str, Any]] | None:
+    """Find an identical prior Web import so retries are idempotent."""
+    if not projects_root.is_dir():
+        return None
+    wanted_title = str(title or "").strip()
+    wanted_sha = str(source_sha256 or "").strip().lower()
+    for manifest_path in projects_root.glob(f"*/{MANIFEST_NAME}"):
+        try:
+            project = load_project(manifest_path)
+        except Exception:
+            continue
+        if str(project.get("title") or "").strip() != wanted_title:
+            continue
+        for import_path, payload in _import_payloads(manifest_path.parent):
+            if str(payload.get("source_sha256") or "").strip().lower() == wanted_sha:
+                return manifest_path.parent, import_path, payload
+    return None
+
+
+def _chapter_refs_for_candidate(project_dir: Path, candidate: dict[str, Any], source_sha256: str = "") -> list[str]:
+    refs = [
+        str(item.get("chapter_id") or "").strip()
+        for item in candidate.get("mentions", [])
+        if isinstance(item, dict) and str(item.get("chapter_id") or "").strip()
+    ]
+    if refs:
+        return list(dict.fromkeys(refs))[:8]
+
+    wanted_sha = str(source_sha256 or "").strip().lower()
+    for _path, payload in _import_payloads(project_dir):
+        if wanted_sha and str(payload.get("source_sha256") or "").strip().lower() != wanted_sha:
+            continue
+        refs = [
+            str(item.get("chapter_id") or "").strip()
+            for item in payload.get("chapters", [])
+            if isinstance(item, dict) and str(item.get("chapter_id") or "").strip()
+        ]
+        if refs:
+            return list(dict.fromkeys(refs))[:8]
+    return []
+
+
+def _candidate_story_characters(project_dir: Path, candidate_payload: dict[str, Any]) -> list[dict[str, Any]]:
+    characters = candidate_payload.get("characters")
+    if not isinstance(characters, list):
+        return []
+
+    seeded: list[dict[str, Any]] = []
+    source_sha = str(candidate_payload.get("source_sha256") or "")
+    for index, item in enumerate(characters[:MAX_AUTO_STORY_CHARACTERS]):
+        if not isinstance(item, dict):
+            continue
+        character_id = str(item.get("id") or "").strip()
+        name = str(item.get("name") or "").strip()
+        if not character_id or not name:
+            continue
+        source_refs = _chapter_refs_for_candidate(project_dir, item, source_sha)
+        if not source_refs:
+            continue
+        mentions = int(item.get("total_mentions") or 0)
+        seeded.append({
+            "id": character_id,
+            "name": name,
+            "aliases": [str(value).strip() for value in item.get("aliases", []) if str(value).strip()],
+            "role": "主角候选（自动抽取）" if index == 0 else "主要角色候选（自动抽取）",
+            "description": f"由导入底本自动抽取；当前共识别 {mentions} 次出场或提及。身份与视觉细节等待人工定妆审核。",
+            "goals": [],
+            "traits": [],
+            "baseline_state": {
+                "location_id": None,
+                "costume_id": None,
+                "carried_prop_ids": [],
+                "injuries": [],
+                "knowledge": [],
+                "emotional_state": "",
+            },
+            "provenance": {
+                "kind": "SOURCE",
+                "source_refs": source_refs,
+                "note": "由本地小说导入自动抽取，正文未落库；角色信息需人工复核。",
+            },
+            "human_review": {
+                "required": True,
+                "status": "PENDING",
+                "reviewed_at": None,
+                "reviewed_by": None,
+                "note": "",
+            },
+        })
+    return seeded
+
+
+def promote_character_candidates(project_dir: Path, candidate_payload: dict[str, Any]) -> dict[str, Any]:
+    """Promote persisted extraction candidates into Story/Character Bible data.
+
+    This is safe to run repeatedly.  Existing non-empty Story Bible characters
+    win; automatic promotion only fills projects that previously had none.
+    """
+    project_dir = Path(project_dir).resolve()
+    try:
+        bible = load_bible(project_dir)
+        bible_exists = True
+    except Exception:
+        bible = build_bible(project_dir)
+        bible_exists = False
+
+    current = bible.get("characters") if isinstance(bible, dict) else None
+    if isinstance(current, list) and current:
+        return {
+            "status": "READY",
+            "character_count": len(current),
+            "promoted": False,
+            "source": "story-bible",
+        }
+
+    characters = _candidate_story_characters(project_dir, candidate_payload)
+    if not characters:
+        return {
+            "status": "BLOCKED",
+            "character_count": 0,
+            "promoted": False,
+            "source": "character-candidates-empty",
+        }
+
+    bible["characters"] = characters
+    if bible_exists:
+        bible["revision"] = int(bible.get("revision") or 1) + 1
+        bible["updated_at"] = utc_timestamp()
+    write_bible(project_dir, bible, overwrite=bible_exists)
+    bind_continuity_refs(project_dir)
+
+    # Old Web imports may already have an empty Character Designs file.  Once
+    # Story Bible is repaired, rebuild that derived package so Image Studio
+    # sees the real project character immediately.
+    try:
+        write_character_designs(project_dir, build_character_designs(project_dir), overwrite=True)
+    except Exception:
+        # During a brand-new import the Visual Bible does not exist yet; the
+        # normal workspace initializer will create Character Designs later.
+        pass
+
+    return {
+        "status": "READY",
+        "character_count": len(characters),
+        "promoted": True,
+        "source": "local-character-candidates",
+        "characters": [{"id": item["id"], "name": item["name"], "role": item["role"]} for item in characters],
+    }
+
+
+def recover_project_characters(project_dir: Path) -> dict[str, Any]:
+    """Recover an old Web-import project without asking for the TXT again."""
+    project_dir = Path(project_dir).resolve()
+    try:
+        existing = load_bible(project_dir)
+        existing_characters = existing.get("characters") if isinstance(existing, dict) else []
+        if isinstance(existing_characters, list) and existing_characters:
+            return {
+                "status": "READY",
+                "character_count": len(existing_characters),
+                "promoted": False,
+                "source": "story-bible",
+            }
+    except Exception:
+        pass
+
+    try:
+        candidates = load_character_candidates(project_dir)
+    except Exception:
+        candidates = None
+    if isinstance(candidates, dict) and candidates.get("characters"):
+        return promote_character_candidates(project_dir, candidates)
+
+    # Older imports persist extraction metadata even though they intentionally
+    # discard the original prose.  Rebuild the candidate file from that
+    # metadata, then promote it into Story Bible.
+    for _path, import_payload in _import_payloads(project_dir):
+        extraction = import_payload.get("extraction") if isinstance(import_payload, dict) else None
+        characters = extraction.get("characters") if isinstance(extraction, dict) else None
+        if not isinstance(characters, list) or not characters:
+            continue
+        candidate_payload = build_character_candidates(
+            project_dir,
+            source_file_name=str(import_payload.get("source_file_name") or "novel.txt"),
+            source_sha256=str(import_payload.get("source_sha256") or ""),
+            provider=str(extraction.get("provider") or "local_lexicon"),
+            characters=characters,
+        )
+        write_character_candidates(project_dir, candidate_payload)
+        return promote_character_candidates(project_dir, candidate_payload)
+
+    return {
+        "status": "BLOCKED",
+        "character_count": 0,
+        "promoted": False,
+        "source": "no-persisted-character-extraction",
+        "detail": "旧项目的导入元数据里没有可恢复角色；新导入已改为在项目创建阶段强制完成角色抽取。",
+    }
+
+
+def _initialize_workspace(project_dir: Path, candidate_payload: dict[str, Any]) -> None:
+    """Create the production desk with extracted characters already connected."""
+    bible = build_bible(project_dir)
+    characters = _candidate_story_characters(project_dir, candidate_payload)
+    if not characters:
+        raise NovelWebImportError("novel import did not produce stable character candidates")
+    bible["characters"] = characters
+    write_bible(project_dir, bible)
     bind_continuity_refs(project_dir)
     write_plan(project_dir, build_plan(project_dir))
     write_episode_planning(project_dir, build_episode_planning(project_dir))
@@ -158,6 +383,51 @@ def _initialize_workspace(project_dir: Path) -> None:
     write_qc_report(project_dir, build_qc_report(project_dir))
 
 
+def _existing_import_result(
+    project_dir: Path,
+    import_path: Path,
+    import_payload: dict[str, Any],
+    *,
+    requested_rights_mode: str,
+) -> dict[str, Any]:
+    project = load_project(project_dir / MANIFEST_NAME)
+    try:
+        catalog = load_catalog(project_dir / "sources" / "source-catalog.json")
+    except Exception:
+        catalog = {}
+    recovery = recover_project_characters(project_dir)
+    extraction = import_payload.get("extraction") if isinstance(import_payload, dict) else {}
+    characters = extraction.get("characters") if isinstance(extraction, dict) else []
+    import_result = {
+        "import_id": str(import_payload.get("import_id") or ""),
+        "output": import_path.relative_to(project_dir).as_posix(),
+        "chapter_count": len(import_payload.get("chapters", [])) if isinstance(import_payload.get("chapters"), list) else 0,
+        "character_candidates": len(characters) if isinstance(characters, list) else 0,
+        "full_text_stored": False,
+        "test_only": bool(import_payload.get("test_only")),
+    }
+    adaptation = catalog.get("adaptation_policy") if isinstance(catalog, dict) else {}
+    rights = catalog.get("rights_assessment") if isinstance(catalog, dict) else {}
+    return {
+        "status": "PASS",
+        "reused_existing": True,
+        "project_id": str(project.get("project_id") or project_dir.name),
+        "directory_id": project_dir.name,
+        "ip_id": str(project.get("ip", {}).get("id") or ""),
+        "title": str(project.get("title") or project_dir.name),
+        "episode_count": len(project.get("episodes", [])),
+        "rights_mode": requested_rights_mode,
+        "publication_allowed": bool(rights.get("publication_allowed")) if isinstance(rights, dict) else False,
+        "script_adaptation_allowed": bool(adaptation.get("script_adaptation_allowed")) if isinstance(adaptation, dict) else False,
+        "import": import_result,
+        "character_count": int(recovery.get("character_count") or 0),
+        "characters": recovery.get("characters", []),
+        "character_recovery": recovery,
+        "full_text_stored": False,
+        "next": "OPEN_STUDIO",
+    }
+
+
 def create_project_from_web_upload(
     projects_root: Path,
     *,
@@ -172,16 +442,34 @@ def create_project_from_web_upload(
     projects_root = Path(projects_root).resolve()
     title = str(title or "").strip()
     author = str(author or "").strip()
+    rights_mode = str(rights_mode or "").strip().upper()
     if not title:
         raise NovelWebImportError("novel title is required")
     if isinstance(episode_count, bool) or not isinstance(episode_count, int) or not 1 <= episode_count <= 999:
         raise NovelWebImportError("episode_count must be from 1 to 999")
+    if rights_mode not in RIGHTS_MODES:
+        raise NovelWebImportError("rights_mode must be OWNED_OR_LICENSED or TECHNICAL_TEST")
+    if rights_mode == "OWNED_OR_LICENSED" and rights_confirmed is not True:
+        raise NovelWebImportError("owned/licensed import requires explicit rights confirmation")
     source_name = _safe_filename(source_name)
     if not isinstance(source_text, str) or not source_text.strip():
         raise NovelWebImportError("novel text is empty")
     source_bytes = source_text.encode("utf-8")
     if len(source_bytes) > MAX_SOURCE_BYTES:
         raise NovelWebImportError(f"novel TXT exceeds {MAX_SOURCE_BYTES // (1024 * 1024)} MB")
+    source_sha256 = hashlib.sha256(source_bytes).hexdigest()
+
+    # Browser retries/double-clicks and re-importing the same TXT must not
+    # create a second project.  Reuse the existing project and repair its
+    # character chain from persisted extraction metadata when possible.
+    existing = _matching_existing_project(projects_root, title, source_sha256)
+    if existing is not None:
+        return _existing_import_result(
+            existing[0],
+            existing[1],
+            existing[2],
+            requested_rights_mode=rights_mode,
+        )
 
     project_id, ip_code = _identity(projects_root, title)
     project_dir = (projects_root / project_id).resolve()
@@ -200,7 +488,7 @@ def create_project_from_web_upload(
             title=title,
             author=author,
             source_name=source_name,
-            source_sha256=hashlib.sha256(source_bytes).hexdigest(),
+            source_sha256=source_sha256,
             rights_mode=rights_mode,
             rights_confirmed=rights_confirmed,
         )
@@ -232,15 +520,19 @@ def create_project_from_web_upload(
         candidate_payload = build_character_candidates(
             project_dir,
             source_file_name=source_name,
-            source_sha256=hashlib.sha256(source_bytes).hexdigest(),
-            provider=str(extraction.get("provider") or "local_heuristic"),
+            source_sha256=source_sha256,
+            provider=str(extraction.get("provider") or "local_lexicon"),
             characters=characters if isinstance(characters, list) else [],
         )
+        if not candidate_payload["characters"]:
+            raise NovelWebImportError("novel import did not identify any stable character; project creation was rolled back")
         write_character_candidates(project_dir, candidate_payload)
 
-        _initialize_workspace(project_dir)
+        _initialize_workspace(project_dir, candidate_payload)
+        story_characters = _candidate_story_characters(project_dir, candidate_payload)
         return {
             "status": "PASS",
+            "reused_existing": False,
             "project_id": project_id,
             "directory_id": project_dir.name,
             "ip_id": f"IP-{ip_code}",
@@ -250,6 +542,8 @@ def create_project_from_web_upload(
             "publication_allowed": False,
             "script_adaptation_allowed": formal,
             "import": import_result,
+            "character_count": len(story_characters),
+            "characters": [{"id": item["id"], "name": item["name"], "role": item["role"]} for item in story_characters],
             "full_text_stored": False,
             "next": "OPEN_STUDIO",
         }
@@ -263,4 +557,6 @@ __all__ = [
     "MAX_WEB_UPLOAD_BYTES",
     "NovelWebImportError",
     "create_project_from_web_upload",
+    "promote_character_candidates",
+    "recover_project_characters",
 ]
