@@ -3793,6 +3793,8 @@ Status: CODE PASS / LOCAL WEB REVERIFY
 
 执行记录（2026-09-20）：
 
+- 2026-09-20 LoRA 安装器入口修复：本机 Web 后台直接执行 `scripts/comfyui_lora_manager.py` 时曾报 `ModuleNotFoundError: No module named 'scripts'`。根因是脚本文件方式启动时仓库根目录不在 `sys.path`。现已在 import `scripts.*` 前显式注入 repo root，并把后台启动改为 `python -m scripts.comfyui_lora_manager --install <catalog-id>`；同时 P31 CI 新增“直接脚本入口 + module 入口”双重启动校验，防止该问题回归。
+
 - Image Studio 从单一 Prompt 风格锁升级为正式“画面风格预设”系统；配置统一落在 `config/providers/image-style-presets.json`，当前提供 5 种 Web 可选风格：
   - `GUOFENG_ANCIENT_CHINA` → 中国古风（默认）
   - `XIANXIA_DONGHUA` → 仙侠国漫
@@ -3816,7 +3818,7 @@ Status: CODE PASS / LOCAL WEB REVERIFY
 - Image Studio 生成 metadata 现在记录 `style_preset`、`style_label`、`lora_requested`、`lora_applied`、`lora_name`、`lora_strength`；Web 最近生成卡片与结果详情直接显示“风格 + LoRA ON / Prompt only”，避免用户猜测 LoRA 到底有没有真正生效。
 - P31 regression 已增加 style preset、LoRA Loader workflow、固定 allowlist 下载、SHA256 原子安装、异常文件隔离以及 Web 控件回归；workflow 同时对新增 Python 文件执行 py_compile，并继续执行 Node `--check web/app.js`。
 - 当前仍保持真实边界：代码链已完成，但 GitHub 连接器无法代替用户 Mac 的 MPS / ComfyUI 运行时验证；国风 LoRA 与当前 Animagine XL 4.0 的最终视觉效果和最优 strength 必须由本机真实出图确认后再微调。
-- 关键提交：`a2d75cb1`、`9db39665`、`cbf33394`、`c7d8e0fb`、`7ca08418`、`85eaa350`、`7cdbd8af`、`59436569`、`9d68dc18`、`dbca3670`、`5e2226bf`、`04553269`、`03ef914b`、`aa203af6`、`0f987718`、`36dfa47f`。
+- 关键提交：`a2d75cb1`、`9db39665`、`cbf33394`、`c7d8e0fb`、`7ca08418`、`85eaa350`、`7cdbd8af`、`59436569`、`9d68dc18`、`dbca3670`、`5e2226bf`、`04553269`、`03ef914b`、`aa203af6`、`0f987718`、`36dfa47f`、`cf332779`、`f5f34cb9`、`1e99a07c`。
 
 当前 Web 验收路径：
 
