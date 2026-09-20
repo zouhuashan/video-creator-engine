@@ -188,9 +188,9 @@
               </select>
               <label class="field-label" for="imageStudioStylePreset">画面风格</label>
               <select id="imageStudioStylePreset" class="select-field">
-                <option value="GUOFENG_ANCIENT_CHINA">中国古风</option>
+                <option value="CINEMATIC_3D_DONGHUA">电影级 3D 国漫</option>
               </select>
-              <p class="helper-text" id="imageStudioStyleHint">《照骨灯》默认中国古风；每种风格自动切换 Prompt / Negative / 可选 LoRA。</p>
+              <p class="helper-text" id="imageStudioStyleHint">《照骨灯》默认电影级 3D 国漫；AUTO 有 OpenAI Image 时优先最终视觉，本地 Animagine 仅作低成本预览。</p>
               <div class="image-routing-banner">
                 <div><small>最终视觉路由</small><strong id="imageStudioRoute">IMAGE_PROVIDER_ROUTER</strong></div>
                 <span id="imageStudioBlenderRole">Blender · AUXILIARY_3D_CONTROL</span>
@@ -247,7 +247,7 @@
                 <small class="comfy-model-detail" id="imageStudioComfyLoraDetail">未安装时仍可使用 Prompt 风格锁；安装后中国古风 / 仙侠 / 武侠 / 水墨预设自动增强。</small>
               </div>
 
-              <label class="field-label" for="imageStudioKey">OpenAI API Key（Fallback）</label>
+              <label class="field-label" for="imageStudioKey">OpenAI API Key（3D 最终视觉 / Fallback）</label>
               <div class="form-row image-key-row">
                 <input id="imageStudioKey" class="text-field" type="password" autocomplete="off" placeholder="sk-…（仅保存在当前 Web 服务进程）" />
                 <button class="secondary-button" id="imageStudioSaveKey">保存 Key</button>
@@ -255,7 +255,7 @@
               <p class="helper-text" id="imageStudioKeyHint">不会写入项目文件或日志。已有 OPENAI_API_KEY 环境变量时无需重复填写。</p>
 
               <label class="field-label" for="imageStudioPrompt">附加要求（可选）</label>
-              <textarea id="imageStudioPrompt" class="prompt-field" rows="4" placeholder="例如：水墨感更强、宋制/唐制汉服、发饰克制、衣料更厚重。系统已默认强制中国古风古装。" ></textarea>
+              <textarea id="imageStudioPrompt" class="prompt-field" rows="4" placeholder="例如：宋制汉服、冷峻武侠气质、发饰克制。电影级 3D 国漫已默认强制真实体积、NPR/PBR 材质、电影灯光和景深。" ></textarea>
 
               <div class="image-studio-actions">
                 <button class="primary-button" id="generateCharacterBibleButton"><span>✦</span>生成角色定妆板</button>
