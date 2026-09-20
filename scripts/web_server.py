@@ -604,6 +604,46 @@ def _comfyui_image_status() -> dict[str, object]:
     return result
 
 
+def _recent_image_studio_elsewhere(current_project: Path, limit: int = 6) -> list[dict[str, object]]:
+    recent: list[dict[str, object]] = []
+    if not PROJECTS_ROOT.is_dir():
+        return recent
+    for other in PROJECTS_ROOT.iterdir():
+        if not other.is_dir() or other.resolve() == current_project.resolve():
+            continue
+        root = other / "lookdev" / "image-studio"
+        if not root.is_dir():
+            continue
+        title = other.name
+        manifest = other / NOVEL_ANIME_MANIFEST
+        if manifest.is_file():
+            try:
+                title = str(load_novel_anime_project(manifest).get("title") or title)
+            except (NovelAnimeProjectError, OSError, ValueError):
+                pass
+        for meta_path in root.rglob("*.json"):
+            try:
+                meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            if not isinstance(meta, dict):
+                continue
+            output = str(meta.get("output") or "")
+            output_path = other / output
+            if not output or not output_path.is_file() or not _image_file_valid(output_path):
+                continue
+            recent.append({
+                "project_id": other.name,
+                "project_title": title,
+                "artifact_type": str(meta.get("artifact_type") or ""),
+                "created_at": str(meta.get("created_at") or ""),
+                "output": output,
+                "media_url": _media_url(other, output),
+            })
+    recent.sort(key=lambda item: (str(item.get("created_at") or ""), str(item.get("project_id") or "")), reverse=True)
+    return recent[:max(0, int(limit))]
+
+
 def _image_studio_inventory(project: Path) -> dict[str, object]:
     root = project / "lookdev" / "image-studio"
     items: list[dict[str, object]] = []
@@ -643,6 +683,7 @@ def _image_studio_inventory(project: Path) -> dict[str, object]:
         "shot": _load_repo_json(IMAGE_SHOT_CONFIG_PATH),
         "routing": _image_provider_router().describe(),
         "items": items[:24],
+        "recent_elsewhere": _recent_image_studio_elsewhere(project) if not items else [],
         "review_required": True,
     }
 
