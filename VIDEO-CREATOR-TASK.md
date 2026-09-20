@@ -3434,6 +3434,18 @@ P30-06 追加修复（2026-09-20，针对 Web 报错“未检测到 ComfyUI 安�
 - 官方当前仍支持 Apple Silicon；ComfyUI 文档建议独立环境并在 Apple Silicon 使用 PyTorch nightly，PyTorch 当前 MPS 后端仍为官方支持路径。
 - 当前 GitHub connector 仍未返回 workflow run/status，因此不虚报 CI PASS；真实 clone/pip/MPS 安装必须在用户 Mac 上执行。
 
+P30-06 安装器证书修复（2026-09-20，真实 Mac 日志）：
+
+- 本机第一次/第二次 Web 安装已成功完成官方 ComfyUI clone 和 Python 3.13 venv 创建，但在 `UPGRADE_PIP` 阶段出现 `SSLCertVerificationError: unable to get local issuer certificate`；根因定位为所选 MacPorts Python 3.13 的 CA trust 与当前 macOS/网络信任链不一致，不是 ComfyUI/PyTorch 故障。
+- 安装器新增 HTTPS preflight：候选 Python 不再只按版本选择，而是必须能通过 PyPI TLS 校验；当前 Python 失败后会自动尝试其他 3.10–3.14 Python。
+- macOS 下自动使用 `security find-certificate -a -p` 从 System Root / System / login Keychain 导出机器实际信任的证书到 `.dependencies/certs/macos-trust.pem`，仅导出公开证书，不读取私钥。
+- 同时尝试 `/etc/ssl/cert.pem`、MacPorts/Homebrew 常见 CA bundle；成功后统一注入 `SSL_CERT_FILE`、`PIP_CERT`、`REQUESTS_CA_BUNDLE` 给 pip/urllib/requests。
+- 明确禁止用 `--trusted-host`、关闭 TLS 校验或其他不安全绕过方式。
+- 已存在的 `.dependencies/ComfyUI` 与 `.venv` 会继续复用；再次点击“修复 / 更新 ComfyUI”只从证书/依赖失败点继续，不重新 clone。
+- 安装日志新增 `ca_source=...`，便于下一次真实 Mac smoke 精确确认使用了哪条信任链。
+- 新增回归覆盖“默认 TLS 失败 → macOS Keychain CA bundle → PyPI probe 成功”。
+- 关键提交：`c13a5a2`、`0b4e0d6`。
+
 NEXT：P30-06/P31-02 Mac Web smoke：先「安装 ComfyUI」→「启动 ComfyUI」→ 再处理 checkpoint 模型显式安装。
 
 P30-06 追加修复（2026-09-20，针对 Web 报错 `Connection refused`）：
