@@ -7,6 +7,7 @@ unmanaged/external ComfyUI process and never executes user supplied commands.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import signal
@@ -23,6 +24,8 @@ ROOT = Path(__file__).resolve().parents[1]
 LOG_DIR = ROOT / "logs"
 LOG_PATH = LOG_DIR / "comfyui-service.log"
 STATE_PATH = LOG_DIR / "comfyui-service.json"
+INSTALL_STATE_PATH = LOG_DIR / "comfyui-install.json"
+PROJECT_COMFYUI_HOME = ROOT / ".dependencies" / "ComfyUI"
 
 
 class ComfyUIServiceError(RuntimeError):
@@ -121,6 +124,137 @@ def _python_for(home: Path) -> Path | None:
         if resolved.is_file() and os.access(resolved, os.X_OK):
             return resolved
     return None
+
+
+def _requirements_fingerprint(home: Path) -> str:
+    path = home / "requirements.txt"
+    if not path.is_file():
+        return ""
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _load_install_state() -> dict[str, Any]:
+    try:
+        payload = json.loads(INSTALL_STATE_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _write_install_state(payload: dict[str, Any]) -> None:
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    tmp = INSTALL_STATE_PATH.with_suffix(".tmp")
+    tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    tmp.replace(INSTALL_STATE_PATH)
+
+
+def _runtime_dependency_smoke(python: Path, home: Path) -> tuple[bool, str]:
+    check = (
+        "import json;"
+        "mods=['filelock','sqlalchemy','alembic','aiohttp','yaml','PIL','numpy','torch'];"
+        "failed=[];"
+        "\nfor m in mods:\n"
+        " try: __import__(m)\n"
+        " except Exception as e: failed.append([m,type(e).__name__,str(e)])\n"
+        "print(json.dumps({'failed':failed}))"
+    )
+    try:
+        result = subprocess.run(
+            [str(python), "-c", check],
+            capture_output=True,
+            text=True,
+            cwd=home,
+            check=False,
+            timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError) as error:
+        return False, str(error)
+    if result.returncode != 0:
+        return False, (result.stderr or result.stdout or "dependency smoke failed").strip()[-2000:]
+    try:
+        payload = json.loads(result.stdout.strip().splitlines()[-1])
+    except (json.JSONDecodeError, IndexError):
+        return False, "dependency smoke returned invalid JSON"
+    failed = payload.get("failed") if isinstance(payload, dict) else None
+    if failed:
+        return False, "; ".join(f"{item[0]}: {item[1]} {item[2]}" for item in failed[:8])
+    return True, ""
+
+
+def _dependency_env() -> dict[str, str]:
+    env = dict(os.environ)
+    state = _load_install_state()
+    ca_source = str(state.get("ca_source") or "").strip()
+    if ca_source:
+        path = Path(ca_source)
+        if path.is_file():
+            env["SSL_CERT_FILE"] = str(path)
+            env["PIP_CERT"] = str(path)
+            env["REQUESTS_CA_BUNDLE"] = str(path)
+    env["PIP_DISABLE_PIP_VERSION_CHECK"] = "1"
+    return env
+
+
+def _sync_project_dependencies(home: Path, python: Path, log) -> dict[str, Any]:
+    try:
+        managed_home = PROJECT_COMFYUI_HOME.resolve()
+        resolved_home = home.resolve()
+    except OSError as error:
+        raise ComfyUIServiceError(f"无法解析 ComfyUI 安装目录: {error}") from error
+    if resolved_home != managed_home:
+        return {"repaired": False, "managed": False, "detail": "external ComfyUI dependencies left untouched"}
+
+    requirements = home / "requirements.txt"
+    if not requirements.is_file():
+        raise ComfyUIServiceError("项目 ComfyUI requirements.txt 不存在")
+
+    install_state = _load_install_state()
+    current_sha = _requirements_fingerprint(home)
+    recorded_sha = str(install_state.get("requirements_sha256") or "")
+    healthy, smoke_detail = _runtime_dependency_smoke(python, home)
+    if healthy and recorded_sha == current_sha:
+        log.write(b"dependency_sync=SKIP already-current\n")
+        log.flush()
+        return {"repaired": False, "managed": True, "requirements_sha256": current_sha}
+
+    reasons = []
+    if recorded_sha != current_sha:
+        reasons.append("requirements fingerprint changed")
+    if not healthy:
+        reasons.append(smoke_detail or "dependency smoke failed")
+    log.write(("dependency_sync=RUN reason=" + "; ".join(reasons) + "\n").encode("utf-8", errors="replace"))
+    log.flush()
+
+    command = [str(python), "-m", "pip", "install", "-r", str(requirements)]
+    result = subprocess.run(
+        command,
+        cwd=home,
+        stdin=subprocess.DEVNULL,
+        stdout=log,
+        stderr=subprocess.STDOUT,
+        env=_dependency_env(),
+        check=False,
+    )
+    if result.returncode != 0:
+        raise ComfyUIServiceError(f"ComfyUI 官方 requirements 自动同步失败，pip 退出码 {result.returncode}")
+
+    healthy, smoke_detail = _runtime_dependency_smoke(python, home)
+    if not healthy:
+        raise ComfyUIServiceError(f"ComfyUI requirements 同步后依赖自检仍失败: {smoke_detail}")
+
+    install_state.update({
+        "requirements_sha256": current_sha,
+        "dependencies_verified_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    })
+    if install_state:
+        _write_install_state(install_state)
+    log.write(b"dependency_sync=PASS\n")
+    log.flush()
+    return {"repaired": True, "managed": True, "requirements_sha256": current_sha}
 
 
 def _load_state() -> dict[str, Any]:
@@ -264,6 +398,12 @@ def start_service(base_url: str) -> dict[str, Any]:
         log.write(f"\n=== VideoCreator ComfyUI start {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n".encode())
         log.flush()
         try:
+            dependency_sync = _sync_project_dependencies(home, python, log)
+        except ComfyUIServiceError:
+            raise
+        except Exception as error:
+            raise ComfyUIServiceError(f"ComfyUI 启动前依赖自检失败: {error}") from error
+        try:
             process = subprocess.Popen(
                 command,
                 cwd=home,
@@ -291,6 +431,7 @@ def start_service(base_url: str) -> dict[str, Any]:
         raise ComfyUIServiceError("ComfyUI 启动后立即退出" + (f":\n{detail}" if detail else ""))
     result = service_status(base_url, connected=False)
     result["action"] = "STARTED"
+    result["dependency_sync"] = dependency_sync
     return result
 
 
