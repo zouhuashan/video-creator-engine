@@ -18,7 +18,7 @@
   "negative_prompt": "watermark, text, logo, malformed hands, extra fingers, duplicate limbs, identity drift, low quality",
   "timeout_seconds": 600,
   "poll_interval_seconds": 0.5,
-  "status_timeout_seconds": 0.8,
+  "status_timeout_seconds": 3.0,
   "review_required": true,
   "output_root": "lookdev/image-studio",
   "supported_artifact_types": [
