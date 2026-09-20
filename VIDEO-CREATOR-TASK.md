@@ -3444,7 +3444,8 @@ P30-06 安装器第三轮修复（2026-09-20，真实 Mac 日志）：
 - 下一套 Python 会触发现有 venv runtime drift 检查，从而自动删除旧 venv、重建后继续 torch probe。典型真实路径：MacPorts 3.13 → 无匹配 torch wheel → Homebrew 3.14 → 重建 venv → probe/install。
 - 成功状态新增 `torch_channel`（nightly/stable）记录。
 - 回归新增“第一套 Python 无 torch wheel → 第二套 Python 自动成功”的真实场景。
-- 关键提交：`a1c46ac`、`4aa0b51`。
+- Apple 当前官方 MPS 安装页使用 `pip install --pre ... --extra-index-url https://download.pytorch.org/whl/nightly/cpu`；安装器已同步改为 `--extra-index-url`，并增加 `--only-binary=:all:`，避免错误源码编译。
+- 关键提交：`a1c46ac`、`4aa0b51`、`c7091d9`。
 - 官方 ComfyUI README 仍说明 Apple Silicon 使用 PyTorch nightly；当前 PyTorch nightly index可见 cp313/cp314 macOS arm64 wheel，因此 fallback 由实际 wheel probe 决定，不再硬编码版本猜测。
 
 P30-06 安装器第二轮修复（2026-09-20，真实 Mac 日志）：
