@@ -107,14 +107,22 @@ class OpenAIImageProvider:
         }
 
 
-def character_bible_prompt(character: dict[str, Any], custom_prompt: str = "") -> str:
+def character_bible_prompt(
+    character: dict[str, Any],
+    custom_prompt: str = "",
+    *,
+    style_direction: str = "",
+    forbidden_direction: str = "",
+) -> str:
     lock = character["visual_lock"]
     render = character["render_lock"]
     rules = "; ".join(str(item) for item in character.get("consistency_rules", []))
     extra = str(custom_prompt or "").strip()
+    style = str(style_direction or "").strip()
+    forbidden = str(forbidden_direction or "").strip()
     return (
-        "Create one polished production character-design board for a premium Chinese guofeng donghua. "
-        "The visual world is ancient China / Chinese fantasy, with wuxia-xianxia cultural language rather than modern Japanese school-anime fashion. "
+        "Create one polished production character-design board for a premium animated series. "
+        + (f"Style direction: {style}. " if style else "Use a premium Chinese guofeng donghua direction. ")
         "The SAME character must appear consistently in every panel. "
         "Include: large hero portrait, front full body, three-quarter full body, side profile, "
         "back view, five facial expressions, and small costume/hair detail callouts. "
@@ -123,21 +131,30 @@ def character_bible_prompt(character: dict[str, Any], custom_prompt: str = "") -
         f"Body: {lock['body']}. Mood: {lock['mood']}. "
         f"Rendering: {render['medium']}; {render['shading']}. Lighting: {render['lighting']}. "
         f"Palette: {', '.join(render['palette'])}. "
-        "Costume language must read unmistakably Chinese and pre-modern: hanfu or role-appropriate period robes, crossed collars, layered fabric, wide sleeves or bracers when appropriate, sash/belt, traditional Chinese hair ornaments, restrained embroidery and jade/metal accents. "
         "Use a clean elegant concept-board layout with a neutral warm background. "
-        "Forbidden: modern clothing, school uniform, sailor uniform, JK uniform, blazer, necktie, T-shirt, hoodie, miniskirt, sneakers, office wear, contemporary streetwear, modern city props, random extra characters, app UI, watermark. "
+        + (f"Forbidden style/content: {forbidden}. " if forbidden else "No app UI, no watermark, no random extra characters. ")
         f"Hard consistency rules: {rules}. "
         + (f"Additional direction: {extra}." if extra else "")
     )
 
 
-def keyframe_prompt(character: dict[str, Any], shot: dict[str, Any], custom_prompt: str = "") -> str:
+def keyframe_prompt(
+    character: dict[str, Any],
+    shot: dict[str, Any],
+    custom_prompt: str = "",
+    *,
+    style_direction: str = "",
+    forbidden_direction: str = "",
+) -> str:
     lock = character["visual_lock"]
     render = character["render_lock"]
     camera = shot["camera"]
     extra = str(custom_prompt or "").strip()
+    style = str(style_direction or "").strip()
+    forbidden = str(forbidden_direction or "").strip()
     return (
-        "Create a finished cinematic keyframe for a premium Chinese guofeng donghua set in ancient China / Chinese fantasy. "
+        "Create a finished cinematic keyframe for a premium animated series. "
+        + (f"Style direction: {style}. " if style else "Use a premium Chinese guofeng donghua set in ancient China / Chinese fantasy. ")
         f"The hero must exactly match the locked identity for {character['name']} ({character['role']}). "
         f"Locked face: {lock['face']}. Locked hair: {lock['hair']}. "
         f"Locked costume: {lock['costume']}. Locked body read: {lock['body']}. "
@@ -146,9 +163,8 @@ def keyframe_prompt(character: dict[str, Any], shot: dict[str, Any], custom_prom
         f"Camera: {camera['framing']}, {camera['lens_language']}, {camera['angle']}, "
         f"DOF {camera['depth_of_field']}. "
         f"Visual medium: {render['medium']}; {render['shading']}. "
-        "Composition should feel like a frame from a high-end Chinese animated feature: readable eye-line, "
-        "elegant Chinese costume silhouette, layered cloth, natural hair masses, cinematic atmospheric depth, ink-painting-inspired color restraint, refined anime/NPR finish. "
-        "Forbidden: modern clothing, school uniforms, sailor collars, blazer/necktie, T-shirt, hoodie, miniskirt, sneakers, office fashion, contemporary city props. "
-        "No concept-sheet layout, no text, no UI, no watermark, no low-poly primitives. "
+        "Composition should feel like a frame from a high-end animated feature: readable eye-line, layered cloth, natural hair masses, cinematic atmospheric depth, refined anime/NPR finish. "
+        + (f"Forbidden style/content: {forbidden}. " if forbidden else "")
+        + "No concept-sheet layout, no text, no UI, no watermark, no low-poly primitives. "
         + (f"Additional shot direction: {extra}." if extra else "")
     )
