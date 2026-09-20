@@ -1,16 +1,30 @@
 {
-  "schema_version": 1,
-  "default_preset": "GUOFENG_ANCIENT_CHINA",
+  "schema_version": 2,
+  "default_preset": "CINEMATIC_3D_DONGHUA",
   "presets": [
     {
+      "id": "CINEMATIC_3D_DONGHUA",
+      "label": "电影级 3D 国漫",
+      "description": "真正立体的 3D 国漫最终视觉：NPR/Toon + PBR 材质响应 + 电影灯光 + 景深；《照骨灯》默认",
+      "positive_prompt_prefix": "masterpiece, best quality, cinematic 3D Chinese donghua, high-end stylized 3D character render, fully modeled volumetric character, sculpted facial planes, dimensional anatomy, physically dimensional hair strands and hair masses, layered ancient Chinese hanfu with visible cloth thickness and folds, NPR toon shading with believable PBR material response, subsurface skin shading, detailed fabric and jade materials, cinematic key light and rim light, volumetric lighting, atmospheric depth, perspective, depth of field, premium Chinese animated feature look, elegant ancient China art direction",
+      "negative_prompt": "flat illustration, flat 2D drawing, watercolor painting, ink wash painting, paper texture, sketch, lineart, manga panel, cel cutout, cardboard cutout, sprite, poster, flat concept illustration, flat shading, no depth, orthographic 2D drawing, visual novel art, chibi, toy figurine, low poly, plastic doll, photoreal human, watermark, text, logo, malformed hands, extra fingers, duplicate limbs, modern clothing, school uniform, sailor uniform, JK uniform, blazer, necktie, T-shirt, hoodie, miniskirt, sneakers, modern city, cyberpunk, sci-fi streetwear",
+      "remote_direction": "Produce a premium cinematic 3D Chinese donghua render, not a flat illustration. The character must look fully modeled in three dimensions with sculpted facial planes, dimensional hair masses and strands, real cloth thickness and layered hanfu, stylized NPR/toon shading backed by believable PBR material response, soft subsurface skin shading, film-quality key/fill/rim lighting, volumetric light, perspective, atmospheric depth and depth of field. For a character bible, every angle must look like the same finished 3D production character photographed from different camera angles under consistent studio lighting, including a polished beauty render plus front/three-quarter/side/back turnaround views. Do not imitate watercolor, ink-paper illustration, flat concept art, 2D cutout animation, visual-novel art or Japanese school-anime fashion.",
+      "lora_id": null,
+      "lora_strength": 0,
+      "preferred_provider": "OPENAI_IMAGE",
+      "render_role": "FINAL_VISUAL"
+    },
+    {
       "id": "GUOFENG_ANCIENT_CHINA",
-      "label": "中国古风",
-      "description": "古代中国 / 汉服 / 东方古典审美；《照骨灯》默认",
+      "label": "中国古风插画",
+      "description": "2D/2.5D 中国古风插画；适合概念草图，不作为最终 3D 国漫画质",
       "positive_prompt_prefix": "masterpiece, best quality, Chinese guofeng donghua, ancient China, traditional Chinese aesthetics, hanfu, crossed-collar robe, layered silk and linen, wide sleeves, sash, traditional Chinese hairstyle, jade hairpin, restrained embroidery, elegant Chinese costume silhouette, ink-wash inspired palette, cinematic Chinese animation character design",
       "negative_prompt": "watermark, text, logo, malformed hands, extra fingers, duplicate limbs, identity drift, low quality, modern clothing, contemporary fashion, school uniform, sailor uniform, JK uniform, blazer, necktie, shirt and tie, T-shirt, hoodie, miniskirt, modern short skirt, sneakers, high heels, office wear, western business suit, Japanese schoolgirl, modern city, cyberpunk, sci-fi streetwear",
       "remote_direction": "Ancient Chinese guofeng donghua. Use unmistakably Chinese pre-modern costume language: hanfu or role-appropriate period robes, crossed collars, layered fabric, wide sleeves or practical bracers, sash/belt, traditional Chinese hair ornaments, restrained jade/metal details, low-saturation ink-wash-inspired color harmony. Avoid Japanese school-anime fashion and all modern clothing.",
       "lora_id": "sdxl-chinese-style-illustration",
-      "lora_strength": 0.72
+      "lora_strength": 0.72,
+      "preferred_provider": "COMFYUI_IMAGE",
+      "render_role": "CONCEPT_PREVIEW"
     },
     {
       "id": "XIANXIA_DONGHUA",
@@ -20,7 +34,9 @@
       "negative_prompt": "watermark, text, logo, malformed hands, extra fingers, duplicate limbs, low quality, modern clothing, school uniform, sailor uniform, JK uniform, blazer, necktie, T-shirt, hoodie, miniskirt, sneakers, western fantasy armor, modern city, cyberpunk, sci-fi",
       "remote_direction": "Chinese xianxia donghua in an ancient cultivation world. Favor flowing layered hanfu, long robes, wide sleeves, jade ornaments, traditional Chinese hair crowns and hairpins, cloud mist and restrained ethereal light. Do not use Japanese school uniforms, modern fashion, western business clothing or sci-fi streetwear.",
       "lora_id": "sdxl-chinese-style-illustration",
-      "lora_strength": 0.68
+      "lora_strength": 0.68,
+      "preferred_provider": "COMFYUI_IMAGE",
+      "render_role": "CONCEPT_PREVIEW"
     },
     {
       "id": "WUXIA_DONGHUA",
@@ -30,7 +46,9 @@
       "negative_prompt": "watermark, text, logo, malformed hands, extra fingers, duplicate limbs, low quality, modern clothing, school uniform, sailor uniform, JK uniform, blazer, necktie, T-shirt, hoodie, miniskirt, sneakers, tactical military gear, cyberpunk, sci-fi armor",
       "remote_direction": "Chinese wuxia donghua set in the jianghu. Use practical role-appropriate hanfu or martial robes, crossed collars, layered fitted garments, sash, bracers, cloth boots and traditional tied hair. Keep the silhouette Chinese and pre-modern; avoid school uniforms, modern fashion, tactical gear and sci-fi armor.",
       "lora_id": "sdxl-chinese-style-illustration",
-      "lora_strength": 0.62
+      "lora_strength": 0.62,
+      "preferred_provider": "COMFYUI_IMAGE",
+      "render_role": "CONCEPT_PREVIEW"
     },
     {
       "id": "INK_GUOFENG",
@@ -40,7 +58,9 @@
       "negative_prompt": "watermark, text, logo, malformed hands, extra fingers, duplicate limbs, low quality, photoreal glossy 3D, modern clothing, school uniform, sailor uniform, JK uniform, blazer, necktie, T-shirt, hoodie, miniskirt, sneakers, neon cyberpunk, modern city",
       "remote_direction": "Chinese ink-wash guofeng animation. Preserve readable anime character design while using restrained shuimo brush language, muted mineral pigments, mist and negative space. Costume must remain ancient Chinese hanfu/period dress. Avoid modern fashion, Japanese school uniforms, glossy game-render aesthetics and neon sci-fi styling.",
       "lora_id": "sdxl-chinese-style-illustration",
-      "lora_strength": 0.78
+      "lora_strength": 0.78,
+      "preferred_provider": "COMFYUI_IMAGE",
+      "render_role": "CONCEPT_PREVIEW"
     },
     {
       "id": "ANIME_DEFAULT",
@@ -50,7 +70,9 @@
       "negative_prompt": "watermark, text, logo, malformed hands, extra fingers, duplicate limbs, identity drift, low quality",
       "remote_direction": "Premium coherent anime character design. Follow the project's character identity and costume notes without forcing a specific historical Chinese style.",
       "lora_id": null,
-      "lora_strength": 0
+      "lora_strength": 0,
+      "preferred_provider": "COMFYUI_IMAGE",
+      "render_role": "CONCEPT_PREVIEW"
     }
   ]
 }
