@@ -3434,6 +3434,19 @@ P30-06 追加修复（2026-09-20，针对 Web 报错“未检测到 ComfyUI 安�
 - 官方当前仍支持 Apple Silicon；ComfyUI 文档建议独立环境并在 Apple Silicon 使用 PyTorch nightly，PyTorch 当前 MPS 后端仍为官方支持路径。
 - 当前 GitHub connector 仍未返回 workflow run/status，因此不虚报 CI PASS；真实 clone/pip/MPS 安装必须在用户 Mac 上执行。
 
+P30-06 安装器第三轮修复（2026-09-20，真实 Mac 日志）：
+
+- 第四次真实安装已经证明 SSL 修复成功：MacPorts Python 3.13 使用 `.dependencies/certs/macos-trust.pem` 后可正常下载 pip/setuptools/wheel。
+- 新阻塞发生在 PyTorch：nightly CPU index 与 stable PyPI 对当前 venv 都返回 `No matching distribution found for torch`。官方 nightly index当前实际存在 macOS arm64 的 cp313/cp314 wheel，因此不能简单归因于“Python 3.13 没有 PyTorch”；更可能是该 MacPorts runtime 的兼容 tag / architecture / ABI 与 wheel 不匹配。
+- 新增 `python_platform` 诊断，记录 Python 版本、`platform.machine()`、`sysconfig.get_platform()`、SOABI、abiflags。
+- PyTorch 安装改为先 `pip install --dry-run` 探测 nightly，再探测 stable；只有真正兼容才下载/安装大型 wheel。
+- 若当前 Python runtime 没有兼容 torch wheel，抛出专用 `ComfyUITorchUnavailable`，安装器不再整体 FAIL，而是把该解释器加入 exclude 并自动选择下一套 TLS 可用 Python。
+- 下一套 Python 会触发现有 venv runtime drift 检查，从而自动删除旧 venv、重建后继续 torch probe。典型真实路径：MacPorts 3.13 → 无匹配 torch wheel → Homebrew 3.14 → 重建 venv → probe/install。
+- 成功状态新增 `torch_channel`（nightly/stable）记录。
+- 回归新增“第一套 Python 无 torch wheel → 第二套 Python 自动成功”的真实场景。
+- 关键提交：`a1c46ac`、`4aa0b51`。
+- 官方 ComfyUI README 仍说明 Apple Silicon 使用 PyTorch nightly；当前 PyTorch nightly index可见 cp313/cp314 macOS arm64 wheel，因此 fallback 由实际 wheel probe 决定，不再硬编码版本猜测。
+
 P30-06 安装器第二轮修复（2026-09-20，真实 Mac 日志）：
 
 - 第三次真实安装日志显示 `bootstrap_python` 已切到 Homebrew Python 3.14 且 `ca_source=python-default`，但 pip 实际仍从旧 `.venv/lib/python3.13` 运行；根因是安装器复用了上一轮由 MacPorts Python 3.13 创建的旧 venv。
