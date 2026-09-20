@@ -253,15 +253,10 @@
 
               <div class="image-character-repair hidden" id="imageStudioCharacterRepair">
                 <div>
-                  <strong>当前项目还没有角色候选</strong>
-                  <small>旧版小说导入没有自动发现人物。重新选择当初的 UTF-8 TXT，仅在内存中解析；正文不会保存，且会校验原始 SHA256。</small>
+                  <strong>正在等待项目角色资料</strong>
+                  <small>系统会直接从本项目已保存的导入/角色元数据自动恢复 Story Bible 与 Character Bible，不需要重新上传 TXT，也不会启用全局演示角色。</small>
                 </div>
-                <label class="novel-file-drop compact" for="imageStudioCharacterSourceFile">
-                  <input id="imageStudioCharacterSourceFile" type="file" accept=".txt,text/plain" />
-                  <strong id="imageStudioCharacterSourceName">选择原小说 TXT</strong>
-                  <small id="imageStudioCharacterSourceHint">必须与当前项目最初导入的底本一致。</small>
-                </label>
-                <button class="secondary-button" id="imageStudioCharacterRepairButton">补全角色候选</button>
+                <button class="secondary-button" id="imageStudioCharacterRepairButton">自动重建角色资料</button>
               </div>
             </div>
 
