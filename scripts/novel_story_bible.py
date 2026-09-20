@@ -100,11 +100,31 @@ def _unique_ids(items: list[dict[str, Any]], field: str, pattern: str, label: st
 
 
 def _source_reference_ids(project_dir: Path) -> set[str]:
-    path = Path(project_dir) / CATALOG_RELATIVE_PATH
-    if not path.is_file():
-        return set()
-    catalog = load_catalog(path)
-    return {item["id"] for item in catalog["chapters"]} | {item["id"] for item in catalog["locators"]}
+    project_dir = Path(project_dir)
+    refs: set[str] = set()
+    path = project_dir / CATALOG_RELATIVE_PATH
+    if path.is_file():
+        catalog = load_catalog(path)
+        refs |= {item["id"] for item in catalog["chapters"]}
+        refs |= {item["id"] for item in catalog["locators"]}
+
+    # Technical-test imports intentionally do not unlock the formal source
+    # catalog, but their chapter IDs are still valid local provenance anchors.
+    # Including only the persisted chapter index keeps Story Bible entities
+    # traceable without storing the novel's prose.
+    imports_root = project_dir / "sources" / "imports"
+    if imports_root.is_dir():
+        for import_path in imports_root.glob("*.json"):
+            try:
+                payload = json.loads(import_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            if not isinstance(payload, dict):
+                continue
+            for chapter in payload.get("chapters", []):
+                if isinstance(chapter, dict) and str(chapter.get("chapter_id") or "").strip():
+                    refs.add(str(chapter["chapter_id"]))
+    return refs
 
 
 def _validate_provenance(entity: dict[str, Any], label: str, source_ids: set[str]) -> None:
