@@ -79,6 +79,40 @@ def _tail_log(lines: int = 24) -> str:
     return "\n".join(content[-max(1, min(lines, 60)):])[-8000:]
 
 
+def _apple_silicon_host() -> bool:
+    if platform.system() != "Darwin":
+        return False
+    if platform.machine().lower() in {"arm64", "aarch64"}:
+        return True
+    if shutil.which("sysctl"):
+        try:
+            result = subprocess.run(
+                ["sysctl", "-n", "hw.optional.arm64"],
+                capture_output=True,
+                text=True,
+                timeout=3,
+                check=False,
+            )
+            return result.returncode == 0 and result.stdout.strip() == "1"
+        except (OSError, subprocess.SubprocessError):
+            pass
+    return False
+
+
+def _python_machine(executable: str) -> str:
+    try:
+        result = subprocess.run(
+            [executable, "-c", "import platform;print(platform.machine())"],
+            capture_output=True,
+            text=True,
+            timeout=4,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return result.stdout.strip().lower() if result.returncode == 0 else ""
+
+
 def _python_version(executable: str) -> tuple[int, int] | None:
     try:
         result = subprocess.run(
@@ -113,8 +147,13 @@ def _python_candidates() -> list[str]:
             continue
         seen.add(resolved)
         version = _python_version(resolved)
-        if version and (3, 10) <= version <= (3, 14):
-            unique.append(resolved)
+        if not (version and (3, 10) <= version <= (3, 14)):
+            continue
+        if _apple_silicon_host():
+            machine = _python_machine(resolved)
+            if machine not in {"arm64", "aarch64"}:
+                continue
+        unique.append(resolved)
     return unique
 
 
