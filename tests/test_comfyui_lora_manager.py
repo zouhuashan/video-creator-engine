@@ -30,6 +30,9 @@ class ComfyUILoraManagerTests(unittest.TestCase):
         }
         return comfy, lora_dir, lora, payload
 
+    def test_repo_root_is_available_for_direct_script_imports(self):
+        self.assertIn(str(manager.ROOT), manager.sys.path)
+
     def test_catalog_uses_fixed_reviewed_guofeng_lora(self):
         lora = manager.LORA_CATALOG[manager.DEFAULT_LORA_ID]
         self.assertEqual(lora["filename"], "sdxl-chinese-style-illustration.safetensors")
@@ -104,8 +107,18 @@ class ComfyUILoraManagerTests(unittest.TestCase):
                 result = manager.start_background_install()
 
             command = popen.call_args.args[0]
-            self.assertEqual(command[2:], ["--install", manager.DEFAULT_LORA_ID])
+            self.assertEqual(
+                command,
+                [
+                    manager.sys.executable,
+                    "-m",
+                    "scripts.comfyui_lora_manager",
+                    "--install",
+                    manager.DEFAULT_LORA_ID,
+                ],
+            )
             self.assertNotIn(manager.LORA_CATALOG[manager.DEFAULT_LORA_ID]["download_url"], command)
+            self.assertEqual(popen.call_args.kwargs["cwd"], root)
             self.assertEqual(result["action"], "STARTED")
 
 
