@@ -1180,6 +1180,9 @@ function renderImageStudio() {
     : '每种风格自动切换 Prompt / Negative / 可选 LoRA。';
   const localReady = Boolean(comfyui.connected && comfyui.workflow_ready);
   const remoteReady = Boolean(openai.configured);
+  if (activeStyle.render_role === 'FINAL_VISUAL' && activeStyle.preferred_provider === 'OPENAI_IMAGE' && !remoteReady) {
+    $('#imageStudioStyleHint').textContent += ' · 当前未配置 OpenAI Image：AUTO 只能生成 LOCAL PREVIEW。';
+  }
   const preference = state.imageStudioProviderPreference || 'AUTO';
   const autoPrefersRemote = preference === 'AUTO' && activeStyle.preferred_provider === 'OPENAI_IMAGE' && remoteReady;
   const autoUsesLocalPreview = preference === 'AUTO' && activeStyle.render_role === 'FINAL_VISUAL' && !autoPrefersRemote && localReady;
@@ -1260,9 +1263,11 @@ function renderImageStudio() {
   const loraExpected = Number(loraInstaller.expected_bytes || lora.expected_bytes || 0);
   const loraRecognized = Boolean(lora.filename && (comfyui.loras || []).includes(lora.filename));
   $('#imageStudioComfyLoraName').textContent = lora.label || 'SDXL 中国国风插画 LoRA';
-  $('#imageStudioComfyLoraStatus').textContent = loraRunning
-    ? (loraInstaller.step || 'DOWNLOADING')
-    : (loraInstalled ? (loraRecognized ? 'READY' : 'INSTALLED') : (loraInstaller.status || 'NOT INSTALLED'));
+  $('#imageStudioComfyLoraStatus').textContent = activeStyle.id === 'CINEMATIC_3D_DONGHUA'
+    ? 'NOT USED BY 3D'
+    : loraRunning
+      ? (loraInstaller.step || 'DOWNLOADING')
+      : (loraInstalled ? (loraRecognized ? 'READY' : 'INSTALLED') : (loraInstaller.status || 'NOT INSTALLED'));
   $('#imageStudioComfyLoraStatus').classList.toggle('off', !loraRecognized);
   $('#imageStudioComfyLoraMeta').textContent = `${lora.purpose || '中国古风风格增强'} · ${loraExpected ? (loraExpected / 1024 / 1024).toFixed(0) + ' MB' : '约 341 MB'} · ${lora.license || 'openrail++'} · ${lora.base_model || 'SDXL'}`;
   $('#imageStudioInstallLora').disabled = !installReady || installRunning || loraRunning || loraInstalled;
