@@ -8,13 +8,17 @@ on:
       - "scripts/novel_source_catalog.py"
       - "scripts/novel_source_ingest.py"
       - "scripts/web_server.py"
+      - "scripts/comfyui_lora_manager.py"
       - "support/providers/comfyui_image_provider.py"
+      - "support/providers/openai_image_provider.py"
       - "config/providers/comfyui-image-provider.json"
+      - "config/providers/image-style-presets.json"
       - "web/**"
       - "tests/test_novel_web_import.py"
       - "tests/test_novel_source_catalog.py"
       - "tests/test_web_server.py"
       - "tests/test_comfyui_image_provider.py"
+      - "tests/test_comfyui_lora_manager.py"
       - ".github/workflows/p31-novel-import-regression.yml"
   workflow_dispatch:
 
@@ -35,7 +39,14 @@ jobs:
           node-version: "22"
       - name: Compile Python
         run: |
-          python -m py_compile             scripts/novel_web_import.py             scripts/novel_source_catalog.py             scripts/novel_source_ingest.py             scripts/web_server.py
+          python -m py_compile \
+            scripts/novel_web_import.py \
+            scripts/novel_source_catalog.py \
+            scripts/novel_source_ingest.py \
+            scripts/comfyui_lora_manager.py \
+            scripts/web_server.py \
+            support/providers/comfyui_image_provider.py \
+            support/providers/openai_image_provider.py
       - name: Check Web JavaScript syntax
         run: node --check web/app.js
       - name: Run P31 regression
@@ -46,4 +57,7 @@ jobs:
             tests.test_web_server.WebServerTests.test_web_exposes_automatic_character_bootstrap_without_txt_reupload \
             tests.test_web_server.WebServerTests.test_web_exposes_project_delete_action \
             tests.test_web_server.WebServerTests.test_delete_novel_project_removes_project_and_returns_newest_default \
-            tests.test_comfyui_image_provider
+            tests.test_web_server.WebServerTests.test_image_studio_explains_guofeng_style_lock \
+            tests.test_web_server.WebServerTests.test_image_style_presets_default_to_chinese_guofeng_and_optional_lora \
+            tests.test_comfyui_image_provider \
+            tests.test_comfyui_lora_manager
