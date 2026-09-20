@@ -15,10 +15,10 @@
   "cfg_scale": 6.5,
   "sampler_name": "euler",
   "scheduler": "normal",
-  "negative_prompt": "watermark, text, logo, malformed hands, extra fingers, duplicate limbs, identity drift, low quality",
+  "negative_prompt": "watermark, text, logo, malformed hands, extra fingers, duplicate limbs, identity drift, low quality, modern clothing, contemporary fashion, school uniform, sailor uniform, JK uniform, blazer, necktie, shirt and tie, T-shirt, hoodie, miniskirt, modern short skirt, sneakers, high heels, office wear, western business suit, Japanese schoolgirl, modern city, cyberpunk, sci-fi streetwear",
   "timeout_seconds": 600,
   "poll_interval_seconds": 0.5,
-  "status_timeout_seconds": 3.0,
+  "status_timeout_seconds": 3,
   "review_required": true,
   "output_root": "lookdev/image-studio",
   "supported_artifact_types": [
@@ -26,5 +26,7 @@
     "keyframe",
     "hero_frame",
     "rescue_shot"
-  ]
+  ],
+  "style_profile": "GUOFENG_ANCIENT_CHINA",
+  "positive_prompt_prefix": "masterpiece, best quality, Chinese guofeng donghua, ancient China fantasy, wuxia, xianxia, traditional Chinese aesthetics, hanfu, crossed-collar robe, layered silk and linen, wide sleeves, sash, traditional Chinese hair ornament, jade hairpin, elegant Chinese costume design, ink-wash inspired palette, cinematic Chinese animation character design"
 }
