@@ -1,18 +1,20 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "default_preset": "CINEMATIC_3D_DONGHUA",
   "presets": [
     {
       "id": "CINEMATIC_3D_DONGHUA",
-      "label": "电影级 3D 国漫",
-      "description": "真正立体的 3D 国漫最终视觉：NPR/Toon + PBR 材质响应 + 电影灯光 + 景深；《照骨灯》默认",
-      "positive_prompt_prefix": "masterpiece, best quality, cinematic 3D Chinese donghua, high-end stylized 3D character render, fully modeled volumetric character, sculpted facial planes, dimensional anatomy, physically dimensional hair strands and hair masses, layered ancient Chinese hanfu with visible cloth thickness and folds, NPR toon shading with believable PBR material response, subsurface skin shading, detailed fabric and jade materials, cinematic key light and rim light, volumetric lighting, atmospheric depth, perspective, depth of field, premium Chinese animated feature look, elegant ancient China art direction",
-      "negative_prompt": "flat illustration, flat 2D drawing, watercolor painting, ink wash painting, paper texture, sketch, lineart, manga panel, cel cutout, cardboard cutout, sprite, poster, flat concept illustration, flat shading, no depth, orthographic 2D drawing, visual novel art, chibi, toy figurine, low poly, plastic doll, photoreal human, watermark, text, logo, malformed hands, extra fingers, duplicate limbs, modern clothing, school uniform, sailor uniform, JK uniform, blazer, necktie, T-shirt, hoodie, miniskirt, sneakers, modern city, cyberpunk, sci-fi streetwear",
-      "remote_direction": "Produce a premium cinematic 3D Chinese donghua render, not a flat illustration. The character must look fully modeled in three dimensions with sculpted facial planes, dimensional hair masses and strands, real cloth thickness and layered hanfu, stylized NPR/toon shading backed by believable PBR material response, soft subsurface skin shading, film-quality key/fill/rim lighting, volumetric light, perspective, atmospheric depth and depth of field. For a character bible, every angle must look like the same finished 3D production character photographed from different camera angles under consistent studio lighting, including a polished beauty render plus front/three-quarter/side/back turnaround views. Do not imitate watercolor, ink-paper illustration, flat concept art, 2D cutout animation, visual-novel art or Japanese school-anime fashion.",
+      "label": "参考视频·电影级 3D 国漫",
+      "description": "半写实国漫 LookDev：真实人物体积 + 柔化 PBR/NPR + 暖色电影逆光 + 冷色面部补光 + 中长焦浅景深；不再允许 Animagine 本地预览冒充最终效果",
+      "positive_prompt_prefix": "masterpiece, best quality, premium semi-realistic 3D Chinese donghua, high-end cinematic character lookdev, fully modeled volumetric character, natural age-appropriate East Asian facial anatomy, sculpted facial planes, dimensional shoulders and torso, physically dimensional groomed hair masses and strands, layered ancient Chinese hanfu with visible cloth thickness and weight, soft subsurface skin scattering, realistic fabric weave, jade and metal material response, softened PBR materials blended with restrained NPR/toon shading, subtle stylized line accents, warm sunset or lantern backlight, cool soft facial fill, cinematic key fill rim lighting, medium telephoto lens, shallow depth of field, atmospheric ancient Chinese environment depth, elegant restrained cyan vermilion gold and ink-black palette, premium Chinese animated feature frame",
+      "negative_prompt": "flat illustration, flat 2D drawing, watercolor painting, ink wash painting, paper texture, sketch, lineart, manga panel, cel cutout, cardboard cutout, sprite, poster, concept sheet, character sheet, turnaround sheet, multi-panel layout, multiple copies of the same character, ghost figures, faded duplicate figures, collage, flat concept illustration, flat shading, no depth, orthographic 2D drawing, visual novel art, oversized anime eyes, chibi proportions unless the character is explicitly a child, toy figurine, low poly, plastic doll, photoreal live-action human, watermark, text, logo, malformed hands, extra fingers, duplicate limbs, modern clothing, school uniform, sailor uniform, JK uniform, blazer, necktie, T-shirt, hoodie, miniskirt, sneakers, modern city, cyberpunk, sci-fi streetwear",
+      "remote_direction": "Match the previously approved reference-video visual language: premium semi-realistic 3D Chinese donghua, not an illustration. Render ONE character only as a finished cinematic LookDev beauty frame. Preserve real three-dimensional facial planes, shoulder/chest volume, hair mass and individual strands, real cloth thickness and layered ancient Chinese costume. Use softened PBR materials with restrained NPR/anime stylization, subtle subsurface skin, believable fabric/jade/metal response, contact shadows, warm sunset or lantern rim/backlight with cool soft facial fill, medium-telephoto perspective, shallow depth of field and atmospheric ancient-Chinese environment depth. Adults should read as mature, slender semi-realistic donghua characters; child roles may use intentionally younger/chibi proportions only when the story role requires it. Do not create a character sheet, turnaround collage, ghost copies, flat concept art, watercolor, paper texture, 2D cutout or Japanese school-anime styling.",
       "lora_id": null,
       "lora_strength": 0,
       "preferred_provider": "OPENAI_IMAGE",
-      "render_role": "FINAL_VISUAL"
+      "render_role": "FINAL_VISUAL",
+      "layout_mode": "SINGLE_LOOKDEV_HERO",
+      "final_provider_required": true
     },
     {
       "id": "GUOFENG_ANCIENT_CHINA",
