@@ -153,7 +153,19 @@ class ComfyUIImageProvider:
             return None
         status = record.get("status")
         if isinstance(status, dict) and str(status.get("status_str") or "").lower() == "error":
-            raise ComfyUIImageError("ComfyUI workflow failed")
+            detail = ""
+            messages = status.get("messages")
+            if isinstance(messages, list):
+                for message in reversed(messages):
+                    if not isinstance(message, list) or len(message) < 2 or message[0] != "execution_error":
+                        continue
+                    payload = message[1] if isinstance(message[1], dict) else {}
+                    exception_message = str(payload.get("exception_message") or "").strip()
+                    node_type = str(payload.get("node_type") or "").strip()
+                    if exception_message:
+                        detail = f"{node_type}: {exception_message}" if node_type else exception_message
+                        break
+            raise ComfyUIImageError("ComfyUI workflow failed" + (f": {detail}" if detail else ""))
         outputs = record.get("outputs")
         if not isinstance(outputs, dict):
             return None
@@ -210,7 +222,8 @@ class ComfyUIImageProvider:
         prompt_id = str(queued.get("prompt_id") or "").strip()
         if not prompt_id:
             raise ComfyUIImageError("ComfyUI did not return prompt_id")
-        deadline = time.monotonic() + self.timeout_seconds
+        started_at = time.monotonic()
+        deadline = started_at + self.timeout_seconds
         image = None
         while time.monotonic() < deadline:
             image = self._first_output_image(self._request_json(f"/history/{urllib.parse.quote(prompt_id, safe='')}"), prompt_id)
@@ -218,7 +231,11 @@ class ComfyUIImageProvider:
                 break
             time.sleep(self.poll_interval_seconds)
         if image is None:
-            raise ComfyUIImageError("ComfyUI generation timed out")
+            elapsed = max(0.0, time.monotonic() - started_at)
+            raise ComfyUIImageError(
+                f"ComfyUI generation timed out after {elapsed:.0f}s (prompt_id={prompt_id}); "
+                "the local ComfyUI job may still be running"
+            )
         output_path = Path(output_path)
         self._download_image(image, output_path)
         return {"provider": self.provider_id, "model": checkpoint, "size": size, "quality": "local", "output": str(output_path), "prompt_id": prompt_id, "client_id": client_id, "workflow": "builtin_txt2img_v1", "server_image": image}
