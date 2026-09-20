@@ -555,6 +555,8 @@ def _image_style_presets() -> dict[str, object]:
             "lora_strength": float(raw.get("lora_strength") or 0.0),
             "preferred_provider": str(raw.get("preferred_provider") or "").strip().upper(),
             "render_role": str(raw.get("render_role") or "CONCEPT_PREVIEW").strip().upper(),
+            "layout_mode": str(raw.get("layout_mode") or "CHARACTER_BOARD").strip().upper(),
+            "final_provider_required": raw.get("final_provider_required") is True,
         })
     if not presets:
         raise ValueError("image style presets are invalid")
@@ -1024,6 +1026,20 @@ def _generate_image_studio_asset(
     if requested not in {"AUTO", "COMFYUI_IMAGE", "OPENAI_IMAGE"}:
         raise ValueError("unsupported image provider preference")
     style_preferred = str(preset.get("preferred_provider") or "").strip().upper()
+    final_provider_required = bool(preset.get("final_provider_required"))
+    if final_provider_required:
+        required_provider = style_preferred or "OPENAI_IMAGE"
+        if requested not in {"AUTO", required_provider}:
+            raise ValueError(
+                "当前“参考视频·电影级 3D 国漫”是最终视觉路线，不能使用 Animagine 本地预览生成；"
+                "请将生图路线设为 AUTO 或 OpenAI Image。"
+            )
+        if required_provider not in available:
+            raise ValueError(
+                "当前“参考视频·电影级 3D 国漫”需要最终视觉 Provider，但 OpenAI Image 尚未配置。"
+                "Animagine 只用于本地概念预览，不会再冒充最终 3D LookDev。"
+            )
+
     effective_preferred = None
     if requested != "AUTO":
         effective_preferred = requested
@@ -1064,6 +1080,7 @@ def _generate_image_studio_asset(
             custom_prompt,
             style_direction=style_direction,
             forbidden_direction=forbidden_direction,
+            layout_mode=str(preset.get("layout_mode") or "CHARACTER_BOARD"),
         )
         output_dir = project / "lookdev" / "image-studio" / "character-bible"
         output = output_dir / f"{stamp}-char-child-001.png"
@@ -1132,6 +1149,7 @@ def _generate_image_studio_asset(
         "quality": result["quality"],
         "style_preset": str(preset.get("id") or ""),
         "style_label": str(preset.get("label") or ""),
+        "layout_mode": str(preset.get("layout_mode") or "CHARACTER_BOARD"),
         "style_preferred_provider": str(preset.get("preferred_provider") or ""),
         "requested_render_role": str(preset.get("render_role") or "CONCEPT_PREVIEW"),
         "render_role": (
