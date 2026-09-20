@@ -25,6 +25,9 @@ LOG_PATH = LOG_DIR / "comfyui-install.log"
 STATE_PATH = LOG_DIR / "comfyui-install.json"
 SOURCE_URL = "https://github.com/Comfy-Org/ComfyUI.git"
 MIN_FREE_BYTES = 6 * 1024 * 1024 * 1024
+CERT_DIR = DEPENDENCIES / "certs"
+MACOS_CA_BUNDLE = CERT_DIR / "macos-trust.pem"
+PYPI_PROBE_URL = "https://pypi.org/simple/pip/"
 
 
 class ComfyUIInstallError(RuntimeError):
@@ -88,23 +91,165 @@ def _python_version(executable: str) -> tuple[int, int] | None:
         return None
 
 
-def choose_bootstrap_python() -> str:
+def _python_candidates() -> list[str]:
     candidates: list[str] = []
     for name in ("python3.13", "python3.12", "python3.14", "python3"):
         found = shutil.which(name)
         if found:
             candidates.append(found)
     candidates.append(sys.executable)
+    unique: list[str] = []
     seen: set[str] = set()
     for candidate in candidates:
-        resolved = str(Path(candidate).resolve())
+        try:
+            resolved = str(Path(candidate).resolve())
+        except OSError:
+            continue
         if resolved in seen:
             continue
         seen.add(resolved)
         version = _python_version(resolved)
         if version and (3, 10) <= version <= (3, 14):
-            return resolved
-    raise ComfyUIInstallError("未找到 Python 3.10–3.14；建议安装 Homebrew python@3.13 或 python@3.12")
+            unique.append(resolved)
+    return unique
+
+
+def _export_macos_trust_bundle() -> Path | None:
+    if platform.system() != "Darwin" or shutil.which("security") is None:
+        return None
+    keychains = [
+        Path("/System/Library/Keychains/SystemRootCertificates.keychain"),
+        Path("/Library/Keychains/System.keychain"),
+        Path.home() / "Library" / "Keychains" / "login.keychain-db",
+    ]
+    chunks: list[bytes] = []
+    for keychain in keychains:
+        if not keychain.is_file():
+            continue
+        try:
+            result = subprocess.run(
+                ["security", "find-certificate", "-a", "-p", str(keychain)],
+                capture_output=True,
+                check=False,
+                timeout=20,
+            )
+        except (OSError, subprocess.SubprocessError):
+            continue
+        if result.returncode == 0 and b"BEGIN CERTIFICATE" in result.stdout:
+            chunks.append(result.stdout)
+    if not chunks:
+        return None
+    CERT_DIR.mkdir(parents=True, exist_ok=True)
+    temporary = MACOS_CA_BUNDLE.with_suffix(".tmp")
+    temporary.write_bytes(b"\n".join(chunks))
+    temporary.replace(MACOS_CA_BUNDLE)
+    return MACOS_CA_BUNDLE
+
+
+def _candidate_ca_bundles() -> list[Path]:
+    values = [
+        os.environ.get("SSL_CERT_FILE"),
+        os.environ.get("PIP_CERT"),
+        os.environ.get("REQUESTS_CA_BUNDLE"),
+        str(MACOS_CA_BUNDLE) if MACOS_CA_BUNDLE.is_file() else None,
+        "/etc/ssl/cert.pem",
+        "/opt/local/share/curl/curl-ca-bundle.crt",
+        "/opt/local/etc/openssl/cert.pem",
+        "/opt/local/etc/openssl3/cert.pem",
+        "/opt/homebrew/etc/ca-certificates/cert.pem",
+        "/usr/local/etc/ca-certificates/cert.pem",
+    ]
+    result: list[Path] = []
+    seen: set[str] = set()
+    for value in values:
+        if not value:
+            continue
+        path = Path(value).expanduser()
+        try:
+            resolved = path.resolve()
+        except OSError:
+            continue
+        key = str(resolved)
+        if key in seen or not resolved.is_file():
+            continue
+        seen.add(key)
+        result.append(resolved)
+    return result
+
+
+def _network_env(ca_bundle: Path | None = None) -> dict[str, str]:
+    env = dict(os.environ)
+    env["PIP_DISABLE_PIP_VERSION_CHECK"] = "1"
+    if ca_bundle is not None:
+        value = str(ca_bundle)
+        env["SSL_CERT_FILE"] = value
+        env["PIP_CERT"] = value
+        env["REQUESTS_CA_BUNDLE"] = value
+    return env
+
+
+def _https_probe(executable: str, env: dict[str, str]) -> tuple[bool, str]:
+    script = (
+        "import urllib.request;"
+        "r=urllib.request.urlopen('" + PYPI_PROBE_URL + "',timeout=8);"
+        "print(getattr(r,'status',200));r.close()"
+    )
+    try:
+        result = subprocess.run(
+            [executable, "-c", script],
+            capture_output=True,
+            text=True,
+            timeout=12,
+            check=False,
+            env=env,
+        )
+    except (OSError, subprocess.SubprocessError) as error:
+        return False, str(error)
+    if result.returncode == 0:
+        return True, ""
+    detail = (result.stderr or result.stdout or "HTTPS probe failed").strip()
+    return False, detail[-1200:]
+
+
+def choose_bootstrap_runtime() -> tuple[str, dict[str, str], str]:
+    candidates = _python_candidates()
+    if not candidates:
+        raise ComfyUIInstallError("未找到 Python 3.10–3.14；建议安装 Homebrew python@3.13 或 python@3.12")
+
+    failures: list[str] = []
+    # First try each Python with its own default trust configuration.
+    for executable in candidates:
+        env = _network_env()
+        ok, detail = _https_probe(executable, env)
+        if ok:
+            return executable, env, "python-default"
+
+        failures.append(f"{executable}: {detail.splitlines()[-1] if detail else 'TLS failed'}")
+
+    # On macOS, export the trust roots that the machine actually trusts. This
+    # fixes MacPorts/python.org/OpenSSL trust-store drift without disabling TLS.
+    exported = _export_macos_trust_bundle()
+    bundles = _candidate_ca_bundles()
+    if exported is not None and exported not in bundles:
+        bundles.insert(0, exported)
+    for bundle in bundles:
+        for executable in candidates:
+            env = _network_env(bundle)
+            ok, detail = _https_probe(executable, env)
+            if ok:
+                return executable, env, str(bundle)
+            failures.append(f"{executable} + {bundle}: {detail.splitlines()[-1] if detail else 'TLS failed'}")
+
+    summary = " | ".join(failures[-6:])
+    raise ComfyUIInstallError(
+        "所有可用 Python 都无法通过 PyPI HTTPS 证书校验。"
+        "已尝试 macOS Keychain 与常见 CA bundle；不会使用 --trusted-host 或关闭 SSL。"
+        + (f" 最近错误: {summary}" if summary else "")
+    )
+
+
+def choose_bootstrap_python() -> str:
+    return choose_bootstrap_runtime()[0]
 
 
 def _run(command: list[str], *, cwd: Path | None, log, label: str, env: dict[str, str] | None = None) -> None:
@@ -144,34 +289,34 @@ def _venv_python() -> Path:
     return INSTALL_DIR / ".venv" / "bin" / "python"
 
 
-def _ensure_venv(bootstrap_python: str, log) -> Path:
+def _ensure_venv(bootstrap_python: str, log, env: dict[str, str]) -> Path:
     python = _venv_python()
     if not python.is_file():
-        _run([bootstrap_python, "-m", "venv", str(INSTALL_DIR / ".venv")], cwd=INSTALL_DIR, log=log, label="CREATE_VENV")
+        _run([bootstrap_python, "-m", "venv", str(INSTALL_DIR / ".venv")], cwd=INSTALL_DIR, log=log, label="CREATE_VENV", env=env)
     if not python.is_file():
         raise ComfyUIInstallError("虚拟环境创建失败")
-    _run([str(python), "-m", "pip", "install", "--upgrade", "pip", "setuptools", "wheel"], cwd=INSTALL_DIR, log=log, label="UPGRADE_PIP")
+    _run([str(python), "-m", "pip", "install", "--upgrade", "pip", "setuptools", "wheel"], cwd=INSTALL_DIR, log=log, label="UPGRADE_PIP", env=env)
     return python
 
 
-def _install_torch(python: Path, log) -> None:
+def _install_torch(python: Path, log, env: dict[str, str]) -> None:
     is_apple = platform.system() == "Darwin" and platform.machine().lower() in {"arm64", "aarch64"}
     if not is_apple:
         return
     nightly = [str(python), "-m", "pip", "install", "--pre", "torch", "torchvision", "torchaudio", "--index-url", "https://download.pytorch.org/whl/nightly/cpu"]
     try:
-        _run(nightly, cwd=INSTALL_DIR, log=log, label="INSTALL_TORCH_NIGHTLY")
+        _run(nightly, cwd=INSTALL_DIR, log=log, label="INSTALL_TORCH_NIGHTLY", env=env)
     except ComfyUIInstallError:
         log.write(b"nightly torch failed; falling back to stable PyPI torch\n")
         log.flush()
-        _run([str(python), "-m", "pip", "install", "torch", "torchvision", "torchaudio"], cwd=INSTALL_DIR, log=log, label="INSTALL_TORCH_STABLE")
+        _run([str(python), "-m", "pip", "install", "torch", "torchvision", "torchaudio"], cwd=INSTALL_DIR, log=log, label="INSTALL_TORCH_STABLE", env=env)
 
 
-def _install_requirements(python: Path, log) -> None:
+def _install_requirements(python: Path, log, env: dict[str, str]) -> None:
     requirements = INSTALL_DIR / "requirements.txt"
     if not requirements.is_file():
         raise ComfyUIInstallError("ComfyUI requirements.txt 不存在")
-    _run([str(python), "-m", "pip", "install", "-r", str(requirements)], cwd=INSTALL_DIR, log=log, label="INSTALL_REQUIREMENTS")
+    _run([str(python), "-m", "pip", "install", "-r", str(requirements)], cwd=INSTALL_DIR, log=log, label="INSTALL_REQUIREMENTS", env=env)
 
 
 def _verify(python: Path, log) -> dict[str, Any]:
@@ -206,17 +351,18 @@ def install() -> dict[str, Any]:
     if free < MIN_FREE_BYTES:
         raise ComfyUIInstallError("可用磁盘空间不足 6 GB；ComfyUI 核心环境安装需要更多空间")
 
-    bootstrap_python = choose_bootstrap_python()
+    bootstrap_python, install_env, ca_source = choose_bootstrap_runtime()
     with LOG_PATH.open("ab") as log:
         log.write(f"\n=== ComfyUI install {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n".encode())
         log.write(f"bootstrap_python={bootstrap_python}\n".encode())
+        log.write(f"ca_source={ca_source}\n".encode())
         log.flush()
         try:
             _write_state("RUNNING", "CHECK_PREREQS", "准备安装", pid=os.getpid(), install_dir=str(INSTALL_DIR))
             _clone_or_repair(log)
-            python = _ensure_venv(bootstrap_python, log)
-            _install_torch(python, log)
-            _install_requirements(python, log)
+            python = _ensure_venv(bootstrap_python, log, install_env)
+            _install_torch(python, log, install_env)
+            _install_requirements(python, log, install_env)
             info = _verify(python, log)
             return _write_state(
                 "PASS",
@@ -225,6 +371,7 @@ def install() -> dict[str, Any]:
                 pid=None,
                 install_dir=str(INSTALL_DIR),
                 python=str(python),
+                ca_source=ca_source,
                 torch=str(info.get("torch") or ""),
                 mps_built=bool(info.get("mps_built")),
                 mps_available=bool(info.get("mps_available")),
