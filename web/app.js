@@ -1180,20 +1180,20 @@ function renderImageStudio() {
     : '每种风格自动切换 Prompt / Negative / 可选 LoRA。';
   const localReady = Boolean(comfyui.connected && comfyui.workflow_ready);
   const remoteReady = Boolean(openai.configured);
-  if (activeStyle.render_role === 'FINAL_VISUAL' && activeStyle.preferred_provider === 'OPENAI_IMAGE' && !remoteReady) {
-    $('#imageStudioStyleHint').textContent += ' · 当前未配置 OpenAI Image：AUTO 只能生成 LOCAL PREVIEW。';
+  const finalProviderRequired = Boolean(activeStyle.final_provider_required);
+  if (finalProviderRequired && !remoteReady) {
+    $('#imageStudioStyleHint').textContent += ' · 当前未配置 OpenAI Image：该最终 LookDev 路线已阻止 Animagine 本地预览冒充最终结果。';
   }
   const preference = state.imageStudioProviderPreference || 'AUTO';
   const autoPrefersRemote = preference === 'AUTO' && activeStyle.preferred_provider === 'OPENAI_IMAGE' && remoteReady;
-  const autoUsesLocalPreview = preference === 'AUTO' && activeStyle.render_role === 'FINAL_VISUAL' && !autoPrefersRemote && localReady;
   $('#imageStudioProvider').textContent = preference === 'COMFYUI_IMAGE'
-    ? (activeStyle.render_role === 'FINAL_VISUAL' ? 'ComfyUI · LOCAL PREVIEW' : 'ComfyUI Local')
+    ? (finalProviderRequired ? 'BLOCKED · Final requires OpenAI' : 'ComfyUI Local')
     : preference === 'OPENAI_IMAGE'
       ? (openai.label || 'OpenAI Image')
       : autoPrefersRemote
         ? 'AUTO → OpenAI Final'
-        : autoUsesLocalPreview
-          ? 'AUTO → ComfyUI Preview'
+        : finalProviderRequired
+          ? 'AUTO → Final Provider Required'
           : (localReady ? 'AUTO → ComfyUI' : 'AUTO → OpenAI');
   $('#imageStudioModel').textContent = (preference === 'OPENAI_IMAGE' || autoPrefersRemote)
     ? (openai.model || 'OpenAI Image')
@@ -1320,11 +1320,15 @@ function renderImageStudio() {
   // Character bootstrap itself is local and free, so keep the primary action
   // clickable even before a Provider is ready. After bootstrap the normal
   // provider gate applies to image generation.
-  characterButton.disabled = characterReady ? !(localReady || remoteReady) : false;
+  const finalLookDev = activeStyle.render_role === 'FINAL_VISUAL' && activeStyle.layout_mode === 'SINGLE_LOOKDEV_HERO';
+  const finalRouteBlocked = finalLookDev && activeStyle.final_provider_required && !remoteReady;
+  characterButton.disabled = characterReady ? (finalRouteBlocked || !(localReady || remoteReady)) : false;
   characterButton.title = characterReady
-    ? ''
+    ? (finalRouteBlocked ? '该 3D LookDev 最终路线需要 OpenAI Image；本地 Animagine 只保留给概念预览。' : '')
     : '点击后自动从当前项目已保存的导入元数据重建角色资料，然后继续生成；无需重新上传 TXT。';
-  characterButton.innerHTML = '<span>✦</span>生成角色定妆板';
+  characterButton.innerHTML = finalLookDev
+    ? '<span>✦</span>生成最终 3D LookDev'
+    : '<span>✦</span>生成角色定妆板';
 
   const items = data?.items || [];
   const recentElsewhere = data?.recent_elsewhere || [];
@@ -1882,21 +1886,32 @@ async function generateImageStudio(kind) {
     || {};
   const localReady = Boolean(comfyui.connected && comfyui.workflow_ready);
   const remoteReady = Boolean(openai.configured);
+  const finalLookDev = activeStyle.render_role === 'FINAL_VISUAL' && activeStyle.layout_mode === 'SINGLE_LOOKDEV_HERO';
+  const finalProviderRequired = Boolean(activeStyle.final_provider_required);
   const autoPrefersRemote = preference === 'AUTO' && activeStyle.preferred_provider === 'OPENAI_IMAGE' && remoteReady;
   const usesRemote = preference === 'OPENAI_IMAGE' || autoPrefersRemote || (preference === 'AUTO' && !localReady);
-  const localFinalPreview = !usesRemote && activeStyle.render_role === 'FINAL_VISUAL';
-  const label = kind === 'character-bible' ? '角色定妆板' : '镜头关键帧';
+  const label = kind === 'character-bible'
+    ? (finalLookDev ? '最终 3D LookDev' : '角色定妆板')
+    : '镜头关键帧';
   if (kind === 'character-bible' && state.imageStudio?.character_ready === false) {
     log('当前小说项目尚未抽取角色资料；已阻止使用全局演示角色生成。', true);
     return;
   }
+  if (finalProviderRequired) {
+    if (preference === 'COMFYUI_IMAGE') {
+      log('“参考视频·电影级 3D 国漫”不再允许使用 Animagine 本地预览；请选择 AUTO 或 OpenAI Image。', true);
+      return;
+    }
+    if (!remoteReady) {
+      log('“参考视频·电影级 3D 国漫”需要 OpenAI Image 最终视觉 Provider。当前未配置 API Key，因此已阻止继续生成平面预览。', true);
+      return;
+    }
+  }
   if (preference === 'COMFYUI_IMAGE' && !localReady) { log('ComfyUI 本地 Provider 尚未就绪', true); return; }
   if (usesRemote) {
     if (!openai.configured) { log('当前最终视觉路线需要 OpenAI Image，但尚未配置 API Key', true); return; }
-    const reason = activeStyle.render_role === 'FINAL_VISUAL' ? '电影级 3D 国漫最终视觉' : 'OpenAI Image';
+    const reason = activeStyle.render_role === 'FINAL_VISUAL' ? '参考视频·电影级 3D 国漫最终视觉' : 'OpenAI Image';
     if (!window.confirm(`将使用 ${reason} 生成${label}，可能产生 API 费用。确认继续？`)) return;
-  } else if (localFinalPreview) {
-    log('当前电影级 3D 国漫使用 Animagine 本地回退：仅作为 LOCAL PREVIEW，不能代表最终 3D 国漫画质。', true);
   }
 
   const button = kind === 'character-bible' ? $('#generateCharacterBibleButton') : $('#generateKeyframeButton');
@@ -1911,7 +1926,7 @@ async function generateImageStudio(kind) {
   button.dataset.generating = 'true';
   button.textContent = '生成中…';
   const projectTitle = state.animeProjects.find((item) => item.directory_id === projectId)?.title || projectId;
-  log(`开始生成${label} · 项目《${projectTitle}》 · 风格 ${activeStyle?.label || state.imageStudioStylePreset} · ${usesRemote ? 'OpenAI FINAL' : (localFinalPreview ? 'ComfyUI LOCAL PREVIEW' : 'ComfyUI local')}…`);
+  log(`开始生成${label} · 项目《${projectTitle}》 · 风格 ${activeStyle?.label || state.imageStudioStylePreset} · ${usesRemote ? 'OpenAI FINAL' : 'ComfyUI local'}…`);
   try {
     if (!usesRemote) {
       progressSocket = await openComfyUIProgressSocket(comfyui.base_url || 'http://127.0.0.1:8188', clientId, progressView, button);
