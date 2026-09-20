@@ -75,6 +75,7 @@ from support.providers.openai_image_provider import OpenAIImageError, OpenAIImag
 from support.providers.comfyui_image_provider import ComfyUIImageError, ComfyUIImageProvider  # noqa: E402
 from support.providers.image_provider_router import ImageProviderRouteError, ImageProviderRouter  # noqa: E402
 from scripts.pipeline_orchestrator import PipelineError, pipeline_preflight, pipeline_status, run_pipeline, update_pipeline_review  # noqa: E402
+from scripts.novel_web_import import MAX_WEB_UPLOAD_BYTES, NovelWebImportError, create_project_from_web_upload  # noqa: E402
 
 
 PROVIDER_TYPES = {
@@ -1441,6 +1442,25 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802
         route = urlparse(self.path).path
+        if route == "/api/novel-anime/import":
+            try:
+                payload = self._read_json(max_bytes=MAX_WEB_UPLOAD_BYTES)
+                result = create_project_from_web_upload(
+                    PROJECTS_ROOT,
+                    title=str(payload.get("title") or ""),
+                    author=str(payload.get("author") or ""),
+                    episode_count=int(payload.get("episode_count") or 5),
+                    rights_mode=str(payload.get("rights_mode") or "TECHNICAL_TEST"),
+                    rights_confirmed=payload.get("rights_confirmed") is True,
+                    source_name=str(payload.get("source_name") or "novel.txt"),
+                    source_text=str(payload.get("source_text") or ""),
+                )
+                _NOVEL_PROJECT_CACHE.clear()
+                return self._json(result, HTTPStatus.CREATED)
+            except (NovelWebImportError, ValueError, OSError, KeyError, TypeError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+            except Exception as error:
+                return self._error(HTTPStatus.INTERNAL_SERVER_ERROR, f"novel import failed: {error}")
         if route == "/api/settings/keys":
             try:
                 return self._save_key()
@@ -1933,13 +1953,13 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
         relative = _relative(project, Path(result["output"]))
         return {**result, "output": relative, "media_url": f"/media/{project.name}/{relative}"}
 
-    def _read_json(self) -> dict[str, object]:
+    def _read_json(self, *, max_bytes: int = 64 * 1024) -> dict[str, object]:
         try:
             length = int(self.headers.get("Content-Length", "0"))
         except ValueError as error:
             raise ValueError("invalid content length") from error
-        if length <= 0 or length > 64 * 1024:
-            raise ValueError("request body must be between 1 byte and 64 KB")
+        if length <= 0 or length > max_bytes:
+            raise ValueError(f"request body must be between 1 byte and {max_bytes} bytes")
         parsed = json.loads(self.rfile.read(length).decode("utf-8"))
         if not isinstance(parsed, dict):
             raise ValueError("request body must be an object")
