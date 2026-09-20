@@ -1,0 +1,40 @@
+name: P31 Novel Import Regression
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/novel_web_import.py"
+      - "scripts/novel_source_catalog.py"
+      - "scripts/novel_source_ingest.py"
+      - "scripts/web_server.py"
+      - "web/**"
+      - "tests/test_novel_web_import.py"
+      - "tests/test_novel_source_catalog.py"
+      - "tests/test_web_server.py"
+      - ".github/workflows/p31-novel-import-regression.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  novel-import-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Compile Python
+        run: |
+          python -m py_compile             scripts/novel_web_import.py             scripts/novel_source_catalog.py             scripts/novel_source_ingest.py             scripts/web_server.py
+      - name: Check Web JavaScript syntax
+        run: node --check web/app.js
+      - name: Run P31 regression
+        run: |
+          python -m unittest             tests.test_novel_source_catalog             tests.test_novel_web_import
