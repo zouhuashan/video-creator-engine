@@ -19,7 +19,7 @@ from copy import deepcopy
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import unquote, urlparse
+from urllib.parse import quote, unquote, urlparse
 
 ROOT = Path(__file__).resolve().parents[1]
 WEB_ROOT = ROOT / "web"
@@ -104,6 +104,7 @@ _NOVEL_PROJECT_CACHE_LOCK = threading.Lock()
 
 
 def _safe_project(project_id: str) -> Path:
+    project_id = unquote(str(project_id or "")).strip()
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,120}", project_id):
         raise ValueError("invalid project id")
     path = (PROJECTS_ROOT / project_id).resolve()
@@ -124,6 +125,12 @@ def _safe_project_file(project_id: str, relative_path: str) -> Path:
 
 def _relative(project: Path, path: Path) -> str:
     return path.resolve().relative_to(project.resolve()).as_posix()
+
+
+def _media_url(project: Path, relative_path: str) -> str:
+    project_part = quote(project.name, safe="")
+    path_part = "/".join(quote(part, safe="") for part in str(relative_path).split("/") if part)
+    return f"/media/{project_part}/{path_part}"
 
 
 def _media_files(project: Path) -> list[dict[str, str]]:
@@ -159,7 +166,7 @@ def _episode_metadata(project: Path) -> list[dict[str, object]]:
                 "status": str(data.get("status") or "LOCAL_REVIEW"),
                 "provider": str(data.get("provider") or "local_ken_burns"),
                 "output": relative,
-                "media_url": f"/media/{project.name}/{relative}",
+                "media_url": _media_url(project, relative),
             })
     if episodes:
         return episodes
@@ -588,7 +595,7 @@ def _image_studio_inventory(project: Path) -> dict[str, object]:
             if not output or not output_path.is_file() or output_path.suffix.lower() not in IMAGE_EXTENSIONS:
                 continue
             item = dict(meta)
-            item["media_url"] = f"/media/{project.name}/{output}"
+            item["media_url"] = _media_url(project, output)
             item["metadata"] = _relative(project, meta_path)
             items.append(item)
     comfyui = _comfyui_image_status()
@@ -714,7 +721,7 @@ def _generate_image_studio_asset(
     metadata_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return {
         **metadata,
-        "media_url": f"/media/{project.name}/{relative}",
+        "media_url": _media_url(project, relative),
         "metadata": _relative(project, metadata_path),
     }
 
