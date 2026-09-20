@@ -1,4 +1,4 @@
-const state = { projects: [], animeProjects: [], project: null, providers: [], integrations: [], studio: null, readiness: null, backups: null, studioProjectId: null, imageStudio: null, imageStudioProjectId: null, imageStudioSelected: null, imageStudioProviderPreference: 'AUTO', pipeline: null, pipelineProjectId: null, novelImportResult: null, selectedProvider: 'local_ken_burns', selectedImage: null, currentView: 'workspace', currentWorkspace: 'overview' };
+const state = { projects: [], animeProjects: [], project: null, providers: [], integrations: [], studio: null, readiness: null, backups: null, activeNovelProjectId: null, studioProjectId: null, imageStudio: null, imageStudioProjectId: null, imageStudioSelected: null, imageStudioProviderPreference: 'AUTO', pipeline: null, pipelineProjectId: null, novelImportResult: null, selectedProvider: 'local_ken_burns', selectedImage: null, currentView: 'workspace', currentWorkspace: 'overview' };
 const ACTIVE_NOVEL_PROJECT_KEY = 'videocreator.activeNovelProjectId.v1';
 
 function storedActiveNovelProjectId() {
@@ -15,25 +15,31 @@ function rememberActiveNovelProject(projectId) {
 function resolveActiveNovelProject(preferred = '') {
   const projects = state.animeProjects || [];
   if (!projects.length) return '';
-  const candidates = [
-    String(preferred || '').trim(),
-    String(state.imageStudioProjectId || '').trim(),
-    String(state.pipelineProjectId || '').trim(),
-    String(state.studioProjectId || '').trim(),
-    storedActiveNovelProjectId(),
-  ].filter(Boolean);
-  for (const candidate of candidates) {
-    if (projects.some((item) => item.directory_id === candidate)) return candidate;
-  }
+
+  const valid = (value) => {
+    const id = String(value || '').trim();
+    return id && projects.some((item) => item.directory_id === id) ? id : '';
+  };
+
+  // Explicit navigation/import always wins.
+  const explicit = valid(preferred) || valid(state.novelImportResult?.directory_id) || valid(state.activeNovelProjectId);
+  if (explicit) return explicit;
+
+  // On a fresh page load, the newest imported novel is the default across the
+  // whole product. This prevents an old browser-local selection from silently
+  // sending new Image Studio assets into the wrong project.
   const newest = [...projects].sort((a, b) =>
     String(b.created_at || b.updated_at || '').localeCompare(String(a.created_at || a.updated_at || ''))
   )[0];
-  return newest?.directory_id || projects[0].directory_id;
+  if (newest?.directory_id) return newest.directory_id;
+
+  return valid(storedActiveNovelProjectId()) || projects[0].directory_id;
 }
 
 function setActiveNovelProject(projectId, { persist = true } = {}) {
   const value = String(projectId || '').trim();
   if (!value || !state.animeProjects.some((item) => item.directory_id === value)) return '';
+  state.activeNovelProjectId = value;
   state.studioProjectId = value;
   state.pipelineProjectId = value;
   state.imageStudioProjectId = value;
@@ -1008,6 +1014,7 @@ async function importNovelProject() {
     $('#novelImportResultTitle').textContent = `《${result.title}》已建立独立项目`;
     $('#novelImportResultMeta').textContent = `${result.import?.chapter_count || 0} 章 · 首季 ${result.episode_count} 集 · ${result.script_adaptation_allowed ? '可进入本地改编' : '仅技术测试'} · 正文不落库`;
     $('#novelImportResult').classList.remove('hidden');
+    state.activeNovelProjectId = result.directory_id;
     state.studioProjectId = result.directory_id;
     state.pipelineProjectId = result.directory_id;
     state.imageStudioProjectId = result.directory_id;
@@ -1038,7 +1045,8 @@ function renderImageStudio() {
   const select = $('#imageStudioProject');
   const projects = state.animeProjects || [];
   select.innerHTML = projects.map((item) => `<option value="${escapeHtml(item.directory_id)}">${escapeHtml(item.title)}</option>`).join('');
-  if (data?.project_id) select.value = data.project_id;
+  const activeProjectId = resolveActiveNovelProject(data?.project_id || state.imageStudioProjectId);
+  if (activeProjectId) select.value = activeProjectId;
 
   const providers = data?.providers || [];
   const openai = providers.find((item) => item.provider_id === 'OPENAI_IMAGE' || item.id === 'openai_image') || data?.provider || {};
@@ -1144,6 +1152,10 @@ function renderImageStudio() {
   const recentElsewhere = data?.recent_elsewhere || [];
   $('#imageStudioCount').textContent = `${items.length} 张`;
   if (!items.length) {
+    state.imageStudioSelected = null;
+    $('#imageStudioResult').classList.add('hidden');
+    $('#imageStudioEmpty').classList.remove('hidden');
+    $('#imageStudioPreview').removeAttribute('src');
     if (recentElsewhere.length) {
       $('#imageStudioGallery').innerHTML = recentElsewhere.map((item) => `
         <button class="image-studio-thumb image-studio-foreign-thumb" data-image-studio-project="${escapeHtml(item.project_id)}">
@@ -1571,8 +1583,12 @@ async function openComfyUIProgressSocket(baseUrl, clientId, progressView, button
 }
 
 async function generateImageStudio(kind) {
-  const projectId = state.imageStudioProjectId || state.animeProjects[0]?.directory_id;
+  const projectId = resolveActiveNovelProject(state.imageStudioProjectId);
   if (!projectId) { log('没有可用的国漫项目', true); return; }
+  setActiveNovelProject(projectId);
+  if (state.imageStudio?.project_id !== projectId) {
+    await loadImageStudio(projectId);
+  }
   const providers = state.imageStudio?.providers || [];
   const openai = providers.find((item) => item.provider_id === 'OPENAI_IMAGE' || item.id === 'openai_image') || state.imageStudio?.provider || {};
   const comfyui = providers.find((item) => item.provider_id === 'COMFYUI_IMAGE' || item.id === 'comfyui_image') || {};
@@ -1601,7 +1617,8 @@ async function generateImageStudio(kind) {
   button.disabled = true;
   button.dataset.generating = 'true';
   button.textContent = '生成中…';
-  log(`开始生成${label} · ${usesRemote ? 'OpenAI fallback' : 'ComfyUI local'}…`);
+  const projectTitle = state.animeProjects.find((item) => item.directory_id === projectId)?.title || projectId;
+  log(`开始生成${label} · 项目《${projectTitle}》 · ${usesRemote ? 'OpenAI fallback' : 'ComfyUI local'}…`);
   try {
     if (!usesRemote) {
       progressSocket = await openComfyUIProgressSocket(comfyui.base_url || 'http://127.0.0.1:8188', clientId, progressView, button);
