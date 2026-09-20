@@ -124,6 +124,7 @@ class ComfyUIImageProviderTests(unittest.TestCase):
         config_path = Path(__file__).resolve().parents[1] / "config" / "providers" / "comfyui-image-provider.json"
         config = json.loads(config_path.read_text(encoding="utf-8"))
         self.assertGreaterEqual(float(config["timeout_seconds"]), 300.0)
+        self.assertGreaterEqual(float(config["status_timeout_seconds"]), 2.0)
 
     def test_generate_rejects_invalid_client_id(self):
         provider = ComfyUIImageProvider(self.base_url, timeout_seconds=2)
