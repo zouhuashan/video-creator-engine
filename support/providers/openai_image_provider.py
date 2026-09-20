@@ -120,22 +120,24 @@ def character_bible_prompt(
     extra = str(custom_prompt or "").strip()
     style = str(style_direction or "").strip()
     forbidden = str(forbidden_direction or "").strip()
-    return (
-        "Create one polished production character-design board for a premium animated series. "
-        + (f"Style direction: {style}. " if style else "Use a premium Chinese guofeng donghua direction. ")
-        "The SAME character must appear consistently in every panel. "
-        "Include: large hero portrait, front full body, three-quarter full body, side profile, "
-        "back view, five facial expressions, and small costume/hair detail callouts. "
-        f"Character: {character['name']}, {character['role']}. "
-        f"Face: {lock['face']}. Hair: {lock['hair']}. Costume: {lock['costume']}. "
-        f"Body: {lock['body']}. Mood: {lock['mood']}. "
-        f"Rendering: {render['medium']}; {render['shading']}. Lighting: {render['lighting']}. "
-        f"Palette: {', '.join(render['palette'])}. "
-        "Use a clean elegant concept-board layout with a neutral warm background. "
-        + (f"Forbidden style/content: {forbidden}. " if forbidden else "No app UI, no watermark, no random extra characters. ")
-        f"Hard consistency rules: {rules}. "
-        + (f"Additional direction: {extra}." if extra else "")
-    )
+    parts = [
+        "Create one polished production character-design board for a premium animated series. ",
+        f"Style direction: {style}. " if style else "Use a premium Chinese guofeng donghua direction. ",
+        "The SAME character must appear consistently in every panel. ",
+        "Include: large hero portrait, front full body, three-quarter full body, side profile, ",
+        "back view, five facial expressions, and small costume/hair detail callouts. ",
+        f"Character: {character['name']}, {character['role']}. ",
+        f"Face: {lock['face']}. Hair: {lock['hair']}. Costume: {lock['costume']}. ",
+        f"Body: {lock['body']}. Mood: {lock['mood']}. ",
+        f"Rendering: {render['medium']}; {render['shading']}. Lighting: {render['lighting']}. ",
+        f"Palette: {', '.join(render['palette'])}. ",
+        "Use a clean elegant concept-board layout with a neutral warm background. ",
+        f"Forbidden style/content: {forbidden}. " if forbidden else "No app UI, no watermark, no random extra characters. ",
+        f"Hard consistency rules: {rules}. ",
+    ]
+    if extra:
+        parts.append(f"Additional direction: {extra}.")
+    return "".join(parts)
 
 
 def keyframe_prompt(
@@ -152,19 +154,23 @@ def keyframe_prompt(
     extra = str(custom_prompt or "").strip()
     style = str(style_direction or "").strip()
     forbidden = str(forbidden_direction or "").strip()
-    return (
-        "Create a finished cinematic keyframe for a premium animated series. "
-        + (f"Style direction: {style}. " if style else "Use a premium Chinese guofeng donghua set in ancient China / Chinese fantasy. ")
-        f"The hero must exactly match the locked identity for {character['name']} ({character['role']}). "
-        f"Locked face: {lock['face']}. Locked hair: {lock['hair']}. "
-        f"Locked costume: {lock['costume']}. Locked body read: {lock['body']}. "
-        f"Action: {shot['action']} "
-        f"Environment: {shot['environment']}. Lighting: {shot['lighting']}. "
-        f"Camera: {camera['framing']}, {camera['lens_language']}, {camera['angle']}, "
-        f"DOF {camera['depth_of_field']}. "
-        f"Visual medium: {render['medium']}; {render['shading']}. "
-        "Composition should feel like a frame from a high-end animated feature: readable eye-line, layered cloth, natural hair masses, cinematic atmospheric depth, refined anime/NPR finish. "
-        + (f"Forbidden style/content: {forbidden}. " if forbidden else "")
-        + "No concept-sheet layout, no text, no UI, no watermark, no low-poly primitives. "
-        + (f"Additional shot direction: {extra}." if extra else "")
-    )
+    parts = [
+        "Create a finished cinematic keyframe for a premium animated series. ",
+        f"Style direction: {style}. " if style else "Use a premium Chinese guofeng donghua set in ancient China / Chinese fantasy. ",
+        f"The hero must exactly match the locked identity for {character['name']} ({character['role']}). ",
+        f"Locked face: {lock['face']}. Locked hair: {lock['hair']}. ",
+        f"Locked costume: {lock['costume']}. Locked body read: {lock['body']}. ",
+        f"Action: {shot['action']} ",
+        f"Environment: {shot['environment']}. Lighting: {shot['lighting']}. ",
+        f"Camera: {camera['framing']}, {camera['lens_language']}, {camera['angle']}, ",
+        f"DOF {camera['depth_of_field']}. ",
+        f"Visual medium: {render['medium']}; {render['shading']}. ",
+        "Composition should feel like a frame from a high-end animated feature: readable eye-line, layered cloth, natural hair masses, cinematic atmospheric depth, refined anime/NPR finish. ",
+    ]
+    if forbidden:
+        parts.append(f"Forbidden style/content: {forbidden}. ")
+    parts.append("No concept-sheet layout, no text, no UI, no watermark, no low-poly primitives. ")
+    if extra:
+        parts.append(f"Additional shot direction: {extra}.")
+    return "".join(parts)
+
