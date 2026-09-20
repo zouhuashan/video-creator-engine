@@ -1,4 +1,4 @@
-const state = { projects: [], animeProjects: [], project: null, providers: [], integrations: [], studio: null, readiness: null, backups: null, studioProjectId: null, imageStudio: null, imageStudioProjectId: null, imageStudioSelected: null, imageStudioProviderPreference: 'AUTO', pipeline: null, pipelineProjectId: null, selectedProvider: 'local_ken_burns', selectedImage: null, currentView: 'workspace', currentWorkspace: 'overview' };
+const state = { projects: [], animeProjects: [], project: null, providers: [], integrations: [], studio: null, readiness: null, backups: null, studioProjectId: null, imageStudio: null, imageStudioProjectId: null, imageStudioSelected: null, imageStudioProviderPreference: 'AUTO', pipeline: null, pipelineProjectId: null, novelImportResult: null, selectedProvider: 'local_ken_burns', selectedImage: null, currentView: 'workspace', currentWorkspace: 'overview' };
 
 const $ = (selector) => document.querySelector(selector);
 const escapeHtml = (value) => String(value).replace(/[&<>'"]/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
@@ -896,7 +896,7 @@ function setView(view, workspace = state.currentWorkspace) {
   state.currentView = view;
   if (view === 'studio') state.currentWorkspace = workspace;
   document.querySelectorAll('.nav-item').forEach((nav) => nav.classList.toggle('active', nav.dataset.view === view && (view !== 'studio' || nav.dataset.workspace === state.currentWorkspace)));
-  ['workspace', 'anime', 'studio', 'imageStudio', 'projects', 'providers'].forEach((name) => $(`#${name}View`).classList.toggle('hidden', name !== view));
+  ['workspace', 'novelImport', 'anime', 'studio', 'imageStudio', 'projects', 'providers'].forEach((name) => $(`#${name}View`).classList.toggle('hidden', name !== view));
   $('#outputPanel').classList.toggle('hidden', view !== 'workspace');
   $('#logPanel')?.classList.toggle('hidden', view !== 'workspace');
   if (view === 'projects') renderProjectTable();
@@ -910,6 +910,77 @@ function setView(view, workspace = state.currentWorkspace) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+function updateNovelImportRightsUI() {
+  const formal = $('#novelImportRights').value === 'OWNED_OR_LICENSED';
+  $('#novelImportRightsConfirmRow').classList.toggle('hidden', !formal);
+  if (!formal) $('#novelImportRightsConfirm').checked = false;
+}
+
+async function readNovelTxt(file) {
+  if (!file) throw new Error('请先选择小说 TXT');
+  if (!file.name.toLowerCase().endsWith('.txt')) throw new Error('小说文件必须是 .txt');
+  if (file.size <= 0 || file.size > 20 * 1024 * 1024) throw new Error('小说 TXT 必须在 1 byte 到 20 MB 之间');
+  const bytes = await file.arrayBuffer();
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch (_) {
+    throw new Error('小说 TXT 必须使用 UTF-8 编码');
+  }
+}
+
+async function importNovelProject() {
+  const button = $('#novelImportButton');
+  const file = $('#novelImportFile').files?.[0];
+  const title = $('#novelImportTitle').value.trim();
+  const author = $('#novelImportAuthor').value.trim();
+  const episodeCount = Number($('#novelImportEpisodes').value || 5);
+  const rightsMode = $('#novelImportRights').value;
+  const rightsConfirmed = $('#novelImportRightsConfirm').checked;
+
+  if (!title) { log('请输入小说名称', true); return; }
+  if (!Number.isInteger(episodeCount) || episodeCount < 1 || episodeCount > 999) { log('首季集数必须是 1–999', true); return; }
+  if (rightsMode === 'OWNED_OR_LICENSED' && !rightsConfirmed) { log('正式进入改编流程前，需要确认作者/授权状态', true); return; }
+
+  button.disabled = true;
+  button.textContent = '正在创建项目并导入…';
+  $('#novelImportStatus').textContent = 'IMPORTING';
+  $('#novelImportResult').classList.add('hidden');
+  try {
+    const sourceText = await readNovelTxt(file);
+    const result = await api('/api/novel-anime/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, author, episode_count: episodeCount, rights_mode: rightsMode, rights_confirmed: rightsConfirmed, source_name: file.name, source_text: sourceText }),
+    });
+    state.novelImportResult = result;
+    $('#novelImportStatus').textContent = 'PASS';
+    $('#novelImportResultTitle').textContent = `《${result.title}》已建立独立项目`;
+    $('#novelImportResultMeta').textContent = `${result.import?.chapter_count || 0} 章 · 首季 ${result.episode_count} 集 · ${result.script_adaptation_allowed ? '可进入本地改编' : '仅技术测试'} · 正文不落库`;
+    $('#novelImportResult').classList.remove('hidden');
+    state.studioProjectId = result.directory_id;
+    state.pipelineProjectId = result.directory_id;
+    state.imageStudioProjectId = result.directory_id;
+    await load();
+    setView('novelImport');
+    log(`小说导入完成：${result.title} · ${result.import?.chapter_count || 0} 章`);
+  } catch (error) {
+    $('#novelImportStatus').textContent = 'FAIL';
+    log(error.message, true);
+  } finally {
+    button.disabled = false;
+    button.innerHTML = '<span>＋</span>创建项目并导入小说';
+  }
+}
+
+async function openImportedNovelStudio() {
+  const result = state.novelImportResult;
+  if (!result?.directory_id) return;
+  try {
+    await loadStudio(result.directory_id);
+    setView('studio', 'overview');
+    log(`进入新项目制作台：${result.title}`);
+  } catch (error) { log(error.message, true); }
+}
 function renderImageStudio() {
   const data = state.imageStudio;
   const select = $('#imageStudioProject');
@@ -1240,6 +1311,15 @@ async function generateStoryboard() {
   finally { button.innerHTML = '<span>◈</span>生成完整本地分镜'; button.disabled = false; }
 }
 
+$('#novelImportRights').addEventListener('change', updateNovelImportRightsUI);
+$('#novelImportFile').addEventListener('change', (event) => {
+  const file = event.target.files?.[0];
+  $('#novelImportFileName').textContent = file?.name || '选择 UTF-8 TXT 文件';
+  $('#novelImportFileHint').textContent = file ? `${(file.size / 1024 / 1024).toFixed(2)} MB · 浏览器会先校验 UTF-8，再上传到本地 VideoCreator。` : '最大 20 MB；支持“第一章 / 第1章 / 第一回 / 第一卷”等章节标题自动切分。';
+});
+$('#novelImportButton').addEventListener('click', importNovelProject);
+$('#novelImportOpenStudio').addEventListener('click', openImportedNovelStudio);
+updateNovelImportRightsUI();
 $('#pipelineProjectSelect').addEventListener('change', (event) => loadPipeline(event.target.value).catch((error) => log(error.message, true)));
 $('#pipelinePreflightButton').addEventListener('click', runPipelinePreflight);
 $('#pipelineRunButton').addEventListener('click', runAutoPipeline);
