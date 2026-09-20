@@ -3446,6 +3446,22 @@ P30-06 全站默认项目绑定修复（2026-09-20 14:37 CST，真实 Web 截图
 - `web/app.js` V8 syntax compile PASS。
 - 关键提交：`345d95d`、`f44dcb8`、`28e91ab`。
 
+P31-02 《照骨灯》默认项目与角色补全修复（2026-09-20 15:07 CST，真实 Web 截图）：
+
+- 用户已导入《照骨灯》，但 AI 生图页未稳定默认选中最新小说项目，并显示 `PROJECT CHARACTER · 项目角色尚未抽取` / `角色资料待抽取`；当前项目 recent 为 0。
+- Web 全局 active novel 规则改为：显式新导入/当前会话项目优先；fresh load 默认选择 `animeProjects` 中最新导入项目。新导入项目同步绑定制作台、AI 生图、一键整集和首页项目选择，不再让旧 localStorage 项目压过最新小说。
+- Image Studio 新增“当前生成目标：《标题》 · directory_id”提示；生成前再次校验 `state.imageStudio.project_id === active project_id`，不一致则先 reload，日志带小说项目名，防止视觉资产写进错误项目。
+- 导入流程此前已调用本地角色抽取，但旧启发式主要依赖“某某说道/某某：”对话署名；对叙述型网文可能得到空角色。`infer_character_lexicon()` 已增强为 speaker + narration action subject + quoted vocative 多信号保守打分，并过滤“少年/白衣男子/众人/只见/此时”等泛化叙述词。
+- 对新导入小说，增强后的抽取在 ingest 阶段自动生成角色候选；仍不保存正文。
+- 对已导入且角色为空的旧项目，Web 角色修复链正式可用：原“角色资料待抽取”死按钮改为“选择原 TXT 并补全角色”；点击后打开文件选择，读取 UTF-8 TXT，POST `/api/image-studio/character-candidates`，后端必须校验 TXT SHA256 与该项目原 import 一致。
+- 补全后只保存结构化角色候选/mentions/hash/count，不保存 source text；同时把匹配 import JSON 的 `extraction.characters` 与 provider 同步更新，使项目 source summary 不再继续显示角色候选 0；非匹配 SHA 的 import 不修改。
+- 主按钮触发的修复在成功后会自动 reload Image Studio，并继续执行“生成角色定妆板”；单独“补全角色候选”按钮可只修复不生图。
+- 角色修复面板增加独立样式和 `.hidden !important`，避免再次出现组件 display 覆盖隐藏状态。
+- 新增回归：叙述型人物 `顾临渊/沈照雪` 可从动作上下文识别；泛化角色词不晋升；修复只更新匹配 SHA import 且不存正文；Web 必须暴露角色修复输入/按钮/API。
+- 关键提交：`345d95d`、`f44dcb8`、`28e91ab`、`9714e54`、`1c75c7d`、`816acf9`、`9004645`、`5762fdd`、`5940d63`。
+
+NEXT：刷新 Web，确认默认项目为《照骨灯》；旧项目首次点击“选择原 TXT 并补全角色”只需重新选一次原始 TXT，SHA 校验通过后自动解锁并继续角色定妆生成。新导入小说不再需要此补全步骤。
+
 P30-06 Image Studio 预览修复（2026-09-20 14:27 CST，真实 Web 截图）：
 
 - 首张角色定妆图 ComfyUI 已执行完成，但 Web 预览出现黑框/alt 文本，且“空状态”与结果区同时显示。
