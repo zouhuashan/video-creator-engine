@@ -3946,7 +3946,7 @@ Status: CODE PASS / FINAL PROVIDER WEB REVERIFY
   - Final preset 必须带 `SINGLE_LOOKDEV_HERO` / `final_provider_required`；
   - AUTO 且无 OpenAI 时必须拒绝 Animagine fallback；
   - 显式 COMFYUI_IMAGE 时必须拒绝 Final preset。
-- 关键提交：`44b46008`、`a9f67069`、`49f8bac1`、`cd6a7bfd`、`00b6b4ba`、`03b6fd79`、`354808ef`、`8dd23873`、`6e3a7b5d`、`ce067883`、`1dc2f3d6`。
+- 关键提交：`44b46008`、`a9f67069`、`49f8bac1`、`cd6a7bfd`、`00b6b4ba`、`03b6fd79`、`354808ef`、`8dd23873`、`6e3a7b5d`、`ce067883`、`1dc2f3d6`、`71481175`、`240a545a`。
 
 当前 Web 验收路径：
 
