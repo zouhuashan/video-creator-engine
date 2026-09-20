@@ -82,6 +82,7 @@ from scripts.novel_web_import import MAX_WEB_UPLOAD_BYTES, NovelWebImportError, 
 from scripts.comfyui_service_manager import ComfyUIServiceError, service_status as comfyui_service_status, start_service as start_comfyui_service, stop_service as stop_comfyui_service  # noqa: E402
 from scripts.comfyui_installer import ComfyUIInstallError, start_background_install as start_comfyui_install, status as comfyui_install_status  # noqa: E402
 from scripts.comfyui_model_manager import ComfyUIModelError, start_background_install as start_comfyui_model_install, status as comfyui_model_status  # noqa: E402
+from scripts.comfyui_lora_manager import ComfyUILoraError, lora_descriptor as comfyui_lora_descriptor, start_background_install as start_comfyui_lora_install, status as comfyui_lora_status  # noqa: E402
 
 
 PROVIDER_TYPES = {
@@ -510,6 +511,7 @@ COMFYUI_IMAGE_PROVIDER_CONFIG_PATH = ROOT / "config" / "providers" / "comfyui-im
 IMAGE_CHARACTER_CONFIG_PATH = ROOT / "config" / "characters" / "char-child-001.json"
 IMAGE_SHOT_CONFIG_PATH = ROOT / "config" / "shots" / "demo-shot-001.json"
 VISUAL_GENERATION_ROUTE_CONFIG_PATH = ROOT / "config" / "visual-generation-routes.json"
+IMAGE_STYLE_PRESETS_CONFIG_PATH = ROOT / "config" / "providers" / "image-style-presets.json"
 
 
 def _load_repo_json(path: Path) -> dict[str, object]:
@@ -526,6 +528,47 @@ def _load_repo_json(path: Path) -> dict[str, object]:
 
 def _image_provider_router() -> ImageProviderRouter:
     return ImageProviderRouter(VISUAL_GENERATION_ROUTE_CONFIG_PATH)
+
+
+def _image_style_presets() -> dict[str, object]:
+    payload = _load_repo_json(IMAGE_STYLE_PRESETS_CONFIG_PATH)
+    raw_presets = payload.get("presets")
+    if not isinstance(raw_presets, list) or not raw_presets:
+        raise ValueError("image style presets are missing")
+    presets: list[dict[str, object]] = []
+    ids: set[str] = set()
+    for raw in raw_presets:
+        if not isinstance(raw, dict):
+            continue
+        preset_id = str(raw.get("id") or "").strip().upper()
+        if not preset_id or preset_id in ids:
+            continue
+        ids.add(preset_id)
+        presets.append({
+            "id": preset_id,
+            "label": str(raw.get("label") or preset_id),
+            "description": str(raw.get("description") or ""),
+            "positive_prompt_prefix": str(raw.get("positive_prompt_prefix") or ""),
+            "negative_prompt": str(raw.get("negative_prompt") or ""),
+            "remote_direction": str(raw.get("remote_direction") or ""),
+            "lora_id": str(raw.get("lora_id") or "").strip(),
+            "lora_strength": float(raw.get("lora_strength") or 0.0),
+        })
+    if not presets:
+        raise ValueError("image style presets are invalid")
+    default_id = str(payload.get("default_preset") or presets[0]["id"]).strip().upper()
+    if default_id not in {str(item["id"]) for item in presets}:
+        default_id = str(presets[0]["id"])
+    return {"default_preset": default_id, "presets": presets}
+
+
+def _image_style_preset(preset_id: str = "") -> dict[str, object]:
+    payload = _image_style_presets()
+    requested = str(preset_id or payload["default_preset"]).strip().upper()
+    for preset in payload["presets"]:
+        if str(preset["id"]) == requested:
+            return dict(preset)
+    raise ValueError(f"unsupported image style preset: {requested}")
 
 
 def _openai_image_status() -> dict[str, object]:
