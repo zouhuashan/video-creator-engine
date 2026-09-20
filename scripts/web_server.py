@@ -76,6 +76,7 @@ from support.providers.comfyui_image_provider import ComfyUIImageError, ComfyUII
 from support.providers.image_provider_router import ImageProviderRouteError, ImageProviderRouter  # noqa: E402
 from scripts.pipeline_orchestrator import PipelineError, pipeline_preflight, pipeline_status, run_pipeline, update_pipeline_review  # noqa: E402
 from scripts.novel_web_import import MAX_WEB_UPLOAD_BYTES, NovelWebImportError, create_project_from_web_upload  # noqa: E402
+from scripts.comfyui_service_manager import ComfyUIServiceError, service_status as comfyui_service_status, start_service as start_comfyui_service, stop_service as stop_comfyui_service  # noqa: E402
 
 
 PROVIDER_TYPES = {
@@ -554,6 +555,10 @@ def _comfyui_image_status() -> dict[str, object]:
         )
     except (ComfyUIImageError, ValueError) as error:
         result["detail"] = str(error)
+    try:
+        result["service"] = comfyui_service_status(base_url, connected=bool(result.get("connected")))
+    except (ComfyUIServiceError, ValueError, OSError) as error:
+        result["service"] = {"state": "ERROR", "detail": str(error), "managed": False, "installed": False}
     return result
 
 
@@ -1078,6 +1083,11 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
             return self._json(_integration_status()[0])
         if parsed.path == "/api/integrations/comfyui/status":
             return self._json(_comfyui_image_status())
+        if parsed.path == "/api/comfyui/service/status":
+            try:
+                return self._json(comfyui_service_status(_comfyui_base_url()))
+            except (ComfyUIServiceError, ValueError, OSError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
         if parsed.path == "/api/projects":
             return self._json({"projects": self._projects()})
         if parsed.path == "/api/novel-anime/projects":
@@ -1461,6 +1471,15 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
             except Exception as error:
                 return self._error(HTTPStatus.INTERNAL_SERVER_ERROR, f"novel import failed: {error}")
+        if route in {"/api/comfyui/service/start", "/api/comfyui/service/stop"}:
+            try:
+                if route.endswith("/start"):
+                    result = start_comfyui_service(_comfyui_base_url())
+                else:
+                    result = stop_comfyui_service(_comfyui_base_url())
+                return self._json(result)
+            except (ComfyUIServiceError, ValueError, OSError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
         if route == "/api/settings/keys":
             try:
                 return self._save_key()
@@ -1925,7 +1944,6 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                 RUNTIME_INTEGRATIONS.pop("comfyui", None)
                 return self._json(_comfyui_image_status())
             provider = ComfyUIImageProvider(base_url, config_path=COMFYUI_IMAGE_PROVIDER_CONFIG_PATH, timeout_seconds=0.8)
-            provider.health(timeout_seconds=0.8)
             RUNTIME_INTEGRATIONS["comfyui"] = {"base_url": provider.base_url}
             return self._json(_comfyui_image_status())
         if integration_id != "arcreel":
