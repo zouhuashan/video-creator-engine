@@ -56,6 +56,22 @@ class OpenAIImagePromptTests(unittest.TestCase):
         self.assertIn("finished film character render", prompt)
         self.assertIn("flat illustration", prompt)
 
+    def test_cinematic_3d_final_lookdev_is_single_hero_not_character_sheet(self):
+        prompt = character_bible_prompt(
+            self._character(),
+            style_direction=(
+                "Premium semi-realistic 3D Chinese donghua with cinematic PBR/NPR lighting."
+            ),
+            forbidden_direction="character sheet, multi-panel layout, ghost figures, flat illustration",
+            layout_mode="SINGLE_LOOKDEV_HERO",
+        )
+        self.assertIn("ONE finished cinematic 3D character LookDev beauty render", prompt)
+        self.assertIn("Render exactly one character, one body, one face, one camera view", prompt)
+        self.assertIn("three-quarter full-body beauty composition", prompt)
+        self.assertIn("warm sunset/lantern rim light", prompt)
+        self.assertIn("not a sheet", prompt)
+        self.assertNotIn("front full body, three-quarter full body, side profile", prompt)
+
     def test_cinematic_3d_keyframe_requires_true_depth_and_material_volume(self):
         prompt = keyframe_prompt(
             self._character(),
