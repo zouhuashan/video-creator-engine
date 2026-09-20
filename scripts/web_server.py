@@ -604,6 +604,112 @@ def _comfyui_image_status() -> dict[str, object]:
     return result
 
 
+def _project_image_character(project: Path) -> tuple[dict[str, object], bool, str]:
+    demo = _load_repo_json(IMAGE_CHARACTER_CONFIG_PATH)
+    manifest = project / NOVEL_ANIME_MANIFEST
+    if not manifest.is_file():
+        return demo, True, "global-demo"
+
+    try:
+        bible = load_bible(project)
+    except (NovelStoryBibleError, OSError, ValueError):
+        bible = {}
+    characters = bible.get("characters") if isinstance(bible, dict) else None
+    if not isinstance(characters, list) or not characters:
+        placeholder = deepcopy(demo)
+        placeholder.update({
+            "character_id": "",
+            "name": "项目角色尚未抽取",
+            "role": "当前小说项目暂无角色资料",
+            "visual_lock": {
+                "age_read": "",
+                "face": "请先从当前小说底本生成角色资料",
+                "hair": "—",
+                "costume": "—",
+                "body": "—",
+                "mood": "—",
+            },
+            "consistency_rules": [],
+            "status": "BLOCKED",
+        })
+        return placeholder, False, "project-story-bible-empty"
+
+    def priority(item: dict[str, object]) -> tuple[int, str]:
+        role = str(item.get("role") or "").lower()
+        score = 0 if any(token in role for token in ("主角", "protagonist", "hero", "lead")) else 1
+        return score, str(item.get("id") or "")
+
+    source_character = sorted(
+        [item for item in characters if isinstance(item, dict)],
+        key=priority,
+    )[0]
+
+    identity: dict[str, object] = {}
+    try:
+        designs = load_character_designs(project)
+        for design in designs.get("character_designs", []):
+            if str(design.get("character_id") or "") == str(source_character.get("id") or ""):
+                identity = design.get("identity") if isinstance(design.get("identity"), dict) else {}
+                break
+    except (NovelCharacterDesignError, OSError, ValueError):
+        identity = {}
+
+    render_lock = deepcopy(demo.get("render_lock") or {})
+    try:
+        visual = load_visual_bible(project)
+        style = visual.get("style") if isinstance(visual, dict) else {}
+        color_script = visual.get("color_script") if isinstance(visual, dict) else {}
+        swatches = color_script.get("swatches") if isinstance(color_script, dict) else []
+        if isinstance(style, dict):
+            if str(style.get("rendering") or "").strip():
+                render_lock["medium"] = str(style["rendering"])
+            if str(style.get("art_direction") or "").strip():
+                render_lock["shading"] = str(style["art_direction"])
+        palette = [
+            f"{item.get('name')} {item.get('hex')}"
+            for item in swatches
+            if isinstance(item, dict) and item.get("name") and item.get("hex")
+        ]
+        if palette:
+            render_lock["palette"] = palette[:8]
+    except (NovelVisualBibleError, OSError, ValueError):
+        pass
+
+    description = str(source_character.get("description") or "").strip()
+    traits = [str(item) for item in source_character.get("traits", []) if str(item).strip()]
+    role = str(source_character.get("role") or "story character").strip() or "story character"
+    face = str(identity.get("face_shape") or "").strip() or description or "source-consistent facial design"
+    hair_parts = [str(identity.get("hair_shape") or "").strip(), str(identity.get("hair_color") or "").strip()]
+    hair = ", ".join(part for part in hair_parts if part) or "source-consistent hairstyle"
+    body_parts = [str(identity.get("body_type") or "").strip()]
+    if identity.get("height_heads") is not None:
+        body_parts.append(f"{identity.get('height_heads')} heads tall")
+    body = ", ".join(part for part in body_parts if part) or "source-consistent body proportions"
+    mood = ", ".join(traits[:6]) or description or "emotionally readable"
+    negatives = [str(item) for item in identity.get("negative_constraints", []) if str(item).strip()]
+    immutable = [str(item) for item in identity.get("immutable_features", []) if str(item).strip()]
+
+    character = {
+        "schema_version": 1,
+        "character_id": str(source_character.get("id") or ""),
+        "name": str(source_character.get("name") or "未命名角色"),
+        "role": role,
+        "style_id": "PROJECT_VISUAL_BIBLE",
+        "visual_lock": {
+            "age_read": description or role,
+            "face": face,
+            "hair": hair,
+            "costume": "source-consistent period costume; follow reviewed project character design when available",
+            "body": body,
+            "mood": mood,
+        },
+        "render_lock": render_lock,
+        "consistency_rules": immutable + negatives,
+        "status": "PROJECT",
+    }
+    return character, True, "project-story-bible"
+
+
 def _recent_image_studio_elsewhere(current_project: Path, limit: int = 6) -> list[dict[str, object]]:
     recent: list[dict[str, object]] = []
     if not PROJECTS_ROOT.is_dir():
@@ -670,6 +776,7 @@ def _image_studio_inventory(project: Path) -> dict[str, object]:
             items.append(item)
     comfyui = _comfyui_image_status()
     openai = _openai_image_status()
+    character, character_ready, character_source = _project_image_character(project)
     return {
         "project_id": project.name,
         "provider": openai,
@@ -679,7 +786,9 @@ def _image_studio_inventory(project: Path) -> dict[str, object]:
             {**openai, "provider_id": "OPENAI_IMAGE"},
         ],
         "default_provider": "AUTO",
-        "character": _load_repo_json(IMAGE_CHARACTER_CONFIG_PATH),
+        "character": character,
+        "character_ready": character_ready,
+        "character_source": character_source,
         "shot": _load_repo_json(IMAGE_SHOT_CONFIG_PATH),
         "routing": _image_provider_router().describe(),
         "items": items[:24],
@@ -724,7 +833,12 @@ def _generate_image_studio_asset(
         upload_authorized=upload_authorized,
     )
 
-    character = _load_repo_json(IMAGE_CHARACTER_CONFIG_PATH)
+    character, character_ready, character_source = _project_image_character(project)
+    if not character_ready:
+        raise ValueError(
+            "当前小说项目尚未抽取角色资料，已阻止使用全局演示角色生成定妆板；"
+            "请先完成项目角色抽取/故事圣经。"
+        )
     shot = _load_repo_json(IMAGE_SHOT_CONFIG_PATH)
     stamp = time.strftime("%Y%m%d-%H%M%S") + f"-{time.time_ns() % 100000:05d}"
     if artifact_type == "character_bible":
@@ -773,7 +887,8 @@ def _generate_image_studio_asset(
         "size": result["size"],
         "quality": result["quality"],
         "project_id": project.name,
-        "character_id": str(character.get("character_id") or "CHAR-CHILD-001"),
+        "character_id": str(character.get("character_id") or ""),
+        "character_source": character_source,
         "shot_id": str(shot.get("shot_id") or "SHOT-DEMO-001") if artifact_type == "keyframe" else None,
         "style_id": str(character.get("style_id") or "STYLE-REF-GUOFENG-DIALOGUE-001"),
         "output": relative,
@@ -827,7 +942,7 @@ def _update_image_studio_review(project: Path, payload: dict[str, object]) -> di
     output = str(metadata.get("output") or "")
     return {
         **metadata,
-        "media_url": f"/media/{project.name}/{output}" if output else "",
+        "media_url": _media_url(project, output) if output else "",
         "metadata": _relative(project, metadata_path),
     }
 
