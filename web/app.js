@@ -1195,11 +1195,16 @@ function renderImageStudio() {
         : finalProviderRequired
           ? 'AUTO → Final Provider Required'
           : (localReady ? 'AUTO → ComfyUI' : 'AUTO → OpenAI');
-  $('#imageStudioModel').textContent = (preference === 'OPENAI_IMAGE' || autoPrefersRemote)
-    ? (openai.model || 'OpenAI Image')
-    : localReady ? (comfyui.checkpoint || 'Local checkpoint') : (openai.model || '—');
-  $('#imageStudioStatus').textContent = (localReady || remoteReady) ? 'READY' : 'NO PROVIDER';
-  $('#imageStudioStatus').classList.toggle('off', !(localReady || remoteReady));
+  $('#imageStudioModel').textContent = finalProviderRequired
+    ? (remoteReady ? (openai.model || 'OpenAI Image') : 'OpenAI Image required')
+    : (preference === 'OPENAI_IMAGE' || autoPrefersRemote)
+      ? (openai.model || 'OpenAI Image')
+      : localReady ? (comfyui.checkpoint || 'Local checkpoint') : (openai.model || '—');
+  const finalRouteReady = !finalProviderRequired || remoteReady;
+  $('#imageStudioStatus').textContent = finalRouteReady
+    ? ((localReady || remoteReady) ? 'READY' : 'NO PROVIDER')
+    : 'FINAL PROVIDER REQUIRED';
+  $('#imageStudioStatus').classList.toggle('off', !finalRouteReady || !(localReady || remoteReady));
   $('#imageStudioRoute').textContent = routing.final_visual_route || 'IMAGE_PROVIDER_ROUTER';
   $('#imageStudioBlenderRole').textContent = `Blender · ${routing.blender_role || 'AUXILIARY_3D_CONTROL'}`;
   $('#imageStudioComfyUrl').value = comfyui.base_url || 'http://127.0.0.1:8188';
@@ -1307,8 +1312,10 @@ function renderImageStudio() {
     installHint.textContent = '';
   }
   $('#imageStudioKeyHint').textContent = openai.configured
-    ? `OpenAI fallback 已配置（${openai.source === 'environment' ? '环境变量' : '当前 Web 会话'}），密钥不会显示或写入文件。`
-    : 'OpenAI 仅作为远程 fallback；未配置时 AUTO 不会产生远程调用。';
+    ? `${finalProviderRequired ? '3D 最终视觉 Provider' : 'OpenAI fallback'} 已配置（${openai.source === 'environment' ? '环境变量' : '当前 Web 会话'}），密钥不会显示或写入文件。`
+    : finalProviderRequired
+      ? '当前参考视频·电影级 3D 国漫需要 OpenAI Image；未配置时会阻止生成，不再回退到 Animagine 平面预览。'
+      : 'OpenAI 仅作为远程 fallback；未配置时 AUTO 不会产生远程调用。';
 
   const character = data?.character || {};
   const characterReady = data?.character_ready !== false;
