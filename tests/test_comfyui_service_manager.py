@@ -20,6 +20,72 @@ class ComfyUIServiceManagerTests(unittest.TestCase):
         self.assertFalse(result["installed"])
         self.assertFalse(result["managed"])
 
+    def test_python_for_preserves_venv_symlink_path(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            home = root / "ComfyUI"
+            venv_python = home / ".venv" / "bin" / "python"
+            base_python = root / "managed-python" / "bin" / "python3.13"
+            base_python.parent.mkdir(parents=True)
+            base_python.write_text("", encoding="utf-8")
+            base_python.chmod(0o755)
+            venv_python.parent.mkdir(parents=True)
+            venv_python.symlink_to(base_python)
+
+            with patch.object(manager, "_desktop_base_path", return_value=(None, None)):
+                selected = manager._python_for(home)
+
+            self.assertEqual(selected, venv_python.absolute())
+            self.assertNotEqual(selected, base_python.resolve())
+
+    def test_project_venv_identity_rejects_base_interpreter(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            home = root / ".dependencies" / "ComfyUI"
+            python = home / ".venv" / "bin" / "python"
+            python.parent.mkdir(parents=True)
+            python.write_text("", encoding="utf-8")
+            completed = Mock(
+                returncode=0,
+                stdout=manager.json.dumps({
+                    "prefix": "/managed/base",
+                    "base_prefix": "/managed/base",
+                    "executable": "/managed/base/bin/python3.13",
+                }) + "\n",
+                stderr="",
+            )
+
+            with patch.object(manager, "PROJECT_COMFYUI_HOME", home), \
+                 patch.object(manager.subprocess, "run", return_value=completed):
+                ok, detail = manager._venv_identity(python, home)
+
+            self.assertFalse(ok)
+            self.assertIn("not a virtual environment", detail)
+
+    def test_project_venv_identity_accepts_exact_project_venv(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            home = root / ".dependencies" / "ComfyUI"
+            python = home / ".venv" / "bin" / "python"
+            python.parent.mkdir(parents=True)
+            python.write_text("", encoding="utf-8")
+            completed = Mock(
+                returncode=0,
+                stdout=manager.json.dumps({
+                    "prefix": str(home / ".venv"),
+                    "base_prefix": str(root / ".dependencies" / "python" / "base"),
+                    "executable": str(python),
+                }) + "\n",
+                stderr="",
+            )
+
+            with patch.object(manager, "PROJECT_COMFYUI_HOME", home), \
+                 patch.object(manager.subprocess, "run", return_value=completed):
+                ok, detail = manager._venv_identity(python, home)
+
+            self.assertTrue(ok)
+            self.assertEqual(detail, "")
+
     def test_start_uses_fixed_main_py_and_loopback_args(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -73,6 +139,7 @@ class ComfyUIServiceManagerTests(unittest.TestCase):
             with patch.object(manager, "PROJECT_COMFYUI_HOME", home), \
                  patch.object(manager, "INSTALL_STATE_PATH", install_state_path), \
                  patch.object(manager, "LOG_DIR", root / "logs"), \
+                 patch.object(manager, "_venv_identity", return_value=(True, "")), \
                  patch.object(manager, "_runtime_dependency_smoke", side_effect=[
                      (False, "filelock: ModuleNotFoundError No module named filelock"),
                      (True, ""),
@@ -108,6 +175,7 @@ class ComfyUIServiceManagerTests(unittest.TestCase):
 
             with patch.object(manager, "PROJECT_COMFYUI_HOME", home), \
                  patch.object(manager, "INSTALL_STATE_PATH", install_state_path), \
+                 patch.object(manager, "_venv_identity", return_value=(True, "")), \
                  patch.object(manager, "_runtime_dependency_smoke", return_value=(True, "")), \
                  patch.object(manager.subprocess, "run") as run:
                 with (root / "service.log").open("wb") as log:
