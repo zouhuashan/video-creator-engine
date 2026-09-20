@@ -1,4 +1,4 @@
-const state = { projects: [], animeProjects: [], project: null, providers: [], integrations: [], studio: null, readiness: null, backups: null, activeNovelProjectId: null, studioProjectId: null, imageStudio: null, imageStudioProjectId: null, imageStudioSelected: null, imageStudioProviderPreference: 'AUTO', pipeline: null, pipelineProjectId: null, novelImportResult: null, selectedProvider: 'local_ken_burns', selectedImage: null, currentView: 'workspace', currentWorkspace: 'overview' };
+const state = { projects: [], animeProjects: [], project: null, providers: [], integrations: [], studio: null, readiness: null, backups: null, activeNovelProjectId: null, studioProjectId: null, imageStudio: null, imageStudioProjectId: null, imageStudioSelected: null, imageStudioProviderPreference: 'AUTO', imageStudioStylePreset: 'GUOFENG_ANCIENT_CHINA', pipeline: null, pipelineProjectId: null, novelImportResult: null, selectedProvider: 'local_ken_burns', selectedImage: null, currentView: 'workspace', currentWorkspace: 'overview' };
 const ACTIVE_NOVEL_PROJECT_KEY = 'videocreator.activeNovelProjectId.v1';
 
 function storedActiveNovelProjectId() {
@@ -1150,6 +1150,19 @@ function renderImageStudio() {
   const routing = data?.routing || {};
   const providerSelect = $('#imageStudioProviderSelect');
   if (providerSelect) providerSelect.value = state.imageStudioProviderPreference || data?.default_provider || 'AUTO';
+  const stylePresets = data?.style_presets || [];
+  const styleSelect = $('#imageStudioStylePreset');
+  if (styleSelect) {
+    styleSelect.innerHTML = stylePresets.map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.label)}</option>`).join('');
+    if (!stylePresets.some((item) => item.id === state.imageStudioStylePreset)) {
+      state.imageStudioStylePreset = data?.default_style_preset || stylePresets[0]?.id || 'GUOFENG_ANCIENT_CHINA';
+    }
+    styleSelect.value = state.imageStudioStylePreset;
+  }
+  const activeStyle = stylePresets.find((item) => item.id === state.imageStudioStylePreset) || stylePresets[0] || {};
+  $('#imageStudioStyleHint').textContent = activeStyle.description
+    ? `${activeStyle.description} · Prompt / Negative 自动切换${activeStyle.lora_id ? ' · 支持 LoRA 自动增强' : ''}`
+    : '每种风格自动切换 Prompt / Negative / 可选 LoRA。';
   const localReady = Boolean(comfyui.connected && comfyui.workflow_ready);
   const remoteReady = Boolean(openai.configured);
   const preference = state.imageStudioProviderPreference || 'AUTO';
@@ -1163,11 +1176,14 @@ function renderImageStudio() {
   const service = comfyui.service || {};
   const installer = comfyui.installer || {};
   const modelInstaller = comfyui.model_installer || {};
+  const loraInstaller = comfyui.lora_installer || {};
   const serviceState = service.state || (localReady ? 'RUNNING' : 'UNKNOWN');
   const installRunning = installer.status === 'RUNNING';
   const installReady = Boolean(installer.installed || service.installed);
   const modelRunning = modelInstaller.status === 'RUNNING';
   const modelInstalled = Boolean(modelInstaller.installed || comfyui.checkpoint_count);
+  const loraRunning = loraInstaller.status === 'RUNNING';
+  const loraInstalled = Boolean(loraInstaller.installed);
   $('#imageStudioComfyServiceStatus').textContent = serviceState;
   $('#imageStudioComfyServiceStatus').classList.toggle('off', serviceState !== 'RUNNING');
   $('#imageStudioInstallComfy').disabled = installRunning || serviceState === 'RUNNING';
@@ -1210,6 +1226,31 @@ function renderImageStudio() {
         : installReady
           ? '核心环境已就绪；点击一次即可下载、断点续传、校验并安装到 ComfyUI checkpoints。'
           : '请先完成 ComfyUI 核心安装。';
+
+  const lora = loraInstaller.lora || {};
+  const loraPercent = Math.max(0, Math.min(100, Number(loraInstaller.progress_percent || (loraInstalled ? 100 : 0))));
+  const loraDownloaded = Number(loraInstaller.downloaded_bytes || 0);
+  const loraExpected = Number(loraInstaller.expected_bytes || lora.expected_bytes || 0);
+  const loraRecognized = Boolean(lora.filename && (comfyui.loras || []).includes(lora.filename));
+  $('#imageStudioComfyLoraName').textContent = lora.label || 'SDXL 中国国风插画 LoRA';
+  $('#imageStudioComfyLoraStatus').textContent = loraRunning
+    ? (loraInstaller.step || 'DOWNLOADING')
+    : (loraInstalled ? (loraRecognized ? 'READY' : 'INSTALLED') : (loraInstaller.status || 'NOT INSTALLED'));
+  $('#imageStudioComfyLoraStatus').classList.toggle('off', !loraRecognized);
+  $('#imageStudioComfyLoraMeta').textContent = `${lora.purpose || '中国古风风格增强'} · ${loraExpected ? (loraExpected / 1024 / 1024).toFixed(0) + ' MB' : '约 341 MB'} · ${lora.license || 'openrail++'} · ${lora.base_model || 'SDXL'}`;
+  $('#imageStudioInstallLora').disabled = !installReady || installRunning || loraRunning || loraInstalled;
+  $('#imageStudioInstallLora').textContent = loraRunning ? '下载中…' : (loraInstalled ? (loraRecognized ? '✓ 国风 LoRA 已启用' : '✓ 已安装，待刷新') : '↓ 安装国风 LoRA');
+  $('#imageStudioComfyLoraSize').textContent = `${loraPercent.toFixed(1)}%${loraExpected ? ` · ${(loraDownloaded / 1024 / 1024).toFixed(0)} / ${(loraExpected / 1024 / 1024).toFixed(0)} MB` : ''}`;
+  $('#imageStudioComfyLoraProgressBar').style.width = `${loraPercent}%`;
+  $('#imageStudioComfyLoraDetail').textContent = loraRecognized
+    ? `ComfyUI 已识别 ${lora.filename}；中国古风 / 仙侠 / 武侠 / 水墨预设会自动加载。`
+    : loraInstalled
+      ? `LoRA 已安装；需要 ComfyUI 刷新模型列表后自动启用。`
+      : loraRunning
+        ? `${loraInstaller.detail || '正在下载国风 LoRA'} · 支持断点续传 · ${loraInstaller.log_path || 'logs/comfyui-lora-install.log'}`
+        : loraInstaller.status === 'FAIL'
+          ? `LoRA 安装失败：${loraInstaller.detail || '可重新点击继续断点下载'}`
+          : '未安装时仍使用 Prompt 风格锁；安装后由国风预设自动加载，无需手工拖 ComfyUI 节点。';
 
   const installHint = $('#imageStudioComfyInstallHint');
   if (installRunning) {
@@ -1416,6 +1457,66 @@ async function refreshComfyUIModelStatus() {
     renderImageStudio();
   }
   return modelInstaller;
+}
+
+async function refreshComfyUILoraStatus() {
+  const loraInstaller = await api('/api/comfyui/loras/status');
+  if (state.imageStudio) {
+    const providers = state.imageStudio.providers || [];
+    const comfyui = providers.find((item) => item.provider_id === 'COMFYUI_IMAGE' || item.id === 'comfyui_image');
+    if (comfyui) comfyui.lora_installer = loraInstaller;
+    renderImageStudio();
+  }
+  return loraInstaller;
+}
+
+async function installComfyUILora() {
+  const button = $('#imageStudioInstallLora');
+  button.disabled = true;
+  button.textContent = '下载中…';
+  try {
+    await api('/api/comfyui/loras/install/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lora_id: 'sdxl-chinese-style-illustration' }),
+    });
+    log('中国国风 LoRA 下载已启动（约 341 MB）；支持断点续传，完成后自动 SHA256 校验。');
+    let loraInstaller = await refreshComfyUILoraStatus();
+    for (let index = 0; index < 5400 && loraInstaller.status === 'RUNNING'; index += 1) {
+      await new Promise((resolve) => window.setTimeout(resolve, 2000));
+      loraInstaller = await refreshComfyUILoraStatus();
+    }
+    if (loraInstaller.status !== 'PASS') {
+      if (loraInstaller.status !== 'RUNNING') log(`国风 LoRA 安装未完成：${loraInstaller.detail || loraInstaller.status || '未知错误'}`, true);
+      return;
+    }
+
+    log('国风 LoRA 下载与 SHA256 校验完成；正在刷新 ComfyUI 模型列表。');
+    let service = await api('/api/comfyui/service/status');
+    if (service.managed && (service.connected || service.state === 'RUNNING' || service.state === 'STARTING')) {
+      await api('/api/comfyui/service/stop', { method: 'POST' });
+      service = await api('/api/comfyui/service/start', { method: 'POST' });
+      await waitForComfyUIReady(60);
+    } else if (!service.connected && service.installed) {
+      service = await api('/api/comfyui/service/start', { method: 'POST' });
+      if (service.managed || service.state === 'STARTING') await waitForComfyUIReady(60);
+    }
+    await loadImageStudio(state.imageStudioProjectId);
+    const providers = state.imageStudio?.providers || [];
+    const comfyui = providers.find((item) => item.provider_id === 'COMFYUI_IMAGE' || item.id === 'comfyui_image') || {};
+    const filename = loraInstaller.lora?.filename || 'sdxl-chinese-style-illustration.safetensors';
+    if ((comfyui.loras || []).includes(filename)) {
+      log('中国国风 LoRA READY；中国古风 / 仙侠 / 武侠 / 水墨预设现在会自动加载。');
+    } else if (service.connected && !service.managed) {
+      log('LoRA 已安装；当前是外部 ComfyUI 进程，请重启该外部 ComfyUI 后刷新页面。', true);
+    } else {
+      log('LoRA 已安装；ComfyUI 正在刷新，稍后页面会自动识别。');
+    }
+  } catch (error) {
+    log(error.message, true);
+  } finally {
+    await loadImageStudio(state.imageStudioProjectId).catch(() => {});
+  }
 }
 
 async function installComfyUIModel() {
@@ -1761,7 +1862,8 @@ async function generateImageStudio(kind) {
   button.dataset.generating = 'true';
   button.textContent = '生成中…';
   const projectTitle = state.animeProjects.find((item) => item.directory_id === projectId)?.title || projectId;
-  log(`开始生成${label} · 项目《${projectTitle}》 · ${usesRemote ? 'OpenAI fallback' : 'ComfyUI local'}…`);
+  const activeStyle = (state.imageStudio?.style_presets || []).find((item) => item.id === state.imageStudioStylePreset);
+  log(`开始生成${label} · 项目《${projectTitle}》 · 风格 ${activeStyle?.label || state.imageStudioStylePreset} · ${usesRemote ? 'OpenAI fallback' : 'ComfyUI local'}…`);
   try {
     if (!usesRemote) {
       progressSocket = await openComfyUIProgressSocket(comfyui.base_url || 'http://127.0.0.1:8188', clientId, progressView, button);
@@ -1777,6 +1879,7 @@ async function generateImageStudio(kind) {
         custom_prompt: $('#imageStudioPrompt').value.trim(),
         confirm_billable: usesRemote,
         provider_preference: preference,
+        style_preset: state.imageStudioStylePreset || state.imageStudio?.default_style_preset || 'GUOFENG_ANCIENT_CHINA',
         comfyui_client_id: clientId,
       }),
     });
@@ -1984,11 +2087,18 @@ $('#imageStudioSaveKey').addEventListener('click', saveImageStudioKey);
 $('#imageStudioSaveComfy').addEventListener('click', saveComfyUIEndpoint);
 $('#imageStudioInstallComfy').addEventListener('click', installComfyUI);
 $('#imageStudioInstallModel').addEventListener('click', installComfyUIModel);
+$('#imageStudioInstallLora').addEventListener('click', installComfyUILora);
 $('#imageStudioStartComfy').addEventListener('click', startComfyUIService);
 $('#imageStudioStopComfy').addEventListener('click', stopComfyUIService);
 $('#imageStudioProviderSelect').addEventListener('change', (event) => {
   state.imageStudioProviderPreference = event.target.value;
   renderImageStudio();
+});
+$('#imageStudioStylePreset').addEventListener('change', (event) => {
+  state.imageStudioStylePreset = event.target.value;
+  renderImageStudio();
+  const style = (state.imageStudio?.style_presets || []).find((item) => item.id === state.imageStudioStylePreset);
+  log(`AI 生图风格已切换：${style?.label || state.imageStudioStylePreset}${style?.lora_id ? ' · 已启用可选国风 LoRA 路由' : ''}`);
 });
 $('#generateCharacterBibleButton').addEventListener('click', handleCharacterBibleAction);
 $('#imageStudioCharacterRepairButton').addEventListener('click', () => bootstrapImageStudioCharacters({ autoGenerate: false }));
