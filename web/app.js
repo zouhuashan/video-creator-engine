@@ -1004,9 +1004,26 @@ function renderImageStudio() {
   $('#imageStudioRoute').textContent = routing.final_visual_route || 'IMAGE_PROVIDER_ROUTER';
   $('#imageStudioBlenderRole').textContent = `Blender · ${routing.blender_role || 'AUXILIARY_3D_CONTROL'}`;
   $('#imageStudioComfyUrl').value = comfyui.base_url || 'http://127.0.0.1:8188';
+  const service = comfyui.service || {};
+  const serviceState = service.state || (localReady ? 'RUNNING' : 'UNKNOWN');
+  $('#imageStudioComfyServiceStatus').textContent = serviceState;
+  $('#imageStudioComfyServiceStatus').classList.toggle('off', serviceState !== 'RUNNING');
+  $('#imageStudioStartComfy').disabled = Boolean(service.managed) || Boolean(service.connected);
+  $('#imageStudioStopComfy').disabled = !Boolean(service.managed);
   $('#imageStudioComfyHint').textContent = localReady
     ? `本地 ComfyUI 已连接 · ${comfyui.checkpoint_count || 0} 个 checkpoint · 不产生远程 API 费用。`
-    : `本地 ComfyUI 未就绪：${comfyui.detail || '请启动 ComfyUI 或修改地址'}`;
+    : `${service.detail || 'ComfyUI 服务未就绪'} · ${comfyui.detail || ''}`.replace(/ · $/, '');
+  const installHint = $('#imageStudioComfyInstallHint');
+  if (serviceState === 'NOT_INSTALLED') {
+    installHint.classList.remove('hidden');
+    installHint.textContent = 'VideoCreator 没有检测到 ComfyUI 安装目录。启动按钮不会自动安装大型模型；安装完成后或设置 COMFYUI_HOME 后可由这里直接启动。';
+  } else if (service.home) {
+    installHint.classList.remove('hidden');
+    installHint.textContent = `检测目录：${service.home} · 日志：${service.log_path || 'logs/comfyui-service.log'}`;
+  } else {
+    installHint.classList.add('hidden');
+    installHint.textContent = '';
+  }
   $('#imageStudioKeyHint').textContent = openai.configured
     ? `OpenAI fallback 已配置（${openai.source === 'environment' ? '环境变量' : '当前 Web 会话'}），密钥不会显示或写入文件。`
     : 'OpenAI 仅作为远程 fallback；未配置时 AUTO 不会产生远程调用。';
@@ -1088,6 +1105,52 @@ async function saveComfyUIEndpoint() {
     log(`ComfyUI：${result.detail || (result.connected ? '连接正常' : '未连接')}`);
   } catch (error) { log(error.message, true); }
   finally { button.disabled = false; button.textContent = '保存并检测'; }
+}
+
+async function waitForComfyUIReady(maxChecks = 24) {
+  for (let index = 0; index < maxChecks; index += 1) {
+    const status = await api('/api/comfyui/service/status');
+    if (status.connected) return status;
+    if (status.state === 'NOT_INSTALLED' || status.state === 'ERROR' || status.state === 'STOPPED') return status;
+    await new Promise((resolve) => window.setTimeout(resolve, 1000));
+  }
+  return api('/api/comfyui/service/status');
+}
+
+async function startComfyUIService() {
+  const button = $('#imageStudioStartComfy');
+  button.disabled = true;
+  button.textContent = '启动中…';
+  try {
+    await api('/api/comfyui/service/start', { method: 'POST' });
+    let status = await waitForComfyUIReady();
+    await loadImageStudio(state.imageStudioProjectId);
+    if (status.connected) log('ComfyUI 本地服务已启动并连接。');
+    else log(`ComfyUI：${status.detail || status.state || '尚未就绪'}`, true);
+  } catch (error) {
+    log(error.message, true);
+    await loadImageStudio(state.imageStudioProjectId).catch(() => {});
+  } finally {
+    button.disabled = false;
+    button.innerHTML = '▶ 启动 ComfyUI';
+  }
+}
+
+async function stopComfyUIService() {
+  const button = $('#imageStudioStopComfy');
+  button.disabled = true;
+  button.textContent = '停止中…';
+  try {
+    const result = await api('/api/comfyui/service/stop', { method: 'POST' });
+    await loadImageStudio(state.imageStudioProjectId);
+    log(`ComfyUI：${result.detail || '已停止'}`);
+  } catch (error) {
+    log(error.message, true);
+    await loadImageStudio(state.imageStudioProjectId).catch(() => {});
+  } finally {
+    button.disabled = false;
+    button.innerHTML = '■ 停止';
+  }
 }
 
 async function reviewImageStudio(status) {
@@ -1327,6 +1390,8 @@ $('#pipelineApproveButton').addEventListener('click', approvePipeline);
 $('#imageStudioProject').addEventListener('change', (event) => loadImageStudio(event.target.value).catch((error) => log(error.message, true)));
 $('#imageStudioSaveKey').addEventListener('click', saveImageStudioKey);
 $('#imageStudioSaveComfy').addEventListener('click', saveComfyUIEndpoint);
+$('#imageStudioStartComfy').addEventListener('click', startComfyUIService);
+$('#imageStudioStopComfy').addEventListener('click', stopComfyUIService);
 $('#imageStudioProviderSelect').addEventListener('change', (event) => {
   state.imageStudioProviderPreference = event.target.value;
   renderImageStudio();
