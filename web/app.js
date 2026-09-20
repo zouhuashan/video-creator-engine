@@ -1196,9 +1196,9 @@ function renderImageStudio() {
   $('#imageStudioComfyModelName').textContent = model.label || 'Animagine XL 4.0';
   $('#imageStudioComfyModelStatus').textContent = modelRunning ? (modelInstaller.step || 'DOWNLOADING') : (modelInstalled ? 'INSTALLED' : (modelInstaller.status || 'NOT INSTALLED'));
   $('#imageStudioComfyModelStatus').classList.toggle('off', !modelInstalled);
-  $('#imageStudioComfyModelMeta').textContent = `${model.purpose || '动漫 / 国风动漫基础 checkpoint'} · ${modelExpected ? gib(modelExpected) + ' GB' : '约 6.94 GB'} · ${model.license || 'openrail++'} · SHA256 校验`;
+  $('#imageStudioComfyModelMeta').textContent = `${model.purpose || '动漫基础 checkpoint（国风由系统风格锁加强）'} · ${modelExpected ? gib(modelExpected) + ' GB' : '约 6.94 GB'} · ${model.license || 'openrail++'} · SHA256 校验`;
   $('#imageStudioInstallModel').disabled = !installReady || installRunning || modelRunning || modelInstalled;
-  $('#imageStudioInstallModel').textContent = modelRunning ? '下载中…' : (modelInstalled ? '✓ 模型已安装' : '↓ 安装国漫基础模型');
+  $('#imageStudioInstallModel').textContent = modelRunning ? '下载中…' : (modelInstalled ? '✓ 模型已安装' : '↓ 安装动漫基础模型');
   $('#imageStudioComfyModelSize').textContent = `${modelPercent.toFixed(1)}%${modelExpected ? ` · ${gib(modelDownloaded)} / ${gib(modelExpected)} GB` : ''}`;
   $('#imageStudioComfyModelProgressBar').style.width = `${modelPercent}%`;
   $('#imageStudioComfyModelDetail').textContent = modelInstalled
@@ -1424,7 +1424,7 @@ async function installComfyUIModel() {
   button.textContent = '下载中…';
   try {
     await api('/api/comfyui/models/install/start', { method: 'POST' });
-    log('国漫基础 checkpoint 下载已启动；支持断点续传，完成后自动 SHA256 校验。');
+    log('动漫基础 checkpoint 下载已启动；系统会自动叠加中国古风风格锁；支持断点续传，完成后自动 SHA256 校验。');
     let modelInstaller = await refreshComfyUIModelStatus();
     for (let index = 0; index < 10800 && modelInstaller.status === 'RUNNING'; index += 1) {
       await new Promise((resolve) => window.setTimeout(resolve, 2000));
