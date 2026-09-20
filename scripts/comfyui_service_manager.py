@@ -53,7 +53,11 @@ def _candidate_homes() -> list[Path]:
         home / "Documents" / "ComfyUI",
         home / "Applications" / "ComfyUI",
         Path("/Applications/ComfyUI.app/Contents/Resources/ComfyUI"),
+        Path("/Applications/Comfy Desktop.app/Contents/Resources/ComfyUI"),
     ])
+    installs_root = home / "ComfyUI-Installs"
+    if installs_root.is_dir():
+        candidates.extend(sorted(installs_root.glob("*/ComfyUI")))
     unique: list[Path] = []
     seen: set[str] = set()
     for path in candidates:
@@ -75,12 +79,41 @@ def discover_comfyui_home() -> Path | None:
     return None
 
 
+def _desktop_base_path() -> tuple[Path | None, Path | None]:
+    support = Path.home() / "Library" / "Application Support"
+    for config_path in (
+        support / "ComfyUI" / "config.json",
+        support / "Comfy Desktop" / "config.json",
+    ):
+        try:
+            payload = json.loads(config_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(payload, dict):
+            continue
+        raw = str(payload.get("basePath") or payload.get("base_path") or "").strip()
+        if not raw:
+            continue
+        path = Path(raw).expanduser()
+        try:
+            resolved = path.resolve()
+        except OSError:
+            continue
+        if resolved.is_dir():
+            return resolved, config_path
+    return None, None
+
+
 def _python_for(home: Path) -> Path | None:
-    for candidate in (
+    desktop_base, _ = _desktop_base_path()
+    candidates = [
         home / ".venv" / "bin" / "python",
         home / "venv" / "bin" / "python",
-        Path(sys.executable),
-    ):
+    ]
+    if desktop_base is not None:
+        candidates.insert(0, desktop_base / ".venv" / "bin" / "python")
+    candidates.append(Path(sys.executable))
+    for candidate in candidates:
         try:
             resolved = candidate.resolve()
         except OSError:
@@ -185,6 +218,7 @@ def service_status(base_url: str, *, connected: bool | None = None) -> dict[str,
         "managed": managed,
         "pid": pid,
         "home": str(home) if home else "",
+        "desktop_base_path": str(_desktop_base_path()[0] or ""),
         "base_url": base_url,
         "connected": is_connected,
         "detail": detail,
@@ -219,6 +253,13 @@ def start_service(base_url: str) -> dict[str, Any]:
         "--port",
         str(port),
     ]
+    desktop_base, desktop_config = _desktop_base_path()
+    if desktop_base is not None and "Contents/Resources/ComfyUI" in str(home):
+        command.extend(["--base-directory", str(desktop_base)])
+        if desktop_config is not None:
+            extra_models = desktop_config.parent / "extra_models_config.yaml"
+            if extra_models.is_file():
+                command.extend(["--extra-model-paths-config", str(extra_models)])
     with LOG_PATH.open("ab") as log:
         log.write(f"\n=== VideoCreator ComfyUI start {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n".encode())
         log.flush()
