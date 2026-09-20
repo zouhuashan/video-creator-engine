@@ -832,7 +832,8 @@ def install() -> dict[str, Any]:
                 if use_managed:
                     managed_attempted = True
                     try:
-                        install_env = _network_env()
+                        managed_ca = MACOS_CA_BUNDLE if MACOS_CA_BUNDLE.is_file() else _export_macos_trust_bundle()
+                        install_env = _network_env(managed_ca)
                         managed_python = _ensure_managed_python(log, install_env)
                         bootstrap_python = str(managed_python)
                         default_bundle = _default_ca_bundle(bootstrap_python)
