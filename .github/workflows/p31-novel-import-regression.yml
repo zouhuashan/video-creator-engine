@@ -42,4 +42,5 @@ jobs:
             tests.test_novel_web_import \
             tests.test_web_server.WebServerTests.test_web_exposes_automatic_character_bootstrap_without_txt_reupload \
             tests.test_web_server.WebServerTests.test_web_exposes_project_delete_action \
-            tests.test_web_server.WebServerTests.test_delete_novel_project_removes_project_and_returns_newest_default
+            tests.test_web_server.WebServerTests.test_delete_novel_project_removes_project_and_returns_newest_default \
+            tests.test_comfyui_image_provider
