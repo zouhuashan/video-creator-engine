@@ -451,8 +451,15 @@ def _install_torch(python: Path, log, env: dict[str, str]) -> str:
     if not is_apple:
         return "system"
 
-    nightly = [str(python), "-m", "pip", "install", "--pre", "torch", "torchvision", "torchaudio", "--index-url", "https://download.pytorch.org/whl/nightly/cpu"]
-    stable = [str(python), "-m", "pip", "install", "torch", "torchvision", "torchaudio"]
+    nightly = [
+        str(python), "-m", "pip", "install", "--pre", "--only-binary=:all:",
+        "torch", "torchvision", "torchaudio",
+        "--extra-index-url", "https://download.pytorch.org/whl/nightly/cpu",
+    ]
+    stable = [
+        str(python), "-m", "pip", "install", "--only-binary=:all:",
+        "torch", "torchvision", "torchaudio",
+    ]
 
     log.write(f"python_platform={_python_platform_signature(python)}\n".encode("utf-8", errors="replace"))
     log.flush()
