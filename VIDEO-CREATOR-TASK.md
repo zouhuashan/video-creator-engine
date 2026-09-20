@@ -2340,7 +2340,7 @@ P18 架构与数据底座
 # 41. 当前方向与下一任务
 
 ```text
-NEXT: P31-02 Web 小说导入本机 smoke（与 P30-06 合并验证）
+NEXT: P30-06/P31-02 Web checkpoint 安装 + ComfyUI 本地生图 + 小说导入 smoke
 ```
 
 任务：
@@ -3410,7 +3410,7 @@ Status: PASS
 NEXT：P30-06 Web 本机运行环境自检与最终 runtime smoke。
 
 ## P30-06 Web 本机运行环境自检与最终 runtime smoke
-Status: BLOCKED
+Status: IN_PROGRESS
 
 已完成的仓库侧工作：
 
@@ -3433,6 +3433,26 @@ P30-06 追加修复（2026-09-20，针对 Web 报错“未检测到 ComfyUI 安�
 - 关键提交：`1bc3a25`、`69894df`、`57dc16c`、`6cad9e3`、`efa07fe`、`e8e4d35`、`3379d72`、`242b21c`、`7ab8b19`、`5dc587a`。
 - 官方当前仍支持 Apple Silicon；ComfyUI 文档建议独立环境并在 Apple Silicon 使用 PyTorch nightly，PyTorch 当前 MPS 后端仍为官方支持路径。
 - 当前 GitHub connector 仍未返回 workflow run/status，因此不虚报 CI PASS；真实 clone/pip/MPS 安装必须在用户 Mac 上执行。
+
+P30-06 核心运行环境真实 Mac 验收 PASS（2026-09-20 10:54 CST）：
+
+- 用户 Web 一键安装返回 `status=PASS / step=COMPLETE`，ComfyUI 核心位于 `.dependencies/ComfyUI`。
+- 最终 Python 为项目私有 uv-managed runtime：`python_source=uv-managed-project-private`，ComfyUI venv 为 `.dependencies/ComfyUI/.venv/bin/python`。
+- CA 来源为 `/private/etc/ssl/cert.pem`；PyTorch 使用 nightly，实际版本 `2.15.0.dev20260919`。
+- MPS 自检真实通过：`mps_built=true`、`mps_available=true`。此前 MacPorts x86_64、Homebrew 3.14 ensurepip/platform 异常链已被项目私有 arm64 Python 路线彻底隔离。
+- 当前唯一缺口明确变为 `models_installed=false`：核心 runtime 已完成，不再重复排查 Python / SSL / PyTorch。
+
+P30-06 checkpoint Web 安装器（2026-09-20）：
+
+- 新增 `scripts/comfyui_model_manager.py`，首发白名单模型固定为 `CagliostroLab/animagine-xl-4.0` 单文件 checkpoint；Web 不接受任意下载 URL。
+- 官方模型文件约 6.94 GB，license `openrail++`，固定 expected size `6938434056` 与 SHA256 `1d5b43ff75b6ab598502d4c779d2fbfa3dceca51c60c3b609640a60772333916`。
+- 下载使用固定 Hugging Face resolve URL + curl redirect/retry/断点续传；临时文件保存为 `.part`，只有文件大小和 SHA256 双校验通过后才原子移动到 `.dependencies/ComfyUI/models/checkpoints/`。
+- SHA256 不匹配时异常文件自动隔离为 `.invalid-*`，绝不进入 checkpoints。
+- Web 新增 `/api/comfyui/models/status`、`/api/comfyui/models/install/start` 与「安装国漫基础模型」卡片；实时显示下载百分比、已下载 GB、状态与日志。
+- 安装成功后 Web 会自动启动或重启由 VideoCreator 管理的 ComfyUI，并重新读取 checkpoint；外部 ComfyUI 不会被误杀。
+- 状态查询不会反复 SHA256 扫描 6.94 GB 文件；完整哈希只在安装/首次确认时执行，后续使用已验证状态 + 文件大小快速判断。
+- P30 regression 已加入 `tests/test_comfyui_model_manager.py` 与新模块 compile；Web `app.js` 已用 V8 syntax compile 实测 PASS。
+- 关键提交：`b73f029`、`01ec155`、`65ba244`、`938ac99`、`1fb4adf`、`9d19548`、`7f55a56`、`489516d`。
 
 P30-06 安装器第八轮修复（2026-09-20，真实 Mac 日志）：
 
@@ -3524,7 +3544,7 @@ P30-06 安装器证书修复（2026-09-20，真实 Mac 日志）：
 - 新增回归覆盖“默认 TLS 失败 → macOS Keychain CA bundle → PyPI probe 成功”。
 - 关键提交：`c13a5a2`、`0b4e0d6`。
 
-NEXT：P30-06/P31-02 Mac Web smoke：先「安装 ComfyUI」→「启动 ComfyUI」→ 再处理 checkpoint 模型显式安装。
+NEXT：P30-06/P31-02 Mac Web smoke：点击「安装国漫基础模型」→ 自动断点下载 / SHA256 校验 → 自动启动或刷新 ComfyUI → 环境自检 / 本地生图 smoke。
 
 P30-06 追加修复（2026-09-20，针对 Web 报错 `Connection refused`）：
 
@@ -3544,7 +3564,7 @@ P30-06 追加修复（2026-09-20，针对 Web 报错 `Connection refused`）：
 - GitHub HEAD 当前没有可读取的 commit status；仓库已配置 P30 回归 workflow，但本连接器没有返回可引用的运行状态，因此保持诚实的 BLOCKED，而不是虚报 CI / 本机验收。
 - 代码层工作已完成；解除该阻塞只需在用户 Mac 更新仓库后，从 Web 点击“环境自检”与“创建整集（本地执行）”，得到真实运行结果。
 
-NEXT：P30-06 Mac runtime smoke（外部运行时门；仓库代码无剩余实现项）。
+NEXT：P30-06 checkpoint 安装与 ComfyUI 本地生图 smoke；核心 runtime 已真实 PASS。
 
 
 ---
@@ -3586,4 +3606,4 @@ Status: PASS
 
 不需要命令行。
 
-NEXT：P31-02 Web 小说导入本机 smoke（与 P30-06 合并验证）。
+NEXT：P30-06/P31-02 合并 smoke：checkpoint 安装 → ComfyUI 本地生图 → Web 小说导入项目执行一次本地流水线。
