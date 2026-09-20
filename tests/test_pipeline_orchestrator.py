@@ -80,6 +80,77 @@ class PipelineOrchestratorTests(unittest.TestCase):
             self.assertFalse(saved["remote"])
             self.assertTrue((project / saved["output"]).is_file())
 
+    def test_execute_local_video_provider_uses_only_approved_keyframe(self):
+        class FakeLocalVideo:
+            def generate(self, request):
+                request.output_path.parent.mkdir(parents=True, exist_ok=True)
+                request.output_path.write_bytes(b"video")
+                return type("Result", (), {
+                    "output_path": request.output_path,
+                    "provider": "local_ken_burns",
+                    "duration_seconds": request.shot_duration_seconds,
+                    "image_count": len(request.image_paths),
+                    "remote_generation": False,
+                })()
+
+        with tempfile.TemporaryDirectory() as directory:
+            projects = Path(directory)
+            project = projects / "demo-project"
+            project.mkdir()
+            (project / "novel-anime-project.json").write_text('{"project_id":"demo-project"}\n', encoding="utf-8")
+            image_dir = project / "lookdev" / "image-studio" / "keyframes"
+            image_dir.mkdir(parents=True)
+            keyframe = image_dir / "approved.png"
+            keyframe.write_bytes(b"png")
+            (image_dir / "approved.json").write_text(json.dumps({
+                "artifact_type": "keyframe",
+                "review_status": "APPROVED",
+                "output": "lookdev/image-studio/keyframes/approved.png",
+            }), encoding="utf-8")
+
+            with patch("scripts.pipeline_orchestrator.LocalKenBurnsVideo", return_value=FakeLocalVideo()), \
+                 patch("scripts.pipeline_orchestrator.ComfyUIImageProvider", side_effect=ComfyUIImageError("offline")), \
+                 patch("scripts.pipeline_orchestrator.ensure_tts", return_value={"status":"SKIPPED","asset":"","provider":"none"}), \
+                 patch("scripts.pipeline_orchestrator.ensure_subtitles", return_value={"status":"SKIPPED","asset":"","asr_round_trip":False}), \
+                 patch("scripts.pipeline_orchestrator.assemble_final", side_effect=lambda project_path, video, **kwargs: (
+                     (project_path / "final.mp4").write_bytes(b"final") or {"status":"PASS","output":"final.mp4","finalizer":"ffmpeg"}
+                 )), \
+                 patch("scripts.pipeline_orchestrator._qc_with_retry", return_value={"status":"PASS","auto_retry":False,"attempt_count":1,"attempts":[]}):
+                result = run_pipeline("demo-project", dry_run=False, projects_root=projects)
+
+            stages = {item["id"]: item for item in result["stages"]}
+            self.assertEqual(stages["video"]["status"], "PASS")
+            self.assertEqual(stages["video"]["provider"], "local_ken_burns")
+            self.assertFalse(stages["video"]["remote_generation"])
+            self.assertTrue((project / stages["video"]["asset"]).is_file())
+
+    def test_video_waits_for_human_review_when_new_keyframe_is_pending(self):
+        class FakeComfy:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def health(self, **kwargs):
+                return {"connected": True}
+
+            def available_checkpoints(self, **kwargs):
+                return ["local-test.safetensors"]
+
+            def generate(self, prompt, output_path, *, size):
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                output_path.write_bytes(b"png")
+                return {"provider":"comfyui_image","model":"local-test.safetensors","size":size,"quality":"local","output":str(output_path)}
+
+        with tempfile.TemporaryDirectory() as directory:
+            projects = Path(directory)
+            project = projects / "demo-project"
+            project.mkdir()
+            (project / "novel-anime-project.json").write_text('{"project_id":"demo-project"}\n', encoding="utf-8")
+            with patch("scripts.pipeline_orchestrator.ComfyUIImageProvider", FakeComfy):
+                result = run_pipeline("demo-project", dry_run=False, projects_root=projects)
+            stages = {item["id"]: item for item in result["stages"]}
+            self.assertEqual(stages["image"]["status"], "WAITING_REVIEW")
+            self.assertEqual(stages["video"]["status"], "WAITING_REVIEW")
+
     def test_execute_reuses_media_and_reaches_qc_without_manual_editing(self):
         with tempfile.TemporaryDirectory() as directory:
             projects = Path(directory)
