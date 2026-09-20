@@ -102,6 +102,59 @@ class ComfyUIModelManagerTests(unittest.TestCase):
             self.assertFalse((checkpoint_dir / model["filename"]).exists())
             self.assertTrue(list(checkpoint_dir.glob("*.invalid-*")))
 
+    def test_macos_system_proxy_is_detected_for_https_downloads(self):
+        scutil_output = """<dictionary> {
+  HTTPEnable : 1
+  HTTPPort : 7897
+  HTTPProxy : 127.0.0.1
+  HTTPSEnable : 1
+  HTTPSPort : 7897
+  HTTPSProxy : 127.0.0.1
+}
+"""
+        completed = Mock(returncode=0, stdout=scutil_output)
+        with patch.object(manager.sys, "platform", "darwin"), \
+             patch.object(manager.shutil, "which", side_effect=lambda name: "/usr/sbin/scutil" if name == "scutil" else None), \
+             patch.object(manager.subprocess, "run", return_value=completed):
+            proxies = manager._macos_system_proxies()
+        self.assertIn("http://127.0.0.1:7897", proxies)
+
+    def test_proxy_candidates_prefer_environment_and_dedupe_system_proxy(self):
+        with patch.dict(manager.os.environ, {
+            "HTTPS_PROXY": "http://127.0.0.1:7897",
+            "ALL_PROXY": "socks5h://127.0.0.1:7898",
+        }, clear=True), \
+             patch.object(manager, "_macos_system_proxies", return_value=["http://127.0.0.1:7897"]):
+            proxies = manager._proxy_candidates()
+        self.assertEqual(proxies, [
+            "http://127.0.0.1:7897",
+            "socks5h://127.0.0.1:7898",
+        ])
+
+    def test_proxy_logging_redacts_credentials(self):
+        self.assertEqual(
+            manager._redact_proxy("http://user:secret@127.0.0.1:7897"),
+            "http://127.0.0.1:7897",
+        )
+
+    def test_download_route_prefers_detected_proxy_before_direct(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            calls = []
+
+            def fake_probe(curl, url, proxy, log):
+                calls.append(proxy)
+                return proxy == "http://127.0.0.1:7897"
+
+            with patch.object(manager, "ROOT", root), \
+                 patch.object(manager, "_proxy_candidates", return_value=["http://127.0.0.1:7897"]), \
+                 patch.object(manager, "_probe_download_route", side_effect=fake_probe):
+                with (root / "probe.log").open("wb") as log:
+                    selected = manager._select_download_proxy("/usr/bin/curl", "https://example.invalid/file", log)
+
+            self.assertEqual(selected, "http://127.0.0.1:7897")
+            self.assertEqual(calls, ["http://127.0.0.1:7897"])
+
     def test_curl_download_is_fixed_allowlist_and_resumable(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -114,6 +167,7 @@ class ComfyUIModelManagerTests(unittest.TestCase):
                  patch.object(manager, "COMFYUI_DIR", comfy), \
                  patch.object(manager, "CHECKPOINT_DIR", checkpoint_dir), \
                  patch.object(manager.shutil, "which", return_value="/usr/bin/curl"), \
+                 patch.object(manager, "_select_download_proxy", return_value="http://127.0.0.1:7897"), \
                  patch.object(manager.subprocess, "run", return_value=completed) as run:
                 with (root / "download.log").open("wb") as log:
                     manager._download_with_curl(model, log)
@@ -121,6 +175,8 @@ class ComfyUIModelManagerTests(unittest.TestCase):
             command = run.call_args.args[0]
             self.assertIn("--continue-at", command)
             self.assertEqual(command[command.index("--continue-at") + 1], "3")
+            self.assertIn("--proxy", command)
+            self.assertEqual(command[command.index("--proxy") + 1], "http://127.0.0.1:7897")
             self.assertEqual(command[-1], model["download_url"])
             self.assertNotIn("shell", run.call_args.kwargs)
 
