@@ -194,9 +194,14 @@
                 <button class="secondary-button" id="imageStudioSaveComfy">保存并检测</button>
               </div>
               <div class="comfy-service-actions">
+                <button class="secondary-button small-button" id="imageStudioInstallComfy">↓ 安装 ComfyUI</button>
                 <button class="secondary-button small-button" id="imageStudioStartComfy">▶ 启动 ComfyUI</button>
                 <button class="secondary-button small-button" id="imageStudioStopComfy">■ 停止</button>
                 <span class="status-dot off" id="imageStudioComfyServiceStatus">CHECKING</span>
+              </div>
+              <div class="comfy-install-progress hidden" id="imageStudioComfyInstallProgress">
+                <div><strong id="imageStudioComfyInstallStep">—</strong><small id="imageStudioComfyInstallDetail">—</small></div>
+                <span class="muted" id="imageStudioComfyInstallState">—</span>
               </div>
               <p class="helper-text" id="imageStudioComfyHint">AUTO 会优先检测本地 ComfyUI，无需手工拖节点。</p>
               <p class="helper-text hidden" id="imageStudioComfyInstallHint"></p>
