@@ -1006,9 +1006,12 @@ function renderImageStudio() {
   $('#imageStudioComfyUrl').value = comfyui.base_url || 'http://127.0.0.1:8188';
   const service = comfyui.service || {};
   const installer = comfyui.installer || {};
+  const modelInstaller = comfyui.model_installer || {};
   const serviceState = service.state || (localReady ? 'RUNNING' : 'UNKNOWN');
   const installRunning = installer.status === 'RUNNING';
   const installReady = Boolean(installer.installed || service.installed);
+  const modelRunning = modelInstaller.status === 'RUNNING';
+  const modelInstalled = Boolean(modelInstaller.installed || comfyui.checkpoint_count);
   $('#imageStudioComfyServiceStatus').textContent = serviceState;
   $('#imageStudioComfyServiceStatus').classList.toggle('off', serviceState !== 'RUNNING');
   $('#imageStudioInstallComfy').disabled = installRunning || serviceState === 'RUNNING';
@@ -1028,6 +1031,29 @@ function renderImageStudio() {
   } else {
     progress.classList.add('hidden');
   }
+
+  const model = modelInstaller.model || {};
+  const modelPercent = Math.max(0, Math.min(100, Number(modelInstaller.progress_percent || (modelInstalled ? 100 : 0))));
+  const modelDownloaded = Number(modelInstaller.downloaded_bytes || 0);
+  const modelExpected = Number(modelInstaller.expected_bytes || model.expected_bytes || 0);
+  const gib = (value) => value ? (value / 1024 / 1024 / 1024).toFixed(2) : '0.00';
+  $('#imageStudioComfyModelName').textContent = model.label || 'Animagine XL 4.0';
+  $('#imageStudioComfyModelStatus').textContent = modelRunning ? (modelInstaller.step || 'DOWNLOADING') : (modelInstalled ? 'INSTALLED' : (modelInstaller.status || 'NOT INSTALLED'));
+  $('#imageStudioComfyModelStatus').classList.toggle('off', !modelInstalled);
+  $('#imageStudioComfyModelMeta').textContent = `${model.purpose || '动漫 / 国风动漫基础 checkpoint'} · ${modelExpected ? gib(modelExpected) + ' GB' : '约 6.94 GB'} · ${model.license || 'openrail++'} · SHA256 校验`;
+  $('#imageStudioInstallModel').disabled = !installReady || installRunning || modelRunning || modelInstalled;
+  $('#imageStudioInstallModel').textContent = modelRunning ? '下载中…' : (modelInstalled ? '✓ 模型已安装' : '↓ 安装国漫基础模型');
+  $('#imageStudioComfyModelSize').textContent = `${modelPercent.toFixed(1)}%${modelExpected ? ` · ${gib(modelDownloaded)} / ${gib(modelExpected)} GB` : ''}`;
+  $('#imageStudioComfyModelProgressBar').style.width = `${modelPercent}%`;
+  $('#imageStudioComfyModelDetail').textContent = modelInstalled
+    ? `已安装 ${model.filename || comfyui.checkpoint || 'checkpoint'}；${localReady ? 'ComfyUI 已识别，可直接本地生图。' : '正在等待 ComfyUI 启动并刷新 checkpoint。'}`
+    : modelRunning
+      ? `${modelInstaller.detail || '正在下载'} · 支持断点续传 · ${modelInstaller.log_path || 'logs/comfyui-model-install.log'}`
+      : modelInstaller.status === 'FAIL'
+        ? `模型安装失败：${modelInstaller.detail || '可重新点击继续断点下载'}`
+        : installReady
+          ? '核心环境已就绪；点击一次即可下载、断点续传、校验并安装到 ComfyUI checkpoints。'
+          : '请先完成 ComfyUI 核心安装。';
 
   const installHint = $('#imageStudioComfyInstallHint');
   if (installRunning) {
@@ -1151,6 +1177,61 @@ async function refreshComfyUIInstallStatus() {
     renderImageStudio();
   }
   return installer;
+}
+
+async function refreshComfyUIModelStatus() {
+  const modelInstaller = await api('/api/comfyui/models/status');
+  if (state.imageStudio) {
+    const providers = state.imageStudio.providers || [];
+    const comfyui = providers.find((item) => item.provider_id === 'COMFYUI_IMAGE' || item.id === 'comfyui_image');
+    if (comfyui) comfyui.model_installer = modelInstaller;
+    renderImageStudio();
+  }
+  return modelInstaller;
+}
+
+async function installComfyUIModel() {
+  const button = $('#imageStudioInstallModel');
+  button.disabled = true;
+  button.textContent = '下载中…';
+  try {
+    await api('/api/comfyui/models/install/start', { method: 'POST' });
+    log('国漫基础 checkpoint 下载已启动；支持断点续传，完成后自动 SHA256 校验。');
+    let modelInstaller = await refreshComfyUIModelStatus();
+    for (let index = 0; index < 10800 && modelInstaller.status === 'RUNNING'; index += 1) {
+      await new Promise((resolve) => window.setTimeout(resolve, 2000));
+      modelInstaller = await refreshComfyUIModelStatus();
+    }
+    if (modelInstaller.status !== 'PASS') {
+      if (modelInstaller.status !== 'RUNNING') log(`checkpoint 安装未完成：${modelInstaller.detail || modelInstaller.status || '未知错误'}`, true);
+      return;
+    }
+
+    log('checkpoint 下载与 SHA256 校验完成；正在刷新本地 ComfyUI。');
+    let service = await api('/api/comfyui/service/status');
+    if (service.managed && (service.connected || service.state === 'RUNNING' || service.state === 'STARTING')) {
+      await api('/api/comfyui/service/stop', { method: 'POST' });
+      service = await api('/api/comfyui/service/start', { method: 'POST' });
+    } else if (!service.connected && service.installed) {
+      service = await api('/api/comfyui/service/start', { method: 'POST' });
+    }
+    if (service.managed || service.state === 'STARTING') await waitForComfyUIReady(60);
+    await loadImageStudio(state.imageStudioProjectId);
+    const providers = state.imageStudio?.providers || [];
+    const comfyui = providers.find((item) => item.provider_id === 'COMFYUI_IMAGE' || item.id === 'comfyui_image') || {};
+    if (comfyui.workflow_ready) {
+      log(`本地视觉工厂 READY：${comfyui.checkpoint || modelInstaller.model?.filename || 'checkpoint'}`);
+    } else if (service.connected && !service.managed) {
+      log('checkpoint 已安装；当前是外部 ComfyUI 进程，需要该外部进程重新加载 checkpoint 列表。', true);
+    } else {
+      log('checkpoint 已安装；ComfyUI 正在启动，稍后刷新即可看到模型。');
+    }
+  } catch (error) {
+    log(error.message, true);
+    await loadImageStudio(state.imageStudioProjectId).catch(() => {});
+  } finally {
+    await loadImageStudio(state.imageStudioProjectId).catch(() => {});
+  }
 }
 
 async function installComfyUI() {
@@ -1457,6 +1538,7 @@ $('#imageStudioProject').addEventListener('change', (event) => loadImageStudio(e
 $('#imageStudioSaveKey').addEventListener('click', saveImageStudioKey);
 $('#imageStudioSaveComfy').addEventListener('click', saveComfyUIEndpoint);
 $('#imageStudioInstallComfy').addEventListener('click', installComfyUI);
+$('#imageStudioInstallModel').addEventListener('click', installComfyUIModel);
 $('#imageStudioStartComfy').addEventListener('click', startComfyUIService);
 $('#imageStudioStopComfy').addEventListener('click', stopComfyUIService);
 $('#imageStudioProviderSelect').addEventListener('change', (event) => {
