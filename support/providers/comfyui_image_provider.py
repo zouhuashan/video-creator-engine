@@ -105,12 +105,33 @@ class ComfyUIImageProvider:
             return []
         return [str(item) for item in raw if isinstance(item, str) and item.strip()] if isinstance(raw, list) else []
 
+    @staticmethod
+    def _lora_names(payload: dict[str, Any]) -> list[str]:
+        node = payload.get("LoraLoader")
+        if not isinstance(node, dict):
+            node = payload
+        try:
+            raw = node["input"]["required"]["lora_name"][0]
+        except (KeyError, IndexError, TypeError):
+            return []
+        return [str(item) for item in raw if isinstance(item, str) and item.strip()] if isinstance(raw, list) else []
+
     def available_checkpoints(self, *, timeout_seconds: float | None = None) -> list[str]:
         try:
             payload = self._request_json("/object_info/CheckpointLoaderSimple", timeout=timeout_seconds)
         except ComfyUIImageError:
             payload = self._request_json("/object_info", timeout=timeout_seconds)
         return self._checkpoint_names(payload)
+
+    def available_loras(self, *, timeout_seconds: float | None = None) -> list[str]:
+        try:
+            payload = self._request_json("/object_info/LoraLoader", timeout=timeout_seconds)
+        except ComfyUIImageError:
+            try:
+                payload = self._request_json("/object_info", timeout=timeout_seconds)
+            except ComfyUIImageError:
+                return []
+        return self._lora_names(payload)
 
     def choose_checkpoint(self, available: list[str] | None = None) -> str:
         checkpoints = available if available is not None else self.available_checkpoints()
@@ -124,29 +145,64 @@ class ComfyUIImageProvider:
             raise ComfyUIImageError("ComfyUI has no checkpoint available")
         return checkpoints[0]
 
-    def build_workflow(self, prompt: str, *, size: str, checkpoint: str, filename_prefix: str, seed: int | None = None, negative_prompt: str | None = None) -> dict[str, Any]:
+    def build_workflow(
+        self,
+        prompt: str,
+        *,
+        size: str,
+        checkpoint: str,
+        filename_prefix: str,
+        seed: int | None = None,
+        negative_prompt: str | None = None,
+        positive_prompt_prefix: str | None = None,
+        lora_name: str | None = None,
+        lora_strength: float = 1.0,
+    ) -> dict[str, Any]:
         width, height = _parse_size(size)
         positive = str(prompt or "").strip()
         if not positive:
             raise ComfyUIImageError("image prompt is empty")
-        prefix = str(self.config.get("positive_prompt_prefix") or "").strip()
+        prefix_source = self.config.get("positive_prompt_prefix") if positive_prompt_prefix is None else positive_prompt_prefix
+        prefix = str(prefix_source or "").strip()
         if prefix:
             positive = f"{prefix}, {positive}"
         negative = str(negative_prompt if negative_prompt is not None else self.config.get("negative_prompt") or "watermark, text, logo, malformed hands, extra fingers, duplicate limbs, low quality")
         chosen_seed = int(seed if seed is not None else time.time_ns() % (2**53 - 1))
-        return {
+
+        model_ref: list[Any] = ["1", 0]
+        clip_ref: list[Any] = ["1", 1]
+        workflow: dict[str, Any] = {
             "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": checkpoint}},
-            "2": {"class_type": "CLIPTextEncode", "inputs": {"text": positive, "clip": ["1", 1]}},
-            "3": {"class_type": "CLIPTextEncode", "inputs": {"text": negative, "clip": ["1", 1]}},
+        }
+        lora_value = str(lora_name or "").strip()
+        if lora_value:
+            strength = max(0.0, min(2.0, float(lora_strength)))
+            workflow["8"] = {
+                "class_type": "LoraLoader",
+                "inputs": {
+                    "lora_name": lora_value,
+                    "strength_model": strength,
+                    "strength_clip": strength,
+                    "model": ["1", 0],
+                    "clip": ["1", 1],
+                },
+            }
+            model_ref = ["8", 0]
+            clip_ref = ["8", 1]
+
+        workflow.update({
+            "2": {"class_type": "CLIPTextEncode", "inputs": {"text": positive, "clip": clip_ref}},
+            "3": {"class_type": "CLIPTextEncode", "inputs": {"text": negative, "clip": clip_ref}},
             "4": {"class_type": "EmptyLatentImage", "inputs": {"width": width, "height": height, "batch_size": 1}},
             "5": {"class_type": "KSampler", "inputs": {
                 "seed": chosen_seed, "steps": int(self.config.get("steps") or 24), "cfg": float(self.config.get("cfg_scale") or 6.5),
                 "sampler_name": str(self.config.get("sampler_name") or "euler"), "scheduler": str(self.config.get("scheduler") or "normal"),
-                "denoise": 1.0, "model": ["1", 0], "positive": ["2", 0], "negative": ["3", 0], "latent_image": ["4", 0],
+                "denoise": 1.0, "model": model_ref, "positive": ["2", 0], "negative": ["3", 0], "latent_image": ["4", 0],
             }},
             "6": {"class_type": "VAEDecode", "inputs": {"samples": ["5", 0], "vae": ["1", 2]}},
             "7": {"class_type": "SaveImage", "inputs": {"filename_prefix": filename_prefix, "images": ["6", 0]}},
-        }
+        })
+        return workflow
 
     def _first_output_image(self, history: dict[str, Any], prompt_id: str) -> dict[str, str] | None:
         record = history.get(prompt_id)
@@ -212,12 +268,29 @@ class ComfyUIImageProvider:
         *,
         size: str,
         negative_prompt: str | None = None,
+        positive_prompt_prefix: str | None = None,
+        lora_name: str | None = None,
+        lora_strength: float = 1.0,
         client_id: str | None = None,
     ) -> dict[str, Any]:
         checkpoints = self.available_checkpoints()
         checkpoint = self.choose_checkpoint(checkpoints)
+        chosen_lora = str(lora_name or "").strip()
+        if chosen_lora:
+            available_loras = self.available_loras()
+            if chosen_lora not in available_loras:
+                raise ComfyUIImageError(f"configured ComfyUI LoRA is unavailable: {chosen_lora}")
         prefix = f"videocreator/{Path(output_path).stem}-{uuid.uuid4().hex[:8]}"
-        workflow = self.build_workflow(prompt, size=size, checkpoint=checkpoint, filename_prefix=prefix, negative_prompt=negative_prompt)
+        workflow = self.build_workflow(
+            prompt,
+            size=size,
+            checkpoint=checkpoint,
+            filename_prefix=prefix,
+            negative_prompt=negative_prompt,
+            positive_prompt_prefix=positive_prompt_prefix,
+            lora_name=chosen_lora or None,
+            lora_strength=lora_strength,
+        )
         client_id = str(client_id or uuid.uuid4().hex).strip()
         if not client_id or len(client_id) > 128 or any(ch not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.:" for ch in client_id):
             raise ComfyUIImageError("invalid ComfyUI client_id")
@@ -241,7 +314,19 @@ class ComfyUIImageProvider:
             )
         output_path = Path(output_path)
         self._download_image(image, output_path)
-        return {"provider": self.provider_id, "model": checkpoint, "size": size, "quality": "local", "output": str(output_path), "prompt_id": prompt_id, "client_id": client_id, "workflow": "builtin_txt2img_v1", "server_image": image}
+        return {
+            "provider": self.provider_id,
+            "model": checkpoint,
+            "size": size,
+            "quality": "local",
+            "output": str(output_path),
+            "prompt_id": prompt_id,
+            "client_id": client_id,
+            "workflow": "builtin_txt2img_lora_v2" if chosen_lora else "builtin_txt2img_v1",
+            "lora_name": chosen_lora,
+            "lora_strength": float(lora_strength) if chosen_lora else 0.0,
+            "server_image": image,
+        }
 
 
 __all__ = ["ComfyUIImageError", "ComfyUIImageProvider"]
