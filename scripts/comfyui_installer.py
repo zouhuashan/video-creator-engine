@@ -289,12 +289,71 @@ def _venv_python() -> Path:
     return INSTALL_DIR / ".venv" / "bin" / "python"
 
 
+def _python_identity(executable: str) -> tuple[int, int, str] | None:
+    try:
+        result = subprocess.run(
+            [executable, "-c", "import json,sys;print(json.dumps({'major':sys.version_info.major,'minor':sys.version_info.minor,'base':sys.base_prefix}))"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+        payload = json.loads(result.stdout.strip())
+        return int(payload["major"]), int(payload["minor"]), str(Path(payload["base"]).resolve())
+    except (OSError, ValueError, KeyError, json.JSONDecodeError, subprocess.SubprocessError):
+        return None
+
+
+def _venv_matches_bootstrap(venv_python: Path, bootstrap_python: str, env: dict[str, str]) -> tuple[bool, str]:
+    if not venv_python.is_file():
+        return False, "venv python missing"
+    bootstrap = _python_identity(bootstrap_python)
+    existing = _python_identity(str(venv_python))
+    if bootstrap is None or existing is None:
+        return False, "cannot identify Python runtime"
+    if bootstrap[:2] != existing[:2]:
+        return False, f"Python version changed: venv={existing[0]}.{existing[1]} bootstrap={bootstrap[0]}.{bootstrap[1]}"
+    ok, detail = _https_probe(str(venv_python), env)
+    if not ok:
+        return False, f"existing venv TLS probe failed: {detail.splitlines()[-1] if detail else 'unknown TLS failure'}"
+    return True, ""
+
+
+def _rebuild_venv(log, reason: str) -> None:
+    venv_dir = INSTALL_DIR / ".venv"
+    if not venv_dir.exists():
+        return
+    backup = INSTALL_DIR / f".venv.broken-{int(time.time())}"
+    log.write(f"rebuilding venv: {reason}\n".encode("utf-8", errors="replace"))
+    log.write(f"moving old venv to {backup}\n".encode("utf-8", errors="replace"))
+    log.flush()
+    try:
+        venv_dir.rename(backup)
+    except OSError as error:
+        raise ComfyUIInstallError(f"无法重建旧虚拟环境: {error}") from error
+
+
 def _ensure_venv(bootstrap_python: str, log, env: dict[str, str]) -> Path:
     python = _venv_python()
+    if python.is_file():
+        matches, reason = _venv_matches_bootstrap(python, bootstrap_python, env)
+        if not matches:
+            _rebuild_venv(log, reason)
+            python = _venv_python()
+
     if not python.is_file():
         _run([bootstrap_python, "-m", "venv", str(INSTALL_DIR / ".venv")], cwd=INSTALL_DIR, log=log, label="CREATE_VENV", env=env)
+
     if not python.is_file():
         raise ComfyUIInstallError("虚拟环境创建失败")
+
+    ok, detail = _https_probe(str(python), env)
+    if not ok:
+        raise ComfyUIInstallError(
+            "新虚拟环境仍无法通过 PyPI HTTPS 校验"
+            + (f": {detail.splitlines()[-1]}" if detail else "")
+        )
+
     _run([str(python), "-m", "pip", "install", "--upgrade", "pip", "setuptools", "wheel"], cwd=INSTALL_DIR, log=log, label="UPGRADE_PIP", env=env)
     return python
 
