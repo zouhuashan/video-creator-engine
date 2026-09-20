@@ -51,6 +51,8 @@ from scripts.novel_anime_project import MANIFEST_NAME as NOVEL_ANIME_MANIFEST, N
 from scripts.novel_anime_repository import NovelAnimeRepository, NovelAnimeRepositoryError, repository_stats  # noqa: E402
 from scripts.novel_anime_runtime import NovelAnimeRuntime, NovelAnimeRuntimeError, runtime_stats  # noqa: E402
 from scripts.novel_source_catalog import CATALOG_RELATIVE_PATH, NovelSourceCatalogError, load_catalog  # noqa: E402
+from scripts.novel_character_candidates import NovelCharacterCandidateError, build_character_candidates, load_character_candidates, summary as character_candidate_summary, write_character_candidates  # noqa: E402
+from scripts.novel_source_ingest import NovelSourceIngestError, extract_character_candidates_from_text  # noqa: E402
 from scripts.novel_story_bible import NovelStoryBibleError, continuity_input, load_bible, summary as story_bible_summary  # noqa: E402
 from scripts.novel_series_plan import NovelSeriesPlanError, load_plan as load_series_plan, summary as series_plan_summary  # noqa: E402
 from scripts.novel_episode_planning import NovelEpisodePlanningError, load_episode_planning, summary as episode_planning_summary  # noqa: E402
@@ -604,6 +606,66 @@ def _comfyui_image_status() -> dict[str, object]:
     return result
 
 
+def _expected_source_hashes(project: Path) -> set[str]:
+    hashes: set[str] = set()
+    root = project / "sources" / "imports"
+    if not root.is_dir():
+        return hashes
+    for path in root.glob("*.json"):
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(payload, dict):
+            continue
+        value = str(payload.get("source_sha256") or "").strip().lower()
+        if re.fullmatch(r"[0-9a-f]{64}", value):
+            hashes.add(value)
+    return hashes
+
+
+def _reanalyze_project_character_candidates(
+    project: Path,
+    *,
+    source_name: str,
+    source_text: str,
+) -> dict[str, object]:
+    manifest = load_novel_anime_project(project / NOVEL_ANIME_MANIFEST)
+    ip_code = str(manifest["ip"]["id"]).removeprefix("IP-")
+    result = extract_character_candidates_from_text(source_text, ip_code)
+    source_sha = str(result["source_sha256"]).lower()
+    expected = _expected_source_hashes(project)
+    if expected and source_sha not in expected:
+        raise ValueError("所选 TXT 与当前项目最初导入的底本 SHA256 不一致")
+    characters = result.get("characters") if isinstance(result.get("characters"), list) else []
+    if not characters:
+        raise ValueError("未从底本识别到稳定角色候选；当前不会回退到演示角色")
+    payload = build_character_candidates(
+        project,
+        source_file_name=source_name,
+        source_sha256=source_sha,
+        provider=str(result.get("provider") or "local_lexicon"),
+        characters=characters,
+    )
+    write_character_candidates(project, payload)
+    return {
+        "status": "PASS",
+        "project_id": project.name,
+        "chapter_count": int(result.get("chapter_count") or 0),
+        "character_count": len(payload["characters"]),
+        "characters": [
+            {
+                "id": item["id"],
+                "name": item["name"],
+                "total_mentions": item["total_mentions"],
+            }
+            for item in payload["characters"][:12]
+        ],
+        "full_text_stored": False,
+        "source_sha256": source_sha,
+    }
+
+
 def _project_image_character(project: Path) -> tuple[dict[str, object], bool, str]:
     demo = _load_repo_json(IMAGE_CHARACTER_CONFIG_PATH)
     manifest = project / NOVEL_ANIME_MANIFEST
@@ -615,6 +677,27 @@ def _project_image_character(project: Path) -> tuple[dict[str, object], bool, st
     except (NovelStoryBibleError, OSError, ValueError):
         bible = {}
     characters = bible.get("characters") if isinstance(bible, dict) else None
+    candidate_payload = None
+    try:
+        candidate_payload = load_character_candidates(project)
+    except (NovelCharacterCandidateError, OSError, ValueError):
+        candidate_payload = None
+    candidates = candidate_payload.get("characters") if isinstance(candidate_payload, dict) else None
+
+    if (not isinstance(characters, list) or not characters) and isinstance(candidates, list) and candidates:
+        candidate = candidates[0]
+        source_character = {
+            "id": str(candidate.get("id") or ""),
+            "name": str(candidate.get("name") or "未命名角色"),
+            "role": "主要角色候选（待人工确认）",
+            "description": f"底本中出现 {int(candidate.get('total_mentions') or 0)} 次；角色视觉细节待定妆审核。",
+            "traits": [],
+        }
+        characters = [source_character]
+        character_source_override = "local-character-candidate"
+    else:
+        character_source_override = ""
+
     if not isinstance(characters, list) or not characters:
         placeholder = deepcopy(demo)
         placeholder.update({
@@ -623,7 +706,7 @@ def _project_image_character(project: Path) -> tuple[dict[str, object], bool, st
             "role": "当前小说项目暂无角色资料",
             "visual_lock": {
                 "age_read": "",
-                "face": "请先从当前小说底本生成角色资料",
+                "face": "请重新选择原 TXT，在 Web 中补全角色候选",
                 "hair": "—",
                 "costume": "—",
                 "body": "—",
@@ -639,10 +722,13 @@ def _project_image_character(project: Path) -> tuple[dict[str, object], bool, st
         score = 0 if any(token in role for token in ("主角", "protagonist", "hero", "lead")) else 1
         return score, str(item.get("id") or "")
 
-    source_character = sorted(
-        [item for item in characters if isinstance(item, dict)],
-        key=priority,
-    )[0]
+    if character_source_override:
+        source_character = next(item for item in characters if isinstance(item, dict))
+    else:
+        source_character = sorted(
+            [item for item in characters if isinstance(item, dict)],
+            key=priority,
+        )[0]
 
     identity: dict[str, object] = {}
     try:
@@ -707,7 +793,7 @@ def _project_image_character(project: Path) -> tuple[dict[str, object], bool, st
         "consistency_rules": immutable + negatives,
         "status": "PROJECT",
     }
-    return character, True, "project-story-bible"
+    return character, True, character_source_override or "project-story-bible"
 
 
 def _recent_image_studio_elsewhere(current_project: Path, limit: int = 6) -> list[dict[str, object]]:
@@ -789,6 +875,7 @@ def _image_studio_inventory(project: Path) -> dict[str, object]:
         "character": character,
         "character_ready": character_ready,
         "character_source": character_source,
+        "character_candidates": character_candidate_summary(project),
         "shot": _load_repo_json(IMAGE_SHOT_CONFIG_PATH),
         "routing": _image_provider_router().describe(),
         "items": items[:24],
@@ -1758,6 +1845,27 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                 result = _update_image_studio_review(project, payload)
                 return self._json(result)
             except (ValueError, OSError, KeyError, TypeError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+        if route == "/api/image-studio/character-candidates":
+            try:
+                payload = self._read_json(max_bytes=MAX_WEB_UPLOAD_BYTES)
+                project = _safe_project(str(payload.get("project_id") or ""))
+                result = _reanalyze_project_character_candidates(
+                    project,
+                    source_name=str(payload.get("source_name") or "novel.txt"),
+                    source_text=str(payload.get("source_text") or ""),
+                )
+                return self._json(result, HTTPStatus.CREATED)
+            except (
+                ValueError,
+                OSError,
+                KeyError,
+                TypeError,
+                json.JSONDecodeError,
+                NovelAnimeProjectError,
+                NovelSourceIngestError,
+                NovelCharacterCandidateError,
+            ) as error:
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
         if route in {"/api/image-studio/character-bible", "/api/image-studio/keyframe"}:
             try:
