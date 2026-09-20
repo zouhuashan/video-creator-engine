@@ -1132,8 +1132,13 @@ function renderImageStudio() {
     : 'OpenAI 仅作为远程 fallback；未配置时 AUTO 不会产生远程调用。';
 
   const character = data?.character || {};
+  const characterReady = data?.character_ready !== false;
   const lock = character.visual_lock || {};
-  $('#imageStudioCharacterLock').innerHTML = `<strong>${escapeHtml(character.character_id || 'CHAR-CHILD-001')} · ${escapeHtml(character.name || '营地小女孩')}</strong><small>${escapeHtml(lock.face || '')}</small><small>${escapeHtml(lock.hair || '')}</small><small>${escapeHtml(lock.costume || '')}</small>`;
+  $('#imageStudioCharacterLock').innerHTML = `<strong>${escapeHtml(character.character_id || 'PROJECT CHARACTER')} · ${escapeHtml(character.name || '项目角色')}</strong><small>${escapeHtml(lock.face || '')}</small><small>${escapeHtml(lock.hair || '')}</small><small>${escapeHtml(lock.costume || '')}</small>`;
+  const characterButton = $('#generateCharacterBibleButton');
+  characterButton.disabled = !characterReady || !(localReady || remoteReady);
+  characterButton.title = characterReady ? '' : '当前小说项目尚未抽取角色资料，已阻止使用全局演示角色。';
+  if (!characterReady) characterButton.textContent = '角色资料待抽取';
 
   const items = data?.items || [];
   const recentElsewhere = data?.recent_elsewhere || [];
@@ -1575,6 +1580,10 @@ async function generateImageStudio(kind) {
   const localReady = Boolean(comfyui.connected && comfyui.workflow_ready);
   const usesRemote = preference === 'OPENAI_IMAGE' || (preference === 'AUTO' && !localReady);
   const label = kind === 'character-bible' ? '角色定妆板' : '镜头关键帧';
+  if (kind === 'character-bible' && state.imageStudio?.character_ready === false) {
+    log('当前小说项目尚未抽取角色资料；已阻止使用全局演示角色生成。', true);
+    return;
+  }
   if (preference === 'COMFYUI_IMAGE' && !localReady) { log('ComfyUI 本地 Provider 尚未就绪', true); return; }
   if (usesRemote) {
     if (!openai.configured) { log('本地 ComfyUI 不可用，OpenAI fallback 也未配置', true); return; }
@@ -1590,6 +1599,7 @@ async function generateImageStudio(kind) {
   let progressSocket = null;
 
   button.disabled = true;
+  button.dataset.generating = 'true';
   button.textContent = '生成中…';
   log(`开始生成${label} · ${usesRemote ? 'OpenAI fallback' : 'ComfyUI local'}…`);
   try {
@@ -1621,8 +1631,10 @@ async function generateImageStudio(kind) {
   } finally {
     progressView.stop();
     try { progressSocket?.close(); } catch (_) {}
-    button.disabled = false;
-    button.innerHTML = original;
+    delete button.dataset.generating;
+    const characterBlocked = kind === 'character-bible' && state.imageStudio?.character_ready === false;
+    button.disabled = characterBlocked;
+    button.innerHTML = characterBlocked ? '角色资料待抽取' : original;
   }
 }
 
