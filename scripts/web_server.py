@@ -1000,6 +1000,7 @@ def _generate_image_studio_asset(
     confirm_billable: bool = False,
     upload_authorized: bool = False,
     preferred_provider: str = "AUTO",
+    style_preset: str = "",
     comfyui_client_id: str = "",
 ) -> dict[str, object]:
     if artifact_type not in {"character_bible", "keyframe"}:
@@ -1034,15 +1035,30 @@ def _generate_image_studio_asset(
             "当前小说项目尚未抽取角色资料，已阻止使用全局演示角色生成定妆板；"
             "请先完成项目角色抽取/故事圣经。"
         )
+    preset = _image_style_preset(style_preset)
+    local_route = route["adapter"] == "comfyui_image"
+    style_direction = str(preset.get("remote_direction") or "")
+    forbidden_direction = "" if local_route else str(preset.get("negative_prompt") or "")
     shot = _load_repo_json(IMAGE_SHOT_CONFIG_PATH)
     stamp = time.strftime("%Y%m%d-%H%M%S") + f"-{time.time_ns() % 100000:05d}"
     if artifact_type == "character_bible":
-        prompt = character_bible_prompt(character, custom_prompt)
+        prompt = character_bible_prompt(
+            character,
+            custom_prompt,
+            style_direction=style_direction,
+            forbidden_direction=forbidden_direction,
+        )
         output_dir = project / "lookdev" / "image-studio" / "character-bible"
         output = output_dir / f"{stamp}-char-child-001.png"
         artifact_id = f"CHAR-BIBLE-{stamp}"
     else:
-        prompt = keyframe_prompt(character, shot, custom_prompt)
+        prompt = keyframe_prompt(
+            character,
+            shot,
+            custom_prompt,
+            style_direction=style_direction,
+            forbidden_direction=forbidden_direction,
+        )
         output_dir = project / "lookdev" / "image-studio" / "keyframes"
         output = output_dir / f"{stamp}-shot-demo-001.png"
         artifact_id = f"KEYFRAME-{stamp}"
@@ -1053,10 +1069,26 @@ def _generate_image_studio_asset(
         if artifact_type == "character_bible" and not cfg.get("character_bible_size"):
             size = "1536x1024"
         provider = ComfyUIImageProvider(_comfyui_base_url(), config_path=COMFYUI_IMAGE_PROVIDER_CONFIG_PATH)
+        lora_id = str(preset.get("lora_id") or "").strip()
+        lora_name = ""
+        lora_strength = float(preset.get("lora_strength") or 0.0)
+        if lora_id:
+            try:
+                descriptor = comfyui_lora_descriptor(lora_id)
+                candidate_name = str(descriptor.get("filename") or "")
+                install_state = comfyui_lora_status(lora_id)
+                if install_state.get("installed") and candidate_name in set(comfyui_status.get("loras") or []):
+                    lora_name = candidate_name
+            except (ComfyUILoraError, ValueError, OSError):
+                lora_name = ""
         result = provider.generate(
             prompt,
             output,
             size=size,
+            positive_prompt_prefix=str(preset.get("positive_prompt_prefix") or ""),
+            negative_prompt=str(preset.get("negative_prompt") or ""),
+            lora_name=lora_name or None,
+            lora_strength=lora_strength,
             client_id=comfyui_client_id or None,
         )
     elif route["adapter"] == "openai_image":
@@ -1081,6 +1113,12 @@ def _generate_image_studio_asset(
         "model": result["model"],
         "size": result["size"],
         "quality": result["quality"],
+        "style_preset": str(preset.get("id") or ""),
+        "style_label": str(preset.get("label") or ""),
+        "lora_requested": str(preset.get("lora_id") or ""),
+        "lora_applied": bool(result.get("lora_name")),
+        "lora_name": str(result.get("lora_name") or ""),
+        "lora_strength": float(result.get("lora_strength") or 0.0),
         "project_id": project.name,
         "character_id": str(character.get("character_id") or ""),
         "character_source": character_source,
