@@ -117,12 +117,12 @@ def _python_for(home: Path) -> Path | None:
         candidates.insert(0, desktop_base / ".venv" / "bin" / "python")
     candidates.append(Path(sys.executable))
     for candidate in candidates:
-        try:
-            resolved = candidate.resolve()
-        except OSError:
-            continue
-        if resolved.is_file() and os.access(resolved, os.X_OK):
-            return resolved
+        # Critical: never resolve a venv/bin/python symlink to its base
+        # interpreter. Python discovers pyvenv.cfg from the invoked venv path;
+        # resolving the symlink destroys venv semantics and can hit PEP 668.
+        expanded = candidate.expanduser()
+        if expanded.is_file() and os.access(expanded, os.X_OK):
+            return expanded.absolute()
     return None
 
 
@@ -150,6 +150,46 @@ def _write_install_state(payload: dict[str, Any]) -> None:
     tmp = INSTALL_STATE_PATH.with_suffix(".tmp")
     tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     tmp.replace(INSTALL_STATE_PATH)
+
+
+def _venv_identity(python: Path, home: Path) -> tuple[bool, str]:
+    check = (
+        "import json,sys;"
+        "print(json.dumps({'prefix':sys.prefix,'base_prefix':sys.base_prefix,'executable':sys.executable}))"
+    )
+    try:
+        result = subprocess.run(
+            [str(python), "-c", check],
+            capture_output=True,
+            text=True,
+            cwd=home,
+            check=False,
+            timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError) as error:
+        return False, str(error)
+    if result.returncode != 0:
+        return False, (result.stderr or result.stdout or "venv identity probe failed").strip()[-2000:]
+    try:
+        payload = json.loads(result.stdout.strip().splitlines()[-1])
+    except (json.JSONDecodeError, IndexError):
+        return False, "venv identity probe returned invalid JSON"
+    prefix = str(payload.get("prefix") or "")
+    base_prefix = str(payload.get("base_prefix") or "")
+    executable = str(payload.get("executable") or "")
+    if not prefix or not base_prefix:
+        return False, "Python prefix metadata missing"
+    if prefix == base_prefix:
+        return False, f"not a virtual environment: executable={executable or python}"
+    try:
+        expected = (home / ".venv").resolve()
+        actual = Path(prefix).resolve()
+    except OSError:
+        expected = home / ".venv"
+        actual = Path(prefix)
+    if home.resolve() == PROJECT_COMFYUI_HOME.resolve() and actual != expected:
+        return False, f"unexpected venv prefix: {actual} (expected {expected})"
+    return True, ""
 
 
 def _runtime_dependency_smoke(python: Path, home: Path) -> tuple[bool, str]:
@@ -227,6 +267,13 @@ def _sync_project_dependencies(home: Path, python: Path, log) -> dict[str, Any]:
     requirements = home / "requirements.txt"
     if not requirements.is_file():
         raise ComfyUIServiceError("项目 ComfyUI requirements.txt 不存在")
+
+    venv_ok, venv_detail = _venv_identity(python, home)
+    if not venv_ok:
+        raise ComfyUIServiceError(
+            "拒绝修改非项目虚拟环境 Python；"
+            + (venv_detail or "venv identity check failed")
+        )
 
     install_state = _load_install_state()
     current_sha = _requirements_fingerprint(home)
