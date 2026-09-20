@@ -7,6 +7,7 @@ It intentionally does not download image checkpoints/models.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import platform
@@ -785,6 +786,116 @@ def _probe_requirements(python: Path, log, env: dict[str, str]) -> None:
     )
 
 
+def requirements_fingerprint(home: Path = INSTALL_DIR) -> str:
+    requirements = home / "requirements.txt"
+    if not requirements.is_file():
+        return ""
+    digest = hashlib.sha256()
+    with requirements.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _runtime_dependency_smoke(python: Path, home: Path = INSTALL_DIR) -> tuple[bool, str]:
+    check = (
+        "import json;"
+        "mods=['filelock','sqlalchemy','alembic','aiohttp','yaml','PIL','numpy','torch'];"
+        "failed=[];"
+        "\nfor m in mods:\n"
+        " try: __import__(m)\n"
+        " except Exception as e: failed.append([m,type(e).__name__,str(e)])\n"
+        "print(json.dumps({'failed':failed}))"
+    )
+    try:
+        result = subprocess.run(
+            [str(python), "-c", check],
+            capture_output=True,
+            text=True,
+            cwd=home,
+            check=False,
+            timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError) as error:
+        return False, str(error)
+    if result.returncode != 0:
+        return False, (result.stderr or result.stdout or "dependency smoke failed").strip()[-2000:]
+    try:
+        payload = json.loads(result.stdout.strip().splitlines()[-1])
+    except (json.JSONDecodeError, IndexError):
+        return False, "dependency smoke returned invalid JSON"
+    failed = payload.get("failed") if isinstance(payload, dict) else None
+    if failed:
+        return False, "; ".join(f"{item[0]}: {item[1]} {item[2]}" for item in failed[:8])
+    return True, ""
+
+
+def ensure_managed_runtime_dependencies(
+    home: Path,
+    python: Path,
+    *,
+    log,
+    force: bool = False,
+) -> dict[str, Any]:
+    home = home.resolve()
+    if home != INSTALL_DIR.resolve():
+        raise ComfyUIInstallError("只允许自动修复 VideoCreator 项目内的 ComfyUI 依赖")
+    requirements = home / "requirements.txt"
+    if not requirements.is_file():
+        raise ComfyUIInstallError("ComfyUI requirements.txt 不存在")
+
+    current_fingerprint = requirements_fingerprint(home)
+    state = _load_state()
+    recorded_fingerprint = str(state.get("requirements_sha256") or "")
+    healthy, smoke_detail = _runtime_dependency_smoke(python, home)
+
+    if not force and healthy and recorded_fingerprint == current_fingerprint:
+        return {
+            "repaired": False,
+            "requirements_sha256": current_fingerprint,
+            "detail": "ComfyUI Python 依赖已同步",
+        }
+
+    ca_source = str(state.get("ca_source") or "")
+    ca_path = Path(ca_source) if ca_source else None
+    env = _network_env(ca_path if ca_path and ca_path.is_file() else None)
+    reason_parts = []
+    if recorded_fingerprint != current_fingerprint:
+        reason_parts.append("requirements changed")
+    if not healthy:
+        reason_parts.append(smoke_detail or "dependency smoke failed")
+    reason = "; ".join(reason_parts) or "forced repair"
+    log.write(f"dependency_sync_reason={reason}\n".encode("utf-8", errors="replace"))
+    log.flush()
+
+    _run(
+        [str(python), "-m", "pip", "install", "-r", str(requirements)],
+        cwd=home,
+        log=log,
+        label="SYNC_RUNTIME_REQUIREMENTS",
+        env=env,
+    )
+    healthy, smoke_detail = _runtime_dependency_smoke(python, home)
+    if not healthy:
+        raise ComfyUIInstallError(f"ComfyUI 依赖同步后自检仍失败: {smoke_detail}")
+
+    updated_state = dict(state)
+    updated_state["requirements_sha256"] = current_fingerprint
+    updated_state["dependencies_verified_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    if updated_state:
+        _write_state(
+            str(updated_state.get("status") or "PASS"),
+            str(updated_state.get("step") or "COMPLETE"),
+            str(updated_state.get("detail") or "ComfyUI 核心安装完成"),
+            **{k: v for k, v in updated_state.items() if k not in {"status","step","detail","updated_at"}},
+        )
+    return {
+        "repaired": True,
+        "requirements_sha256": current_fingerprint,
+        "detail": "ComfyUI Python 依赖已自动同步",
+    }
+
+
 def _install_requirements(python: Path, log, env: dict[str, str]) -> None:
     requirements = INSTALL_DIR / "requirements.txt"
     if not requirements.is_file():
@@ -810,7 +921,13 @@ def _verify(python: Path, log) -> dict[str, Any]:
         info = {}
     if not (INSTALL_DIR / "main.py").is_file():
         raise ComfyUIInstallError("ComfyUI main.py 不存在")
-    return info if isinstance(info, dict) else {}
+    healthy, detail = _runtime_dependency_smoke(python, INSTALL_DIR)
+    if not healthy:
+        raise ComfyUIInstallError(f"ComfyUI requirements 自检失败: {detail}")
+    if isinstance(info, dict):
+        info["requirements_sha256"] = requirements_fingerprint(INSTALL_DIR)
+        return info
+    return {"requirements_sha256": requirements_fingerprint(INSTALL_DIR)}
 
 
 def install() -> dict[str, Any]:
@@ -923,6 +1040,8 @@ def install() -> dict[str, Any]:
                 torch=str(info.get("torch") or ""),
                 mps_built=bool(info.get("mps_built")),
                 mps_available=bool(info.get("mps_available")),
+                requirements_sha256=str(info.get("requirements_sha256") or requirements_fingerprint(INSTALL_DIR)),
+                dependencies_verified_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                 models_installed=False,
             )
         except Exception as error:
