@@ -1091,7 +1091,7 @@ function renderImageStudio() {
   }
   $('#imageStudioGallery').innerHTML = items.map((item, index) => `
     <button class="image-studio-thumb" data-image-studio-index="${index}">
-      <img src="${escapeHtml(item.media_url)}" alt="${escapeHtml(item.artifact_type || 'image')}" loading="lazy">
+      <img src="${escapeHtml(imageStudioMediaUrl(item))}" alt="${escapeHtml(item.artifact_type || 'image')}" loading="lazy">
       <span><strong>${escapeHtml(item.artifact_type === 'character_bible' ? '角色定妆板' : '镜头关键帧')}</strong><small>${escapeHtml(item.model || '')} · ${escapeHtml(item.review_status || 'PENDING')}</small></span>
     </button>
   `).join('');
@@ -1102,12 +1102,40 @@ function renderImageStudio() {
   if ($('#imageStudioResult').classList.contains('hidden')) showImageStudioResult(items[0]);
 }
 
+function imageStudioMediaUrl(item) {
+  if (!item) return '';
+  const projectId = String(item.project_id || state.imageStudioProjectId || '').trim();
+  const output = String(item.output || '').trim();
+  if (projectId && output) {
+    const encodedProject = encodeURIComponent(projectId);
+    const encodedPath = output.split('/').filter(Boolean).map(encodeURIComponent).join('/');
+    const version = encodeURIComponent(String(item.created_at || item.artifact_id || '1'));
+    return `/media/${encodedProject}/${encodedPath}?v=${version}`;
+  }
+  return String(item.media_url || '');
+}
+
 function showImageStudioResult(item) {
   if (!item) return;
   state.imageStudioSelected = item;
   $('#imageStudioEmpty').classList.add('hidden');
   $('#imageStudioResult').classList.remove('hidden');
-  $('#imageStudioPreview').src = item.media_url;
+
+  const preview = $('#imageStudioPreview');
+  const previewError = $('#imageStudioPreviewError');
+  const mediaUrl = imageStudioMediaUrl(item);
+  previewError.classList.remove('visible');
+  previewError.textContent = '';
+  preview.onload = () => {
+    previewError.classList.remove('visible');
+    previewError.textContent = '';
+  };
+  preview.onerror = () => {
+    previewError.classList.add('visible');
+    previewError.textContent = `图片已生成，但 Web 无法加载媒体文件：${mediaUrl || '缺少 media URL'}。请刷新页面；若仍失败，查看 Web 日志中的 /media 请求状态。`;
+    log(`AI 生图文件加载失败：${mediaUrl || item.output || 'unknown'}`, true);
+  };
+  preview.src = mediaUrl;
   $('#imageStudioResultType').textContent = item.artifact_type === 'character_bible' ? '角色定妆板' : '镜头关键帧';
   $('#imageStudioResultPath').textContent = item.output || '—';
   $('#imageStudioResultInfo').textContent = `${item.provider || 'Image Provider'} · ${item.model || ''} · ${item.size || ''} · 人工审核 ${item.review_status || 'PENDING'}`;
