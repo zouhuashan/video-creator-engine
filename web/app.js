@@ -1135,7 +1135,14 @@ function showImageStudioResult(item) {
     previewError.textContent = `图片已生成，但 Web 无法加载媒体文件：${mediaUrl || '缺少 media URL'}。请刷新页面；若仍失败，查看 Web 日志中的 /media 请求状态。`;
     log(`AI 生图文件加载失败：${mediaUrl || item.output || 'unknown'}`, true);
   };
-  preview.src = mediaUrl;
+  if (item.media_valid === false) {
+    preview.removeAttribute('src');
+    previewError.classList.add('visible');
+    previewError.textContent = `生成文件存在，但文件头不是有效 PNG/JPEG/WebP（${Number(item.media_bytes || 0)} bytes）。请重新生成；旧文件不会被当成有效视觉资产。`;
+    log(`AI 生图文件格式无效：${item.output || 'unknown'}`, true);
+  } else {
+    preview.src = mediaUrl;
+  }
   $('#imageStudioResultType').textContent = item.artifact_type === 'character_bible' ? '角色定妆板' : '镜头关键帧';
   $('#imageStudioResultPath').textContent = item.output || '—';
   $('#imageStudioResultInfo').textContent = `${item.provider || 'Image Provider'} · ${item.model || ''} · ${item.size || ''} · 人工审核 ${item.review_status || 'PENDING'}`;
