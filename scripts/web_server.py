@@ -1571,6 +1571,11 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                 return self._json(comfyui_model_status())
             except (ComfyUIModelError, ValueError, OSError) as error:
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
+        if parsed.path == "/api/comfyui/loras/status":
+            try:
+                return self._json(comfyui_lora_status())
+            except (ComfyUILoraError, ValueError, OSError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
         if parsed.path == "/api/projects":
             return self._json({"projects": self._projects()})
         if parsed.path == "/api/novel-anime/projects":
@@ -1988,6 +1993,13 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                 return self._json(start_comfyui_model_install(), HTTPStatus.ACCEPTED)
             except (ComfyUIModelError, ValueError, OSError) as error:
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
+        if route == "/api/comfyui/loras/install/start":
+            try:
+                payload = self._read_json()
+                lora_id = str(payload.get("lora_id") or "").strip() or "sdxl-chinese-style-illustration"
+                return self._json(start_comfyui_lora_install(lora_id), HTTPStatus.ACCEPTED)
+            except (ComfyUILoraError, ValueError, OSError, KeyError, TypeError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
         if route in {"/api/comfyui/service/start", "/api/comfyui/service/stop"}:
             try:
                 if route.endswith("/start"):
@@ -2077,6 +2089,7 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                     confirm_billable=payload.get("confirm_billable") is True,
                     upload_authorized=payload.get("upload_authorized") is True,
                     preferred_provider=str(payload.get("provider_preference") or "AUTO"),
+                    style_preset=str(payload.get("style_preset") or ""),
                     comfyui_client_id=str(payload.get("comfyui_client_id") or "").strip(),
                 )
                 return self._json(result, HTTPStatus.CREATED)
