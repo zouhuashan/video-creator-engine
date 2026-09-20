@@ -24,6 +24,7 @@ INSTALL_DIR = DEPENDENCIES / "ComfyUI"
 LOG_DIR = ROOT / "logs"
 LOG_PATH = LOG_DIR / "comfyui-install.log"
 STATE_PATH = LOG_DIR / "comfyui-install.json"
+MODEL_STATE_PATH = LOG_DIR / "comfyui-model-install.json"
 SOURCE_URL = "https://github.com/Comfy-Org/ComfyUI.git"
 MIN_FREE_BYTES = 6 * 1024 * 1024 * 1024
 CERT_DIR = DEPENDENCIES / "certs"
@@ -1074,6 +1075,21 @@ def install() -> dict[str, Any]:
             raise ComfyUIInstallError(str(error)) from error
 
 
+def _verified_checkpoint_present() -> bool:
+    try:
+        payload = json.loads(MODEL_STATE_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    if not isinstance(payload, dict) or payload.get("status") != "PASS":
+        return False
+    filename = str(payload.get("filename") or "").strip()
+    sha256 = str(payload.get("sha256") or "").strip()
+    if not filename or len(sha256) != 64:
+        return False
+    checkpoint = INSTALL_DIR / "models" / "checkpoints" / filename
+    return checkpoint.is_file()
+
+
 def status() -> dict[str, Any]:
     state = _load_state()
     try:
@@ -1083,13 +1099,15 @@ def status() -> dict[str, Any]:
     if state.get("status") == "RUNNING" and pid and not _pid_alive(pid):
         state = _write_state("FAIL", "INTERRUPTED", "安装进程已退出；可点击重新安装/修复", pid=None, install_dir=str(INSTALL_DIR), log_tail=_tail_log())
     installed = (INSTALL_DIR / "main.py").is_file() and _venv_python().is_file()
+    verified_checkpoint = _verified_checkpoint_present()
     return {
         **state,
         "installed": installed,
         "install_dir": str(INSTALL_DIR),
         "log_path": str(LOG_PATH.relative_to(ROOT)),
         "log_tail": _tail_log(16) if state.get("status") in {"RUNNING", "FAIL"} else "",
-        "model_checkpoint_present": any((INSTALL_DIR / "models" / "checkpoints").glob("*")) if (INSTALL_DIR / "models" / "checkpoints").is_dir() else False,
+        "models_installed": verified_checkpoint,
+        "model_checkpoint_present": verified_checkpoint,
     }
 
 
