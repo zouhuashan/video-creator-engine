@@ -342,6 +342,25 @@ class WebServerTests(unittest.TestCase):
         self.assertIn("动漫基础模型", index)
         self.assertNotIn("安装国漫基础模型", index)
         self.assertIn("国风由系统风格锁加强", app)
+        self.assertIn('id="imageStudioStylePreset"', index)
+        self.assertIn('id="imageStudioInstallLora"', index)
+        self.assertIn("/api/comfyui/loras/install/start", app)
+        self.assertIn("style_preset:", app)
+
+    def test_image_style_presets_default_to_chinese_guofeng_and_optional_lora(self):
+        styles = web_server._image_style_presets()
+        self.assertEqual(styles["default_preset"], "GUOFENG_ANCIENT_CHINA")
+        ids = {item["id"] for item in styles["presets"]}
+        self.assertEqual(
+            ids,
+            {"GUOFENG_ANCIENT_CHINA", "XIANXIA_DONGHUA", "WUXIA_DONGHUA", "INK_GUOFENG", "ANIME_DEFAULT"},
+        )
+        guofeng = web_server._image_style_preset("GUOFENG_ANCIENT_CHINA")
+        self.assertEqual(guofeng["lora_id"], "sdxl-chinese-style-illustration")
+        self.assertIn("hanfu", guofeng["positive_prompt_prefix"])
+        self.assertIn("school uniform", guofeng["negative_prompt"])
+        anime = web_server._image_style_preset("ANIME_DEFAULT")
+        self.assertEqual(anime["lora_id"], "")
 
     def test_web_exposes_managed_comfyui_controls(self):
         index = (web_server.WEB_ROOT / "index.html").read_text(encoding="utf-8")
