@@ -3434,6 +3434,16 @@ P30-06 追加修复（2026-09-20，针对 Web 报错“未检测到 ComfyUI 安�
 - 官方当前仍支持 Apple Silicon；ComfyUI 文档建议独立环境并在 Apple Silicon 使用 PyTorch nightly，PyTorch 当前 MPS 后端仍为官方支持路径。
 - 当前 GitHub connector 仍未返回 workflow run/status，因此不虚报 CI PASS；真实 clone/pip/MPS 安装必须在用户 Mac 上执行。
 
+P30-06 安装器第二轮修复（2026-09-20，真实 Mac 日志）：
+
+- 第三次真实安装日志显示 `bootstrap_python` 已切到 Homebrew Python 3.14 且 `ca_source=python-default`，但 pip 实际仍从旧 `.venv/lib/python3.13` 运行；根因是安装器复用了上一轮由 MacPorts Python 3.13 创建的旧 venv。
+- 新增 venv runtime identity 检查：比较 major/minor 与 `sys.base_prefix`；只要 Python 版本或运行时来源发生变化（例如 MacPorts → Homebrew），旧 venv 自动删除并重建。
+- 即使 runtime 未变化，现有 venv 自身若无法通过 PyPI HTTPS probe，也会自动重建；新 venv 创建后必须先通过 HTTPS probe 才进入 pip upgrade。
+- 当 bootstrap Python 默认 HTTPS 已通过时，安装器读取 `ssl.get_default_verify_paths().cafile`，把已验证 CA 显式注入 `SSL_CERT_FILE` / `PIP_CERT` / `REQUESTS_CA_BUNDLE`，确保 venv pip 与 bootstrap Python 使用同一信任链。
+- Python 选择策略同步调整为“先修复首选解释器的 TLS，再考虑下一个解释器”；保持官方当前推荐的 Python 3.13 优先，3.12 fallback，3.14 仅在前者确实不可用时使用。
+- 官方当前 README：Python 3.13 very well supported；3.14 works but custom nodes may have issues；Apple Silicon 继续建议 PyTorch nightly。
+- 关键提交：`f57cb1a`、`ffb75cb`、`812cc3d`、`f3a6155`、`3abdcc6`。
+
 P30-06 安装器证书修复（2026-09-20，真实 Mac 日志）：
 
 - 本机第一次/第二次 Web 安装已成功完成官方 ComfyUI clone 和 Python 3.13 venv 创建，但在 `UPGRADE_PIP` 阶段出现 `SSLCertVerificationError: unable to get local issuer certificate`；根因定位为所选 MacPorts Python 3.13 的 CA trust 与当前 macOS/网络信任链不一致，不是 ComfyUI/PyTorch 故障。
