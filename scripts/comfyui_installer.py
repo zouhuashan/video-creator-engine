@@ -188,6 +188,30 @@ def _network_env(ca_bundle: Path | None = None) -> dict[str, str]:
     return env
 
 
+def _default_ca_bundle(executable: str) -> Path | None:
+    script = "import ssl; p=ssl.get_default_verify_paths(); print(p.cafile or '')"
+    try:
+        result = subprocess.run(
+            [executable, "-c", script],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if result.returncode != 0:
+        return None
+    value = result.stdout.strip()
+    if not value:
+        return None
+    try:
+        path = Path(value).expanduser().resolve()
+    except OSError:
+        return None
+    return path if path.is_file() else None
+
+
 def _https_probe(executable: str, env: dict[str, str]) -> tuple[bool, str]:
     script = (
         "import urllib.request;"
@@ -222,6 +246,9 @@ def choose_bootstrap_runtime() -> tuple[str, dict[str, str], str]:
         env = _network_env()
         ok, detail = _https_probe(executable, env)
         if ok:
+            default_bundle = _default_ca_bundle(executable)
+            if default_bundle is not None:
+                return executable, _network_env(default_bundle), str(default_bundle)
             return executable, env, "python-default"
 
         failures.append(f"{executable}: {detail.splitlines()[-1] if detail else 'TLS failed'}")
