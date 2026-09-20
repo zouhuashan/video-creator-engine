@@ -1,4 +1,52 @@
 const state = { projects: [], animeProjects: [], project: null, providers: [], integrations: [], studio: null, readiness: null, backups: null, studioProjectId: null, imageStudio: null, imageStudioProjectId: null, imageStudioSelected: null, imageStudioProviderPreference: 'AUTO', pipeline: null, pipelineProjectId: null, novelImportResult: null, selectedProvider: 'local_ken_burns', selectedImage: null, currentView: 'workspace', currentWorkspace: 'overview' };
+const ACTIVE_NOVEL_PROJECT_KEY = 'videocreator.activeNovelProjectId.v1';
+
+function storedActiveNovelProjectId() {
+  try { return String(window.localStorage.getItem(ACTIVE_NOVEL_PROJECT_KEY) || '').trim(); }
+  catch (_) { return ''; }
+}
+
+function rememberActiveNovelProject(projectId) {
+  const value = String(projectId || '').trim();
+  if (!value) return;
+  try { window.localStorage.setItem(ACTIVE_NOVEL_PROJECT_KEY, value); } catch (_) {}
+}
+
+function resolveActiveNovelProject(preferred = '') {
+  const projects = state.animeProjects || [];
+  if (!projects.length) return '';
+  const candidates = [
+    String(preferred || '').trim(),
+    String(state.imageStudioProjectId || '').trim(),
+    String(state.pipelineProjectId || '').trim(),
+    String(state.studioProjectId || '').trim(),
+    storedActiveNovelProjectId(),
+  ].filter(Boolean);
+  for (const candidate of candidates) {
+    if (projects.some((item) => item.directory_id === candidate)) return candidate;
+  }
+  const newest = [...projects].sort((a, b) =>
+    String(b.created_at || b.updated_at || '').localeCompare(String(a.created_at || a.updated_at || ''))
+  )[0];
+  return newest?.directory_id || projects[0].directory_id;
+}
+
+function setActiveNovelProject(projectId, { persist = true } = {}) {
+  const value = String(projectId || '').trim();
+  if (!value || !state.animeProjects.some((item) => item.directory_id === value)) return '';
+  state.studioProjectId = value;
+  state.pipelineProjectId = value;
+  state.imageStudioProjectId = value;
+  if (persist) rememberActiveNovelProject(value);
+  const selectors = ['#studioProjectSelect', '#pipelineProjectSelect', '#imageStudioProject'];
+  selectors.forEach((selector) => {
+    const element = $(selector);
+    if (element && [...element.options].some((option) => option.value === value)) element.value = value;
+  });
+  if ($('#projectSelect') && state.projects.some((project) => project.id === value)) $('#projectSelect').value = value;
+  return value;
+}
+
 
 const $ = (selector) => document.querySelector(selector);
 const escapeHtml = (value) => String(value).replace(/[&<>'"]/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
@@ -903,8 +951,11 @@ function setView(view, workspace = state.currentWorkspace) {
   if (view === 'anime') renderAnimeProjects();
   if (view === 'studio') renderStudio();
   if (view === 'imageStudio') {
-    const target = state.imageStudioProjectId || state.animeProjects[0]?.directory_id;
-    if (target) loadImageStudio(target).catch((error) => log(error.message, true));
+    const target = resolveActiveNovelProject(state.imageStudioProjectId);
+    if (target) {
+      setActiveNovelProject(target);
+      loadImageStudio(target).catch((error) => log(error.message, true));
+    }
   }
   if (view === 'providers') renderProviderSettings();
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -960,7 +1011,8 @@ async function importNovelProject() {
     state.studioProjectId = result.directory_id;
     state.pipelineProjectId = result.directory_id;
     state.imageStudioProjectId = result.directory_id;
-    await load();
+    rememberActiveNovelProject(result.directory_id);
+    await load(result.directory_id);
     setView('novelImport');
     log(`小说导入完成：${result.title} · ${result.import?.chapter_count || 0} 章`);
   } catch (error) {
@@ -1643,29 +1695,36 @@ async function loadProject(projectId) {
   updateGenerateButton();
 }
 
-async function load() {
+async function load(preferredProjectId = '') {
   try {
     const [projects, animeProjects, health] = await Promise.all([api('/api/projects'), api('/api/novel-anime/projects'), api('/api/health')]);
     state.projects = projects.projects;
     state.animeProjects = animeProjects.projects;
     state.providers = health.providers;
     state.integrations = health.integrations || [];
-    if (state.animeProjects.length) {
-      await loadStudio(state.studioProjectId || state.animeProjects[0].directory_id);
-      state.pipelineProjectId = state.pipelineProjectId || state.animeProjects[0].directory_id;
-      await loadPipeline(state.pipelineProjectId);
-    }
+
+    const activeNovelProjectId = resolveActiveNovelProject(preferredProjectId);
+    if (activeNovelProjectId) setActiveNovelProject(activeNovelProjectId);
+
     $('#projectSelect').innerHTML = state.projects.map((project) => `<option value="${escapeHtml(project.id)}">${escapeHtml(project.name)}</option>`).join('');
     renderProviders();
     renderProviderSettings();
     renderProjectTable();
     renderAnimeProjects();
-    if (state.animeProjects.length) {
-      state.imageStudioProjectId = state.imageStudioProjectId || state.animeProjects[0].directory_id;
-      await loadImageStudio(state.imageStudioProjectId);
+
+    if (activeNovelProjectId) {
+      await loadStudio(activeNovelProjectId);
+      await loadPipeline(activeNovelProjectId);
+      await loadImageStudio(activeNovelProjectId);
     }
-    if (state.projects.length) await loadProject(state.projects.find((project) => project.id === 'jinghua-yuan-local-pilot')?.id || state.projects[0].id);
-    log(`已载入 ${state.projects.length} 个项目和 ${state.providers.length} 条 Provider 路线`);
+
+    if (state.projects.length) {
+      const workspaceProjectId = state.projects.some((project) => project.id === activeNovelProjectId)
+        ? activeNovelProjectId
+        : state.projects[0].id;
+      await loadProject(workspaceProjectId);
+    }
+    log(`已载入 ${state.projects.length} 个项目和 ${state.providers.length} 条 Provider 路线${activeNovelProjectId ? ` · 当前小说项目 ${activeNovelProjectId}` : ''}`);
   } catch (error) { log(error.message, true); }
 }
 
@@ -1716,11 +1775,17 @@ $('#novelImportFile').addEventListener('change', (event) => {
 $('#novelImportButton').addEventListener('click', importNovelProject);
 $('#novelImportOpenStudio').addEventListener('click', openImportedNovelStudio);
 updateNovelImportRightsUI();
-$('#pipelineProjectSelect').addEventListener('change', (event) => loadPipeline(event.target.value).catch((error) => log(error.message, true)));
+$('#pipelineProjectSelect').addEventListener('change', (event) => {
+  const projectId = setActiveNovelProject(event.target.value);
+  if (projectId) loadPipeline(projectId).catch((error) => log(error.message, true));
+});
 $('#pipelinePreflightButton').addEventListener('click', runPipelinePreflight);
 $('#pipelineRunButton').addEventListener('click', runAutoPipeline);
 $('#pipelineApproveButton').addEventListener('click', approvePipeline);
-$('#imageStudioProject').addEventListener('change', (event) => loadImageStudio(event.target.value).catch((error) => log(error.message, true)));
+$('#imageStudioProject').addEventListener('change', (event) => {
+  const projectId = setActiveNovelProject(event.target.value);
+  if (projectId) loadImageStudio(projectId).catch((error) => log(error.message, true));
+});
 $('#imageStudioSaveKey').addEventListener('click', saveImageStudioKey);
 $('#imageStudioSaveComfy').addEventListener('click', saveComfyUIEndpoint);
 $('#imageStudioInstallComfy').addEventListener('click', installComfyUI);
@@ -1735,14 +1800,21 @@ $('#generateCharacterBibleButton').addEventListener('click', () => generateImage
 $('#generateKeyframeButton').addEventListener('click', () => generateImageStudio('keyframe'));
 $('#imageStudioApproveButton').addEventListener('click', () => reviewImageStudio('APPROVED'));
 $('#imageStudioChangesButton').addEventListener('click', () => reviewImageStudio('CHANGES_REQUESTED'));
-$('#projectSelect').addEventListener('change', (event) => loadProject(event.target.value).catch((error) => log(error.message, true)));
+$('#projectSelect').addEventListener('change', (event) => {
+  const projectId = event.target.value;
+  if (state.animeProjects.some((item) => item.directory_id === projectId)) setActiveNovelProject(projectId);
+  loadProject(projectId).catch((error) => log(error.message, true));
+});
 $('#billableConfirm').addEventListener('change', updateGenerateButton);
 $('#generateButton').addEventListener('click', generate);
 $('#storyboardButton').addEventListener('click', generateStoryboard);
 $('#refreshButton').addEventListener('click', () => load());
 $('#studioRefreshButton').addEventListener('click', () => loadStudio().catch((error) => log(error.message, true)));
 $('#snapshotButton').addEventListener('click', createSnapshot);
-$('#studioProjectSelect').addEventListener('change', (event) => loadStudio(event.target.value).catch((error) => log(error.message, true)));
+$('#studioProjectSelect').addEventListener('change', (event) => {
+  const projectId = setActiveNovelProject(event.target.value);
+  if (projectId) loadStudio(projectId).catch((error) => log(error.message, true));
+});
 $('#clearLog').addEventListener('click', () => { $('#logList').innerHTML = ''; });
 document.querySelectorAll('.nav-item').forEach((item) => item.addEventListener('click', () => setView(item.dataset.view, item.dataset.workspace || state.currentWorkspace)));
 load();
