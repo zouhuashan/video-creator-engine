@@ -135,7 +135,6 @@ class NovelWebImportTests(unittest.TestCase):
             # metadata is still present and the source prose is not.
             bible = load_bible(project)
             bible["characters"] = []
-            bible["revision"] += 1
             from scripts.novel_story_bible import write_bible
             write_bible(project, bible, overwrite=True)
 
