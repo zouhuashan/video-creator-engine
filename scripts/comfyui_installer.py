@@ -27,6 +27,9 @@ SOURCE_URL = "https://github.com/Comfy-Org/ComfyUI.git"
 MIN_FREE_BYTES = 6 * 1024 * 1024 * 1024
 CERT_DIR = DEPENDENCIES / "certs"
 MACOS_CA_BUNDLE = CERT_DIR / "macos-trust.pem"
+MANAGED_PYTHON_DIR = DEPENDENCIES / "python"
+MANAGED_PYTHON_BIN_DIR = DEPENDENCIES / "python-bin"
+MANAGED_PYTHON_REQUEST = "cpython-3.13-macos-aarch64-none"
 PYPI_PROBE_URL = "https://pypi.org/simple/pip/"
 
 
@@ -131,6 +134,150 @@ def _python_version(executable: str) -> tuple[int, int] | None:
         return value if value[0] == 3 else None
     except (OSError, ValueError, subprocess.SubprocessError):
         return None
+
+
+def _find_uv() -> str | None:
+    found = shutil.which("uv")
+    if found:
+        return found
+    candidates = [
+        Path("/opt/homebrew/bin/uv"),
+        Path("/usr/local/bin/uv"),
+    ]
+    candidates.extend(sorted((Path.home() / "Library" / "Python").glob("*/bin/uv"), reverse=True))
+    for candidate in candidates:
+        if candidate.is_file() and os.access(candidate, os.X_OK):
+            return str(candidate)
+    return None
+
+
+def _managed_uv_env(base_env: dict[str, str] | None = None) -> dict[str, str]:
+    env = dict(base_env or os.environ)
+    env["UV_PYTHON_INSTALL_DIR"] = str(MANAGED_PYTHON_DIR)
+    env["UV_PYTHON_BIN_DIR"] = str(MANAGED_PYTHON_BIN_DIR)
+    env["UV_PYTHON_PREFERENCE"] = "only-managed"
+    env["UV_MANAGED_PYTHON"] = "1"
+    env["UV_NO_MODIFY_PATH"] = "1"
+    return env
+
+
+def _managed_python_path() -> Path | None:
+    expected = MANAGED_PYTHON_DIR / MANAGED_PYTHON_REQUEST / "bin" / "python3.13"
+    if expected.is_file():
+        return expected
+    if MANAGED_PYTHON_DIR.is_dir():
+        for candidate in sorted(
+            MANAGED_PYTHON_DIR.glob("cpython-3.13*-macos-aarch64-none/bin/python3.13"),
+            reverse=True,
+        ):
+            if candidate.is_file():
+                return candidate
+    return None
+
+
+def _python_runtime_healthy(executable: str, *, require_arm64: bool = False) -> tuple[bool, str]:
+    script = (
+        "import json,platform,sys;"
+        "print(json.dumps({'version':[sys.version_info.major,sys.version_info.minor],"
+        "'machine':platform.machine(),'mac':platform.mac_ver()[0]}))"
+    )
+    try:
+        result = subprocess.run(
+            [executable, "-c", script],
+            capture_output=True,
+            text=True,
+            timeout=6,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as error:
+        return False, str(error)
+    if result.returncode != 0:
+        return False, (result.stderr or result.stdout or "runtime probe failed").strip()[-1000:]
+    try:
+        payload = json.loads(result.stdout.strip())
+    except json.JSONDecodeError:
+        return False, "runtime probe returned invalid JSON"
+    machine = str(payload.get("machine") or "").lower()
+    mac_version = str(payload.get("mac") or "")
+    if platform.system() == "Darwin" and not mac_version:
+        return False, "platform.mac_ver() returned empty value"
+    if require_arm64 and machine not in {"arm64", "aarch64"}:
+        return False, f"expected arm64 Python, got {machine or 'unknown'}"
+    return True, ""
+
+
+def _ensure_managed_python(log, env: dict[str, str]) -> Path:
+    if not _apple_silicon_host():
+        raise ComfyUIInstallError("项目私有 Python 3.13 仅用于 Apple Silicon")
+    uv = _find_uv()
+    if not uv:
+        raise ComfyUIInstallError("未找到 uv，无法安装项目私有 arm64 Python 3.13")
+
+    existing = _managed_python_path()
+    if existing is not None:
+        healthy, _ = _python_runtime_healthy(str(existing), require_arm64=True)
+        if healthy:
+            return existing
+
+    MANAGED_PYTHON_DIR.mkdir(parents=True, exist_ok=True)
+    MANAGED_PYTHON_BIN_DIR.mkdir(parents=True, exist_ok=True)
+    uv_env = _managed_uv_env(env)
+    _run(
+        [
+            uv,
+            "python",
+            "install",
+            MANAGED_PYTHON_REQUEST,
+            "--install-dir",
+            str(MANAGED_PYTHON_DIR),
+            "--no-progress",
+            "--no-config",
+        ],
+        cwd=ROOT,
+        log=log,
+        label="INSTALL_MANAGED_PYTHON",
+        env=uv_env,
+    )
+    python = _managed_python_path()
+    if python is None:
+        raise ComfyUIInstallError("uv 已完成 Python 安装，但未找到项目私有 Python 3.13")
+    healthy, detail = _python_runtime_healthy(str(python), require_arm64=True)
+    if not healthy:
+        raise ComfyUIInstallError(f"项目私有 Python 3.13 自检失败: {detail}")
+    return python
+
+
+def _create_uv_managed_venv(managed_python: Path, log, env: dict[str, str]) -> Path:
+    uv = _find_uv()
+    if not uv:
+        raise ComfyUIInstallError("未找到 uv，无法创建项目私有 ComfyUI venv")
+    venv_dir = INSTALL_DIR / ".venv"
+    if venv_dir.exists():
+        shutil.rmtree(venv_dir)
+    uv_env = _managed_uv_env(env)
+    _run(
+        [
+            uv,
+            "venv",
+            str(venv_dir),
+            "--python",
+            str(managed_python),
+            "--seed",
+            "--clear",
+            "--no-config",
+        ],
+        cwd=INSTALL_DIR,
+        log=log,
+        label="CREATE_UV_MANAGED_VENV",
+        env=uv_env,
+    )
+    python = _venv_python()
+    if not python.is_file():
+        raise ComfyUIInstallError("uv managed venv 创建后未找到 Python")
+    healthy, detail = _python_runtime_healthy(str(python), require_arm64=True)
+    if not healthy:
+        raise ComfyUIInstallError(f"uv managed venv 自检失败: {detail}")
+    return python
 
 
 def _python_candidates() -> list[str]:
@@ -680,27 +827,57 @@ def install() -> dict[str, Any]:
 
             excluded: set[str] = set()
             torch_failures: list[str] = []
+            managed_attempted = False
             while True:
-                try:
-                    bootstrap_python, install_env, ca_source = choose_bootstrap_runtime(excluded)
-                except ComfyUIInstallError as error:
-                    if torch_failures:
-                        raise ComfyUIInstallError(
-                            "所有可用 Python runtime 都无法满足 ComfyUI/PyTorch 平台依赖："
-                            + " | ".join(torch_failures[-4:])
-                        ) from error
-                    raise
+                use_managed = _apple_silicon_host() and not managed_attempted
+                if use_managed:
+                    managed_attempted = True
+                    try:
+                        install_env = _network_env()
+                        managed_python = _ensure_managed_python(log, install_env)
+                        bootstrap_python = str(managed_python)
+                        default_bundle = _default_ca_bundle(bootstrap_python)
+                        if default_bundle is not None:
+                            install_env = _network_env(default_bundle)
+                            ca_source = str(default_bundle)
+                        else:
+                            ca_source = "uv-managed-python-default"
+                        log.write(f"bootstrap_python={bootstrap_python}\n".encode())
+                        log.write(b"python_source=uv-managed-project-private\n")
+                        log.write(f"ca_source={ca_source}\n".encode())
+                        log.flush()
+                        python = _create_uv_managed_venv(managed_python, log, install_env)
+                    except ComfyUIInstallError as error:
+                        torch_failures.append(f"uv-managed Python 3.13: {error}")
+                        log.write(
+                            f"managed Python bootstrap failed: {error}; falling back to system runtimes\n".encode(
+                                "utf-8", errors="replace"
+                            )
+                        )
+                        log.flush()
+                        continue
+                else:
+                    try:
+                        bootstrap_python, install_env, ca_source = choose_bootstrap_runtime(excluded)
+                    except ComfyUIInstallError as error:
+                        if torch_failures:
+                            raise ComfyUIInstallError(
+                                "所有可用 Python runtime 都无法满足 ComfyUI/PyTorch 平台依赖："
+                                + " | ".join(torch_failures[-4:])
+                            ) from error
+                        raise
 
-                log.write(f"bootstrap_python={bootstrap_python}\n".encode())
-                log.write(f"ca_source={ca_source}\n".encode())
-                log.flush()
-
-                python = _ensure_venv(bootstrap_python, log, install_env)
+                    log.write(f"bootstrap_python={bootstrap_python}\n".encode())
+                    log.write(b"python_source=system-fallback\n")
+                    log.write(f"ca_source={ca_source}\n".encode())
+                    log.flush()
+                    python = _ensure_venv(bootstrap_python, log, install_env)
                 try:
                     _probe_requirements(python, log, install_env)
                 except ComfyUIRequirementsUnavailable as error:
                     torch_failures.append(f"{bootstrap_python}: {error}")
-                    excluded.add(bootstrap_python)
+                    if not use_managed:
+                        excluded.add(bootstrap_python)
                     log.write(
                         f"requirements incompatible for {bootstrap_python}; trying next Python runtime\n".encode(
                             "utf-8", errors="replace"
@@ -713,7 +890,8 @@ def install() -> dict[str, Any]:
                     torch_channel = _install_torch(python, log, install_env)
                 except ComfyUITorchUnavailable as error:
                     torch_failures.append(f"{bootstrap_python}: {error}")
-                    excluded.add(bootstrap_python)
+                    if not use_managed:
+                        excluded.add(bootstrap_python)
                     log.write(
                         f"torch wheel unavailable for {bootstrap_python}; trying next Python runtime\n".encode(
                             "utf-8", errors="replace"
@@ -732,6 +910,7 @@ def install() -> dict[str, Any]:
                 pid=None,
                 install_dir=str(INSTALL_DIR),
                 python=str(python),
+                python_source="uv-managed-project-private" if use_managed else "system-fallback",
                 ca_source=ca_source,
                 torch_channel=torch_channel,
                 torch=str(info.get("torch") or ""),
