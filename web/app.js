@@ -1327,6 +1327,136 @@ async function reviewImageStudio(status) {
   } catch (error) { log(error.message, true); }
 }
 
+function imageStudioGenerationView(label) {
+  const wrap = $('#imageStudioGenerationProgress');
+  const title = $('#imageStudioGenerationTitle');
+  const detail = $('#imageStudioGenerationDetail');
+  const percent = $('#imageStudioGenerationPercent');
+  const bar = $('#imageStudioGenerationProgressBar');
+  const startedAt = Date.now();
+  let lastProgressAt = 0;
+
+  wrap.classList.remove('hidden');
+  title.textContent = `正在生成${label}`;
+  detail.textContent = '任务已提交，等待 ComfyUI 开始执行…';
+  percent.textContent = '0%';
+  bar.style.width = '0%';
+
+  const timer = window.setInterval(() => {
+    if (Date.now() - lastProgressAt < 1500) return;
+    const elapsed = Math.max(1, Math.floor((Date.now() - startedAt) / 1000));
+    detail.textContent = `ComfyUI 正在计算 · 已运行 ${elapsed} 秒`;
+  }, 1000);
+
+  return {
+    update(value, max, message = '') {
+      const current = Math.max(0, Number(value) || 0);
+      const total = Math.max(0, Number(max) || 0);
+      const ratio = total > 0 ? Math.min(100, current * 100 / total) : 0;
+      lastProgressAt = Date.now();
+      percent.textContent = total > 0 ? `${Math.round(ratio)}%` : '运行中';
+      bar.style.width = `${ratio}%`;
+      detail.textContent = message || (total > 0 ? `采样进度 ${current}/${total}` : 'ComfyUI 正在执行…');
+    },
+    running(message) {
+      lastProgressAt = Date.now();
+      percent.textContent = '运行中';
+      detail.textContent = message;
+    },
+    complete(message) {
+      window.clearInterval(timer);
+      lastProgressAt = Date.now();
+      percent.textContent = '100%';
+      bar.style.width = '100%';
+      title.textContent = `${label}生成完成`;
+      detail.textContent = message || '图片已保存并载入预览';
+    },
+    fail(message) {
+      window.clearInterval(timer);
+      title.textContent = `${label}生成失败`;
+      detail.textContent = message || '生成失败';
+      percent.textContent = 'FAIL';
+    },
+    stop() {
+      window.clearInterval(timer);
+    },
+  };
+}
+
+async function openComfyUIProgressSocket(baseUrl, clientId, progressView, button) {
+  if (!baseUrl || !clientId) return null;
+  let url;
+  try {
+    const parsed = new URL(baseUrl);
+    parsed.protocol = parsed.protocol === 'https:' ? 'wss:' : 'ws:';
+    parsed.pathname = '/ws';
+    parsed.search = `?clientId=${encodeURIComponent(clientId)}`;
+    url = parsed.toString();
+  } catch (_) {
+    return null;
+  }
+
+  return new Promise((resolve) => {
+    let settled = false;
+    let socket;
+    const done = (value) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeout);
+      resolve(value);
+    };
+    const timeout = window.setTimeout(() => {
+      try { socket?.close(); } catch (_) {}
+      progressView.running('任务已提交；实时进度连接不可用，继续等待 ComfyUI 完成…');
+      done(null);
+    }, 1800);
+
+    try {
+      socket = new WebSocket(url);
+    } catch (_) {
+      done(null);
+      return;
+    }
+
+    socket.onopen = () => {
+      progressView.running('已连接 ComfyUI，等待采样开始…');
+      done(socket);
+    };
+    socket.onerror = () => done(null);
+    socket.onmessage = (event) => {
+      if (typeof event.data !== 'string') return;
+      let message;
+      try { message = JSON.parse(event.data); } catch (_) { return; }
+      const data = message?.data || {};
+      if (data.prompt_id && typeof data.prompt_id !== 'string') return;
+
+      if (message.type === 'progress') {
+        const value = Number(data.value || 0);
+        const max = Number(data.max || 0);
+        progressView.update(value, max, max ? `采样进度 ${value}/${max}` : 'ComfyUI 正在采样…');
+        if (max > 0) button.textContent = `生成中 ${value}/${max}`;
+      } else if (message.type === 'progress_state') {
+        const nodes = data.nodes && typeof data.nodes === 'object' ? Object.values(data.nodes) : [];
+        const active = nodes.find((node) => node?.state === 'executing') || nodes[nodes.length - 1];
+        if (active && Number(active.max || 0) > 0) {
+          const value = Number(active.value || 0);
+          const max = Number(active.max || 0);
+          progressView.update(value, max, `采样进度 ${value}/${max}`);
+          button.textContent = `生成中 ${value}/${max}`;
+        }
+      } else if (message.type === 'execution_start') {
+        progressView.running('ComfyUI 已开始执行工作流…');
+      } else if (message.type === 'executing' && data.node) {
+        progressView.running('ComfyUI 正在执行节点…');
+      } else if (message.type === 'execution_success') {
+        progressView.update(1, 1, 'ComfyUI 执行完成，正在保存图片…');
+      } else if (message.type === 'execution_error') {
+        progressView.fail(data.exception_message || 'ComfyUI 工作流执行失败');
+      }
+    };
+  });
+}
+
 async function generateImageStudio(kind) {
   const projectId = state.imageStudioProjectId || state.animeProjects[0]?.directory_id;
   if (!projectId) { log('没有可用的国漫项目', true); return; }
@@ -1345,10 +1475,22 @@ async function generateImageStudio(kind) {
 
   const button = kind === 'character-bible' ? $('#generateCharacterBibleButton') : $('#generateKeyframeButton');
   const original = button.innerHTML;
+  const progressView = imageStudioGenerationView(label);
+  const clientId = usesRemote
+    ? ''
+    : `videocreator-${window.crypto?.randomUUID?.() || (Date.now().toString(36) + Math.random().toString(36).slice(2))}`;
+  let progressSocket = null;
+
   button.disabled = true;
   button.textContent = '生成中…';
   log(`开始生成${label} · ${usesRemote ? 'OpenAI fallback' : 'ComfyUI local'}…`);
   try {
+    if (!usesRemote) {
+      progressSocket = await openComfyUIProgressSocket(comfyui.base_url || 'http://127.0.0.1:8188', clientId, progressView, button);
+    } else {
+      progressView.running('OpenAI Image 正在生成；远程 Provider 暂无本地采样步进度…');
+    }
+
     const result = await api(`/api/image-studio/${kind}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1357,14 +1499,23 @@ async function generateImageStudio(kind) {
         custom_prompt: $('#imageStudioPrompt').value.trim(),
         confirm_billable: usesRemote,
         provider_preference: preference,
+        comfyui_client_id: clientId,
       }),
     });
+    progressView.complete('生成完成，图片已保存并载入预览');
     showImageStudioResult(result);
     await loadImageStudio(projectId);
     showImageStudioResult(result);
     log(`${label}生成完成：${result.output}`);
-  } catch (error) { log(error.message, true); }
-  finally { button.disabled = false; button.innerHTML = original; }
+  } catch (error) {
+    progressView.fail(error.message);
+    log(error.message, true);
+  } finally {
+    progressView.stop();
+    try { progressSocket?.close(); } catch (_) {}
+    button.disabled = false;
+    button.innerHTML = original;
+  }
 }
 
 async function loadStudio(projectId = state.studioProjectId || state.animeProjects[0]?.directory_id) {
