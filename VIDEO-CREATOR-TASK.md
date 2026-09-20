@@ -3434,6 +3434,18 @@ P30-06 追加修复（2026-09-20，针对 Web 报错“未检测到 ComfyUI 安�
 - 官方当前仍支持 Apple Silicon；ComfyUI 文档建议独立环境并在 Apple Silicon 使用 PyTorch nightly，PyTorch 当前 MPS 后端仍为官方支持路径。
 - 当前 GitHub connector 仍未返回 workflow run/status，因此不虚报 CI PASS；真实 clone/pip/MPS 安装必须在用户 Mac 上执行。
 
+P30-06 ComfyUI 启动依赖漂移修复（2026-09-20 13:01 CST，真实 Mac 日志）：
+
+- checkpoint 下载后启动受管 ComfyUI 时，`app/database/db.py` 导入 `filelock` 失败，实际报错 `ModuleNotFoundError: No module named 'filelock'`。
+- 当前 ComfyUI 官方 `requirements.txt` 已把 `filelock` 列为直接依赖；官方 README 也明确要求启动前执行 `pip install -r requirements.txt`。因此不采用单独 `pip install filelock` 的一次性补丁，而按“源码 requirements 与 venv 依赖漂移”修复。
+- 核心 installer 的 PASS 门升级：安装 requirements 后不仅验证 torch/MPS，还逐条读取当前 `requirements.txt`，通过 `importlib.metadata` + `packaging.Requirement` 检查每个 distribution 是否存在、版本约束是否满足，并额外执行关键模块 import smoke。缺任意官方依赖不得再标记 COMPLETE。
+- 核心安装成功状态新增 `requirements_sha256` 与 `dependencies_verified_at`，记录当时已验证的官方 requirements 指纹。
+- 受管服务启动前新增依赖同步门：仅对项目 `.dependencies/ComfyUI` 比较当前 requirements SHA256 与 installer state；若指纹变化、缺包或关键 import 失败，自动运行当前 venv 的 `pip install -r requirements.txt`，完成后重新做全 requirements 元数据校验 + import smoke，通过后才启动 `main.py`。
+- 依赖同步继承核心安装成功时的 CA 路径（`SSL_CERT_FILE` / `PIP_CERT` / `REQUESTS_CA_BUNDLE`），不关闭 TLS。
+- 外部/Desktop ComfyUI 保持只读边界：VideoCreator 不会自动修改其 Python 依赖。
+- 新增回归：缺 `filelock` 时启动前自动同步 requirements；指纹和依赖均当前时不执行 pip；外部 ComfyUI 绝不自动改依赖。
+- 关键提交：`b483f9f`、`6215f46`、`89a949e`、`0b75457`、`3240c09`。
+
 P30-06 checkpoint 下载网络修复（2026-09-20 11:52 CST，真实 Mac 日志）：
 
 - 首次 Web 模型安装已进入固定白名单 Animagine XL 4.0 下载，但 `/usr/bin/curl` 直连 `huggingface.co:443` 连续超时；模型文件、SHA256、checkpoint 路径本身尚未进入校验阶段。
