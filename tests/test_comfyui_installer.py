@@ -27,6 +27,27 @@ class ComfyUIInstallerTests(unittest.TestCase):
             self.assertEqual(env["PIP_CERT"], str(bundle))
             self.assertEqual(env["REQUESTS_CA_BUNDLE"], str(bundle))
 
+    def test_prefers_repaired_python_313_over_default_python_314(self):
+        with tempfile.TemporaryDirectory() as directory:
+            bundle = Path(directory) / "macos-trust.pem"
+            bundle.write_text("fixture\n", encoding="utf-8")
+
+            def fake_probe(executable, env):
+                if executable.endswith("python3.13"):
+                    return (bool(env.get("SSL_CERT_FILE")), "certificate verify failed")
+                return (True, "")
+
+            with patch.object(installer, "_python_candidates", return_value=["/opt/local/python3.13", "/opt/homebrew/python3.14"]), \
+                 patch.object(installer, "_export_macos_trust_bundle", return_value=bundle), \
+                 patch.object(installer, "_candidate_ca_bundles", return_value=[bundle]), \
+                 patch.object(installer, "_https_probe", side_effect=fake_probe), \
+                 patch.object(installer, "_default_ca_bundle", return_value=None):
+                python, env, ca_source = installer.choose_bootstrap_runtime()
+
+            self.assertEqual(python, "/opt/local/python3.13")
+            self.assertEqual(env["PIP_CERT"], str(bundle))
+            self.assertEqual(ca_source, str(bundle))
+
     def test_runtime_recovers_tls_with_exported_macos_ca_bundle(self):
         with tempfile.TemporaryDirectory() as directory:
             bundle = Path(directory) / "macos-trust.pem"
@@ -51,15 +72,19 @@ class ComfyUIInstallerTests(unittest.TestCase):
             self.assertGreaterEqual(len(probes), 2)
 
     def test_venv_runtime_drift_is_detected_even_when_version_matches(self):
-        with patch.object(installer, "_python_identity", side_effect=[
-            (3, 13, "/opt/homebrew/Frameworks/Python.framework/Versions/3.13"),
-            (3, 13, "/opt/local/Library/Frameworks/Python.framework/Versions/3.13"),
-        ]):
-            matches, reason = installer._venv_matches_bootstrap(
-                Path("/tmp/venv/bin/python"),
-                "/opt/homebrew/bin/python3.13",
-                {},
-            )
+        with tempfile.TemporaryDirectory() as directory:
+            venv_python = Path(directory) / "venv" / "bin" / "python"
+            venv_python.parent.mkdir(parents=True)
+            venv_python.write_text("", encoding="utf-8")
+            with patch.object(installer, "_python_identity", side_effect=[
+                (3, 13, "/opt/homebrew/Frameworks/Python.framework/Versions/3.13"),
+                (3, 13, "/opt/local/Library/Frameworks/Python.framework/Versions/3.13"),
+            ]):
+                matches, reason = installer._venv_matches_bootstrap(
+                    venv_python,
+                    "/opt/homebrew/bin/python3.13",
+                    {},
+                )
         self.assertFalse(matches)
         self.assertIn("runtime changed", reason)
 
