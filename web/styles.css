@@ -262,3 +262,9 @@ body.rig-v2-open { overflow: hidden; }
 .image-character-repair .novel-file-drop{margin:0}
 .image-character-repair .secondary-button{width:100%}
 \n.repository-row button.danger-action{border-color:rgba(225,98,98,.45);background:rgba(225,98,98,.08);color:#f0a1a1}.repository-row button.danger-action:hover{background:rgba(225,98,98,.16)}\n
+.project-select-actions{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:stretch}
+.project-select-actions .select-field{min-width:0}
+.project-delete-button{border:1px solid rgba(239,130,125,.42);background:rgba(239,130,125,.08);color:#f0a1a1;border-radius:9px;padding:0 13px;cursor:pointer;font:inherit;font-size:11px;white-space:nowrap}
+.project-delete-button:hover{background:rgba(239,130,125,.16);border-color:rgba(239,130,125,.68)}
+.project-delete-button:disabled{opacity:.38;cursor:not-allowed;background:rgba(239,130,125,.04)}
+@media(max-width:650px){.project-select-actions{grid-template-columns:1fr}.project-delete-button{padding:10px 13px}}
