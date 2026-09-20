@@ -77,6 +77,7 @@ from support.providers.image_provider_router import ImageProviderRouteError, Ima
 from scripts.pipeline_orchestrator import PipelineError, pipeline_preflight, pipeline_status, run_pipeline, update_pipeline_review  # noqa: E402
 from scripts.novel_web_import import MAX_WEB_UPLOAD_BYTES, NovelWebImportError, create_project_from_web_upload  # noqa: E402
 from scripts.comfyui_service_manager import ComfyUIServiceError, service_status as comfyui_service_status, start_service as start_comfyui_service, stop_service as stop_comfyui_service  # noqa: E402
+from scripts.comfyui_installer import ComfyUIInstallError, start_background_install as start_comfyui_install, status as comfyui_install_status  # noqa: E402
 
 
 PROVIDER_TYPES = {
@@ -1088,6 +1089,11 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                 return self._json(comfyui_service_status(_comfyui_base_url()))
             except (ComfyUIServiceError, ValueError, OSError) as error:
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
+        if parsed.path == "/api/comfyui/install/status":
+            try:
+                return self._json(comfyui_install_status())
+            except (ComfyUIInstallError, ValueError, OSError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
         if parsed.path == "/api/projects":
             return self._json({"projects": self._projects()})
         if parsed.path == "/api/novel-anime/projects":
@@ -1471,6 +1477,11 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
             except Exception as error:
                 return self._error(HTTPStatus.INTERNAL_SERVER_ERROR, f"novel import failed: {error}")
+        if route == "/api/comfyui/install/start":
+            try:
+                return self._json(start_comfyui_install(), HTTPStatus.ACCEPTED)
+            except (ComfyUIInstallError, ValueError, OSError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
         if route in {"/api/comfyui/service/start", "/api/comfyui/service/stop"}:
             try:
                 if route.endswith("/start"):
