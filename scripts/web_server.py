@@ -840,7 +840,7 @@ def _project_image_character(project: Path) -> tuple[dict[str, object], bool, st
             "age_read": description or role,
             "face": face,
             "hair": hair,
-            "costume": "source-consistent period costume; follow reviewed project character design when available",
+            "costume": "ancient Chinese role-appropriate hanfu or period robe, crossed collar, layered silk/linen, wide sleeves or practical bracers as role requires, sash/belt, traditional Chinese hair ornament and restrained jade/metal details; follow reviewed project character design when available; never modern clothing or Japanese school uniform",
             "body": body,
             "mood": mood,
         },
