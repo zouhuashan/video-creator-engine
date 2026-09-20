@@ -8,9 +8,32 @@ import scripts.comfyui_installer as installer
 
 class ComfyUIInstallerTests(unittest.TestCase):
     def test_choose_bootstrap_python_prefers_supported_versions(self):
-        with patch.object(installer.shutil, "which", side_effect=lambda name: "/opt/python3.13" if name == "python3.13" else None), \
-             patch.object(installer, "_python_version", return_value=(3, 13)):
+        with patch.object(installer, "_python_candidates", return_value=["/opt/python3.13"]), \
+             patch.object(installer, "_https_probe", return_value=(True, "")):
             self.assertEqual(installer.choose_bootstrap_python(), "/opt/python3.13")
+
+    def test_runtime_recovers_tls_with_exported_macos_ca_bundle(self):
+        with tempfile.TemporaryDirectory() as directory:
+            bundle = Path(directory) / "macos-trust.pem"
+            bundle.write_text("-----BEGIN CERTIFICATE-----\nfixture\n-----END CERTIFICATE-----\n", encoding="utf-8")
+            probes = []
+
+            def fake_probe(executable, env):
+                probes.append(dict(env))
+                return (bool(env.get("SSL_CERT_FILE")), "certificate verify failed")
+
+            with patch.object(installer, "_python_candidates", return_value=["/opt/python3.13"]), \
+                 patch.object(installer, "_export_macos_trust_bundle", return_value=bundle), \
+                 patch.object(installer, "_candidate_ca_bundles", return_value=[bundle]), \
+                 patch.object(installer, "_https_probe", side_effect=fake_probe):
+                python, env, ca_source = installer.choose_bootstrap_runtime()
+
+            self.assertEqual(python, "/opt/python3.13")
+            self.assertEqual(env["SSL_CERT_FILE"], str(bundle))
+            self.assertEqual(env["PIP_CERT"], str(bundle))
+            self.assertEqual(env["REQUESTS_CA_BUNDLE"], str(bundle))
+            self.assertEqual(ca_source, str(bundle))
+            self.assertGreaterEqual(len(probes), 2)
 
     def test_start_background_install_never_uses_shell_or_user_command(self):
         process = Mock()
@@ -42,15 +65,15 @@ class ComfyUIInstallerTests(unittest.TestCase):
                 (install_dir / "main.py").write_text("print('fixture')\n", encoding="utf-8")
                 (install_dir / "requirements.txt").write_text("requests\n", encoding="utf-8")
 
-            def fake_venv(bootstrap_python, log):
+            def fake_venv(bootstrap_python, log, env):
                 venv_python.parent.mkdir(parents=True)
                 venv_python.write_text("", encoding="utf-8")
                 return venv_python
 
-            def fake_torch(python, log):
+            def fake_torch(python, log, env):
                 run_labels.append("torch")
 
-            def fake_requirements(python, log):
+            def fake_requirements(python, log, env):
                 run_labels.append("requirements")
 
             with patch.object(installer, "ROOT", root), \
@@ -61,7 +84,7 @@ class ComfyUIInstallerTests(unittest.TestCase):
                  patch.object(installer, "STATE_PATH", root / "logs" / "state.json"), \
                  patch.object(installer.shutil, "which", return_value="/usr/bin/git"), \
                  patch.object(installer.shutil, "disk_usage", return_value=Mock(free=20 * 1024**3)), \
-                 patch.object(installer, "choose_bootstrap_python", return_value="/usr/bin/python3"), \
+                 patch.object(installer, "choose_bootstrap_runtime", return_value=("/usr/bin/python3", {"PATH": "/usr/bin"}, "/etc/ssl/cert.pem")), \
                  patch.object(installer, "_clone_or_repair", side_effect=fake_clone), \
                  patch.object(installer, "_ensure_venv", side_effect=fake_venv), \
                  patch.object(installer, "_install_torch", side_effect=fake_torch), \
