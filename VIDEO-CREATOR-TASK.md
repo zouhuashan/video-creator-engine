@@ -3434,6 +3434,20 @@ P30-06 追加修复（2026-09-20，针对 Web 报错“未检测到 ComfyUI 安�
 - 官方当前仍支持 Apple Silicon；ComfyUI 文档建议独立环境并在 Apple Silicon 使用 PyTorch nightly，PyTorch 当前 MPS 后端仍为官方支持路径。
 - 当前 GitHub connector 仍未返回 workflow run/status，因此不虚报 CI PASS；真实 clone/pip/MPS 安装必须在用户 Mac 上执行。
 
+P30-06 安装器第七轮修复（2026-09-20，真实 Mac 日志）：
+
+- 第八次真实安装已进入 Homebrew arm64 Python 3.14，但该解释器生成的半成品 venv 被 uv 判定为 broken：`platform.mac_ver() returned an empty value`；外层 pip `--python <venv>` 同时触发 pip 内部 `No module named pip._internal.operations.install.wheel`。继续修系统 Python 3.14 不再有价值。
+- 架构策略升级为“项目私有 runtime first”：Apple Silicon 上优先由现有 `uv` 下载并管理 `cpython-3.13-macos-aarch64-none`，固定安装到 `.dependencies/python`，可执行入口固定在项目私有目录，不依赖 MacPorts/Homebrew Python。
+- uv 官方支持精确 Python request `<implementation>-<version>-<os>-<arch>-<libc>`，支持 `--install-dir` / `UV_PYTHON_INSTALL_DIR` 自定义安装目录；3.13 属于 uv Tier 1 支持版本。
+- 项目私有 Python 安装命令使用 `uv python install cpython-3.13-macos-aarch64-none --install-dir .dependencies/python`，并设置 `UV_PYTHON_PREFERENCE=only-managed`；不会修改用户 shell PATH。
+- ComfyUI venv 不再通过该 Python 自己的 `ensurepip` 创建；使用 `uv venv --python <managed-python> --seed --clear` 直接生成带 pip 的 `.dependencies/ComfyUI/.venv`。
+- managed Python 和 managed venv 均执行 runtime health check：Python 3.13、`platform.machine()` 必须为 arm64/aarch64、macOS 下 `platform.mac_ver()` 必须非空。
+- uv 下载 managed Python 时继续继承此前已验证的 macOS CA bundle；TLS 验证不关闭。
+- 仅当项目私有 uv-managed Python 3.13 本身安装/兼容性失败时，才 fallback 到系统 arm64 Python；x86_64 MacPorts Python 仍在候选阶段剔除。
+- PyTorch Apple Silicon 判断改为真实宿主机检测（含 Rosetta 下 `sysctl hw.optional.arm64`），不再依赖 Web/installer 当前进程自身的 `platform.machine()`。
+- 回归新增：managed Python 固定项目目录与 arm64 request、uv venv 必须 `--seed --clear` 且精确绑定 managed Python、Apple Silicon 安装必须优先 managed runtime 而不调用 system runtime。
+- 关键提交：`d868aee`、`8f28ef2`、`0ed072c`、`2bbab36`。
+
 P30-06 安装器第六轮修复（2026-09-20，真实 Mac 日志）：
 
 - 第七次真实安装已正确选中 Homebrew arm64 Python 3.14，并使用 `/opt/homebrew/etc/ca-certificates/cert.pem`；旧 x86_64 MacPorts venv 被自动删除。
