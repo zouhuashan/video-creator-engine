@@ -27,6 +27,25 @@ class ComfyUIModelManagerTests(unittest.TestCase):
         }
         return comfy, checkpoint_dir, model, payload
 
+    def test_verified_model_syncs_core_install_state(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            model_state = root / "logs" / "model.json"
+            install_state = root / "logs" / "install.json"
+            model_state.parent.mkdir(parents=True)
+            install_state.write_text(
+                '{"status":"PASS","step":"COMPLETE","models_installed":false}\n',
+                encoding="utf-8",
+            )
+            model = dict(manager.MODEL_CATALOG[manager.DEFAULT_MODEL_ID])
+            with patch.object(manager, "INSTALL_STATE_PATH", install_state):
+                manager._sync_core_install_model_state(installed=True, model=model)
+            payload = manager.json.loads(install_state.read_text(encoding="utf-8"))
+            self.assertTrue(payload["models_installed"])
+            self.assertTrue(payload["model_checkpoint_present"])
+            self.assertEqual(payload["checkpoint_model_id"], manager.DEFAULT_MODEL_ID)
+            self.assertEqual(payload["checkpoint_sha256"], model["sha256"])
+
     def test_status_does_not_rehash_previously_verified_checkpoint(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
