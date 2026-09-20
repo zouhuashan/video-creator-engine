@@ -38,6 +38,10 @@ class ComfyUITorchUnavailable(ComfyUIInstallError):
     pass
 
 
+class ComfyUIRequirementsUnavailable(ComfyUIInstallError):
+    pass
+
+
 def _write_state(status: str, step: str, detail: str, **extra: Any) -> dict[str, Any]:
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     payload = {
@@ -522,6 +526,20 @@ def _install_torch(python: Path, log, env: dict[str, str]) -> str:
     )
 
 
+def _probe_requirements(python: Path, log, env: dict[str, str]) -> None:
+    requirements = INSTALL_DIR / "requirements.txt"
+    if not requirements.is_file():
+        raise ComfyUIInstallError("ComfyUI requirements.txt 不存在")
+    command = [str(python), "-m", "pip", "install", "-r", str(requirements)]
+    ok, detail = _pip_dry_run(command, log=log, env=env, label="PROBE_REQUIREMENTS")
+    if ok:
+        return
+    raise ComfyUIRequirementsUnavailable(
+        "当前 Python runtime 无法满足 ComfyUI requirements"
+        + (f": {detail.splitlines()[-1]}" if detail else "")
+    )
+
+
 def _install_requirements(python: Path, log, env: dict[str, str]) -> None:
     requirements = INSTALL_DIR / "requirements.txt"
     if not requirements.is_file():
@@ -576,7 +594,7 @@ def install() -> dict[str, Any]:
                 except ComfyUIInstallError as error:
                     if torch_failures:
                         raise ComfyUIInstallError(
-                            "所有可用 Python runtime 都没有匹配的 PyTorch wheel："
+                            "所有可用 Python runtime 都无法满足 ComfyUI/PyTorch 平台依赖："
                             + " | ".join(torch_failures[-4:])
                         ) from error
                     raise
@@ -586,6 +604,19 @@ def install() -> dict[str, Any]:
                 log.flush()
 
                 python = _ensure_venv(bootstrap_python, log, install_env)
+                try:
+                    _probe_requirements(python, log, install_env)
+                except ComfyUIRequirementsUnavailable as error:
+                    torch_failures.append(f"{bootstrap_python}: {error}")
+                    excluded.add(bootstrap_python)
+                    log.write(
+                        f"requirements incompatible for {bootstrap_python}; trying next Python runtime\n".encode(
+                            "utf-8", errors="replace"
+                        )
+                    )
+                    log.flush()
+                    continue
+
                 try:
                     torch_channel = _install_torch(python, log, install_env)
                 except ComfyUITorchUnavailable as error:
