@@ -3434,6 +3434,18 @@ P30-06 追加修复（2026-09-20，针对 Web 报错“未检测到 ComfyUI 安�
 - 官方当前仍支持 Apple Silicon；ComfyUI 文档建议独立环境并在 Apple Silicon 使用 PyTorch nightly，PyTorch 当前 MPS 后端仍为官方支持路径。
 - 当前 GitHub connector 仍未返回 workflow run/status，因此不虚报 CI PASS；真实 clone/pip/MPS 安装必须在用户 Mac 上执行。
 
+P30-06 checkpoint 下载网络修复（2026-09-20 11:52 CST，真实 Mac 日志）：
+
+- 首次 Web 模型安装已进入固定白名单 Animagine XL 4.0 下载，但 `/usr/bin/curl` 直连 `huggingface.co:443` 连续超时；模型文件、SHA256、checkpoint 路径本身尚未进入校验阶段。
+- 根因定位为后台下载进程未获得可用外网代理路线，而不是 ComfyUI / PyTorch / 模型文件损坏。
+- `scripts/comfyui_model_manager.py` 新增网络路线自动发现：优先读取 `HTTPS_PROXY` / `ALL_PROXY` / `HTTP_PROXY`，再读取 Clash Verge/Mihomo 本地 Unix socket `/tmp/verge/*.sock` 的 `/configs`，最后读取 macOS `scutil --proxy`；只生成 loopback/system-derived proxy 候选，不接受 Web 任意代理 URL。
+- Clash Verge/Mihomo 自动发现读取 `mixed-port` / `port` / `socks-port`，转换为 `http://127.0.0.1:<port>` 或 `socks5h://127.0.0.1:<port>`；不硬编码代理端口。
+- 每个候选路线先用 1-byte Range 做小流量连通性 probe；代理可用则优先走代理，直连只作为最后 fallback，避免再次单次卡 75 秒。
+- 实际下载继续使用固定 Hugging Face URL、断点续传 `.part`、8 次 retry 和 15 秒 connect timeout；已有 partial 文件不会重下。
+- 日志和 Web 状态新增 `download_route` / `network_route`；若代理 URL 含认证信息，仅显示 scheme/host/port，不记录用户名或密码。
+- 新增 macOS system proxy、Clash Verge Unix socket、代理去重、凭据脱敏、代理优先路由回归测试。
+- 关键提交：`b1f2775`、`8664ffe`、`53473e1`、`5907202`、`26a0327`、`235f398`。
+
 P30-06 核心运行环境真实 Mac 验收 PASS（2026-09-20 10:54 CST）：
 
 - 用户 Web 一键安装返回 `status=PASS / step=COMPLETE`，ComfyUI 核心位于 `.dependencies/ComfyUI`。
