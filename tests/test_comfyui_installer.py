@@ -135,6 +135,60 @@ class ComfyUIInstallerTests(unittest.TestCase):
         self.assertNotIn("shell", popen.call_args.kwargs)
         self.assertEqual(result["action"], "STARTED")
 
+    def test_install_falls_back_to_next_python_when_torch_wheel_is_unavailable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            install_dir = root / ".dependencies" / "ComfyUI"
+            venv_python = install_dir / ".venv" / "bin" / "python"
+            runtime_calls = []
+            torch_calls = []
+
+            def fake_clone(log):
+                install_dir.mkdir(parents=True)
+                (install_dir / "main.py").write_text("print('fixture')\n", encoding="utf-8")
+                (install_dir / "requirements.txt").write_text("requests\n", encoding="utf-8")
+
+            def fake_runtime(excluded=None):
+                excluded = set(excluded or set())
+                runtime_calls.append(excluded)
+                if "/opt/local/python3.13" not in excluded:
+                    return "/opt/local/python3.13", {"PATH": "/usr/bin"}, "/tmp/macos-trust.pem"
+                return "/opt/homebrew/python3.14", {"PATH": "/usr/bin"}, "/opt/homebrew/cert.pem"
+
+            def fake_venv(bootstrap_python, log, env):
+                venv_python.parent.mkdir(parents=True, exist_ok=True)
+                venv_python.write_text(bootstrap_python, encoding="utf-8")
+                return venv_python
+
+            def fake_torch(python, log, env):
+                current = python.read_text(encoding="utf-8")
+                torch_calls.append(current)
+                if current == "/opt/local/python3.13":
+                    raise installer.ComfyUITorchUnavailable("no compatible wheel")
+                return "nightly"
+
+            with patch.object(installer, "ROOT", root), \
+                 patch.object(installer, "DEPENDENCIES", root / ".dependencies"), \
+                 patch.object(installer, "INSTALL_DIR", install_dir), \
+                 patch.object(installer, "LOG_DIR", root / "logs"), \
+                 patch.object(installer, "LOG_PATH", root / "logs" / "install.log"), \
+                 patch.object(installer, "STATE_PATH", root / "logs" / "state.json"), \
+                 patch.object(installer.shutil, "which", return_value="/usr/bin/git"), \
+                 patch.object(installer.shutil, "disk_usage", return_value=Mock(free=20 * 1024**3)), \
+                 patch.object(installer, "choose_bootstrap_runtime", side_effect=fake_runtime), \
+                 patch.object(installer, "_clone_or_repair", side_effect=fake_clone), \
+                 patch.object(installer, "_ensure_venv", side_effect=fake_venv), \
+                 patch.object(installer, "_install_torch", side_effect=fake_torch), \
+                 patch.object(installer, "_install_requirements", return_value=None), \
+                 patch.object(installer, "_verify", return_value={"torch": "2.15.0.dev", "mps_built": True, "mps_available": True}):
+                result = installer.install()
+
+            self.assertEqual(torch_calls, ["/opt/local/python3.13", "/opt/homebrew/python3.14"])
+            self.assertIn("/opt/local/python3.13", runtime_calls[1])
+            self.assertEqual(result["status"], "PASS")
+            self.assertEqual(result["torch_channel"], "nightly")
+            self.assertEqual(result["ca_source"], "/opt/homebrew/cert.pem")
+
     def test_install_flow_does_not_download_models(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -154,6 +208,7 @@ class ComfyUIInstallerTests(unittest.TestCase):
 
             def fake_torch(python, log, env):
                 run_labels.append("torch")
+                return "nightly"
 
             def fake_requirements(python, log, env):
                 run_labels.append("requirements")
