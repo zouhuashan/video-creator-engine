@@ -175,6 +175,15 @@ class WebServerTests(unittest.TestCase):
         self.assertTrue((web_server.WEB_ROOT / "app.js").is_file())
         self.assertTrue((web_server.WEB_ROOT / "styles.css").is_file())
 
+    def test_web_exposes_novel_import_workspace_and_local_upload_api(self):
+        index = (web_server.WEB_ROOT / "index.html").read_text(encoding="utf-8")
+        app = (web_server.WEB_ROOT / "app.js").read_text(encoding="utf-8")
+        self.assertIn('data-view="novelImport"', index)
+        self.assertIn('id="novelImportFile"', index)
+        self.assertIn('/api/novel-anime/import', app)
+        self.assertIn('OWNED_OR_LICENSED', app)
+        self.assertIn("TextDecoder('utf-8', { fatal: true })", app)
+
     def test_character_asset_inventory_exposes_registered_turnarounds(self):
         assets = web_server._character_asset_inventory(web_server._safe_project("jinghua-yuan-series"))
         asset_ids = {item["asset_id"] for item in assets}
