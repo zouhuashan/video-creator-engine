@@ -246,8 +246,21 @@
               <p class="helper-text">AUTO 优先使用本地 ComfyUI；只有回退到 OpenAI 时才会弹出远程计费确认。</p>
 
               <div class="image-lock-card" id="imageStudioCharacterLock">
-                <strong>CHAR-CHILD-001</strong>
+                <strong>PROJECT CHARACTER</strong>
                 <small>正在载入角色锁…</small>
+              </div>
+
+              <div class="image-character-repair hidden" id="imageStudioCharacterRepair">
+                <div>
+                  <strong>当前项目还没有角色候选</strong>
+                  <small>旧版小说导入没有自动发现人物。重新选择当初的 UTF-8 TXT，仅在内存中解析；正文不会保存，且会校验原始 SHA256。</small>
+                </div>
+                <label class="novel-file-drop compact" for="imageStudioCharacterSourceFile">
+                  <input id="imageStudioCharacterSourceFile" type="file" accept=".txt,text/plain" />
+                  <strong id="imageStudioCharacterSourceName">选择原小说 TXT</strong>
+                  <small id="imageStudioCharacterSourceHint">必须与当前项目最初导入的底本一致。</small>
+                </label>
+                <button class="secondary-button" id="imageStudioCharacterRepairButton">补全角色候选</button>
               </div>
             </div>
 
