@@ -53,6 +53,7 @@
                 <label class="field-label" for="pipelineProjectSelect">国漫项目</label>
                 <select id="pipelineProjectSelect" class="select-field"></select>
               </div>
+              <button class="secondary-button" id="pipelinePreflightButton"><span>✓</span>环境自检</button>
               <button class="primary-button pipeline-run-button" id="pipelineRunButton"><span>▶</span>创建整集（本地执行）</button>
               <button class="secondary-button pipeline-review-button" id="pipelineApproveButton" disabled>人工确认成片</button>
             </div>
@@ -60,7 +61,7 @@
               <div><strong id="pipelineProgressText">0%</strong><small id="pipelineNext">等待启动</small></div>
               <div class="pipeline-progress-track"><span id="pipelineProgressBar"></span></div>
             </div>
-            <div class="pipeline-stage-grid" id="pipelineStages"><div class="empty-state">点击“创建整集（自动规划）”，软件会生成完整机器执行图。P30-01 不会自动触发远程计费。</div></div>
+            <div class="pipeline-stage-grid" id="pipelineStages"><div class="empty-state">先点“环境自检”检查 ComfyUI / FFmpeg / ffprobe / 本地 TTS；再点“创建整集（本地执行）”。远程计费不会被静默触发。</div></div>
             <div class="pipeline-preview hidden" id="pipelinePreviewWrap">
               <div class="panel-heading compact"><div><span class="section-kicker">PREVIEW</span><h3>当前可预览成片</h3></div><span class="muted">最终发布仍需人工确认</span></div>
               <video id="pipelinePreview" controls playsinline></video>
