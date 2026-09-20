@@ -416,6 +416,92 @@ def _rebuild_venv(log, reason: str) -> None:
         raise ComfyUIInstallError(f"无法重建旧虚拟环境: {error}") from error
 
 
+def _pip_available(executable: str) -> bool:
+    try:
+        result = subprocess.run(
+            [executable, "-m", "pip", "--version"],
+            capture_output=True,
+            text=True,
+            timeout=8,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return result.returncode == 0
+
+
+def _bootstrap_venv_pip(bootstrap_python: str, venv_python: Path, log, env: dict[str, str]) -> None:
+    # pip supports managing a different interpreter via the global --python
+    # option. This lets us seed a venv that was intentionally created with
+    # --without-pip, avoiding a broken ensurepip in the distributor Python.
+    command = [
+        bootstrap_python,
+        "-m",
+        "pip",
+        "--python",
+        str(venv_python),
+        "install",
+        "--upgrade",
+        "pip",
+        "setuptools",
+        "wheel",
+    ]
+    try:
+        _run(command, cwd=INSTALL_DIR, log=log, label="BOOTSTRAP_VENV_PIP", env=env)
+        return
+    except ComfyUIInstallError as pip_error:
+        uv = shutil.which("uv")
+        if not uv:
+            raise ComfyUIInstallError(
+                "虚拟环境已创建，但 ensurepip 不可用，外层 pip 也无法向 venv 注入 pip"
+            ) from pip_error
+        log.write(b"bootstrap pip via outer Python failed; falling back to uv\n")
+        log.flush()
+        _run(
+            [uv, "pip", "install", "--python", str(venv_python), "--upgrade", "pip", "setuptools", "wheel"],
+            cwd=INSTALL_DIR,
+            log=log,
+            label="BOOTSTRAP_VENV_PIP_UV",
+            env=env,
+        )
+
+
+def _create_venv(bootstrap_python: str, log, env: dict[str, str]) -> None:
+    venv_dir = INSTALL_DIR / ".venv"
+    try:
+        _run(
+            [bootstrap_python, "-m", "venv", str(venv_dir)],
+            cwd=INSTALL_DIR,
+            log=log,
+            label="CREATE_VENV",
+            env=env,
+        )
+        return
+    except ComfyUIInstallError:
+        log.write(
+            b"standard venv creation failed (ensurepip path); retrying with --without-pip\n"
+        )
+        log.flush()
+
+    if venv_dir.exists():
+        try:
+            shutil.rmtree(venv_dir)
+        except OSError as error:
+            raise ComfyUIInstallError(f"清理 ensurepip 失败后的虚拟环境失败: {error}") from error
+
+    _run(
+        [bootstrap_python, "-m", "venv", "--without-pip", str(venv_dir)],
+        cwd=INSTALL_DIR,
+        log=log,
+        label="CREATE_VENV_NO_PIP",
+        env=env,
+    )
+    python = _venv_python()
+    if not python.is_file():
+        raise ComfyUIInstallError("--without-pip 虚拟环境创建失败")
+    _bootstrap_venv_pip(bootstrap_python, python, log, env)
+
+
 def _ensure_venv(bootstrap_python: str, log, env: dict[str, str]) -> Path:
     python = _venv_python()
     if python.is_file():
@@ -425,7 +511,8 @@ def _ensure_venv(bootstrap_python: str, log, env: dict[str, str]) -> Path:
             python = _venv_python()
 
     if not python.is_file():
-        _run([bootstrap_python, "-m", "venv", str(INSTALL_DIR / ".venv")], cwd=INSTALL_DIR, log=log, label="CREATE_VENV", env=env)
+        _create_venv(bootstrap_python, log, env)
+        python = _venv_python()
 
     if not python.is_file():
         raise ComfyUIInstallError("虚拟环境创建失败")
@@ -436,6 +523,11 @@ def _ensure_venv(bootstrap_python: str, log, env: dict[str, str]) -> Path:
             "新虚拟环境仍无法通过 PyPI HTTPS 校验"
             + (f": {detail.splitlines()[-1]}" if detail else "")
         )
+
+    if not _pip_available(str(python)):
+        log.write(b"venv Python exists but pip is missing; bootstrapping pip externally\n")
+        log.flush()
+        _bootstrap_venv_pip(bootstrap_python, python, log, env)
 
     _run([str(python), "-m", "pip", "install", "--upgrade", "pip", "setuptools", "wheel"], cwd=INSTALL_DIR, log=log, label="UPGRADE_PIP", env=env)
     return python
