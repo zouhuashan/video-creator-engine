@@ -3841,7 +3841,7 @@ NEXT：完成《照骨灯》本机 Web smoke（LoRA 安装 → READY → 中国�
 
 
 ## P31-05 《照骨灯》最终视觉纠偏：电影级 3D 国漫
-Status: CODE PASS / LOCAL WEB REVERIFY
+Status: SUPERSEDED BY P31-06
 
 执行记录（2026-09-20）：
 
@@ -3901,3 +3901,75 @@ Status: CODE PASS / LOCAL WEB REVERIFY
 ```
 
 NEXT：在《照骨灯》上生成一张 `FINAL_VISUAL` 角色定妆板做真实视觉验收；如 OpenAI 最终视觉仍不匹配，再基于该真实结果微调 3D art direction，而不是继续给 Animagine 叠插画 LoRA。
+
+
+## P31-06 对齐参考视频：单人半写实 3D LookDev + 禁止 Animagine 冒充最终视觉
+Status: CODE PASS / FINAL PROVIDER WEB REVERIFY
+
+执行记录（2026-09-20）：
+
+- 用户再次提供真实生成截图后确认：即使风格选择已经显示“电影级 3D 国漫”，只要结果 metadata 仍是 `comfyui_image · animagine-xl-4.0 · LOCAL_PREVIEW`，画面仍会停留在 2D/anime illustration 分布，不能达到此前参考视频的半写实 3D 国漫成片质感。
+- 参考视频目标重新锁定为：
+  - 成年角色：半写实、修长成熟、东方面孔，真实头面 / 肩胸体积；
+  - 儿童角色：仅在角色本身是儿童时允许明显幼态 / Q 比例；
+  - 材质：softened PBR + restrained NPR/Anime，皮肤 SSS、发束/发丝体积、衣料厚度、玉石/金属真实材质响应；
+  - 灯光：暖夕阳 / 灯笼逆光 + 冷色柔和面部补光 + key/fill/rim；
+  - 镜头：中长焦、浅景深、古风环境层次与空气透视；
+  - 表演：最终进入视频阶段后要求视线、头部反应、手势和微表情，而不是纸片平移。
+- `CINEMATIC_3D_DONGHUA` 保持原 ID，避免旧项目丢失选择，但显示名升级为“参考视频·电影级 3D 国漫”，配置 schema 升至 v3。
+- Final preset 新增：
+  - `layout_mode=SINGLE_LOOKDEV_HERO`
+  - `final_provider_required=true`
+  - `preferred_provider=OPENAI_IMAGE`
+  - `render_role=FINAL_VISUAL`
+- Character Bible 在该 preset 下不再生成多视图 concept sheet。Prompt 改为 **ONE finished cinematic 3D character LookDev beauty render**：
+  - 只允许一个角色 / 一个身体 / 一张脸 / 一个 camera view；
+  - 三分之四全身 beauty composition；
+  - 禁止 turnaround sheet、multi-panel、collage、ghost figures、faded duplicate figures、expression grid；
+  - 直接按参考视频风格要求暖色 rim/backlight、冷色 face fill、中长焦、浅景深与古风环境。
+- 这是针对本轮截图中“中心角色 + 周围幽灵分身”问题的结构修复：不再让扩散模型一次在同一张图里承担正/侧/背/表情九宫格式角色一致性。
+- Final preset 的负向词新增：concept sheet / character sheet / turnaround sheet / multi-panel layout / multiple copies / ghost figures / flat 2D drawing / watercolor / paper texture / oversized anime eyes 等。
+- 后端现在对 Final preset 强制最终 Provider 门禁：
+  - `AUTO + OpenAI configured` → 允许 Final Visual；
+  - `AUTO + OpenAI not configured` → 直接 BLOCK，不再静默回退 Animagine；
+  - 用户显式选 `COMFYUI_IMAGE` + Final preset → 直接拒绝，并提示 Animagine 只能用于概念预览。
+- Web 同步修改：
+  - Final Provider 缺失时顶部状态显示 `FINAL PROVIDER REQUIRED`；
+  - Model 显示 `OpenAI Image required`；
+  - Provider 显示 `AUTO → Final Provider Required` 或 `BLOCKED · Final requires OpenAI`；
+  - 主按钮在 Final preset 下改为“生成最终 3D LookDev”；
+  - 缺少 Final Provider 时按钮禁用，不再生成一张 LOCAL_PREVIEW 让用户误以为这是最终效果；
+  - OpenAI Key 区明确改为“参考视频 3D 最终视觉”。
+- “中国古风插画 / 仙侠 / 武侠 / 水墨”等本地 ComfyUI 预设仍保留，继续服务低成本概念草图；它们和最终 3D LookDev 不再混用。
+- P31 regression 新增：
+  - single LookDev hero prompt 不得包含多视图 sheet 指令；
+  - Final preset 必须带 `SINGLE_LOOKDEV_HERO` / `final_provider_required`；
+  - AUTO 且无 OpenAI 时必须拒绝 Animagine fallback；
+  - 显式 COMFYUI_IMAGE 时必须拒绝 Final preset。
+- 关键提交：`44b46008`、`a9f67069`、`49f8bac1`、`cd6a7bfd`、`00b6b4ba`、`03b6fd79`、`354808ef`、`8dd23873`、`6e3a7b5d`、`ce067883`、`1dc2f3d6`。
+
+当前 Web 验收路径：
+
+```text
+重启一次 VideoCreator Web
+→ AI 生图
+→ 画面风格：参考视频·电影级 3D 国漫
+→ 生图路线：AUTO
+
+若未配置 OpenAI Image：
+  → 状态必须显示 FINAL PROVIDER REQUIRED
+  → “生成最终 3D LookDev”不可点击
+  → 不允许再产生 Animagine LOCAL_PREVIEW
+
+配置 OpenAI Image 后：
+  → Provider 显示 AUTO → OpenAI Final
+  → 点击“生成最终 3D LookDev”
+  → 生成结果必须是一张单人三分之四全身电影 LookDev beauty render
+  → 不允许角色定妆 sheet / 九宫格 / 幽灵分身 / 淡化复制人物
+  → 视觉验收：半写实 3D 国漫、真实头面和肩胸体积、发丝/衣料厚度、soft PBR + restrained NPR、暖逆光+冷补光、中长焦浅景深、古风环境空气透视
+```
+
+本地路线后续候选（不在本轮自动安装）：
+- Qwen-Image-Edit-2511 + Anyto3DDonghuaStyle 可作为“本地概念图 → 3D 国漫风格转换”的第二阶段 Image-to-Image 路线；但基础模型体积和运行资源显著高于当前 Animagine，必须单独做磁盘 / 内存 / MPS 预检后再进入 Web 一键安装，不能静默替换现有低成本链路。
+
+NEXT：先完成一张 `FINAL_VISUAL + SINGLE_LOOKDEV_HERO` 的《照骨灯》角色真实验收；通过后再把该 LookDev 作为角色锚点，进入多角度 consistency / keyframe / image-to-video，而不是再次从纯文本生成九宫格。
