@@ -104,16 +104,20 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _valid_target(model: dict[str, Any]) -> bool:
+def _target_size_matches(model: dict[str, Any]) -> bool:
     path = _target(model)
     if not path.is_file():
         return False
     try:
-        if path.stat().st_size != int(model["expected_bytes"]):
-            return False
+        return path.stat().st_size == int(model["expected_bytes"])
     except OSError:
         return False
-    return _sha256(path) == str(model["sha256"])
+
+
+def _valid_target(model: dict[str, Any]) -> bool:
+    if not _target_size_matches(model):
+        return False
+    return _sha256(_target(model)) == str(model["sha256"])
 
 
 def _progress(model: dict[str, Any]) -> dict[str, Any]:
@@ -156,14 +160,12 @@ def status(model_id: str = DEFAULT_MODEL_ID) -> dict[str, Any]:
             model_id=model_id,
         )
 
-    installed = _valid_target(model)
-    if installed and state.get("status") != "RUNNING":
-        state = {
-            **state,
-            "status": "PASS",
-            "step": "COMPLETE",
-            "detail": "checkpoint 已安装并通过 SHA256 校验",
-        }
+    installed = bool(
+        _target_size_matches(model)
+        and state.get("status") == "PASS"
+        and state.get("model_id") == model_id
+        and state.get("sha256") == model["sha256"]
+    )
 
     return {
         **state,
@@ -191,6 +193,10 @@ def _download_with_curl(model: dict[str, Any], log) -> None:
         raise ComfyUIModelError("未找到 curl，无法安全下载 checkpoint")
 
     partial = _partial(model)
+    try:
+        resume_at = partial.stat().st_size
+    except OSError:
+        resume_at = 0
     command = [
         curl,
         "--location",
@@ -202,7 +208,7 @@ def _download_with_curl(model: dict[str, Any], log) -> None:
         "--retry-delay",
         "2",
         "--continue-at",
-        "-",
+        str(resume_at),
         "--output",
         str(partial),
         str(model["download_url"]),
@@ -237,6 +243,7 @@ def install(model_id: str = DEFAULT_MODEL_ID) -> dict[str, Any]:
             pid=None,
             model_id=model_id,
             filename=model["filename"],
+            sha256=model["sha256"],
         )
 
     expected = int(model["expected_bytes"])
