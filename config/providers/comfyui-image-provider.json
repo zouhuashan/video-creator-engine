@@ -16,7 +16,7 @@
   "sampler_name": "euler",
   "scheduler": "normal",
   "negative_prompt": "watermark, text, logo, malformed hands, extra fingers, duplicate limbs, identity drift, low quality",
-  "timeout_seconds": 180,
+  "timeout_seconds": 600,
   "poll_interval_seconds": 0.5,
   "status_timeout_seconds": 0.8,
   "review_required": true,
