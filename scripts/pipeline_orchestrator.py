@@ -319,6 +319,59 @@ def _qc_with_retry(video_path: Path | None, cfg: dict[str, Any]) -> dict[str, An
     return {**qc, "attempt_count": len(attempts), "attempts": attempts}
 
 
+def pipeline_preflight(project_id: str, projects_root: Path = PROJECTS_ROOT) -> dict[str, Any]:
+    """Check local runtime dependencies without generating or modifying media."""
+    project = _project_path(project_id, projects_root)
+    tools = {
+        "ffmpeg": bool(shutil.which("ffmpeg")),
+        "ffprobe": bool(shutil.which("ffprobe")),
+        "macos_say": bool(shutil.which("say")),
+    }
+    comfyui: dict[str, Any] = {
+        "connected": False,
+        "checkpoint_count": 0,
+        "checkpoint": "",
+        "detail": "",
+    }
+    try:
+        provider = ComfyUIImageProvider(timeout_seconds=0.8)
+        health = provider.health(timeout_seconds=0.8)
+        checkpoints = provider.available_checkpoints(timeout_seconds=0.8)
+        comfyui.update(
+            connected=bool(health.get("connected")),
+            checkpoint_count=len(checkpoints),
+            checkpoint=provider.choose_checkpoint(checkpoints) if checkpoints else "",
+            detail="READY" if checkpoints else "connected but no checkpoint",
+        )
+    except (ComfyUIImageError, ValueError) as error:
+        comfyui["detail"] = str(error)
+
+    approved_character = _latest_approved_image(project, "character_bible")
+    approved_keyframe = _latest_approved_image(project, "keyframe")
+    can_create_keyframe = bool(comfyui["connected"] and comfyui["checkpoint_count"])
+    blockers: list[str] = []
+    if not tools["ffmpeg"]:
+        blockers.append("FFmpeg unavailable")
+    if not tools["ffprobe"]:
+        blockers.append("ffprobe unavailable")
+    if not approved_keyframe and not can_create_keyframe:
+        blockers.append("no approved keyframe and local ComfyUI is not ready")
+    return {
+        "project_id": project.name,
+        "status": "READY" if not blockers else "BLOCKED",
+        "tools": tools,
+        "comfyui": comfyui,
+        "assets": {
+            "approved_character_bible": bool(approved_character),
+            "approved_keyframe": bool(approved_keyframe),
+        },
+        "degraded": [] if tools["macos_say"] else ["macOS say unavailable; reusable/no-dialogue audio path still works"],
+        "blockers": blockers,
+        "human_review_required": True,
+        "remote_billing_required": False,
+    }
+
+
 def pipeline_status(project_id: str, projects_root: Path = PROJECTS_ROOT) -> dict[str, Any]:
     project = _project_path(project_id, projects_root)
     run_path = project / "pipeline" / "run.json"
