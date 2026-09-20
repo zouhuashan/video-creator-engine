@@ -5,6 +5,7 @@ import tempfile
 import threading
 import urllib.request
 from pathlib import Path
+from unittest.mock import patch
 
 import scripts.web_server as web_server
 from scripts.novel_anime_project import build_project, write_project
@@ -47,6 +48,26 @@ class WebServerTests(unittest.TestCase):
         self.assertTrue(openai["configured"])
         self.assertNotIn("secret-value", str(openai))
         self.assertEqual(openai["env"], "OPENAI_API_KEY")
+
+    def test_media_url_encodes_each_path_segment(self):
+        project = Path("/tmp/demo-project")
+        url = web_server._media_url(
+            project,
+            "lookdev/image-studio/角色 定妆/测试 图.png",
+        )
+        self.assertEqual(
+            url,
+            "/media/demo-project/lookdev/image-studio/%E8%A7%92%E8%89%B2%20%E5%AE%9A%E5%A6%86/%E6%B5%8B%E8%AF%95%20%E5%9B%BE.png",
+        )
+
+    def test_safe_project_accepts_url_encoded_project_id(self):
+        with tempfile.TemporaryDirectory() as directory:
+            projects_root = Path(directory)
+            project = projects_root / "demo-project"
+            project.mkdir()
+            with patch.object(web_server, "PROJECTS_ROOT", projects_root):
+                resolved = web_server._safe_project("demo%2Dproject")
+            self.assertEqual(resolved, project.resolve())
 
     def test_project_file_boundary_rejects_traversal(self):
         with self.assertRaises(ValueError):
