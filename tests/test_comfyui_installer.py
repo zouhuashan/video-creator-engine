@@ -9,8 +9,23 @@ import scripts.comfyui_installer as installer
 class ComfyUIInstallerTests(unittest.TestCase):
     def test_choose_bootstrap_python_prefers_supported_versions(self):
         with patch.object(installer, "_python_candidates", return_value=["/opt/python3.13"]), \
-             patch.object(installer, "_https_probe", return_value=(True, "")):
+             patch.object(installer, "_https_probe", return_value=(True, "")), \
+             patch.object(installer, "_default_ca_bundle", return_value=None):
             self.assertEqual(installer.choose_bootstrap_python(), "/opt/python3.13")
+
+    def test_verified_default_python_ca_is_pinned_into_pip_environment(self):
+        with tempfile.TemporaryDirectory() as directory:
+            bundle = Path(directory) / "cert.pem"
+            bundle.write_text("fixture\n", encoding="utf-8")
+            with patch.object(installer, "_python_candidates", return_value=["/opt/homebrew/python3.14"]), \
+                 patch.object(installer, "_https_probe", return_value=(True, "")), \
+                 patch.object(installer, "_default_ca_bundle", return_value=bundle):
+                python, env, ca_source = installer.choose_bootstrap_runtime()
+            self.assertEqual(python, "/opt/homebrew/python3.14")
+            self.assertEqual(ca_source, str(bundle))
+            self.assertEqual(env["SSL_CERT_FILE"], str(bundle))
+            self.assertEqual(env["PIP_CERT"], str(bundle))
+            self.assertEqual(env["REQUESTS_CA_BUNDLE"], str(bundle))
 
     def test_runtime_recovers_tls_with_exported_macos_ca_bundle(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -34,6 +49,48 @@ class ComfyUIInstallerTests(unittest.TestCase):
             self.assertEqual(env["REQUESTS_CA_BUNDLE"], str(bundle))
             self.assertEqual(ca_source, str(bundle))
             self.assertGreaterEqual(len(probes), 2)
+
+    def test_venv_runtime_drift_is_detected_even_when_version_matches(self):
+        with patch.object(installer, "_python_identity", side_effect=[
+            (3, 13, "/opt/homebrew/Frameworks/Python.framework/Versions/3.13"),
+            (3, 13, "/opt/local/Library/Frameworks/Python.framework/Versions/3.13"),
+        ]):
+            matches, reason = installer._venv_matches_bootstrap(
+                Path("/tmp/venv/bin/python"),
+                "/opt/homebrew/bin/python3.13",
+                {},
+            )
+        self.assertFalse(matches)
+        self.assertIn("runtime changed", reason)
+
+    def test_stale_venv_is_deleted_and_recreated_before_pip(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            install_dir = root / "ComfyUI"
+            old_python = install_dir / ".venv" / "bin" / "python"
+            old_python.parent.mkdir(parents=True)
+            old_python.write_text("stale", encoding="utf-8")
+            marker = install_dir / ".venv" / "stale-marker"
+            marker.write_text("old", encoding="utf-8")
+            labels = []
+
+            def fake_run(command, *, cwd, log, label, env=None):
+                labels.append(label)
+                if label == "CREATE_VENV":
+                    python = install_dir / ".venv" / "bin" / "python"
+                    python.parent.mkdir(parents=True, exist_ok=True)
+                    python.write_text("new", encoding="utf-8")
+
+            with patch.object(installer, "INSTALL_DIR", install_dir), \
+                 patch.object(installer, "_venv_matches_bootstrap", return_value=(False, "Python version changed")), \
+                 patch.object(installer, "_https_probe", return_value=(True, "")), \
+                 patch.object(installer, "_run", side_effect=fake_run):
+                with (root / "install.log").open("wb") as log:
+                    python = installer._ensure_venv("/opt/homebrew/python3.14", log, {})
+
+            self.assertEqual(python, install_dir / ".venv" / "bin" / "python")
+            self.assertFalse(marker.exists())
+            self.assertEqual(labels, ["CREATE_VENV", "UPGRADE_PIP"])
 
     def test_start_background_install_never_uses_shell_or_user_command(self):
         process = Mock()
