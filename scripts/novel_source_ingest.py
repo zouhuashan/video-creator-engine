@@ -76,14 +76,46 @@ GENERIC_NAME_FRAGMENTS = {
 
 
 def infer_character_lexicon(chapters: tuple[ChapterText, ...], ip_code: str, *, limit: int = 16) -> list[dict[str, Any]]:
-    """Infer conservative Chinese character candidates without storing prose.
+    """Infer likely Chinese character names without persisting source prose.
 
-    Strong dialogue attribution remains the highest-confidence signal.  To
-    support narration-heavy web novels, repeated 2–4 Han-character subjects
-    before character actions and quoted vocatives are also scored.  A
-    candidate must still recur in the source, keeping this deliberately more
-    conservative than general-purpose Chinese NER.
+    Dialogue attribution remains the strongest signal.  Web novels frequently
+    omit explicit speaker tags, so we also inspect repeated names immediately
+    before common narrative verbs.  The broad pass is still conservative: a
+    candidate must recur in the source and generic/discourse fragments are
+    rejected before it can enter the project Character Bible.
     """
+
+    common_surnames = set(
+        "赵钱孙李周吴郑王冯陈褚卫蒋沈韩杨朱秦尤许何吕施张孔曹严华"
+        "金魏陶姜戚谢邹喻柏水窦章云苏潘葛奚范彭郎鲁韦昌马苗凤花"
+        "方俞任袁柳鲍史唐费廉岑薛雷贺倪汤滕殷罗毕郝邬安常乐于"
+        "时傅皮卞齐康伍余元卜顾孟平黄穆萧尹姚邵汪祁毛禹狄米贝"
+        "明臧计伏成戴谈宋茅庞熊纪舒屈项祝董梁杜阮蓝闵席季麻强"
+        "贾路娄危江童颜郭梅盛林刁钟徐邱骆高夏蔡田樊胡凌霍虞万"
+        "柯卢莫房裘缪解应宗丁宣邓郁单杭洪包诸左石崔吉龚程邢裴"
+        "陆荣翁荀羊甄曲封芮储靳汲邴糜松井段富巫乌焦巴弓牧隗山"
+        "谷车侯宓蓬全郗班仰秋仲伊宫宁仇栾暴甘厉戎祖武符刘景詹"
+        "束龙叶幸司韶黎乔苍双闻莘党翟谭贡劳逄姬申扶堵冉宰郦雍"
+        "却璩桑桂濮牛寿通边扈燕冀郏浦尚温别庄晏柴瞿阎充慕连茹"
+        "习宦艾鱼容向古易慎戈廖庾终暨居衡步都耿满弘匡国文寇广"
+        "禄阙东欧殳沃利蔚越夔隆师巩厍聂晁勾敖融冷訾辛阚那简饶"
+        "空曾毋沙乜养鞠须丰巢关蒯相查后荆红游竺权逯盖益桓公"
+    )
+    narrative_suffixes = tuple(dict.fromkeys((
+        *SPEECH_SUFFIX,
+        *ACTION_SUFFIX,
+        "望着", "望了", "看了", "看见", "瞥见", "听见", "听到", "闻言",
+        "走到", "走向", "跑来", "跑去", "冲来", "冲去", "踏入", "跨入",
+        "醒来", "睡下", "坐着", "站着", "跪下", "跪着", "躺下", "躺着",
+        "拿起", "放下", "递出", "接住", "拔出", "收起", "推门", "关门",
+        "心想", "想到", "意识到", "发现", "决定", "知道", "记得", "明白",
+        "脸色", "神色", "眼神", "嘴角", "眉头", "身形", "脚步",
+    )))
+    narrative_pattern = re.compile(
+        r"([\u4e00-\u9fff]{2,8})(?=("
+        + "|".join(re.escape(item) for item in sorted(narrative_suffixes, key=len, reverse=True))
+        + r"))"
+    )
 
     def plausible(name: str) -> bool:
         name = str(name or "").strip()
@@ -95,20 +127,20 @@ def infer_character_lexicon(chapters: tuple[ChapterText, ...], ip_code: str, *, 
             return False
         if any(fragment in name for fragment in GENERIC_NAME_FRAGMENTS):
             return False
-        if any(token in name for token in ("这个", "那个", "什么", "怎么", "已经", "没有", "只是", "然后")):
+        if any(token in name for token in ("这个", "那个", "什么", "怎么", "已经", "没有", "只是", "然后", "时候", "一声", "一眼", "一下")):
             return False
         return bool(re.fullmatch(r"[\u4e00-\u9fff]{2,4}", name))
 
     scores: dict[str, dict[str, int]] = {}
 
-    def hit(name: str, kind: str, position: int) -> None:
+    def hit(name: str, kind: str, position: int, weight: int = 1) -> None:
         if not plausible(name):
             return
         item = scores.setdefault(
             name,
-            {"speaker_hits": 0, "action_hits": 0, "vocative_hits": 0, "first": position},
+            {"speaker_hits": 0, "action_hits": 0, "vocative_hits": 0, "narrative_hits": 0, "first": position},
         )
-        item[kind] += 1
+        item[kind] += weight
         item["first"] = min(item["first"], position)
 
     for chapter_index, chapter in enumerate(chapters):
@@ -122,21 +154,43 @@ def infer_character_lexicon(chapters: tuple[ChapterText, ...], ip_code: str, *, 
         for match in VOCATIVE_PATTERN.finditer(text):
             hit(match.group(1), "vocative_hits", offset + match.start())
 
-    ranked: list[tuple[str, int, int, int, int, int]] = []
+        # Broader narrative contexts recover names in prose such as
+        # "顾临渊抬头" / "只见顾临渊走进门".  Prefer a 2–3 Han name whose
+        # first character is a common surname; otherwise retain the shortest
+        # plausible suffix and let recurrence/score thresholds filter it.
+        for match in narrative_pattern.finditer(text):
+            prefix = match.group(1)
+            suffixes = [prefix[-size:] for size in (2, 3, 4) if len(prefix) >= size and plausible(prefix[-size:])]
+            if not suffixes:
+                continue
+            surname_suffixes = [item for item in suffixes if len(item) <= 3 and item[0] in common_surnames]
+            candidate = (surname_suffixes[-1] if surname_suffixes else suffixes[0])
+            hit(candidate, "narrative_hits", offset + match.start())
+
+    ranked: list[tuple[str, int, int, int, int, int, int]] = []
     for name, item in scores.items():
         total_mentions = sum(chapter.text.count(name) for chapter in chapters)
         speaker_hits = int(item["speaker_hits"])
         action_hits = int(item["action_hits"])
         vocative_hits = int(item["vocative_hits"])
+        narrative_hits = int(item["narrative_hits"])
         strong_contexts = speaker_hits + action_hits + vocative_hits
         if total_mentions < 2:
             continue
-        if speaker_hits < 1 and vocative_hits < 1 and action_hits < 2:
+        if strong_contexts < 1 and narrative_hits < 2:
             continue
-        score = speaker_hits * 8 + vocative_hits * 6 + action_hits * 3 + min(total_mentions, 20)
-        ranked.append((name, score, speaker_hits, action_hits, vocative_hits, int(item["first"])))
+        surname_bonus = 4 if len(name) <= 3 and name[0] in common_surnames else 0
+        score = (
+            speaker_hits * 8
+            + vocative_hits * 6
+            + action_hits * 3
+            + narrative_hits * 2
+            + min(total_mentions, 30)
+            + surname_bonus
+        )
+        ranked.append((name, score, speaker_hits, action_hits, vocative_hits, narrative_hits, int(item["first"])))
 
-    ranked.sort(key=lambda item: (-item[1], -item[2], -item[3], -item[4], item[5], item[0]))
+    ranked.sort(key=lambda item: (-item[1], -item[2], -item[3], -item[4], -item[5], item[6], item[0]))
 
     return [
         {
@@ -144,7 +198,7 @@ def infer_character_lexicon(chapters: tuple[ChapterText, ...], ip_code: str, *, 
             "name": name,
             "aliases": [],
         }
-        for index, (name, _score, _speaker_hits, _action_hits, _vocative_hits, _first)
+        for index, (name, _score, _speaker_hits, _action_hits, _vocative_hits, _narrative_hits, _first)
         in enumerate(ranked[: max(1, int(limit))], start=1)
     ]
 
