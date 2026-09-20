@@ -47,6 +47,10 @@ jobs:
             scripts/web_server.py \
             support/providers/comfyui_image_provider.py \
             support/providers/openai_image_provider.py
+      - name: Check LoRA manager direct and module entrypoints
+        run: |
+          python scripts/comfyui_lora_manager.py >/tmp/comfyui-lora-direct.json
+          python -m scripts.comfyui_lora_manager >/tmp/comfyui-lora-module.json
       - name: Check Web JavaScript syntax
         run: node --check web/app.js
       - name: Run P31 regression
