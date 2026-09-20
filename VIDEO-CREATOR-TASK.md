@@ -3434,6 +3434,16 @@ P30-06 追加修复（2026-09-20，针对 Web 报错“未检测到 ComfyUI 安�
 - 官方当前仍支持 Apple Silicon；ComfyUI 文档建议独立环境并在 Apple Silicon 使用 PyTorch nightly，PyTorch 当前 MPS 后端仍为官方支持路径。
 - 当前 GitHub connector 仍未返回 workflow run/status，因此不虚报 CI PASS；真实 clone/pip/MPS 安装必须在用户 Mac 上执行。
 
+P30-06 安装器第四轮修复（2026-09-20，真实 Mac 日志）：
+
+- 第五次真实安装日志首次打印出决定性平台信息：MacPorts Python 3.13 实际为 `machine=x86_64`、`platform=macosx-11.0-x86_64`，而用户机器是 Apple Silicon；因此该解释器不可能匹配 PyTorch 当前发布的 `macosx_*_arm64` wheel。
+- 官方 PyTorch nightly index 当前可见 cp313/cp314 的 `macosx_14_0_arm64` wheel，进一步证明问题不是“Python 3.13 没 wheel”，而是候选解释器架构错误。
+- 安装器新增 Apple Silicon host detection（原生 arm64 或通过 `sysctl hw.optional.arm64` 识别 Rosetta 环境），并对每个候选 Python 实际执行 `platform.machine()`。
+- Apple Silicon 上仅接受 `arm64/aarch64` Python；x86_64 MacPorts/Rosetta Python 在进入 TLS、venv、pip、torch 之前直接从候选池剔除。
+- 非 Apple Silicon 主机保持原逻辑，不强制 arm64。
+- 回归新增 Apple Silicon 拒绝 x86 Python 与非 Apple 主机不误过滤测试。
+- 关键提交：`9f989ee`、`27f1b40`。
+
 P30-06 安装器第三轮修复（2026-09-20，真实 Mac 日志）：
 
 - 第四次真实安装已经证明 SSL 修复成功：MacPorts Python 3.13 使用 `.dependencies/certs/macos-trust.pem` 后可正常下载 pip/setuptools/wheel。
