@@ -2340,7 +2340,7 @@ P18 架构与数据底座
 # 41. 当前方向与下一任务
 
 ```text
-NEXT: P30-06/P31-02 Web checkpoint 安装 + ComfyUI 本地生图 + 小说导入 smoke
+NEXT: P30-06/P31-02 启动 ComfyUI + 首张角色定妆板 + 小说导入 smoke
 ```
 
 任务：
@@ -3434,6 +3434,18 @@ P30-06 追加修复（2026-09-20，针对 Web 报错“未检测到 ComfyUI 安�
 - 官方当前仍支持 Apple Silicon；ComfyUI 文档建议独立环境并在 Apple Silicon 使用 PyTorch nightly，PyTorch 当前 MPS 后端仍为官方支持路径。
 - 当前 GitHub connector 仍未返回 workflow run/status，因此不虚报 CI PASS；真实 clone/pip/MPS 安装必须在用户 Mac 上执行。
 
+P30-06 checkpoint 真实 Mac 验收 PASS（2026-09-20 14:00 CST）：
+
+- ComfyUI 官方 requirements 已完整安装；真实日志显示 `filelock` 相关依赖链、SQLAlchemy/Alembic、aiohttp、comfy-angle、frontend/workflow templates 等均成功落入项目 venv。
+- 核心自检再次真实 PASS：PyTorch `2.15.0.dev20260919`，`mps_built=true`、`mps_available=true`，并新增 `requirements_sha256=38851db...ac03` 与 `dependencies_verified_at`。
+- Animagine XL 4.0 模型真实下载 PASS：自动选择代理 `http://127.0.0.1:7897`，固定官方 Hugging Face URL，最终 checkpoint SHA256 为 `1d5b43ff75b6ab598502d4c779d2fbfa3dceca51c60c3b609640a60772333916`，与白名单预期一致。
+- checkpoint 安装状态为 `PASS / COMPLETE`；至此 Python、TLS、PyTorch/MPS、官方 requirements、模型下载、代理路由、文件完整性链全部真实验收通过。
+- 修复状态一致性：checkpoint PASS 时同步写回 `logs/comfyui-install.json` 的 `models_installed=true`、checkpoint 文件名/model id/SHA256/verified_at；核心 installer status 也直接从已验证模型 state 派生 `models_installed=true`，避免旧的 `false` 误导 Web/环境自检。
+- 新增对应回归：模型 PASS 同步核心 install state；核心 status 从 verified model state 派生模型就绪。
+- 关键提交：`aafd4ce`、`ebe56d9`、`ad92641`、`f5c5d3f`。
+
+NEXT：启动受管 ComfyUI → 确认 checkpoint 被发现 → 从 Image Studio 生成第一张角色定妆板 → 人工审核视觉锁。
+
 P30-06 ComfyUI 启动依赖漂移修复（2026-09-20 13:01 CST，真实 Mac 日志）：
 
 - checkpoint 下载后启动受管 ComfyUI 时，`app/database/db.py` 导入 `filelock` 失败，实际报错 `ModuleNotFoundError: No module named 'filelock'`。
@@ -3588,7 +3600,7 @@ P30-06 追加修复（2026-09-20，针对 Web 报错 `Connection refused`）：
 - GitHub HEAD 当前没有可读取的 commit status；仓库已配置 P30 回归 workflow，但本连接器没有返回可引用的运行状态，因此保持诚实的 BLOCKED，而不是虚报 CI / 本机验收。
 - 代码层工作已完成；解除该阻塞只需在用户 Mac 更新仓库后，从 Web 点击“环境自检”与“创建整集（本地执行）”，得到真实运行结果。
 
-NEXT：P30-06 checkpoint 安装与 ComfyUI 本地生图 smoke；核心 runtime 已真实 PASS。
+NEXT：P30-06 启动 ComfyUI 与首张角色定妆板本地生图 smoke；核心 runtime + checkpoint 已真实 PASS。
 
 
 ---
@@ -3630,4 +3642,4 @@ Status: PASS
 
 不需要命令行。
 
-NEXT：P30-06/P31-02 合并 smoke：checkpoint 安装 → ComfyUI 本地生图 → Web 小说导入项目执行一次本地流水线。
+NEXT：P30-06/P31-02 合并 smoke：启动 ComfyUI → 首张角色定妆板 → Web 小说导入项目执行一次本地流水线。
