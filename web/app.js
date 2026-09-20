@@ -1370,7 +1370,7 @@ function renderImageStudio() {
   $('#imageStudioGallery').innerHTML = items.map((item, index) => `
     <button class="image-studio-thumb" data-image-studio-index="${index}">
       <img src="${escapeHtml(imageStudioMediaUrl(item))}" alt="${escapeHtml(item.artifact_type || 'image')}" loading="lazy">
-      <span><strong>${escapeHtml(item.artifact_type === 'character_bible' ? '角色定妆板' : '镜头关键帧')}</strong><small>${escapeHtml(item.style_label || '未记录风格')} · ${escapeHtml(item.render_role || 'UNSPECIFIED')} · ${escapeHtml(item.review_status || 'PENDING')}</small></span>
+      <span><strong>${escapeHtml(item.artifact_type === 'character_bible' ? (item.layout_mode === 'SINGLE_LOOKDEV_HERO' ? '最终 3D LookDev' : '角色定妆板') : '镜头关键帧')}</strong><small>${escapeHtml(item.style_label || '未记录风格')} · ${escapeHtml(item.render_role || 'UNSPECIFIED')} · ${escapeHtml(item.review_status || 'PENDING')}</small></span>
     </button>
   `).join('');
   document.querySelectorAll('[data-image-studio-index]').forEach((button) => button.addEventListener('click', () => {
@@ -1421,7 +1421,9 @@ function showImageStudioResult(item) {
   } else {
     preview.src = mediaUrl;
   }
-  $('#imageStudioResultType').textContent = item.artifact_type === 'character_bible' ? '角色定妆板' : '镜头关键帧';
+  $('#imageStudioResultType').textContent = item.artifact_type === 'character_bible'
+    ? (item.layout_mode === 'SINGLE_LOOKDEV_HERO' ? '最终 3D LookDev' : '角色定妆板')
+    : '镜头关键帧';
   $('#imageStudioResultPath').textContent = item.output || '—';
   $('#imageStudioResultInfo').textContent = `${item.provider || 'Image Provider'} · ${item.model || ''} · ${item.style_label || '未记录风格'} · ${item.render_role || 'UNSPECIFIED'} · ${item.lora_applied ? `LoRA ${item.lora_name || 'ON'} @ ${Number(item.lora_strength || 0).toFixed(2)}` : 'No illustration LoRA'} · ${item.size || ''} · 人工审核 ${item.review_status || 'PENDING'}`;
   $('#imageStudioReview').textContent = item.review_status || 'PENDING';
