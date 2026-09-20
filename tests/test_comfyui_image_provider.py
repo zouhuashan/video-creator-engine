@@ -6,7 +6,7 @@ import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from support.providers.comfyui_image_provider import ComfyUIImageProvider
+from support.providers.comfyui_image_provider import ComfyUIImageError, ComfyUIImageProvider
 
 
 class FakeComfyHandler(BaseHTTPRequestHandler):
@@ -98,6 +98,32 @@ class ComfyUIImageProviderTests(unittest.TestCase):
         self.assertTrue(ComfyUIImageProvider._valid_image_payload(b"RIFF1234WEBPrest"))
         self.assertFalse(ComfyUIImageProvider._valid_image_payload(b"<html>proxy error</html>"))
         self.assertFalse(ComfyUIImageProvider._valid_image_payload(b""))
+
+    def test_history_error_includes_comfyui_node_exception(self):
+        provider = ComfyUIImageProvider(self.base_url, timeout_seconds=2)
+        history = {
+            "prompt-1": {
+                "status": {
+                    "status_str": "error",
+                    "messages": [
+                        [
+                            "execution_error",
+                            {
+                                "node_type": "KSampler",
+                                "exception_message": "MPS out of memory",
+                            },
+                        ]
+                    ],
+                }
+            }
+        }
+        with self.assertRaisesRegex(ComfyUIImageError, "KSampler: MPS out of memory"):
+            provider._first_output_image(history, "prompt-1")
+
+    def test_default_generation_timeout_covers_recorded_mps_baseline(self):
+        config_path = Path(__file__).resolve().parents[1] / "config" / "providers" / "comfyui-image-provider.json"
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        self.assertGreaterEqual(float(config["timeout_seconds"]), 300.0)
 
     def test_generate_rejects_invalid_client_id(self):
         provider = ComfyUIImageProvider(self.base_url, timeout_seconds=2)
