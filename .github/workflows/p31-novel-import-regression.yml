@@ -8,10 +8,13 @@ on:
       - "scripts/novel_source_catalog.py"
       - "scripts/novel_source_ingest.py"
       - "scripts/web_server.py"
+      - "support/providers/comfyui_image_provider.py"
+      - "config/providers/comfyui-image-provider.json"
       - "web/**"
       - "tests/test_novel_web_import.py"
       - "tests/test_novel_source_catalog.py"
       - "tests/test_web_server.py"
+      - "tests/test_comfyui_image_provider.py"
       - ".github/workflows/p31-novel-import-regression.yml"
   workflow_dispatch:
 
