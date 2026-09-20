@@ -196,11 +196,12 @@ def _normalize_proxy(value: str) -> str | None:
         value = "http://" + value
     try:
         parsed = urlsplit(value)
+        port = parsed.port
     except ValueError:
         return None
     if parsed.scheme.lower() not in {"http", "https", "socks5", "socks5h"}:
         return None
-    if not parsed.hostname or not parsed.port:
+    if not parsed.hostname or not port:
         return None
     return value
 
