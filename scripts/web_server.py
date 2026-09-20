@@ -624,6 +624,39 @@ def _expected_source_hashes(project: Path) -> set[str]:
     return hashes
 
 
+def _sync_import_character_extraction(
+    project: Path,
+    *,
+    source_sha256: str,
+    provider: str,
+    characters: list[dict[str, object]],
+) -> int:
+    updated = 0
+    imports_root = project / "sources" / "imports"
+    if not imports_root.is_dir():
+        return 0
+    for path in imports_root.glob("*.json"):
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(payload, dict):
+            continue
+        if str(payload.get("source_sha256") or "").strip().lower() != source_sha256:
+            continue
+        extraction = payload.get("extraction")
+        if not isinstance(extraction, dict):
+            extraction = {}
+            payload["extraction"] = extraction
+        extraction["provider"] = provider
+        extraction["characters"] = characters
+        temp = path.with_suffix(path.suffix + ".tmp")
+        temp.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        temp.replace(path)
+        updated += 1
+    return updated
+
+
 def _reanalyze_project_character_candidates(
     project: Path,
     *,
@@ -640,14 +673,21 @@ def _reanalyze_project_character_candidates(
     characters = result.get("characters") if isinstance(result.get("characters"), list) else []
     if not characters:
         raise ValueError("未从底本识别到稳定角色候选；当前不会回退到演示角色")
+    provider = str(result.get("provider") or "local_lexicon")
     payload = build_character_candidates(
         project,
         source_file_name=source_name,
         source_sha256=source_sha,
-        provider=str(result.get("provider") or "local_lexicon"),
+        provider=provider,
         characters=characters,
     )
     write_character_candidates(project, payload)
+    import_updates = _sync_import_character_extraction(
+        project,
+        source_sha256=source_sha,
+        provider=provider,
+        characters=characters,
+    )
     return {
         "status": "PASS",
         "project_id": project.name,
@@ -663,6 +703,7 @@ def _reanalyze_project_character_candidates(
         ],
         "full_text_stored": False,
         "source_sha256": source_sha,
+        "import_metadata_updated": import_updates,
     }
 
 
@@ -1855,6 +1896,7 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                     source_name=str(payload.get("source_name") or "novel.txt"),
                     source_text=str(payload.get("source_text") or ""),
                 )
+                _NOVEL_PROJECT_CACHE.clear()
                 return self._json(result, HTTPStatus.CREATED)
             except (
                 ValueError,
