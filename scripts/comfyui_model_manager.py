@@ -409,6 +409,16 @@ def _download_with_curl(model: dict[str, Any], log) -> None:
     except OSError:
         resume_at = 0
     proxy = _select_download_proxy(curl, str(model["download_url"]), log)
+    route = _redact_proxy(proxy)
+    _write_state(
+        "RUNNING",
+        "DOWNLOADING",
+        f"正在通过 {route} 下载 checkpoint；支持断点续传",
+        pid=os.getpid(),
+        model_id=str(model["id"]),
+        filename=str(model["filename"]),
+        network_route=route,
+    )
     command = [
         curl,
         "--location",
