@@ -3434,6 +3434,17 @@ P30-06 追加修复（2026-09-20，针对 Web 报错“未检测到 ComfyUI 安�
 - 官方当前仍支持 Apple Silicon；ComfyUI 文档建议独立环境并在 Apple Silicon 使用 PyTorch nightly，PyTorch 当前 MPS 后端仍为官方支持路径。
 - 当前 GitHub connector 仍未返回 workflow run/status，因此不虚报 CI PASS；真实 clone/pip/MPS 安装必须在用户 Mac 上执行。
 
+P30-06 ComfyUI venv 路径修复（2026-09-20 14:05 CST，真实 Mac 日志）：
+
+- 受管 ComfyUI 启动前依赖自检错误落到 uv managed base Python，真实日志同时出现 `No module named packaging` 与 PEP 668 `externally-managed-environment`。
+- 根因不是 venv 依赖再次损坏，而是 `comfyui_service_manager._python_for()` 对 `.venv/bin/python` 调用了 `Path.resolve()`；uv 创建的 venv Python 是指向 managed base Python 的符号链接，resolve 后丢失 `.venv/bin/python` 调用路径，Python 因此不再识别 `pyvenv.cfg`，`sys.prefix == sys.base_prefix`，pip 被 PEP 668 正确阻止。
+- 修复：v​​env Python 选择禁止 resolve 符号链接；只做 expanduser/absolute，必须保留 `.dependencies/ComfyUI/.venv/bin/python` 原始执行路径。
+- 新增 venv identity 安全门：项目内 ComfyUI 只有在 `sys.prefix != sys.base_prefix` 且 `sys.prefix` 精确指向 `.dependencies/ComfyUI/.venv` 时才允许依赖同步；否则直接拒绝，明确禁止 `--break-system-packages`。
+- 启动日志新增 `python=<exact venv path>` 与 `home=<ComfyUI path>`，以后可直接确认解释器上下文。
+- 新增回归：venv Python symlink 不得解析为 base interpreter；base interpreter 必须被 venv identity 拒绝；正确项目 venv 必须通过。
+- 由于 14:00 前已完整安装 requirements 且记录相同 `requirements_sha256`，修复后的预期启动路径为 `dependency_sync=SKIP already-current`，然后直接启动 `main.py`，不应再次执行 pip。
+- 关键提交：`20d7329`、`1c0a98b`、`ebab210`。
+
 P30-06 checkpoint 真实 Mac 验收 PASS（2026-09-20 14:00 CST）：
 
 - ComfyUI 官方 requirements 已完整安装；真实日志显示 `filelock` 相关依赖链、SQLAlchemy/Alembic、aiohttp、comfy-angle、frontend/workflow templates 等均成功落入项目 venv。
