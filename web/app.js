@@ -1,4 +1,4 @@
-const state = { projects: [], animeProjects: [], project: null, providers: [], integrations: [], studio: null, readiness: null, backups: null, activeNovelProjectId: null, studioProjectId: null, imageStudio: null, imageStudioProjectId: null, imageStudioSelected: null, imageStudioProviderPreference: 'AUTO', imageStudioCharacterRepairAutoGenerate: false, pipeline: null, pipelineProjectId: null, novelImportResult: null, selectedProvider: 'local_ken_burns', selectedImage: null, currentView: 'workspace', currentWorkspace: 'overview' };
+const state = { projects: [], animeProjects: [], project: null, providers: [], integrations: [], studio: null, readiness: null, backups: null, activeNovelProjectId: null, studioProjectId: null, imageStudio: null, imageStudioProjectId: null, imageStudioSelected: null, imageStudioProviderPreference: 'AUTO', pipeline: null, pipelineProjectId: null, novelImportResult: null, selectedProvider: 'local_ken_burns', selectedImage: null, currentView: 'workspace', currentWorkspace: 'overview' };
 const ACTIVE_NOVEL_PROJECT_KEY = 'videocreator.activeNovelProjectId.v1';
 
 function storedActiveNovelProjectId() {
@@ -10,6 +10,17 @@ function rememberActiveNovelProject(projectId) {
   const value = String(projectId || '').trim();
   if (!value) return;
   try { window.localStorage.setItem(ACTIVE_NOVEL_PROJECT_KEY, value); } catch (_) {}
+}
+
+function clearActiveNovelProject() {
+  state.activeNovelProjectId = null;
+  state.studioProjectId = null;
+  state.pipelineProjectId = null;
+  state.imageStudioProjectId = null;
+  state.imageStudio = null;
+  state.studio = null;
+  state.pipeline = null;
+  try { window.localStorage.removeItem(ACTIVE_NOVEL_PROJECT_KEY); } catch (_) {}
 }
 
 function resolveActiveNovelProject(preferred = '') {
@@ -320,7 +331,7 @@ function renderAnimeProjects() {
     const acceptanceText = acceptance ? `正式验收 ${acceptance.decision} · 五集 ${acceptance.ready_episode_count}/${acceptance.episode_count} · 动作测试 ${acceptance.motion_tests_run}/${acceptance.motion_test_count}` : '正式五集验收待执行';
     const readiness = project.readiness;
     const readinessText = readiness ? `阶段门 ${readiness.ready_count}/${readiness.gate_count} · ${readiness.decision}` : '阶段门待计算';
-    return `<article class="anime-project-card"><div class="anime-project-head"><div><span class="section-kicker">${escapeHtml(project.ip_id)} · ${escapeHtml(project.series_id)}</span><h3>${escapeHtml(project.title)}</h3></div><span class="result-chip">${escapeHtml(project.status)}</span></div><div class="hierarchy-row"><span>剧集 1</span><span>${project.season_count} 季</span><span>${project.episode_count} 集</span></div><div class="episode-token-row">${project.episode_ids.map((id) => `<span>${escapeHtml(id)}</span>`).join('')}</div><div class="source-row"><span>${escapeHtml(sourceText)}</span><strong class="${sources?.publication_allowed ? 'allowed' : 'blocked'}">${sources?.publication_allowed ? '可发布' : '禁止发布'}</strong></div><div class="runtime-row readiness-summary">${escapeHtml(readinessText)}</div><div class="runtime-row">${escapeHtml(bibleText)}</div><div class="runtime-row">${escapeHtml(planText)}</div><div class="runtime-row">${escapeHtml(episodePlanText)}</div><div class="runtime-row">${escapeHtml(scriptText)}</div><div class="runtime-row">${escapeHtml(reviewText)}</div><div class="runtime-row">${escapeHtml(visualText)}</div><div class="runtime-row">${escapeHtml(characterText)}</div><div class="runtime-row">${escapeHtml(environmentText)}</div><div class="runtime-row">${escapeHtml(assetReviewText)}</div><div class="runtime-row">${escapeHtml(shotText)}</div><div class="runtime-row">${escapeHtml(storyboardText)}</div><div class="runtime-row">${escapeHtml(animaticText)}</div><div class="runtime-row">${escapeHtml(animaticReviewText)}</div><div class="runtime-row">${escapeHtml(voiceText)}</div><div class="runtime-row">${escapeHtml(audioText)}</div><div class="runtime-row">${escapeHtml(audioMixText)}</div><div class="runtime-row">${escapeHtml(dynamicText)}</div><div class="runtime-row">${escapeHtml(editText)}</div><div class="runtime-row">${escapeHtml(qcText)}</div><div class="runtime-row">${escapeHtml(acceptanceText)}</div><div class="repository-row"><small>${escapeHtml(repositoryText)}</small><button data-open-anime-project="${escapeHtml(project.directory_id)}">进入制作台</button><button data-impact-project="${escapeHtml(project.directory_id)}" data-impact-root="${escapeHtml(project.ip_id)}" ${repository ? '' : 'disabled'}>分析 IP 影响</button></div><div class="runtime-row">${escapeHtml(runtimeText)}</div><div class="impact-result" data-impact-result="${escapeHtml(project.directory_id)}"></div><small class="manifest-note">${escapeHtml(project.project_id)} · novel-anime-project.json</small></article>`;
+    return `<article class="anime-project-card"><div class="anime-project-head"><div><span class="section-kicker">${escapeHtml(project.ip_id)} · ${escapeHtml(project.series_id)}</span><h3>${escapeHtml(project.title)}</h3></div><span class="result-chip">${escapeHtml(project.status)}</span></div><div class="hierarchy-row"><span>剧集 1</span><span>${project.season_count} 季</span><span>${project.episode_count} 集</span></div><div class="episode-token-row">${project.episode_ids.map((id) => `<span>${escapeHtml(id)}</span>`).join('')}</div><div class="source-row"><span>${escapeHtml(sourceText)}</span><strong class="${sources?.publication_allowed ? 'allowed' : 'blocked'}">${sources?.publication_allowed ? '可发布' : '禁止发布'}</strong></div><div class="runtime-row readiness-summary">${escapeHtml(readinessText)}</div><div class="runtime-row">${escapeHtml(bibleText)}</div><div class="runtime-row">${escapeHtml(planText)}</div><div class="runtime-row">${escapeHtml(episodePlanText)}</div><div class="runtime-row">${escapeHtml(scriptText)}</div><div class="runtime-row">${escapeHtml(reviewText)}</div><div class="runtime-row">${escapeHtml(visualText)}</div><div class="runtime-row">${escapeHtml(characterText)}</div><div class="runtime-row">${escapeHtml(environmentText)}</div><div class="runtime-row">${escapeHtml(assetReviewText)}</div><div class="runtime-row">${escapeHtml(shotText)}</div><div class="runtime-row">${escapeHtml(storyboardText)}</div><div class="runtime-row">${escapeHtml(animaticText)}</div><div class="runtime-row">${escapeHtml(animaticReviewText)}</div><div class="runtime-row">${escapeHtml(voiceText)}</div><div class="runtime-row">${escapeHtml(audioText)}</div><div class="runtime-row">${escapeHtml(audioMixText)}</div><div class="runtime-row">${escapeHtml(dynamicText)}</div><div class="runtime-row">${escapeHtml(editText)}</div><div class="runtime-row">${escapeHtml(qcText)}</div><div class="runtime-row">${escapeHtml(acceptanceText)}</div><div class="repository-row"><small>${escapeHtml(repositoryText)}</small><button data-open-anime-project="${escapeHtml(project.directory_id)}">进入制作台</button><button data-impact-project="${escapeHtml(project.directory_id)}" data-impact-root="${escapeHtml(project.ip_id)}" ${repository ? '' : 'disabled'}>分析 IP 影响</button><button class="danger-action" data-delete-anime-project="${escapeHtml(project.directory_id)}" data-delete-anime-title="${escapeHtml(project.title)}">删除项目</button></div><div class="runtime-row">${escapeHtml(runtimeText)}</div><div class="impact-result" data-impact-result="${escapeHtml(project.directory_id)}"></div><small class="manifest-note">${escapeHtml(project.project_id)} · novel-anime-project.json</small></article>`;
   }).join('');
   document.querySelectorAll('[data-open-anime-project]').forEach((button) => button.addEventListener('click', async () => {
     try { await loadStudio(button.dataset.openAnimeProject); setView('studio', 'overview'); log(`已打开国漫制作台：${button.dataset.openAnimeProject}`); } catch (error) { log(error.message, true); }
@@ -333,6 +344,31 @@ function renderAnimeProjects() {
       target.textContent = `影响范围：${result.impact.map((item) => item.entity_id).join(' → ')}`;
     } catch (error) { target.textContent = error.message; }
     finally { button.disabled = false; }
+  }));
+  document.querySelectorAll('[data-delete-anime-project]').forEach((button) => button.addEventListener('click', async () => {
+    const projectId = button.dataset.deleteAnimeProject;
+    const title = button.dataset.deleteAnimeTitle || projectId;
+    if (!window.confirm(`确认删除《${title}》？\n\n该项目目录、生成素材和项目数据库都会从本地 VideoCreator 中删除，此操作不可撤销。`)) return;
+    button.disabled = true;
+    button.textContent = '删除中…';
+    try {
+      const result = await api('/api/novel-anime/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ project_id: projectId, confirm_delete: true }),
+      });
+      if (state.activeNovelProjectId === projectId || state.imageStudioProjectId === projectId || state.studioProjectId === projectId) {
+        clearActiveNovelProject();
+      }
+      if (state.novelImportResult?.directory_id === projectId) state.novelImportResult = null;
+      await load(result.default_project_id || '');
+      setView('anime');
+      log(`已删除项目：《${result.title || title}》`);
+    } catch (error) {
+      log(error.message, true);
+      button.disabled = false;
+      button.textContent = '删除项目';
+    }
   }));
 }
 
@@ -1011,8 +1047,10 @@ async function importNovelProject() {
     });
     state.novelImportResult = result;
     $('#novelImportStatus').textContent = 'PASS';
-    $('#novelImportResultTitle').textContent = `《${result.title}》已建立独立项目`;
-    $('#novelImportResultMeta').textContent = `${result.import?.chapter_count || 0} 章 · 首季 ${result.episode_count} 集 · ${result.script_adaptation_allowed ? '可进入本地改编' : '仅技术测试'} · 正文不落库`;
+    $('#novelImportResultTitle').textContent = result.reused_existing
+      ? `《${result.title}》已存在，已复用原项目`
+      : `《${result.title}》已建立独立项目`;
+    $('#novelImportResultMeta').textContent = `${result.import?.chapter_count || 0} 章 · ${result.character_count || result.import?.character_candidates || 0} 个角色 · 首季 ${result.episode_count} 集 · ${result.script_adaptation_allowed ? '可进入本地改编' : '仅技术测试'} · 正文不落库`;
     $('#novelImportResult').classList.remove('hidden');
     state.activeNovelProjectId = result.directory_id;
     state.studioProjectId = result.directory_id;
@@ -1021,7 +1059,7 @@ async function importNovelProject() {
     rememberActiveNovelProject(result.directory_id);
     await load(result.directory_id);
     setView('novelImport');
-    log(`小说导入完成：${result.title} · ${result.import?.chapter_count || 0} 章`);
+    log(`${result.reused_existing ? '已识别重复导入并复用项目' : '小说导入完成'}：${result.title} · ${result.import?.chapter_count || 0} 章 · ${result.character_count || result.import?.character_candidates || 0} 个角色`);
   } catch (error) {
     $('#novelImportStatus').textContent = 'FAIL';
     log(error.message, true);
@@ -1149,20 +1187,15 @@ function renderImageStudio() {
   $('#imageStudioCharacterLock').innerHTML = `<strong>${escapeHtml(character.character_id || 'PROJECT CHARACTER')} · ${escapeHtml(character.name || '项目角色')}</strong><small>${escapeHtml(lock.face || '')}</small><small>${escapeHtml(lock.hair || '')}</small><small>${escapeHtml(lock.costume || '')}</small>`;
   const characterButton = $('#generateCharacterBibleButton');
   const repairPanel = $('#imageStudioCharacterRepair');
-  const candidateSummary = data?.character_candidates || {};
   repairPanel.classList.toggle('hidden', characterReady);
-  characterButton.disabled = !(localReady || remoteReady);
+  // Character bootstrap itself is local and free, so keep the primary action
+  // clickable even before a Provider is ready. After bootstrap the normal
+  // provider gate applies to image generation.
+  characterButton.disabled = characterReady ? !(localReady || remoteReady) : false;
   characterButton.title = characterReady
     ? ''
-    : '此旧项目缺角色候选；点击后选择当初导入的 TXT，系统会校验 SHA256、补全角色并继续生成。';
-  characterButton.innerHTML = characterReady
-    ? '<span>✦</span>生成角色定妆板'
-    : '<span>＋</span>选择原 TXT 并补全角色';
-  if (!characterReady) {
-    $('#imageStudioCharacterSourceHint').textContent = candidateSummary.source_file_name
-      ? `请选择原底本：${candidateSummary.source_file_name}。系统会校验 SHA256，不会保存正文。`
-      : '请选择当初导入的原小说 TXT。系统会校验 SHA256，不会保存正文。';
-  }
+    : '点击后自动从当前项目已保存的导入元数据重建角色资料，然后继续生成；无需重新上传 TXT。';
+  characterButton.innerHTML = '<span>✦</span>生成角色定妆板';
 
   const items = data?.items || [];
   const recentElsewhere = data?.recent_elsewhere || [];
@@ -1441,59 +1474,41 @@ async function stopComfyUIService() {
   }
 }
 
-async function repairImageStudioCharacters({ autoGenerate = false } = {}) {
+async function bootstrapImageStudioCharacters({ autoGenerate = false } = {}) {
   const projectId = resolveActiveNovelProject(state.imageStudioProjectId);
-  const input = $('#imageStudioCharacterSourceFile');
-  const file = input.files?.[0];
   if (!projectId) { log('没有可用的国漫项目', true); return; }
-  if (!file) {
-    state.imageStudioCharacterRepairAutoGenerate = Boolean(autoGenerate);
-    input.click();
-    return;
-  }
 
   const button = $('#imageStudioCharacterRepairButton');
   const mainButton = $('#generateCharacterBibleButton');
   button.disabled = true;
   mainButton.disabled = true;
-  button.textContent = '正在抽取角色…';
-  mainButton.textContent = '正在补全角色…';
+  button.textContent = '正在重建角色…';
+  mainButton.textContent = '正在重建角色…';
 
   try {
-    const sourceText = await readNovelTxt(file);
-    const result = await api('/api/image-studio/character-candidates', {
+    const result = await api('/api/image-studio/character-bootstrap', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        project_id: projectId,
-        source_name: file.name,
-        source_text: sourceText,
-      }),
+      body: JSON.stringify({ project_id: projectId }),
     });
-    const names = (result.characters || []).map((item) => item.name).filter(Boolean);
-    log(`角色资料补全完成：${result.character_count || names.length} 个候选${names.length ? ' · ' + names.slice(0, 6).join('、') : ''}`);
+    log(`项目角色资料已恢复：${result.character_count || 0} 个角色 · ${result.source || 'project metadata'}`);
     await loadImageStudio(projectId);
     if (state.imageStudio?.character_ready === false) {
-      throw new Error('角色候选已写入，但项目仍未解锁；请查看角色抽取结果。');
+      throw new Error('该旧项目的导入元数据没有可恢复角色。新导入已强制在创建项目时完成角色抽取，不会再生成这种空项目。');
     }
-    $('#imageStudioCharacterSourceHint').textContent = `已校验原底本并补全 ${result.character_count || names.length} 个角色候选；正文未保存。`;
-    if (autoGenerate) {
-      state.imageStudioCharacterRepairAutoGenerate = false;
-      await generateImageStudio('character-bible');
-    }
+    if (autoGenerate) await generateImageStudio('character-bible');
   } catch (error) {
     log(error.message, true);
   } finally {
     button.disabled = false;
-    button.textContent = '补全角色候选';
+    button.textContent = '自动重建角色资料';
     await loadImageStudio(projectId).catch(() => {});
   }
 }
 
 async function handleCharacterBibleAction() {
   if (state.imageStudio?.character_ready === false) {
-    state.imageStudioCharacterRepairAutoGenerate = true;
-    $('#imageStudioCharacterSourceFile').click();
+    await bootstrapImageStudioCharacters({ autoGenerate: true });
     return;
   }
   await generateImageStudio('character-bible');
@@ -1921,21 +1936,7 @@ $('#imageStudioProviderSelect').addEventListener('change', (event) => {
   renderImageStudio();
 });
 $('#generateCharacterBibleButton').addEventListener('click', handleCharacterBibleAction);
-$('#imageStudioCharacterRepairButton').addEventListener('click', () => repairImageStudioCharacters({ autoGenerate: false }));
-$('#imageStudioCharacterSourceFile').addEventListener('change', async (event) => {
-  const file = event.target.files?.[0];
-  $('#imageStudioCharacterSourceName').textContent = file?.name || '选择原小说 TXT';
-  if (!file) {
-    state.imageStudioCharacterRepairAutoGenerate = false;
-    return;
-  }
-  $('#imageStudioCharacterSourceHint').textContent = `${(file.size / 1024 / 1024).toFixed(2)} MB · 将先校验与当前项目原始 SHA256 一致，再补全角色候选。`;
-  if (state.imageStudioCharacterRepairAutoGenerate) {
-    const autoGenerate = state.imageStudioCharacterRepairAutoGenerate;
-    state.imageStudioCharacterRepairAutoGenerate = false;
-    await repairImageStudioCharacters({ autoGenerate });
-  }
-});
+$('#imageStudioCharacterRepairButton').addEventListener('click', () => bootstrapImageStudioCharacters({ autoGenerate: false }));
 $('#generateKeyframeButton').addEventListener('click', () => generateImageStudio('keyframe'));
 $('#imageStudioApproveButton').addEventListener('click', () => reviewImageStudio('APPROVED'));
 $('#imageStudioChangesButton').addEventListener('click', () => reviewImageStudio('CHANGES_REQUESTED'));
