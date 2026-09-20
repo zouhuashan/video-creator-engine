@@ -113,6 +113,7 @@ def character_bible_prompt(
     *,
     style_direction: str = "",
     forbidden_direction: str = "",
+    layout_mode: str = "CHARACTER_BOARD",
 ) -> str:
     lock = character["visual_lock"]
     render = character["render_lock"]
@@ -121,28 +122,37 @@ def character_bible_prompt(
     style = str(style_direction or "").strip()
     forbidden = str(forbidden_direction or "").strip()
     is_3d = "3d" in style.lower()
+    single_hero = str(layout_mode or "").strip().upper() == "SINGLE_LOOKDEV_HERO"
     parts = [
         (
-            "Create one polished 3D production character-turnaround board for a premium animated feature. "
+            "Create ONE finished cinematic 3D character LookDev beauty render for a premium Chinese animated feature. "
+            if single_hero
+            else "Create one polished 3D production character-turnaround board for a premium animated feature. "
             if is_3d
             else "Create one polished production character-design board for a premium animated series. "
         ),
         f"Style direction: {style}. " if style else "Use a premium Chinese guofeng donghua direction. ",
         (
-            "Every panel must be a camera render of the same fully modeled three-dimensional character; preserve true volume, perspective, material thickness and consistent studio lighting. Do not present flat painted views. "
+            "Render exactly one character, one body, one face, one camera view. Use a three-quarter full-body beauty composition with clear face, shoulders, torso, hands and layered costume. Preserve true body volume, perspective, material thickness and cinematic depth. No collage, no turnaround sheet, no extra copies, no faded silhouettes, no expression grid. "
+            if single_hero
+            else "Every panel must be a camera render of the same fully modeled three-dimensional character; preserve true volume, perspective, material thickness and consistent studio lighting. Do not present flat painted views. "
             if is_3d
             else ""
         ),
-        "The SAME character must appear consistently in every panel. ",
-        "Include: large hero portrait, front full body, three-quarter full body, side profile, ",
-        "back view, five facial expressions, and small costume/hair detail callouts. ",
+        (
+            "The character should look like a frame from the approved reference-video style: semi-realistic 3D donghua, cinematic and production-ready rather than a design-sheet illustration. "
+            if single_hero
+            else "The SAME character must appear consistently in every panel. Include: large hero portrait, front full body, three-quarter full body, side profile, back view, five facial expressions, and small costume/hair detail callouts. "
+        ),
         f"Character: {character['name']}, {character['role']}. ",
         f"Face: {lock['face']}. Hair: {lock['hair']}. Costume: {lock['costume']}. ",
         f"Body: {lock['body']}. Mood: {lock['mood']}. ",
         f"Rendering: {render['medium']}; {render['shading']}. Lighting: {render['lighting']}. ",
         f"Palette: {', '.join(render['palette'])}. ",
         (
-            "Use a clean premium 3D turnaround-sheet layout with a neutral studio cyclorama/background; the beauty portrait should feel like a finished film character render. "
+            "Use a cinematic ancient-Chinese environment or restrained studio set with warm sunset/lantern rim light, cool soft facial fill, medium-telephoto perspective and shallow depth of field. The result must read as one finished film LookDev frame, not a sheet. "
+            if single_hero
+            else "Use a clean premium 3D turnaround-sheet layout with a neutral studio cyclorama/background; the beauty portrait should feel like a finished film character render. "
             if is_3d
             else "Use a clean elegant concept-board layout with a neutral warm background. "
         ),
