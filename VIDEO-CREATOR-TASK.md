@@ -3786,3 +3786,53 @@ Status: CODE PASS / LOCAL WEB REVERIFY
 `宋制汉服，交领右衽，月白与黛青，墨色长发，玉簪，衣料厚重，低饱和水墨配色，武侠国漫角色设定，禁止现代服饰与日系校园制服。`
 
 NEXT：本机重生成一张《照骨灯》角色定妆板确认“古风服装命中率”；若仍明显偏日系，进入 P31-04 Web 可选国风 LoRA / 专用 checkpoint。
+
+
+## P31-04 Image Studio 风格预设 + 中国国风 LoRA
+Status: CODE PASS / LOCAL WEB REVERIFY
+
+执行记录（2026-09-20）：
+
+- Image Studio 从单一 Prompt 风格锁升级为正式“画面风格预设”系统；配置统一落在 `config/providers/image-style-presets.json`，当前提供 5 种 Web 可选风格：
+  - `GUOFENG_ANCIENT_CHINA` → 中国古风（默认）
+  - `XIANXIA_DONGHUA` → 仙侠国漫
+  - `WUXIA_DONGHUA` → 武侠国漫
+  - `INK_GUOFENG` → 水墨国风
+  - `ANIME_DEFAULT` → 默认动漫
+- 每个预设独立维护 Positive Prompt、Negative Prompt、OpenAI fallback 风格描述、可选 LoRA ID 与 LoRA strength；不再要求用户把长串关键词手工粘到“附加要求”。
+- 《照骨灯》及其他首次进入 Image Studio 的小说项目默认使用“中国古风”；风格选择按项目保存在浏览器 localStorage，切换项目后不会互相污染。
+- 中国古风 / 仙侠 / 武侠 / 水墨预设继续强制排除现代服饰、JK / 水手服 / 校服、短裙、运动鞋、西装领带、现代都市 / 赛博朋克等不符合古代中国视觉方向的元素；“默认动漫”不加载国风 LoRA。
+- 新增 `scripts/comfyui_lora_manager.py`：只允许安装代码审核过的固定 LoRA catalog，不接受任意 URL；支持断点续传、代理自动发现、磁盘空间检查、精确文件大小校验、SHA256 校验、异常文件隔离与后台安装。
+- 当前固定国风增强 LoRA：`sdxl-chinese-style-illustration`；安装目录为 `.dependencies/ComfyUI/models/loras/`。Web 只发送 catalog ID，下载 URL 不由浏览器提供。
+- ComfyUI Provider 新增 `available_loras()`；生成工作流在 LoRA 已安装且当前 ComfyUI 实际可见该文件时自动插入核心 `LoraLoader` 节点，同时把 model 与 CLIP 都通过 LoRA，再进入 CLIPTextEncode / KSampler。无需用户打开 ComfyUI 拖节点。
+- LoRA 未安装、尚未被外部 ComfyUI 刷新识别或当前预设不需要 LoRA时，生成链不会被阻塞：继续使用对应风格的 Positive + Negative Prompt 完成 prompt-only 生成。
+- Web AI 生图页新增：
+  - “画面风格”下拉框；
+  - “中国国风 LoRA”状态卡；
+  - “安装国风 LoRA”一键按钮；
+  - 下载进度 / SHA256 状态 / ComfyUI 是否已经识别 LoRA 的 READY 状态。
+- LoRA 安装完成后，如果 ComfyUI 是 VideoCreator 托管进程，会自动 stop → start → 等待就绪 → 刷新模型列表；若用户自己启动了外部 ComfyUI，不会擅自杀掉外部进程，只提示需要用户重启外部 ComfyUI。
+- OpenAI Image fallback 也复用相同风格预设的 `remote_direction` / forbidden direction，因此远程回退不会丢掉“中国古风 / 仙侠 / 武侠 / 水墨”的风格选择。
+- Image Studio 生成 metadata 现在记录 `style_preset`、`style_label`、`lora_requested`、`lora_applied`、`lora_name`、`lora_strength`；Web 最近生成卡片与结果详情直接显示“风格 + LoRA ON / Prompt only”，避免用户猜测 LoRA 到底有没有真正生效。
+- P31 regression 已增加 style preset、LoRA Loader workflow、固定 allowlist 下载、SHA256 原子安装、异常文件隔离以及 Web 控件回归；workflow 同时对新增 Python 文件执行 py_compile，并继续执行 Node `--check web/app.js`。
+- 当前仍保持真实边界：代码链已完成，但 GitHub 连接器无法代替用户 Mac 的 MPS / ComfyUI 运行时验证；国风 LoRA 与当前 Animagine XL 4.0 的最终视觉效果和最优 strength 必须由本机真实出图确认后再微调。
+- 关键提交：`a2d75cb1`、`9db39665`、`cbf33394`、`c7d8e0fb`、`7ca08418`、`85eaa350`、`7cdbd8af`、`59436569`、`9d68dc18`、`dbca3670`、`5e2226bf`、`04553269`、`03ef914b`、`aa203af6`、`0f987718`、`36dfa47f`。
+
+当前 Web 验收路径：
+
+```text
+重启一次 VideoCreator Web
+→ AI 生图
+→ “画面风格”默认应为“中国古风”
+→ 点击“安装国风 LoRA”
+→ 等待约 341 MB 下载 + SHA256 校验
+→ 托管 ComfyUI 自动刷新；LoRA 状态应进入 READY
+→ “附加要求”先留空
+→ 点击“生成角色定妆板”
+→ 最近生成 / 结果详情应显示：中国古风 · LoRA ON
+→ 视觉验收：汉服 / 中国古代发饰 / 古装轮廓明显；不得再出现 JK、水手服、现代短裙、运动鞋、西装领带
+```
+
+如果暂时不安装 LoRA，也可以直接选择“中国古风”生成；结果详情会明确显示 `Prompt only`，便于和 LoRA ON 的结果做 A/B 对比。
+
+NEXT：完成《照骨灯》本机 Web smoke（LoRA 安装 → READY → 中国古风定妆板）；若出现具体 LoraLoader / model compatibility 错误，按 Web 暴露的节点错误继续修；若技术链 PASS 但国风强度仍不足，再微调 LoRA strength 或增加第二个汉服专用 LoRA / 国风专用 checkpoint，而不是继续盲目堆 Prompt。
