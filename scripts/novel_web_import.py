@@ -155,11 +155,16 @@ def _import_payloads(project_dir: Path) -> list[tuple[Path, dict[str, Any]]]:
 
 
 def _matching_existing_project(projects_root: Path, title: str, source_sha256: str) -> tuple[Path, Path, dict[str, Any]] | None:
-    """Find an identical prior Web import so retries are idempotent."""
+    """Find an identical prior Web import so retries are idempotent.
+
+    When an old bug already produced duplicates, prefer the copy that has
+    recoverable character extraction; otherwise prefer the newest project.
+    """
     if not projects_root.is_dir():
         return None
     wanted_title = str(title or "").strip()
     wanted_sha = str(source_sha256 or "").strip().lower()
+    matches: list[tuple[int, str, Path, Path, dict[str, Any]]] = []
     for manifest_path in projects_root.glob(f"*/{MANIFEST_NAME}"):
         try:
             project = load_project(manifest_path)
@@ -168,9 +173,24 @@ def _matching_existing_project(projects_root: Path, title: str, source_sha256: s
         if str(project.get("title") or "").strip() != wanted_title:
             continue
         for import_path, payload in _import_payloads(manifest_path.parent):
-            if str(payload.get("source_sha256") or "").strip().lower() == wanted_sha:
-                return manifest_path.parent, import_path, payload
-    return None
+            if str(payload.get("source_sha256") or "").strip().lower() != wanted_sha:
+                continue
+            extraction = payload.get("extraction") if isinstance(payload, dict) else None
+            extracted = extraction.get("characters") if isinstance(extraction, dict) else None
+            candidate_ready = 0
+            try:
+                candidate_payload = load_character_candidates(manifest_path.parent)
+                candidate_ready = int(bool(isinstance(candidate_payload, dict) and candidate_payload.get("characters")))
+            except Exception:
+                candidate_ready = 0
+            recoverable = max(candidate_ready, int(bool(isinstance(extracted, list) and extracted)))
+            created = str(project.get("created_at") or project.get("updated_at") or "")
+            matches.append((recoverable, created, manifest_path.parent, import_path, payload))
+    if not matches:
+        return None
+    matches.sort(key=lambda item: (item[0], item[1], item[2].name), reverse=True)
+    _recoverable, _created, project_dir, import_path, payload = matches[0]
+    return project_dir, import_path, payload
 
 
 def _chapter_refs_for_candidate(project_dir: Path, candidate: dict[str, Any], source_sha256: str = "") -> list[str]:
@@ -347,12 +367,98 @@ def recover_project_characters(project_dir: Path) -> dict[str, Any]:
         write_character_candidates(project_dir, candidate_payload)
         return promote_character_candidates(project_dir, candidate_payload)
 
+    # P31 previously allowed duplicate projects for the same exact TXT.  If
+    # this copy lost its character extraction but a sibling duplicate retained
+    # it, migrate only the extracted character names/counts into the current
+    # project's IDs and provenance.  The original prose is still never stored.
+    try:
+        current_manifest = load_project(project_dir / MANIFEST_NAME)
+        current_title = str(current_manifest.get("title") or "")
+        current_ip = str(current_manifest.get("ip", {}).get("id") or "").removeprefix("IP-")
+    except Exception:
+        current_manifest = {}
+        current_title = ""
+        current_ip = ""
+
+    current_imports = _import_payloads(project_dir)
+    current_by_sha = {
+        str(payload.get("source_sha256") or "").strip().lower(): payload
+        for _path, payload in current_imports
+        if str(payload.get("source_sha256") or "").strip()
+    }
+    if current_title and current_ip and current_by_sha:
+        for sibling_manifest in project_dir.parent.glob(f"*/{MANIFEST_NAME}"):
+            sibling = sibling_manifest.parent.resolve()
+            if sibling == project_dir:
+                continue
+            try:
+                sibling_project = load_project(sibling_manifest)
+            except Exception:
+                continue
+            if str(sibling_project.get("title") or "") != current_title:
+                continue
+
+            sibling_characters: list[dict[str, Any]] = []
+            sibling_sha = ""
+            try:
+                sibling_candidates = load_character_candidates(sibling)
+            except Exception:
+                sibling_candidates = None
+            if isinstance(sibling_candidates, dict):
+                candidate_sha = str(sibling_candidates.get("source_sha256") or "").strip().lower()
+                if candidate_sha in current_by_sha and isinstance(sibling_candidates.get("characters"), list):
+                    sibling_sha = candidate_sha
+                    sibling_characters = [item for item in sibling_candidates["characters"] if isinstance(item, dict)]
+
+            if not sibling_characters:
+                for _path, sibling_import in _import_payloads(sibling):
+                    candidate_sha = str(sibling_import.get("source_sha256") or "").strip().lower()
+                    if candidate_sha not in current_by_sha:
+                        continue
+                    extraction = sibling_import.get("extraction") if isinstance(sibling_import, dict) else None
+                    extracted = extraction.get("characters") if isinstance(extraction, dict) else None
+                    if isinstance(extracted, list) and extracted:
+                        sibling_sha = candidate_sha
+                        sibling_characters = [item for item in extracted if isinstance(item, dict)]
+                        break
+
+            if not sibling_characters or sibling_sha not in current_by_sha:
+                continue
+
+            remapped = []
+            for index, item in enumerate(sibling_characters[:MAX_AUTO_STORY_CHARACTERS], start=1):
+                name = str(item.get("name") or "").strip()
+                if not name:
+                    continue
+                remapped.append({
+                    "id": f"CHR-{current_ip}-AUTO-{index:03d}",
+                    "name": name,
+                    "aliases": [str(value) for value in item.get("aliases", []) if str(value).strip()],
+                    "mentions": [],
+                    "total_mentions": int(item.get("total_mentions") or 0),
+                })
+            if not remapped:
+                continue
+            own_import = current_by_sha[sibling_sha]
+            migrated = build_character_candidates(
+                project_dir,
+                source_file_name=str(own_import.get("source_file_name") or "novel.txt"),
+                source_sha256=sibling_sha,
+                provider="duplicate-project-character-recovery",
+                characters=remapped,
+            )
+            write_character_candidates(project_dir, migrated)
+            result = promote_character_candidates(project_dir, migrated)
+            result["source"] = "duplicate-project-character-recovery"
+            result["recovered_from_project_id"] = sibling.name
+            return result
+
     return {
         "status": "BLOCKED",
         "character_count": 0,
         "promoted": False,
         "source": "no-persisted-character-extraction",
-        "detail": "旧项目的导入元数据里没有可恢复角色；新导入已改为在项目创建阶段强制完成角色抽取。",
+        "detail": "当前项目及同底本重复项目都没有可恢复的角色抽取元数据；新导入已改为在项目创建阶段强制完成角色抽取。",
     }
 
 
