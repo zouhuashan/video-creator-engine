@@ -253,6 +253,8 @@ def _build_novel_anime_projects(projects_root: Path) -> list[dict[str, object]]:
             "project_id": project["project_id"],
             "title": project["title"],
             "status": project["status"],
+            "created_at": project.get("created_at"),
+            "updated_at": project.get("updated_at"),
             "ip_id": project["ip"]["id"],
             "series_id": project["series"]["id"],
             "season_count": len(project["seasons"]),
@@ -284,6 +286,14 @@ def _build_novel_anime_projects(projects_root: Path) -> list[dict[str, object]]:
         }
         summary["readiness"] = _readiness_from_summary(summary)
         projects.append(summary)
+    projects.sort(
+        key=lambda item: (
+            str(item.get("created_at") or ""),
+            str(item.get("updated_at") or ""),
+            str(item.get("directory_id") or ""),
+        ),
+        reverse=True,
+    )
     return projects
 
 
