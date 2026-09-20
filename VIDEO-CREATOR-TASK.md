@@ -3434,6 +3434,18 @@ P30-06 追加修复（2026-09-20，针对 Web 报错“未检测到 ComfyUI 安�
 - 官方当前仍支持 Apple Silicon；ComfyUI 文档建议独立环境并在 Apple Silicon 使用 PyTorch nightly，PyTorch 当前 MPS 后端仍为官方支持路径。
 - 当前 GitHub connector 仍未返回 workflow run/status，因此不虚报 CI PASS；真实 clone/pip/MPS 安装必须在用户 Mac 上执行。
 
+P30-06 全站默认项目绑定修复（2026-09-20 14:37 CST，真实 Web 截图）：
+
+- 用户已导入新小说《照骨灯》，但 Web 没有把它作为全站默认小说项目；Image Studio 当前项目与刚才生成资产可能因此错位，页面显示 `最近生成 0 张`。
+- 新规则：新导入/最新创建的小说项目优先成为全站 active novel project；旧 localStorage 项目记忆不再压过最新导入项目。显式导航/当前会话手动切换仍可覆盖。
+- `state.activeNovelProjectId` 成为前端统一活动项目锚点；`setActiveNovelProject()` 同步 Studio / Pipeline / Image Studio 三个 project id 与对应 selector。
+- 小说导入成功后立即设置 `activeNovelProjectId=result.directory_id`，随后 `load(result.directory_id)`；刷新后若无显式会话选择，按 `created_at/updated_at` 选最新小说项目，因此《照骨灯》应自动成为默认。
+- Image Studio 生成前重新解析 authoritative active project；若当前已加载 inventory 的 `project_id` 与活动项目不一致，先 reload 正确项目后再生成，避免图片写入其他小说目录。
+- Image Studio 项目选择框下新增 `当前生成目标：《项目名》 · directory_id`，生成日志也明确记录项目名。
+- 当前项目 inventory 为空时会清理 stale preview；若别的项目存在近期 Image Studio 资产，后端 `recent_elsewhere` 会返回并允许点击切换查看，避免误以为生成结果丢失。
+- `web/app.js` V8 syntax compile PASS。
+- 关键提交：`345d95d`、`f44dcb8`、`28e91ab`。
+
 P30-06 Image Studio 预览修复（2026-09-20 14:27 CST，真实 Web 截图）：
 
 - 首张角色定妆图 ComfyUI 已执行完成，但 Web 预览出现黑框/alt 文本，且“空状态”与结果区同时显示。
