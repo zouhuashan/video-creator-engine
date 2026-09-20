@@ -7,6 +7,112 @@ import scripts.comfyui_installer as installer
 
 
 class ComfyUIInstallerTests(unittest.TestCase):
+    def test_uv_managed_python_install_is_project_private_and_arm64(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            managed_dir = root / "python"
+            managed_bin = root / "python-bin"
+            installed_python = managed_dir / installer.MANAGED_PYTHON_REQUEST / "bin" / "python3.13"
+            calls = []
+
+            def fake_run(command, *, cwd, log, label, env=None):
+                calls.append((command, label, dict(env or {})))
+                installed_python.parent.mkdir(parents=True, exist_ok=True)
+                installed_python.write_text("", encoding="utf-8")
+
+            with patch.object(installer, "MANAGED_PYTHON_DIR", managed_dir), \
+                 patch.object(installer, "MANAGED_PYTHON_BIN_DIR", managed_bin), \
+                 patch.object(installer, "_apple_silicon_host", return_value=True), \
+                 patch.object(installer, "_find_uv", return_value="/usr/local/bin/uv"), \
+                 patch.object(installer, "_python_runtime_healthy", return_value=(True, "")), \
+                 patch.object(installer, "_run", side_effect=fake_run):
+                with (root / "install.log").open("wb") as log:
+                    result = installer._ensure_managed_python(log, {"SSL_CERT_FILE": "/tmp/cert.pem"})
+
+            self.assertEqual(result, installed_python)
+            command, label, env = calls[0]
+            self.assertEqual(label, "INSTALL_MANAGED_PYTHON")
+            self.assertIn(installer.MANAGED_PYTHON_REQUEST, command)
+            self.assertIn("--install-dir", command)
+            self.assertEqual(env["UV_PYTHON_INSTALL_DIR"], str(managed_dir))
+            self.assertEqual(env["UV_PYTHON_PREFERENCE"], "only-managed")
+
+    def test_uv_managed_venv_uses_seed_and_exact_private_python(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            install_dir = root / "ComfyUI"
+            managed_python = root / "python" / "cpython-3.13-macos-aarch64-none" / "bin" / "python3.13"
+            managed_python.parent.mkdir(parents=True)
+            managed_python.write_text("", encoding="utf-8")
+            calls = []
+
+            def fake_run(command, *, cwd, log, label, env=None):
+                calls.append((command, label))
+                venv_python = install_dir / ".venv" / "bin" / "python"
+                venv_python.parent.mkdir(parents=True, exist_ok=True)
+                venv_python.write_text("", encoding="utf-8")
+
+            with patch.object(installer, "INSTALL_DIR", install_dir), \
+                 patch.object(installer, "_find_uv", return_value="/usr/local/bin/uv"), \
+                 patch.object(installer, "_python_runtime_healthy", return_value=(True, "")), \
+                 patch.object(installer, "_run", side_effect=fake_run):
+                with (root / "install.log").open("wb") as log:
+                    result = installer._create_uv_managed_venv(managed_python, log, {})
+
+            command, label = calls[0]
+            self.assertEqual(label, "CREATE_UV_MANAGED_VENV")
+            self.assertIn("--seed", command)
+            self.assertIn("--clear", command)
+            self.assertIn(str(managed_python), command)
+            self.assertEqual(result, install_dir / ".venv" / "bin" / "python")
+
+    def test_install_prefers_uv_managed_python_on_apple_silicon(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            install_dir = root / ".dependencies" / "ComfyUI"
+            managed_python = root / ".dependencies" / "python" / "cpython-3.13-macos-aarch64-none" / "bin" / "python3.13"
+            venv_python = install_dir / ".venv" / "bin" / "python"
+            system_runtime = Mock(side_effect=AssertionError("system runtime should not be selected"))
+
+            def fake_clone(log):
+                install_dir.mkdir(parents=True)
+                (install_dir / "main.py").write_text("fixture\n", encoding="utf-8")
+                (install_dir / "requirements.txt").write_text("requests\n", encoding="utf-8")
+
+            def fake_managed(log, env):
+                managed_python.parent.mkdir(parents=True, exist_ok=True)
+                managed_python.write_text("", encoding="utf-8")
+                return managed_python
+
+            def fake_managed_venv(python, log, env):
+                venv_python.parent.mkdir(parents=True, exist_ok=True)
+                venv_python.write_text("", encoding="utf-8")
+                return venv_python
+
+            with patch.object(installer, "ROOT", root), \
+                 patch.object(installer, "DEPENDENCIES", root / ".dependencies"), \
+                 patch.object(installer, "INSTALL_DIR", install_dir), \
+                 patch.object(installer, "LOG_DIR", root / "logs"), \
+                 patch.object(installer, "LOG_PATH", root / "logs" / "install.log"), \
+                 patch.object(installer, "STATE_PATH", root / "logs" / "state.json"), \
+                 patch.object(installer.shutil, "which", return_value="/usr/bin/git"), \
+                 patch.object(installer.shutil, "disk_usage", return_value=Mock(free=20 * 1024**3)), \
+                 patch.object(installer, "_apple_silicon_host", return_value=True), \
+                 patch.object(installer, "_ensure_managed_python", side_effect=fake_managed), \
+                 patch.object(installer, "_create_uv_managed_venv", side_effect=fake_managed_venv), \
+                 patch.object(installer, "_default_ca_bundle", return_value=None), \
+                 patch.object(installer, "choose_bootstrap_runtime", system_runtime), \
+                 patch.object(installer, "_clone_or_repair", side_effect=fake_clone), \
+                 patch.object(installer, "_probe_requirements", return_value=None), \
+                 patch.object(installer, "_install_torch", return_value="nightly"), \
+                 patch.object(installer, "_install_requirements", return_value=None), \
+                 patch.object(installer, "_verify", return_value={"torch": "test", "mps_built": True, "mps_available": True}):
+                result = installer.install()
+
+            self.assertEqual(result["status"], "PASS")
+            self.assertEqual(result["python_source"], "uv-managed-project-private")
+            system_runtime.assert_not_called()
+
     def test_apple_silicon_rejects_x86_python_candidate(self):
         with patch.object(installer.shutil, "which", side_effect=lambda name: {
                  "python3.13": "/opt/local/python3.13",
