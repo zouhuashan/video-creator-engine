@@ -184,6 +184,15 @@ class WebServerTests(unittest.TestCase):
         self.assertIn('OWNED_OR_LICENSED', app)
         self.assertIn("TextDecoder('utf-8', { fatal: true })", app)
 
+    def test_web_exposes_managed_comfyui_controls(self):
+        index = (web_server.WEB_ROOT / "index.html").read_text(encoding="utf-8")
+        app = (web_server.WEB_ROOT / "app.js").read_text(encoding="utf-8")
+        self.assertIn('id="imageStudioStartComfy"', index)
+        self.assertIn('id="imageStudioStopComfy"', index)
+        self.assertIn('/api/comfyui/service/start', app)
+        self.assertIn('/api/comfyui/service/stop', app)
+        self.assertIn('/api/comfyui/service/status', app)
+
     def test_character_asset_inventory_exposes_registered_turnarounds(self):
         assets = web_server._character_asset_inventory(web_server._safe_project("jinghua-yuan-series"))
         asset_ids = {item["asset_id"] for item in assets}
