@@ -119,11 +119,45 @@ class ComfyUIModelManagerTests(unittest.TestCase):
             proxies = manager._macos_system_proxies()
         self.assertIn("http://127.0.0.1:7897", proxies)
 
+    def test_clash_verge_proxy_is_discovered_from_unix_socket(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            verge_dir = root / "verge"
+            verge_dir.mkdir()
+            socket_path = verge_dir / "verge-mihomo.sock"
+            socket_path.write_text("", encoding="utf-8")
+            completed = Mock(
+                returncode=0,
+                stdout='{"mixed-port":7897,"port":0,"socks-port":7898}',
+            )
+
+            original_path = manager.Path
+            def fake_path(value):
+                if str(value) == "/tmp/verge":
+                    return verge_dir
+                if str(value) == "/tmp/verge/verge-mihomo.sock":
+                    return socket_path
+                if str(value) == "/tmp/verge/mihomo.sock":
+                    return verge_dir / "mihomo.sock"
+                return original_path(value)
+
+            with patch.object(manager, "Path", side_effect=fake_path), \
+                 patch.object(manager.shutil, "which", return_value="/usr/bin/curl"), \
+                 patch.object(manager.subprocess, "run", return_value=completed) as run:
+                proxies = manager._clash_verge_proxies()
+
+            self.assertIn("http://127.0.0.1:7897", proxies)
+            self.assertIn("socks5h://127.0.0.1:7898", proxies)
+            command = run.call_args.args[0]
+            self.assertIn("--unix-socket", command)
+            self.assertIn("http://localhost/configs", command)
+
     def test_proxy_candidates_prefer_environment_and_dedupe_system_proxy(self):
         with patch.dict(manager.os.environ, {
             "HTTPS_PROXY": "http://127.0.0.1:7897",
             "ALL_PROXY": "socks5h://127.0.0.1:7898",
         }, clear=True), \
+             patch.object(manager, "_clash_verge_proxies", return_value=["http://127.0.0.1:7897"]), \
              patch.object(manager, "_macos_system_proxies", return_value=["http://127.0.0.1:7897"]):
             proxies = manager._proxy_candidates()
         self.assertEqual(proxies, [
