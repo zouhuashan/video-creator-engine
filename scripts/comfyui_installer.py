@@ -382,6 +382,9 @@ def _candidate_ca_bundles() -> list[Path]:
 
 def _network_env(ca_bundle: Path | None = None) -> dict[str, str]:
     env = dict(os.environ)
+    for key in ("PYTHONPATH", "PYTHONHOME", "PYTHONUSERBASE", "PYTHONSTARTUP"):
+        env.pop(key, None)
+    env["PYTHONNOUSERSITE"] = "1"
     env["PIP_DISABLE_PIP_VERSION_CHECK"] = "1"
     if ca_bundle is not None:
         value = str(ca_bundle)
@@ -818,9 +821,10 @@ def _runtime_dependency_smoke(python: Path, home: Path = INSTALL_DIR) -> tuple[b
         " try: installed=version(req.name)\n"
         " except PackageNotFoundError: issues.append([req.name,'MISSING','']); continue\n"
         " if req.specifier and installed not in req.specifier: issues.append([req.name,'VERSION',installed+' not in '+str(req.specifier)])\n"
-        "mods=['filelock','sqlalchemy','alembic','aiohttp','yaml','PIL','numpy','torch'];"
+        "import importlib;"
+        "mods=['filelock','sqlalchemy','alembic','aiohttp','yaml','PIL.Image','PIL._imaging','numpy','torch'];"
         "\nfor m in mods:\n"
-        " try: __import__(m)\n"
+        " try: importlib.import_module(m)\n"
         " except Exception as e: issues.append([m,type(e).__name__,str(e)])\n"
         "print(json.dumps({'issues':issues}))"
     )
@@ -830,6 +834,7 @@ def _runtime_dependency_smoke(python: Path, home: Path = INSTALL_DIR) -> tuple[b
             capture_output=True,
             text=True,
             cwd=home,
+            env=_network_env(),
             check=False,
             timeout=45,
         )
@@ -927,7 +932,15 @@ def _verify(python: Path, log) -> dict[str, Any]:
         "'mps_built':bool(getattr(torch.backends,'mps',None) and torch.backends.mps.is_built()),"
         "'mps_available':bool(getattr(torch.backends,'mps',None) and torch.backends.mps.is_available())}))"
     )
-    result = subprocess.run([str(python), "-c", check], capture_output=True, text=True, cwd=INSTALL_DIR, check=False, timeout=30)
+    result = subprocess.run(
+        [str(python), "-c", check],
+        capture_output=True,
+        text=True,
+        cwd=INSTALL_DIR,
+        env=_network_env(),
+        check=False,
+        timeout=30,
+    )
     log.write((result.stdout + result.stderr).encode("utf-8", errors="replace"))
     log.flush()
     if result.returncode != 0:
