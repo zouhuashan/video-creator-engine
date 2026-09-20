@@ -19,6 +19,7 @@ on:
       - "tests/test_web_server.py"
       - "tests/test_comfyui_image_provider.py"
       - "tests/test_comfyui_lora_manager.py"
+      - "tests/test_openai_image_provider.py"
       - ".github/workflows/p31-novel-import-regression.yml"
   workflow_dispatch:
 
@@ -64,4 +65,5 @@ jobs:
             tests.test_web_server.WebServerTests.test_image_studio_explains_cinematic_3d_default_and_local_preview_boundary \
             tests.test_web_server.WebServerTests.test_image_style_presets_default_to_cinematic_3d_and_keep_illustration_lora_separate \
             tests.test_comfyui_image_provider \
-            tests.test_comfyui_lora_manager
+            tests.test_comfyui_lora_manager \
+            tests.test_openai_image_provider
