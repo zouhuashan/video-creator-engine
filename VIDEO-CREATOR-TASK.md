@@ -3434,6 +3434,19 @@ P30-06 追加修复（2026-09-20，针对 Web 报错“未检测到 ComfyUI 安�
 - 官方当前仍支持 Apple Silicon；ComfyUI 文档建议独立环境并在 Apple Silicon 使用 PyTorch nightly，PyTorch 当前 MPS 后端仍为官方支持路径。
 - 当前 GitHub connector 仍未返回 workflow run/status，因此不虚报 CI PASS；真实 clone/pip/MPS 安装必须在用户 Mac 上执行。
 
+P30-06 Web Python 路径污染修复（2026-09-20 14:08 CST，真实 Mac 日志）：
+
+- venv 路径修复后真实启动已正确显示 `python=.dependencies/ComfyUI/.venv/bin/python` 且 `dependency_sync=SKIP already-current`，证明解释器选择和 requirements 指纹均正确。
+- 随后 ComfyUI 在 `from PIL import Image` 阶段错误加载 `/Users/zouhuashan/aiagent/video/.web-python/PIL/Image.py`，并因该 Web 专用 Pillow 与 ComfyUI venv native extension ABI/路径不匹配报 `ImportError: cannot import name '_imaging' from 'PIL'`。
+- 根因定位为 VideoCreator Web 父进程的 `PYTHONPATH` 被 ComfyUI 子进程继承；不是 ComfyUI venv Pillow 缺失，也不需要重装系统 Python。
+- 受管项目 ComfyUI 新增 `_isolated_python_env()`：启动、自检和 pip 同步前清除 `PYTHONPATH`、`PYTHONHOME`、`PYTHONUSERBASE`、`PYTHONSTARTUP`，设置 `PYTHONNOUSERSITE=1`，并显式设置 `VIRTUAL_ENV=.dependencies/ComfyUI/.venv` 与 venv/bin PATH 前缀；代理/CA 等非 Python 网络环境继续保留。
+- 只有项目 `.dependencies/ComfyUI` 使用该强隔离环境；外部/Desktop ComfyUI 仍保持原环境，不越权修改。
+- dependency smoke 从 `import PIL` 升级为真实加载 `PIL.Image` 与 `PIL._imaging`，同时检查 `sys.path` 不得包含 `.web-python`；native extension 污染以后会在启动 main.py 前直接阻断。
+- 核心 installer 的 `_network_env()` 同步清理 Web Python 环境，安装/修复/torch/requirements 自检也不再继承 `.web-python`。
+- 启动日志新增 `python_env_isolated` 和 `parent_pythonpath_present`，不记录完整 PYTHONPATH 内容。
+- 新增回归：清除 Web Python 环境且保留代理；dependency smoke 必须使用隔离 env 并加载 `PIL._imaging`。
+- 关键提交：`88e6db2`、`c576ce1`、`fb03d21`。
+
 P30-06 ComfyUI venv 路径修复（2026-09-20 14:05 CST，真实 Mac 日志）：
 
 - 受管 ComfyUI 启动前依赖自检错误落到 uv managed base Python，真实日志同时出现 `No module named packaging` 与 PEP 668 `externally-managed-environment`。
