@@ -3434,6 +3434,16 @@ P30-06 追加修复（2026-09-20，针对 Web 报错“未检测到 ComfyUI 安�
 - 官方当前仍支持 Apple Silicon；ComfyUI 文档建议独立环境并在 Apple Silicon 使用 PyTorch nightly，PyTorch 当前 MPS 后端仍为官方支持路径。
 - 当前 GitHub connector 仍未返回 workflow run/status，因此不虚报 CI PASS；真实 clone/pip/MPS 安装必须在用户 Mac 上执行。
 
+P30-06 安装器第五轮修复（2026-09-20，真实 Mac 日志）：
+
+- 第六次真实日志显示自动 fallback 已从 x86_64 MacPorts Python 3.13 切到 x86_64 MacPorts Python 3.12；该 runtime 能安装 x86 PyTorch 2.2.2，但随后在最新 ComfyUI requirements 的 `comfy-angle` 处失败。
+- `comfy-angle` 官方说明只提供 macOS arm64 wheel（另有 Windows/Linux 对应架构），没有 macOS x86_64 wheel；因此该失败进一步证明 x86 Python 不应在 Apple Silicon 上进入安装链。
+- 最新候选过滤已经在 Apple Silicon 上剔除 x86_64 Python；本轮再新增完整 requirements preflight：每个候选 venv 在下载大体积 PyTorch 前，先执行 `pip install -r requirements.txt --dry-run`。
+- 若 `comfy-angle` 或未来其他平台原生依赖无法解析，抛出 `ComfyUIRequirementsUnavailable`，自动排除当前 Python runtime 并选择下一套候选，不下载 PyTorch。
+- 只有“完整 requirements dry-run PASS + torch wheel probe PASS”的 Python runtime 才进入真实依赖安装，避免再次下载 150MB+ 后才失败。
+- 新增真实回归：x86 Python 3.12 在 `comfy-angle` preflight 失败 → 不调用 torch install → 自动切换 Homebrew arm64 runtime → PASS。
+- 关键提交：`94ae9d9`、`45a77a5`、`18905e1`。
+
 P30-06 安装器第四轮修复（2026-09-20，真实 Mac 日志）：
 
 - 第五次真实安装日志首次打印出决定性平台信息：MacPorts Python 3.13 实际为 `machine=x86_64`、`platform=macosx-11.0-x86_64`，而用户机器是 Apple Silicon；因此该解释器不可能匹配 PyTorch 当前发布的 `macosx_*_arm64` wheel。
