@@ -13,8 +13,8 @@
     "mood": "gentle, curious, warm, emotionally readable"
   },
   "render_lock": {
-    "medium": "high-end cinematic stylized 3D animation",
-    "shading": "soft PBR-informed anime/NPR, not flat cel cutout, not photoreal game render",
+    "medium": "premium Chinese guofeng donghua, painterly 2D/2.5D animation",
+    "shading": "refined anime/NPR with Chinese animation aesthetics, soft volumetric light, subtle ink-painting color restraint, not photoreal and not flat cel cutout",
     "lighting": "warm sunset rim light with cool-neutral face fill",
     "palette": [
       "warm amber",
