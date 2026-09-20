@@ -532,6 +532,35 @@ class ComfyUIInstallerTests(unittest.TestCase):
             self.assertEqual(run_labels, ["torch", "requirements"])
             self.assertFalse((install_dir / "models" / "checkpoints").exists())
 
+    def test_status_reports_models_installed_from_verified_model_state(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            install_dir = root / "ComfyUI"
+            venv_python = install_dir / ".venv" / "bin" / "python"
+            venv_python.parent.mkdir(parents=True)
+            venv_python.write_text("", encoding="utf-8")
+            (install_dir / "main.py").write_text("fixture\n", encoding="utf-8")
+            checkpoint = install_dir / "models" / "checkpoints" / "fixture.safetensors"
+            checkpoint.parent.mkdir(parents=True)
+            checkpoint.write_bytes(b"x")
+            state_path = root / "install.json"
+            model_state_path = root / "model.json"
+            state_path.write_text('{"status":"PASS","step":"COMPLETE","models_installed":false}\n', encoding="utf-8")
+            model_state_path.write_text(
+                '{"status":"PASS","filename":"fixture.safetensors","sha256":"%s"}\n' % ("a" * 64),
+                encoding="utf-8",
+            )
+
+            with patch.object(installer, "INSTALL_DIR", install_dir), \
+                 patch.object(installer, "STATE_PATH", state_path), \
+                 patch.object(installer, "MODEL_STATE_PATH", model_state_path), \
+                 patch.object(installer, "LOG_DIR", root), \
+                 patch.object(installer, "LOG_PATH", root / "install.log"):
+                result = installer.status()
+
+            self.assertTrue(result["models_installed"])
+            self.assertTrue(result["model_checkpoint_present"])
+
     def test_running_status_recovers_interrupted_installer(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
