@@ -74,7 +74,7 @@ from scripts.novel_acceptance import NovelAcceptanceError, load_acceptance, summ
 from support.providers.openai_image_provider import OpenAIImageError, OpenAIImageProvider, character_bible_prompt, keyframe_prompt  # noqa: E402
 from support.providers.comfyui_image_provider import ComfyUIImageError, ComfyUIImageProvider  # noqa: E402
 from support.providers.image_provider_router import ImageProviderRouteError, ImageProviderRouter  # noqa: E402
-from scripts.pipeline_orchestrator import PipelineError, pipeline_status, run_pipeline, update_pipeline_review  # noqa: E402
+from scripts.pipeline_orchestrator import PipelineError, pipeline_preflight, pipeline_status, run_pipeline, update_pipeline_review  # noqa: E402
 
 
 PROVIDER_TYPES = {
@@ -1050,6 +1050,17 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                 project = _safe_project(project_id)
                 return self._json(_image_studio_inventory(project))
             except (ValueError, OSError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+        if parsed.path == "/api/pipeline/preflight":
+            query = {}
+            if parsed.query:
+                from urllib.parse import parse_qs
+                query = parse_qs(parsed.query)
+            project_id = str((query.get("project_id") or [""])[0]).strip()
+            try:
+                _safe_project(project_id)
+                return self._json(pipeline_preflight(project_id))
+            except (ValueError, OSError, PipelineError) as error:
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
         if parsed.path == "/api/pipeline/status":
             query = {}
