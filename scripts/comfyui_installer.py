@@ -130,8 +130,7 @@ def _run(command: list[str], *, cwd: Path | None, log, label: str, env: dict[str
 def _clone_or_repair(log) -> None:
     DEPENDENCIES.mkdir(parents=True, exist_ok=True)
     if (INSTALL_DIR / ".git").is_dir() and (INSTALL_DIR / "main.py").is_file():
-        _run(["git", "-C", str(INSTALL_DIR), "fetch", "--depth", "1", "origin", "master"], cwd=None, log=log, label="UPDATE_SOURCE")
-        _run(["git", "-C", str(INSTALL_DIR), "reset", "--hard", "FETCH_HEAD"], cwd=None, log=log, label="UPDATE_SOURCE")
+        _run(["git", "-C", str(INSTALL_DIR), "pull", "--ff-only"], cwd=None, log=log, label="UPDATE_SOURCE")
         return
     if INSTALL_DIR.exists():
         broken = DEPENDENCIES / f"ComfyUI.broken-{int(time.time())}"
