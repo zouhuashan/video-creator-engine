@@ -13,6 +13,7 @@
         <div class="brand-mark"><span class="brand-orb">V</span><div><strong>VideoCreator</strong><small>国风动漫工作台</small></div></div>
         <nav class="nav" aria-label="主导航">
           <button class="nav-item active" data-view="workspace"><span>✦</span>创作工作台</button>
+          <button class="nav-item" data-view="novelImport"><span>＋</span>导入小说</button>
           <button class="nav-item" data-view="anime"><span>卷</span>国漫项目</button>
           <div class="nav-group-label">国漫制作台</div>
           <button class="nav-item" data-view="studio" data-workspace="overview"><span>01</span>项目总览</button>
@@ -87,6 +88,61 @@
             <button class="primary-button" id="generateButton"><span>✦</span>生成镜头</button>
             <button class="secondary-button" id="storyboardButton"><span>◈</span>生成完整本地分镜</button>
             <p class="helper-text" id="generateHint">本地路线无需密钥；OpenAI、Runway、Wan 需要配置对应环境变量。</p>
+          </div>
+        </section>
+
+        <section class="page-view hidden" id="novelImportView">
+          <div class="panel novel-import-panel">
+            <div class="panel-heading">
+              <div>
+                <span class="section-kicker">P31 / NOVEL IMPORT</span>
+                <h2>新建小说国漫项目</h2>
+                <p class="panel-subtitle">选择 UTF-8 TXT 后，系统自动创建独立项目、切章、登记底本、初始化 Story Bible 与全部制作台骨架。原始正文只作为临时输入，导入完成后不在项目里复制整本 TXT。</p>
+              </div>
+              <span class="status-dot" id="novelImportStatus">READY</span>
+            </div>
+
+            <div class="novel-import-grid">
+              <div>
+                <label class="field-label" for="novelImportTitle">小说名称</label>
+                <input class="text-field" id="novelImportTitle" maxlength="120" placeholder="例如：我的修仙小说" />
+              </div>
+              <div>
+                <label class="field-label" for="novelImportAuthor">作者</label>
+                <input class="text-field" id="novelImportAuthor" maxlength="120" placeholder="可填写笔名" />
+              </div>
+              <div>
+                <label class="field-label" for="novelImportEpisodes">首季集数</label>
+                <input class="text-field" id="novelImportEpisodes" type="number" min="1" max="999" value="5" />
+              </div>
+              <div>
+                <label class="field-label" for="novelImportRights">使用模式</label>
+                <select class="select-field" id="novelImportRights">
+                  <option value="OWNED_OR_LICENSED">我是作者 / 已明确获得改编授权</option>
+                  <option value="TECHNICAL_TEST">仅本地技术测试（不进入正式改编）</option>
+                </select>
+              </div>
+            </div>
+
+            <label class="field-label" for="novelImportFile">小说 TXT</label>
+            <label class="novel-file-drop" for="novelImportFile">
+              <input id="novelImportFile" type="file" accept=".txt,text/plain" />
+              <span class="empty-icon">文</span>
+              <span><strong id="novelImportFileName">选择 UTF-8 TXT 文件</strong><small id="novelImportFileHint">最大 20 MB；支持“第一章 / 第1章 / 第一回 / 第一卷”等章节标题自动切分。</small></span>
+            </label>
+
+            <label class="confirm-row" id="novelImportRightsConfirmRow">
+              <input type="checkbox" id="novelImportRightsConfirm" />
+              <span>我确认我是该作品作者，或已取得明确的改编授权。此确认只允许进入本地制作流程，系统仍不会自动开放发布。</span>
+            </label>
+
+            <button class="primary-button" id="novelImportButton"><span>＋</span>创建项目并导入小说</button>
+            <p class="helper-text">公版或第三方授权的正式发布仍需要来源证据/权利审核；这里不会因为上传成功就自动放开发布。</p>
+
+            <div class="novel-import-result hidden" id="novelImportResult">
+              <div><span class="result-chip">IMPORT PASS</span><strong id="novelImportResultTitle">—</strong><small id="novelImportResultMeta">—</small></div>
+              <button class="secondary-button" id="novelImportOpenStudio">进入制作台</button>
+            </div>
           </div>
         </section>
 
