@@ -17,9 +17,14 @@ import time
 from pathlib import Path
 from typing import Any
 
+# Make repository imports work both as a module and when this file is executed
+# directly by an older/background launcher.
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 from scripts.comfyui_model_manager import _redact_proxy, _select_download_proxy
 
-ROOT = Path(__file__).resolve().parents[1]
 COMFYUI_DIR = ROOT / ".dependencies" / "ComfyUI"
 LORA_DIR = COMFYUI_DIR / "models" / "loras"
 LOG_DIR = ROOT / "logs"
@@ -333,7 +338,7 @@ def start_background_install(lora_id: str = DEFAULT_LORA_ID) -> dict[str, Any]:
     with LOG_PATH.open("ab") as log:
         try:
             process = subprocess.Popen(
-                [sys.executable, str(Path(__file__).resolve()), "--install", lora_id],
+                [sys.executable, "-m", "scripts.comfyui_lora_manager", "--install", lora_id],
                 cwd=ROOT,
                 stdin=subprocess.DEVNULL,
                 stdout=log,
