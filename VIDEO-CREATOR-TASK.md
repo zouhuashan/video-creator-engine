@@ -3725,6 +3725,7 @@ Status: CODE PASS / LOCAL WEB REVERIFY
 - 相同“小说标题 + TXT SHA256”的重复导入改为幂等复用已有项目，不再继续制造同底本重复项目；若历史重复项目中只有其中一份保留了角色候选/抽取元数据，当前项目可从同底本 sibling 项目恢复结构化角色信息，不要求重新上传 TXT，也不恢复/落盘原始正文。
 - Web「国漫项目」卡片已加入“删除项目”操作；后端 /api/novel-anime/delete 只允许删除 novel-anime 项目且必须显式 confirm_delete。删除当前项目后自动选择剩余项目中最新一份作为默认项目。
 - 为避免删除入口藏得太深，AI 生图页的“国漫项目”下拉框右侧新增醒目的“删除当前项目”按钮；确认后直接删除当前项目、清理当前选择，并自动切换到剩余默认项目。若已无项目则回到国漫项目页。
+- 2026-09-20 删除故障根因修复：`scripts/web_server.py` 的删除实现调用 `shutil.rmtree()` 但遗漏 `import shutil`，导致点击删除后运行时 NameError、目录未删除。现已补 import，并在删除后强校验目录必须不存在；响应返回 `deleted_verified` 与剩余项目 ID。两个同名《照骨灯》在选择器中会附带目录 ID 后 8 位，避免删除一个后自动切到另一个时看起来“没变化”。
 - 最新导入小说继续作为全站默认小说项目，并同步到制作台、Pipeline 与 Image Studio；《照骨灯》不会因浏览器旧 localStorage 选择而被旧项目静默覆盖。
 - Image Studio 对历史空 Story Bible 项目会先从已保存 character candidates / import extraction 元数据自动 bootstrap；恢复完成后主按钮可直接继续“生成角色定妆板”。无可恢复项目角色时继续阻止使用全局演示角色。
 - “重新生成角色定妆板直接失败”补充修复：真实 Apple MPS + Animagine XL 4.0 的首张定妆板基线约 259 秒，而 ComfyUI Provider 旧默认总超时仅 180 秒，现提升到 600 秒，避免健康的 24-step 本地任务被中途误报 timeout。
@@ -3732,7 +3733,7 @@ Status: CODE PASS / LOCAL WEB REVERIFY
 - ComfyUI history 若真实 execution_error，Web 现在可得到具体 node_type + exception_message；若确实超时，错误会带 elapsed seconds 与 prompt_id，并明确说明本地任务可能仍在运行，不再只返回模糊“workflow failed”。
 - P31 regression 已覆盖角色自动恢复、项目删除、新默认项目以及 ComfyUI Image Provider 的 MPS 超时/错误详情回归。
 - GitHub 连接器当前仍未返回可读取的 workflow run/status，因此不虚报 CI PASS；代码与回归用例已提交，真实 Mac Web smoke 仍以用户本机结果为准。
-- 关键提交：`04c92969`、`2f504616`、`9226bc4f`、`8fc1ad79`、`07e5582a`、`3c4d1536`、`2baab40d`、`6c9b62bb`、`57bcdac7`、`76d886d3`、`2e83eb77`、`6ec48dfb`、`a359d66e`、`93e3c475`、`98d0321d`、`ee891176`。
+- 关键提交：`04c92969`、`2f504616`、`9226bc4f`、`8fc1ad79`、`07e5582a`、`3c4d1536`、`2baab40d`、`6c9b62bb`、`57bcdac7`、`76d886d3`、`2e83eb77`、`6ec48dfb`、`a359d66e`、`93e3c475`、`98d0321d`、`ee891176`、`6d7da9d5`、`dac94c9a`、`a032ce3a`、`dba4e27b`。
 
 当前 Web 验收路径：
 
