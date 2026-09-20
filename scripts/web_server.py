@@ -78,6 +78,7 @@ from scripts.pipeline_orchestrator import PipelineError, pipeline_preflight, pip
 from scripts.novel_web_import import MAX_WEB_UPLOAD_BYTES, NovelWebImportError, create_project_from_web_upload  # noqa: E402
 from scripts.comfyui_service_manager import ComfyUIServiceError, service_status as comfyui_service_status, start_service as start_comfyui_service, stop_service as stop_comfyui_service  # noqa: E402
 from scripts.comfyui_installer import ComfyUIInstallError, start_background_install as start_comfyui_install, status as comfyui_install_status  # noqa: E402
+from scripts.comfyui_model_manager import ComfyUIModelError, start_background_install as start_comfyui_model_install, status as comfyui_model_status  # noqa: E402
 
 
 PROVIDER_TYPES = {
@@ -564,6 +565,10 @@ def _comfyui_image_status() -> dict[str, object]:
         result["installer"] = comfyui_install_status()
     except (ComfyUIInstallError, ValueError, OSError) as error:
         result["installer"] = {"status": "ERROR", "detail": str(error), "installed": False}
+    try:
+        result["model_installer"] = comfyui_model_status()
+    except (ComfyUIModelError, ValueError, OSError) as error:
+        result["model_installer"] = {"status": "ERROR", "detail": str(error), "installed": False}
     return result
 
 
@@ -1098,6 +1103,11 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                 return self._json(comfyui_install_status())
             except (ComfyUIInstallError, ValueError, OSError) as error:
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
+        if parsed.path == "/api/comfyui/models/status":
+            try:
+                return self._json(comfyui_model_status())
+            except (ComfyUIModelError, ValueError, OSError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
         if parsed.path == "/api/projects":
             return self._json({"projects": self._projects()})
         if parsed.path == "/api/novel-anime/projects":
@@ -1485,6 +1495,11 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
             try:
                 return self._json(start_comfyui_install(), HTTPStatus.ACCEPTED)
             except (ComfyUIInstallError, ValueError, OSError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+        if route == "/api/comfyui/models/install/start":
+            try:
+                return self._json(start_comfyui_model_install(), HTTPStatus.ACCEPTED)
+            except (ComfyUIModelError, ValueError, OSError) as error:
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
         if route in {"/api/comfyui/service/start", "/api/comfyui/service/stop"}:
             try:
