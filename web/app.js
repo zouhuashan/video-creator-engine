@@ -1,5 +1,20 @@
 const state = { projects: [], animeProjects: [], project: null, providers: [], integrations: [], studio: null, readiness: null, backups: null, activeNovelProjectId: null, studioProjectId: null, imageStudio: null, imageStudioProjectId: null, imageStudioSelected: null, imageStudioProviderPreference: 'AUTO', imageStudioStylePreset: 'GUOFENG_ANCIENT_CHINA', pipeline: null, pipelineProjectId: null, novelImportResult: null, selectedProvider: 'local_ken_burns', selectedImage: null, currentView: 'workspace', currentWorkspace: 'overview' };
 const ACTIVE_NOVEL_PROJECT_KEY = 'videocreator.activeNovelProjectId.v1';
+const IMAGE_STYLE_PROJECT_KEY_PREFIX = 'videocreator.imageStylePreset.v1.';
+
+function storedImageStylePreset(projectId) {
+  const id = String(projectId || '').trim();
+  if (!id) return '';
+  try { return String(window.localStorage.getItem(IMAGE_STYLE_PROJECT_KEY_PREFIX + id) || '').trim(); }
+  catch (_) { return ''; }
+}
+
+function rememberImageStylePreset(projectId, presetId) {
+  const id = String(projectId || '').trim();
+  const preset = String(presetId || '').trim();
+  if (!id || !preset) return;
+  try { window.localStorage.setItem(IMAGE_STYLE_PROJECT_KEY_PREFIX + id, preset); } catch (_) {}
+}
 
 function storedActiveNovelProjectId() {
   try { return String(window.localStorage.getItem(ACTIVE_NOVEL_PROJECT_KEY) || '').trim(); }
@@ -1325,7 +1340,7 @@ function renderImageStudio() {
   $('#imageStudioGallery').innerHTML = items.map((item, index) => `
     <button class="image-studio-thumb" data-image-studio-index="${index}">
       <img src="${escapeHtml(imageStudioMediaUrl(item))}" alt="${escapeHtml(item.artifact_type || 'image')}" loading="lazy">
-      <span><strong>${escapeHtml(item.artifact_type === 'character_bible' ? '角色定妆板' : '镜头关键帧')}</strong><small>${escapeHtml(item.model || '')} · ${escapeHtml(item.review_status || 'PENDING')}</small></span>
+      <span><strong>${escapeHtml(item.artifact_type === 'character_bible' ? '角色定妆板' : '镜头关键帧')}</strong><small>${escapeHtml(item.style_label || '未记录风格')} · ${escapeHtml(item.lora_applied ? 'LoRA ON' : 'Prompt only')} · ${escapeHtml(item.review_status || 'PENDING')}</small></span>
     </button>
   `).join('');
   document.querySelectorAll('[data-image-studio-index]').forEach((button) => button.addEventListener('click', () => {
@@ -1378,7 +1393,7 @@ function showImageStudioResult(item) {
   }
   $('#imageStudioResultType').textContent = item.artifact_type === 'character_bible' ? '角色定妆板' : '镜头关键帧';
   $('#imageStudioResultPath').textContent = item.output || '—';
-  $('#imageStudioResultInfo').textContent = `${item.provider || 'Image Provider'} · ${item.model || ''} · ${item.size || ''} · 人工审核 ${item.review_status || 'PENDING'}`;
+  $('#imageStudioResultInfo').textContent = `${item.provider || 'Image Provider'} · ${item.model || ''} · ${item.style_label || '未记录风格'} · ${item.lora_applied ? `LoRA ${item.lora_name || 'ON'} @ ${Number(item.lora_strength || 0).toFixed(2)}` : 'Prompt only'} · ${item.size || ''} · 人工审核 ${item.review_status || 'PENDING'}`;
   $('#imageStudioReview').textContent = item.review_status || 'PENDING';
 }
 
@@ -1387,6 +1402,12 @@ async function loadImageStudio(projectId = resolveActiveNovelProject(state.image
   if (state.animeProjects.some((item) => item.directory_id === projectId)) setActiveNovelProject(projectId);
   else state.imageStudioProjectId = projectId;
   state.imageStudio = await api(`/api/image-studio/status?project_id=${encodeURIComponent(projectId)}`);
+  const validStyles = state.imageStudio?.style_presets || [];
+  const remembered = storedImageStylePreset(projectId);
+  const defaultPreset = state.imageStudio?.default_style_preset || 'GUOFENG_ANCIENT_CHINA';
+  state.imageStudioStylePreset = validStyles.some((item) => item.id === remembered)
+    ? remembered
+    : defaultPreset;
   renderImageStudio();
 }
 
@@ -2096,6 +2117,7 @@ $('#imageStudioProviderSelect').addEventListener('change', (event) => {
 });
 $('#imageStudioStylePreset').addEventListener('change', (event) => {
   state.imageStudioStylePreset = event.target.value;
+  rememberImageStylePreset(state.imageStudioProjectId, state.imageStudioStylePreset);
   renderImageStudio();
   const style = (state.imageStudio?.style_presets || []).find((item) => item.id === state.imageStudioStylePreset);
   log(`AI 生图风格已切换：${style?.label || state.imageStudioStylePreset}${style?.lora_id ? ' · 已启用可选国风 LoRA 路由' : ''}`);
