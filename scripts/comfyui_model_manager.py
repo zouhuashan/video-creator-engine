@@ -18,6 +18,7 @@ import sys
 import time
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
 COMFYUI_DIR = ROOT / ".dependencies" / "ComfyUI"
@@ -187,6 +188,149 @@ def status(model_id: str = DEFAULT_MODEL_ID) -> dict[str, Any]:
     }
 
 
+def _normalize_proxy(value: str) -> str | None:
+    value = str(value or "").strip()
+    if not value:
+        return None
+    if "://" not in value:
+        value = "http://" + value
+    try:
+        parsed = urlsplit(value)
+    except ValueError:
+        return None
+    if parsed.scheme.lower() not in {"http", "https", "socks5", "socks5h"}:
+        return None
+    if not parsed.hostname or not parsed.port:
+        return None
+    return value
+
+
+def _macos_system_proxies() -> list[str]:
+    if sys.platform != "darwin" or not shutil.which("scutil"):
+        return []
+    try:
+        result = subprocess.run(
+            ["scutil", "--proxy"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return []
+    if result.returncode != 0:
+        return []
+
+    values: dict[str, str] = {}
+    for raw in result.stdout.splitlines():
+        if ":" not in raw:
+            continue
+        key, value = raw.split(":", 1)
+        values[key.strip()] = value.strip()
+
+    proxies: list[str] = []
+    for prefix, scheme in (("HTTPS", "http"), ("HTTP", "http"), ("SOCKS", "socks5h")):
+        if values.get(prefix + "Enable") != "1":
+            continue
+        host = values.get(prefix + "Proxy", "").strip()
+        port = values.get(prefix + "Port", "").strip()
+        if host and port.isdigit():
+            proxies.append(f"{scheme}://{host}:{port}")
+    return proxies
+
+
+def _proxy_candidates() -> list[str]:
+    candidates: list[str] = []
+    for key in (
+        "HTTPS_PROXY", "https_proxy",
+        "ALL_PROXY", "all_proxy",
+        "HTTP_PROXY", "http_proxy",
+    ):
+        proxy = _normalize_proxy(os.environ.get(key, ""))
+        if proxy:
+            candidates.append(proxy)
+    candidates.extend(_macos_system_proxies())
+
+    unique: list[str] = []
+    seen: set[str] = set()
+    for candidate in candidates:
+        normalized = _normalize_proxy(candidate)
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        unique.append(normalized)
+    return unique
+
+
+def _redact_proxy(proxy: str | None) -> str:
+    if not proxy:
+        return "DIRECT"
+    try:
+        parsed = urlsplit(proxy)
+    except ValueError:
+        return "PROXY"
+    host = parsed.hostname or "proxy"
+    port = f":{parsed.port}" if parsed.port else ""
+    return f"{parsed.scheme}://{host}{port}"
+
+
+def _probe_download_route(curl: str, url: str, proxy: str | None, log) -> bool:
+    command = [
+        curl,
+        "--location",
+        "--fail",
+        "--silent",
+        "--show-error",
+        "--connect-timeout",
+        "8",
+        "--max-time",
+        "20",
+        "--range",
+        "0-0",
+        "--output",
+        "/dev/null",
+    ]
+    if proxy:
+        command.extend(["--proxy", proxy])
+    command.append(url)
+
+    log.write(f"probe_route={_redact_proxy(proxy)}\n".encode("utf-8"))
+    log.flush()
+    try:
+        result = subprocess.run(
+            command,
+            cwd=ROOT,
+            stdin=subprocess.DEVNULL,
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            check=False,
+            timeout=25,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return result.returncode == 0
+
+
+def _select_download_proxy(curl: str, url: str, log) -> str | None:
+    proxies = _proxy_candidates()
+    # Prefer an explicitly configured/system proxy on machines where direct
+    # access to Hugging Face is blocked. Direct is only the final fallback.
+    for proxy in proxies:
+        if _probe_download_route(curl, url, proxy, log):
+            log.write(f"download_route={_redact_proxy(proxy)}\n".encode("utf-8"))
+            log.flush()
+            return proxy
+    if _probe_download_route(curl, url, None, log):
+        log.write(b"download_route=DIRECT\n")
+        log.flush()
+        return None
+    detail = ", ".join(_redact_proxy(item) for item in proxies) or "none detected"
+    raise ComfyUIModelError(
+        "无法连接 Hugging Face；已尝试 macOS/环境代理和直连。"
+        f" 检测到的代理: {detail}"
+    )
+
+
 def _download_with_curl(model: dict[str, Any], log) -> None:
     curl = shutil.which("curl")
     if not curl:
@@ -197,6 +341,7 @@ def _download_with_curl(model: dict[str, Any], log) -> None:
         resume_at = partial.stat().st_size
     except OSError:
         resume_at = 0
+    proxy = _select_download_proxy(curl, str(model["download_url"]), log)
     command = [
         curl,
         "--location",
@@ -204,16 +349,21 @@ def _download_with_curl(model: dict[str, Any], log) -> None:
         "--silent",
         "--show-error",
         "--retry",
-        "4",
+        "8",
         "--retry-delay",
-        "2",
+        "3",
+        "--connect-timeout",
+        "15",
         "--continue-at",
         str(resume_at),
         "--output",
         str(partial),
-        str(model["download_url"]),
     ]
-    log.write(("$ " + " ".join(command[:-1]) + " <fixed-model-url>\n").encode("utf-8"))
+    if proxy:
+        command.extend(["--proxy", proxy])
+    command.append(str(model["download_url"]))
+    logged = [item if item != proxy else _redact_proxy(proxy) for item in command[:-1]]
+    log.write(("$ " + " ".join(logged) + " <fixed-model-url>\n").encode("utf-8"))
     log.flush()
     result = subprocess.run(
         command,
