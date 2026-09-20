@@ -53,6 +53,89 @@ class ComfyUIServiceManagerTests(unittest.TestCase):
             self.assertEqual(captured["managed_by"], "videocreator")
             self.assertEqual(result["action"], "STARTED")
 
+    def test_project_managed_start_repairs_missing_requirements_before_launch(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            home = root / ".dependencies" / "ComfyUI"
+            home.mkdir(parents=True)
+            (home / "main.py").write_text("print('fixture')\n", encoding="utf-8")
+            (home / "requirements.txt").write_text("filelock\n", encoding="utf-8")
+            python = home / ".venv" / "bin" / "python"
+            python.parent.mkdir(parents=True)
+            python.write_text("", encoding="utf-8")
+            install_state_path = root / "logs" / "comfyui-install.json"
+            install_state_path.parent.mkdir(parents=True)
+            install_state_path.write_text(
+                '{"status":"PASS","step":"COMPLETE","detail":"ok","ca_source":""}\n',
+                encoding="utf-8",
+            )
+
+            with patch.object(manager, "PROJECT_COMFYUI_HOME", home), \
+                 patch.object(manager, "INSTALL_STATE_PATH", install_state_path), \
+                 patch.object(manager, "LOG_DIR", root / "logs"), \
+                 patch.object(manager, "_runtime_dependency_smoke", side_effect=[
+                     (False, "filelock: ModuleNotFoundError No module named filelock"),
+                     (True, ""),
+                 ]), \
+                 patch.object(manager.subprocess, "run", return_value=Mock(returncode=0)) as run:
+                with (root / "service.log").open("wb") as log:
+                    result = manager._sync_project_dependencies(home, python, log)
+
+            self.assertTrue(result["repaired"])
+            command = run.call_args.args[0]
+            self.assertEqual(command[:4], [str(python), "-m", "pip", "install"])
+            self.assertIn(str(home / "requirements.txt"), command)
+            updated = manager.json.loads(install_state_path.read_text(encoding="utf-8"))
+            self.assertEqual(updated["requirements_sha256"], manager._requirements_fingerprint(home))
+            self.assertIn("dependencies_verified_at", updated)
+
+    def test_project_dependency_sync_skips_when_hash_and_smoke_are_current(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            home = root / ".dependencies" / "ComfyUI"
+            home.mkdir(parents=True)
+            (home / "requirements.txt").write_text("filelock\n", encoding="utf-8")
+            python = home / ".venv" / "bin" / "python"
+            python.parent.mkdir(parents=True)
+            python.write_text("", encoding="utf-8")
+            current_sha = manager._requirements_fingerprint(home)
+            install_state_path = root / "logs" / "comfyui-install.json"
+            install_state_path.parent.mkdir(parents=True)
+            install_state_path.write_text(
+                manager.json.dumps({"requirements_sha256": current_sha}) + "\n",
+                encoding="utf-8",
+            )
+
+            with patch.object(manager, "PROJECT_COMFYUI_HOME", home), \
+                 patch.object(manager, "INSTALL_STATE_PATH", install_state_path), \
+                 patch.object(manager, "_runtime_dependency_smoke", return_value=(True, "")), \
+                 patch.object(manager.subprocess, "run") as run:
+                with (root / "service.log").open("wb") as log:
+                    result = manager._sync_project_dependencies(home, python, log)
+
+            self.assertFalse(result["repaired"])
+            run.assert_not_called()
+
+    def test_external_comfyui_dependencies_are_never_mutated(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            managed_home = root / "managed" / "ComfyUI"
+            external_home = root / "external" / "ComfyUI"
+            managed_home.mkdir(parents=True)
+            external_home.mkdir(parents=True)
+            python = external_home / ".venv" / "bin" / "python"
+            python.parent.mkdir(parents=True)
+            python.write_text("", encoding="utf-8")
+
+            with patch.object(manager, "PROJECT_COMFYUI_HOME", managed_home), \
+                 patch.object(manager.subprocess, "run") as run:
+                with (root / "service.log").open("wb") as log:
+                    result = manager._sync_project_dependencies(external_home, python, log)
+
+            self.assertFalse(result["managed"])
+            self.assertFalse(result["repaired"])
+            run.assert_not_called()
+
     def test_stop_refuses_external_comfyui_process(self):
         with tempfile.TemporaryDirectory() as directory:
             state_path = Path(directory) / "comfyui-service.json"
