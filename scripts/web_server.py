@@ -553,6 +553,8 @@ def _image_style_presets() -> dict[str, object]:
             "remote_direction": str(raw.get("remote_direction") or ""),
             "lora_id": str(raw.get("lora_id") or "").strip(),
             "lora_strength": float(raw.get("lora_strength") or 0.0),
+            "preferred_provider": str(raw.get("preferred_provider") or "").strip().upper(),
+            "render_role": str(raw.get("render_role") or "CONCEPT_PREVIEW").strip().upper(),
         })
     if not presets:
         raise ValueError("image style presets are invalid")
@@ -1007,6 +1009,7 @@ def _generate_image_studio_asset(
         raise ValueError("unsupported image studio artifact type")
 
     capability = "character_bible" if artifact_type == "character_bible" else "shot_keyframe"
+    preset = _image_style_preset(style_preset)
     comfyui_status = _comfyui_image_status()
     openai_status = _openai_image_status()
     available: set[str] = set()
@@ -1020,9 +1023,15 @@ def _generate_image_studio_asset(
     requested = str(preferred_provider or "AUTO").strip().upper()
     if requested not in {"AUTO", "COMFYUI_IMAGE", "OPENAI_IMAGE"}:
         raise ValueError("unsupported image provider preference")
+    style_preferred = str(preset.get("preferred_provider") or "").strip().upper()
+    effective_preferred = None
+    if requested != "AUTO":
+        effective_preferred = requested
+    elif style_preferred in available:
+        effective_preferred = style_preferred
     route = _image_provider_router().route(
         capability,
-        preferred_provider=None if requested == "AUTO" else requested,
+        preferred_provider=effective_preferred,
         available_provider_ids=available,
         confirm_billable=confirm_billable,
         reference_image=False,
@@ -1035,7 +1044,6 @@ def _generate_image_studio_asset(
             "当前小说项目尚未抽取角色资料，已阻止使用全局演示角色生成定妆板；"
             "请先完成项目角色抽取/故事圣经。"
         )
-    preset = _image_style_preset(style_preset)
     local_route = route["adapter"] == "comfyui_image"
     style_direction = str(preset.get("remote_direction") or "")
     forbidden_direction = "" if local_route else str(preset.get("negative_prompt") or "")
@@ -1115,6 +1123,15 @@ def _generate_image_studio_asset(
         "quality": result["quality"],
         "style_preset": str(preset.get("id") or ""),
         "style_label": str(preset.get("label") or ""),
+        "style_preferred_provider": str(preset.get("preferred_provider") or ""),
+        "requested_render_role": str(preset.get("render_role") or "CONCEPT_PREVIEW"),
+        "render_role": (
+            "FINAL_VISUAL"
+            if str(preset.get("render_role") or "").upper() == "FINAL_VISUAL" and route["adapter"] == "openai_image"
+            else "LOCAL_PREVIEW"
+            if str(preset.get("render_role") or "").upper() == "FINAL_VISUAL" and route["adapter"] == "comfyui_image"
+            else str(preset.get("render_role") or "CONCEPT_PREVIEW")
+        ),
         "lora_requested": str(preset.get("lora_id") or ""),
         "lora_applied": bool(result.get("lora_name")),
         "lora_name": str(result.get("lora_name") or ""),
