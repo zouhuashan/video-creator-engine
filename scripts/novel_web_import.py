@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 import shutil
 import time
@@ -16,6 +17,7 @@ from scripts.novel_anime_repository import NovelAnimeRepository
 from scripts.novel_anime_runtime import NovelAnimeRuntime
 from scripts.novel_source_catalog import build_catalog, write_catalog
 from scripts.novel_source_ingest import MAX_SOURCE_BYTES, ingest_source
+from scripts.novel_character_candidates import build_character_candidates, write_character_candidates
 from scripts.novel_story_bible import build_bible, bind_continuity_refs, write_bible
 from scripts.novel_series_plan import build_plan, write_plan
 from scripts.novel_episode_planning import build_episode_planning, write_episode_planning
@@ -222,6 +224,19 @@ def create_project_from_web_upload(
                 temp_root.rmdir()
             except OSError:
                 pass
+
+        import_payload_path = project_dir / str(import_result["output"])
+        import_payload = json.loads(import_payload_path.read_text(encoding="utf-8"))
+        extraction = import_payload.get("extraction") if isinstance(import_payload, dict) else {}
+        characters = extraction.get("characters") if isinstance(extraction, dict) else []
+        candidate_payload = build_character_candidates(
+            project_dir,
+            source_file_name=source_name,
+            source_sha256=hashlib.sha256(source_bytes).hexdigest(),
+            provider=str(extraction.get("provider") or "local_heuristic"),
+            characters=characters if isinstance(characters, list) else [],
+        )
+        write_character_candidates(project_dir, candidate_payload)
 
         _initialize_workspace(project_dir)
         return {
