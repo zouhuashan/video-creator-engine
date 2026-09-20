@@ -335,30 +335,47 @@ class WebServerTests(unittest.TestCase):
             self.assertEqual(result["remaining_project_ids"], ["newer"])
             self.assertTrue(newer.exists())
 
-    def test_image_studio_explains_guofeng_style_lock(self):
+    def test_image_studio_explains_cinematic_3d_default_and_local_preview_boundary(self):
         index = (web_server.WEB_ROOT / "index.html").read_text(encoding="utf-8")
         app = (web_server.WEB_ROOT / "app.js").read_text(encoding="utf-8")
-        self.assertIn("系统已默认强制中国古风古装", index)
+        self.assertIn("电影级 3D 国漫", index)
+        self.assertIn("本地 Animagine 仅作低成本预览", index)
+        self.assertIn("3D 最终视觉 / Fallback", index)
         self.assertIn("动漫基础模型", index)
         self.assertNotIn("安装国漫基础模型", index)
-        self.assertIn("国风由系统风格锁加强", app)
         self.assertIn('id="imageStudioStylePreset"', index)
         self.assertIn('id="imageStudioInstallLora"', index)
         self.assertIn("/api/comfyui/loras/install/start", app)
+        self.assertIn("AUTO → OpenAI Final", app)
+        self.assertIn("ComfyUI LOCAL PREVIEW", app)
+        self.assertIn("videocreator.imageStylePreset.v2.", app)
         self.assertIn("style_preset:", app)
 
-    def test_image_style_presets_default_to_chinese_guofeng_and_optional_lora(self):
+    def test_image_style_presets_default_to_cinematic_3d_and_keep_illustration_lora_separate(self):
         styles = web_server._image_style_presets()
-        self.assertEqual(styles["default_preset"], "GUOFENG_ANCIENT_CHINA")
+        self.assertEqual(styles["default_preset"], "CINEMATIC_3D_DONGHUA")
         ids = {item["id"] for item in styles["presets"]}
         self.assertEqual(
             ids,
-            {"GUOFENG_ANCIENT_CHINA", "XIANXIA_DONGHUA", "WUXIA_DONGHUA", "INK_GUOFENG", "ANIME_DEFAULT"},
+            {
+                "CINEMATIC_3D_DONGHUA",
+                "GUOFENG_ANCIENT_CHINA",
+                "XIANXIA_DONGHUA",
+                "WUXIA_DONGHUA",
+                "INK_GUOFENG",
+                "ANIME_DEFAULT",
+            },
         )
+        final_3d = web_server._image_style_preset("CINEMATIC_3D_DONGHUA")
+        self.assertEqual(final_3d["preferred_provider"], "OPENAI_IMAGE")
+        self.assertEqual(final_3d["render_role"], "FINAL_VISUAL")
+        self.assertEqual(final_3d["lora_id"], "")
+        self.assertIn("cinematic 3D Chinese donghua", final_3d["positive_prompt_prefix"])
+        self.assertIn("flat 2D drawing", final_3d["negative_prompt"])
         guofeng = web_server._image_style_preset("GUOFENG_ANCIENT_CHINA")
         self.assertEqual(guofeng["lora_id"], "sdxl-chinese-style-illustration")
+        self.assertEqual(guofeng["render_role"], "CONCEPT_PREVIEW")
         self.assertIn("hanfu", guofeng["positive_prompt_prefix"])
-        self.assertIn("school uniform", guofeng["negative_prompt"])
         anime = web_server._image_style_preset("ANIME_DEFAULT")
         self.assertEqual(anime["lora_id"], "")
 
