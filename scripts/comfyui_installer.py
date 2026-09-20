@@ -34,6 +34,10 @@ class ComfyUIInstallError(RuntimeError):
     pass
 
 
+class ComfyUITorchUnavailable(ComfyUIInstallError):
+    pass
+
+
 def _write_state(status: str, step: str, detail: str, **extra: Any) -> dict[str, Any]:
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     payload = {
@@ -235,8 +239,9 @@ def _https_probe(executable: str, env: dict[str, str]) -> tuple[bool, str]:
     return False, detail[-1200:]
 
 
-def choose_bootstrap_runtime() -> tuple[str, dict[str, str], str]:
-    candidates = _python_candidates()
+def choose_bootstrap_runtime(exclude: set[str] | None = None) -> tuple[str, dict[str, str], str]:
+    excluded = exclude or set()
+    candidates = [item for item in _python_candidates() if item not in excluded]
     if not candidates:
         raise ComfyUIInstallError("未找到 Python 3.10–3.14；建议安装 Homebrew python@3.13 或 python@3.12")
 
@@ -393,17 +398,82 @@ def _ensure_venv(bootstrap_python: str, log, env: dict[str, str]) -> Path:
     return python
 
 
-def _install_torch(python: Path, log, env: dict[str, str]) -> None:
+def _python_platform_signature(python: Path) -> str:
+    script = (
+        "import json,platform,sys,sysconfig;"
+        "print(json.dumps({'python':platform.python_version(),"
+        "'machine':platform.machine(),'platform':sysconfig.get_platform(),"
+        "'soabi':sysconfig.get_config_var('SOABI'),'abiflags':getattr(sys,'abiflags','')}))"
+    )
+    try:
+        result = subprocess.run(
+            [str(python), "-c", script],
+            capture_output=True,
+            text=True,
+            cwd=INSTALL_DIR,
+            timeout=8,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return "unknown"
+    return result.stdout.strip() or "unknown"
+
+
+def _pip_dry_run(command: list[str], *, log, env: dict[str, str], label: str) -> tuple[bool, str]:
+    probe = [*command, "--dry-run"]
+    log.write(("$ " + " ".join(probe) + "\n").encode("utf-8", errors="replace"))
+    log.flush()
+    try:
+        result = subprocess.run(
+            probe,
+            cwd=INSTALL_DIR,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            stdin=subprocess.DEVNULL,
+            env=env,
+            text=True,
+            check=False,
+            timeout=120,
+        )
+    except (OSError, subprocess.SubprocessError) as error:
+        return False, str(error)
+    output = result.stdout or ""
+    log.write(output.encode("utf-8", errors="replace"))
+    log.flush()
+    if result.returncode == 0:
+        return True, output
+    detail = "\n".join(output.splitlines()[-20:])
+    return False, detail
+
+
+def _install_torch(python: Path, log, env: dict[str, str]) -> str:
     is_apple = platform.system() == "Darwin" and platform.machine().lower() in {"arm64", "aarch64"}
     if not is_apple:
-        return
+        return "system"
+
     nightly = [str(python), "-m", "pip", "install", "--pre", "torch", "torchvision", "torchaudio", "--index-url", "https://download.pytorch.org/whl/nightly/cpu"]
-    try:
+    stable = [str(python), "-m", "pip", "install", "torch", "torchvision", "torchaudio"]
+
+    log.write(f"python_platform={_python_platform_signature(python)}\n".encode("utf-8", errors="replace"))
+    log.flush()
+
+    nightly_ok, nightly_detail = _pip_dry_run(nightly, log=log, env=env, label="PROBE_TORCH_NIGHTLY")
+    if nightly_ok:
         _run(nightly, cwd=INSTALL_DIR, log=log, label="INSTALL_TORCH_NIGHTLY", env=env)
-    except ComfyUIInstallError:
-        log.write(b"nightly torch failed; falling back to stable PyPI torch\n")
-        log.flush()
-        _run([str(python), "-m", "pip", "install", "torch", "torchvision", "torchaudio"], cwd=INSTALL_DIR, log=log, label="INSTALL_TORCH_STABLE", env=env)
+        return "nightly"
+
+    log.write(b"nightly torch has no compatible wheel for this Python runtime; probing stable PyPI\n")
+    log.flush()
+    stable_ok, stable_detail = _pip_dry_run(stable, log=log, env=env, label="PROBE_TORCH_STABLE")
+    if stable_ok:
+        _run(stable, cwd=INSTALL_DIR, log=log, label="INSTALL_TORCH_STABLE", env=env)
+        return "stable"
+
+    combined = (stable_detail or nightly_detail or "no compatible torch wheel").strip()
+    raise ComfyUITorchUnavailable(
+        "当前 Python runtime 没有可安装的 PyTorch wheel"
+        + (f": {combined.splitlines()[-1]}" if combined else "")
+    )
 
 
 def _install_requirements(python: Path, log, env: dict[str, str]) -> None:
@@ -445,17 +515,45 @@ def install() -> dict[str, Any]:
     if free < MIN_FREE_BYTES:
         raise ComfyUIInstallError("可用磁盘空间不足 6 GB；ComfyUI 核心环境安装需要更多空间")
 
-    bootstrap_python, install_env, ca_source = choose_bootstrap_runtime()
     with LOG_PATH.open("ab") as log:
         log.write(f"\n=== ComfyUI install {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n".encode())
-        log.write(f"bootstrap_python={bootstrap_python}\n".encode())
-        log.write(f"ca_source={ca_source}\n".encode())
         log.flush()
         try:
             _write_state("RUNNING", "CHECK_PREREQS", "准备安装", pid=os.getpid(), install_dir=str(INSTALL_DIR))
             _clone_or_repair(log)
-            python = _ensure_venv(bootstrap_python, log, install_env)
-            _install_torch(python, log, install_env)
+
+            excluded: set[str] = set()
+            torch_failures: list[str] = []
+            while True:
+                try:
+                    bootstrap_python, install_env, ca_source = choose_bootstrap_runtime(excluded)
+                except ComfyUIInstallError as error:
+                    if torch_failures:
+                        raise ComfyUIInstallError(
+                            "所有可用 Python runtime 都没有匹配的 PyTorch wheel："
+                            + " | ".join(torch_failures[-4:])
+                        ) from error
+                    raise
+
+                log.write(f"bootstrap_python={bootstrap_python}\n".encode())
+                log.write(f"ca_source={ca_source}\n".encode())
+                log.flush()
+
+                python = _ensure_venv(bootstrap_python, log, install_env)
+                try:
+                    torch_channel = _install_torch(python, log, install_env)
+                except ComfyUITorchUnavailable as error:
+                    torch_failures.append(f"{bootstrap_python}: {error}")
+                    excluded.add(bootstrap_python)
+                    log.write(
+                        f"torch wheel unavailable for {bootstrap_python}; trying next Python runtime\n".encode(
+                            "utf-8", errors="replace"
+                        )
+                    )
+                    log.flush()
+                    continue
+                break
+
             _install_requirements(python, log, install_env)
             info = _verify(python, log)
             return _write_state(
@@ -466,6 +564,7 @@ def install() -> dict[str, Any]:
                 install_dir=str(INSTALL_DIR),
                 python=str(python),
                 ca_source=ca_source,
+                torch_channel=torch_channel,
                 torch=str(info.get("torch") or ""),
                 mps_built=bool(info.get("mps_built")),
                 mps_available=bool(info.get("mps_available")),
