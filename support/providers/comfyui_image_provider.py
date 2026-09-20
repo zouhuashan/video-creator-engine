@@ -164,6 +164,16 @@ class ComfyUIImageProvider:
                         return {"filename": str(image["filename"]), "subfolder": str(image.get("subfolder") or ""), "type": str(image.get("type") or "output")}
         return None
 
+    @staticmethod
+    def _valid_image_payload(data: bytes) -> bool:
+        if data.startswith(b"\x89PNG\r\n\x1a\n"):
+            return True
+        if data.startswith(b"\xff\xd8\xff"):
+            return True
+        if len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+            return True
+        return False
+
     def _download_image(self, image: dict[str, str], output_path: Path) -> None:
         query = urllib.parse.urlencode({"filename": image["filename"], "subfolder": image.get("subfolder", ""), "type": image.get("type", "output")})
         try:
@@ -173,6 +183,8 @@ class ComfyUIImageProvider:
             raise ComfyUIImageError(f"failed to download ComfyUI output: {error}") from error
         if not data:
             raise ComfyUIImageError("ComfyUI returned an empty image")
+        if not self._valid_image_payload(data):
+            raise ComfyUIImageError("ComfyUI /view returned non-image bytes")
         output_path.parent.mkdir(parents=True, exist_ok=True)
         temporary = output_path.with_suffix(output_path.suffix + ".tmp")
         temporary.write_bytes(data)
