@@ -560,6 +560,10 @@ def _comfyui_image_status() -> dict[str, object]:
         result["service"] = comfyui_service_status(base_url, connected=bool(result.get("connected")))
     except (ComfyUIServiceError, ValueError, OSError) as error:
         result["service"] = {"state": "ERROR", "detail": str(error), "managed": False, "installed": False}
+    try:
+        result["installer"] = comfyui_install_status()
+    except (ComfyUIInstallError, ValueError, OSError) as error:
+        result["installer"] = {"status": "ERROR", "detail": str(error), "installed": False}
     return result
 
 
