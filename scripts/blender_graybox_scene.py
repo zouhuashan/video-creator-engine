@@ -9,20 +9,72 @@ from __future__ import annotations
 import json
 import math
 import sys
+import time
 from pathlib import Path
 
 import bpy
 from mathutils import Vector
 
 
-def _args() -> tuple[Path, Path]:
+def _args() -> tuple[Path, Path, Path | None]:
     argv = sys.argv
     if "--" not in argv:
-        raise RuntimeError("expected -- <spec.json> <output.mp4>")
+        raise RuntimeError("expected -- <spec.json> <output.mp4> [progress.json]")
     args = argv[argv.index("--") + 1 :]
-    if len(args) != 2:
-        raise RuntimeError("expected graybox spec and output path")
-    return Path(args[0]).resolve(), Path(args[1]).resolve()
+    if len(args) not in {2, 3}:
+        raise RuntimeError("expected graybox spec, output path and optional progress path")
+    progress = Path(args[2]).resolve() if len(args) == 3 else None
+    return Path(args[0]).resolve(), Path(args[1]).resolve(), progress
+
+
+def _write_progress(path: Path | None, *, status: str, frame: int, total_frames: int, detail: str = "") -> None:
+    if path is None:
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "status": status,
+        "current_frame": int(frame),
+        "total_frames": int(total_frames),
+        "progress_percent": round((frame * 100.0 / total_frames), 1) if total_frames else 0.0,
+        "detail": detail,
+        "updated_at_epoch": time.time(),
+    }
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    tmp.replace(path)
+
+
+def _install_progress_handlers(progress_path: Path | None, total_frames: int) -> None:
+    def render_pre(scene, *_):
+        _write_progress(
+            progress_path,
+            status="RUNNING",
+            frame=max(0, int(scene.frame_current) - 1),
+            total_frames=total_frames,
+            detail=f"开始渲染第 {int(scene.frame_current)} / {total_frames} 帧",
+        )
+
+    def render_post(scene, *_):
+        _write_progress(
+            progress_path,
+            status="RUNNING",
+            frame=int(scene.frame_current),
+            total_frames=total_frames,
+            detail=f"已完成第 {int(scene.frame_current)} / {total_frames} 帧",
+        )
+
+    def render_complete(scene, *_):
+        _write_progress(
+            progress_path,
+            status="PASS",
+            frame=total_frames,
+            total_frames=total_frames,
+            detail="Blender 动画渲染完成",
+        )
+
+    bpy.app.handlers.render_pre.append(render_pre)
+    bpy.app.handlers.render_post.append(render_post)
+    bpy.app.handlers.render_complete.append(render_complete)
 
 
 def _clear() -> None:
@@ -230,8 +282,10 @@ def _configure_scene(spec, output: Path):
 
 
 def main() -> int:
-    spec_path, output = _args()
+    spec_path, output, progress_path = _args()
     spec = json.loads(spec_path.read_text(encoding="utf-8"))
+    total_frames = int(round(float(spec["duration_seconds"]) * int(spec["fps"])))
+    _write_progress(progress_path, status="RUNNING", frame=0, total_frames=total_frames, detail="Blender 正在初始化白模场景")
     _clear()
     white = _material("GrayboxWhite", (0.82, 0.84, 0.86, 1.0))
     gray = _material("GrayboxGround", (0.32, 0.34, 0.38, 1.0))
@@ -241,7 +295,9 @@ def main() -> int:
     _animate_actor(spec, root, left_arm, right_arm, left_leg, right_leg, hair)
     _build_camera(spec)
     _configure_scene(spec, output)
+    _install_progress_handlers(progress_path, total_frames)
     bpy.ops.wm.save_as_mainfile(filepath=str(output.with_suffix(".blend")))
+    _write_progress(progress_path, status="RUNNING", frame=0, total_frames=total_frames, detail="场景已完成，开始逐帧渲染")
     bpy.ops.render.render(animation=True)
     if not output.is_file():
         raise RuntimeError("Blender finished without producing the graybox MP4")
