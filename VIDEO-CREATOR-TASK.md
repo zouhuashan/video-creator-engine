@@ -4577,9 +4577,38 @@ Status: CODE PASS / CI PASS / LOCAL VISUAL SMOKE PENDING
   - 用户确认后 Web 自动调用 `graybox/review → APPROVED`，再继续抽取控制帧；
   - 不再要求用户滚回 P32 上方寻找“白模通过”按钮；
   - P35 状态条改为输出**真实阻断项**（缺白模 / 白模 stale / 缺人物 / 缺场景），而不是笼统显示“需要 APPROVED + references”。
+- P35 Codex 批量生图升级（2026-09-22）：
+  - 新增 `scripts/codex_keyframe_batch.py`；
+  - backend = `CODEX_IMAGEGEN_BATCH`；
+  - 使用本机已经登录的 Codex CLI，不要求 VideoCreator 保存 OpenAI API Key；
+  - 非交互执行使用官方推荐的 `codex exec --sandbox workspace-write --ephemeral`；
+  - 每个参考图通过 Codex CLI `--image` 真正作为图像附件传入，不只是把路径写进 Prompt；
+  - 每帧 Prompt 强制 `$imagegen`，并要求只生成 1 张最终 PNG 到该 Shot 的 P35 工作目录；
+  - 新增 `.agents/skills/p35-keyframe-render/SKILL.md`，限制单帧任务只做图像生成，不修改代码、TASK、manifest 或参考素材。
+- Codex 调度策略：
+  - `CANONICAL_RESET` 帧无需上一张输出，可优先并发；
+  - `PREVIOUS_CONTINUITY` 帧只有上一张 final keyframe = READY 后才进入队列；
+  - 默认并发 = 2，Web 可选 1 / 2 / 3；
+  - 已 READY 的关键帧永不重复生成；
+  - 失败帧在同一轮不会自动重试，避免静默继续消耗 Codex 图像额度；
+  - 用户再次点击批量生成时，只重试 FAILED / 剩余帧；
+  - Web 服务重启时 RUNNING batch 标记为 INTERRUPTED，但已完成帧全部保留。
+- Codex 批量安全门：
+  - 必须显式勾选“确认会消耗 Codex 图像生成套餐用量”；
+  - 必须显式勾选“允许发送人物 / 场景 / Blender 控制帧 / 上一张最终帧”；
+  - 未检测到 `codex` CLI 时按钮不可执行，但仍保留 ChatGPT Web 手工备用；
+  - VideoCreator 不落盘 Codex / OpenAI credential。
+- Web P35 新主流程：
+  - ① 准备 Blender 控制帧；
+  - ② `Codex 批量生成剩余帧`；
+  - 页面每 2 秒刷新 batch 状态；
+  - 显示 `completed / total / failed`、当前 wave、当前生成帧和错误；
+  - 可中途停止，已完成帧保留；
+  - 全部 READY 后再执行 ④ 本地插帧；
+  - 原 ChatGPT Web 逐帧生成收进“手工备用”，不再作为默认主路径。
 - Web P32 区下方新增 **P35 / GPT KEYFRAME → LOCAL VIDEO**：
   - ① 抽取 Blender 控制帧；
-  - ② 直接打开 ChatGPT 网页版；
+  - ② 默认改为 Codex ImageGen 批量生成；ChatGPT 网页版保留为手工备用；
   - 每张卡片展示 Blender 控制帧；
   - 一键复制该帧 Prompt；
   - 显示 Canonical Reset / Previous Continuity；
@@ -4608,6 +4637,8 @@ Status: CODE PASS / CI PASS / LOCAL VISUAL SMOKE PENDING
   - `POST .../graybox/gpt-keyframes/prepare`；
   - `POST .../graybox/gpt-keyframes/upload`；
   - `POST .../graybox/gpt-keyframes/interpolate`。
+  - `POST .../graybox/gpt-keyframes/codex-batch/start`；
+  - `POST .../graybox/gpt-keyframes/codex-batch/stop`。
 - 回归覆盖：
   - 9 张控制帧均匀时间点；
   - canonical reset / continuity 标记；
@@ -4616,6 +4647,8 @@ Status: CODE PASS / CI PASS / LOCAL VISUAL SMOKE PENDING
   - 最终 FFmpeg filter 必须包含 `minterpolate=fps=24` 和 Shot Duration trim；
   - Web 必须暴露 P35 controls / ChatGPT Web bridge / upload / interpolate；
   - P31 workflow 已纳入 `scripts/gpt_keyframe_pipeline.py` 与 `tests/test_gpt_keyframe_pipeline.py`。
+  - P31 workflow 已纳入 `scripts/codex_keyframe_batch.py`、`tests/test_codex_keyframe_batch.py` 与 P35 Codex Web regression；
+  - 回归验证 Codex usage/upload 双确认、Reset/Continuity 依赖调度、真实 `--image` 附件、服务重启 INTERRUPTED 恢复语义。
 - GitHub Actions P31 Novel Import Regression run `35733041001` = SUCCESS，覆盖 P35 core + Web + Node syntax check。
 
 关键提交：
@@ -4638,6 +4671,16 @@ Status: CODE PASS / CI PASS / LOCAL VISUAL SMOKE PENDING
 - `7ece86e7` render signature regression
 - `763671b3` expose stale MP4 for review
 - `a4fd2807` stale whitebox preview UI
+- `e061fbef` Codex ImageGen batch runner
+- `863a80e5` P35 Codex keyframe skill
+- `80749ba1` Codex batch Web API
+- `7d04448e` Codex batch Web controls
+- `0eb71066` Codex batch Web workflow / polling
+- `07fc681f` attach real image references with `--image`
+- `06e6c2d4` Codex batch runner regression
+- `4d76d005` Codex-first P35 Web regression
+- `39d363a6` Codex batch Web styles
+- `3cd1ab4f` CI gate for Codex batch
 
 当前 Web smoke 路径：
 
@@ -4650,18 +4693,22 @@ Status: CODE PASS / CI PASS / LOCAL VISUAL SMOKE PENDING
 P35 / GPT KEYFRAME → LOCAL VIDEO
 → 控制帧数量选 9
 → ① 抽取 Blender 控制帧
+→ 确认 Codex CLI = READY
+→ 并发保持 2
+→ 勾选 Codex 套餐用量确认
+→ 勾选参考图上传授权
+→ ② Codex 批量生成剩余 9 张
 
-按 KF-000 → KF-008 顺序：
-→ 打开当前 Blender 控制帧
-→ 点击“复制 Prompt”
-→ 打开 ChatGPT 网页版
-→ 上传：人物参考 + 场景参考 + 当前控制帧
-→ 若卡片提示 PREVIOUS_CONTINUITY，再上传上一张已接受最终帧
-→ 生成一张最终国漫帧
-→ 下载后回到 VideoCreator
-→ “上传 ChatGPT 最终帧”
+系统自动：
+→ 第一波优先跑可并发 Canonical Reset
+→ Continuity 帧等待其 previous final READY
+→ 自动写入 generated/ + normalized/
+→ Web 实时显示 N/9、FAILED、当前 wave
+→ 单帧失败时不自动二次烧额度
+→ 再点②只重试失败/剩余帧
 
 全部 9/9 READY：
+→ 人工快速检查 9 张关键帧人物/场景连续性
 → ④ 本地插帧 → 24fps
 → Web 直接播放结果
 → 检查：脸/发型/服装漂移、建筑跳变、手脚形变、插帧拖影/融化
@@ -4675,6 +4722,6 @@ P35 / GPT KEYFRAME → LOCAL VIDEO
 - 高速打斗、大幅遮挡、360° 转身仍保留 H3 等原生 Video Provider；
 - 对话、慢走、停步、抬头、轻推镜优先考虑 P35 低成本路线。
 
-当前边界：首版是 **ChatGPT Web 手工桥接**，不是浏览器自动化。这样先验证视觉路线本身，避免在效果未证明前先投入不稳定的网页登录自动化。若 P35 smoke PASS，再评估第二阶段 `OPENAI_IMAGE_API` 自动逐帧生成或 Work/Browser 自动化。
+当前边界：P35 已从 **MANUAL_WEB_BRIDGE** 升级为 **CODEX_IMAGEGEN_BATCH + ChatGPT Web 手工备用**。正式自动批量路线使用用户已有 Codex 登录与套餐额度，不使用 VideoCreator 内保存的 API Key。若后续整集/批量镜头的 Codex 套餐消耗过高，再切换为独立 `OPENAI_IMAGE_API` Provider 做可计费、可控并发的大批量生产。
 
-NEXT：本机用 `GB-SHOT-001` 做 9 张真实视觉 smoke。若关键帧稳定，生成第一版 `9 keyframes → FFmpeg minterpolate → 24fps` 视频并和 H3 112 贝壳版本并排比较；若动作伪影过多，再切 17 张。
+NEXT：本机更新 main、重启 Web，对 `GB-SHOT-001` 先做 9 张 Codex ImageGen smoke：并发 2，确认两项授权后启动批量生成。9 张关键帧全部 READY 后先检查人物/服装/古宅稳定性，再做 `9 keyframes → FFmpeg minterpolate → 24fps`，与 H3 112 贝壳版本并排比较；只有插帧伪影明显时才升到 17 张。
