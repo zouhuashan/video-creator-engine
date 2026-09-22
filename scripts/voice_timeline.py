@@ -20,7 +20,8 @@ from typing import Any
 from adapters.tts.macos_say import MacOSSayTTS
 from adapters.tts.base import TTSProviderError
 from scripts.novel_episode_script import load_script_package
-from scripts.novel_shot_breakdown import NovelShotBreakdownError, load_shot_breakdown
+from scripts.novel_shot_breakdown import NovelShotBreakdownError, load_shot_breakdown, signature as shot_signature, write_shot_breakdown
+from scripts.novel_anime_project import utc_timestamp
 from scripts.novel_voice_profiles import load_voice_profiles
 
 
@@ -319,6 +320,77 @@ def generate_preview(project: Path, episode_id: str, *, voice: str = "Tingting")
     return payload
 
 
+def apply_to_shot_breakdown(project: Path, episode_id: str) -> dict[str, Any]:
+    project = Path(project).resolve()
+    episode_id = str(episode_id or "").strip().upper()
+    if not re.fullmatch(r"S\d{2}E\d{3}", episode_id):
+        raise VoiceTimelineError("episode_id 格式必须为 S01E001")
+
+    timeline_path = project / OUTPUT
+    if not timeline_path.is_file():
+        raise VoiceTimelineError("请先生成本集 Timing Voice")
+    try:
+        timeline = json.loads(timeline_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise VoiceTimelineError("voice-timeline.json 无法读取") from error
+
+    episode = next((item for item in timeline.get("episodes", []) if item.get("episode_id") == episode_id), None)
+    if not episode or episode.get("status") != "READY":
+        raise VoiceTimelineError("本集 Timing Voice 尚未全部生成，不能写回镜头时长")
+
+    timings = {
+        str(item.get("shot_id")): item
+        for item in timeline.get("shot_timing", [])
+        if item.get("episode_id") == episode_id and item.get("timing_source") == "ACTUAL_TTS"
+    }
+    if not timings:
+        raise VoiceTimelineError("本集没有可应用的 ACTUAL_TTS 镜头时长")
+
+    try:
+        package = load_shot_breakdown(project)
+    except (NovelShotBreakdownError, ValueError, OSError) as error:
+        raise VoiceTimelineError("当前尚未建立 Shot Breakdown；请先生成分镜结构，再应用语音时长") from error
+
+    updated = []
+    for scene in package["scene_breakdowns"]:
+        if str(scene.get("episode_id") or "") != episode_id:
+            continue
+        for shot in scene.get("shots", []):
+            timing = timings.get(str(shot.get("id") or ""))
+            if not timing:
+                continue
+            before = float(shot.get("duration_seconds") or 0.0)
+            after = float(timing["recommended_duration_seconds"])
+            shot["duration_seconds"] = after
+            shot["continuity_signature"] = shot_signature({
+                key: shot[key]
+                for key in (
+                    "id", "sequence", "shot_type", "framing", "angle", "movement",
+                    "lens", "duration_seconds", "start_state", "end_state", "reference_ids",
+                )
+            })
+            updated.append({
+                "shot_id": str(shot["id"]),
+                "before_seconds": round(before, 3),
+                "after_seconds": round(after, 3),
+                "source": "ACTUAL_TTS",
+            })
+
+    if not updated:
+        raise VoiceTimelineError("Timing Voice 已生成，但没有匹配到现有 Shot ID")
+    package["revision"] = int(package.get("revision") or 0) + 1
+    package["updated_at"] = utc_timestamp()
+    write_shot_breakdown(project, package, overwrite=True)
+    return {
+        "status": "PASS",
+        "episode_id": episode_id,
+        "updated_shot_count": len(updated),
+        "updated": updated,
+        "shot_breakdown_revision": package["revision"],
+        "downstream_rebuild_required": ["storyboard", "animatic", "dynamic_shots", "edit_timelines"],
+    }
+
+
 def inventory(project: Path) -> dict[str, Any]:
     project = Path(project).resolve()
     payload = build_timeline(project)
@@ -340,4 +412,4 @@ def inventory(project: Path) -> dict[str, Any]:
     return payload
 
 
-__all__ = ["VoiceTimelineError", "build_timeline", "generate_preview", "inventory"]
+__all__ = ["VoiceTimelineError", "apply_to_shot_breakdown", "build_timeline", "generate_preview", "inventory"]
