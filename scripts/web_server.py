@@ -73,7 +73,7 @@ from scripts.novel_voice_profiles import NovelVoiceProfileError, load_voice_prof
 from scripts.novel_audio_assets import NovelAudioAssetError, load_audio_assets, summary as audio_asset_summary  # noqa: E402
 from scripts.novel_audio_mix import NovelAudioMixError, load_audio_mix, summary as audio_mix_summary  # noqa: E402
 from scripts.voice_timeline import VoiceTimelineError, apply_to_shot_breakdown as apply_voice_timeline_to_shots, generate_preview as generate_voice_timeline_preview, inventory as voice_timeline_inventory  # noqa: E402
-from scripts.final_audio_pipeline import FinalAudioError, generate_final_voice_episode, generate_final_voice_line, inventory as final_audio_inventory, mix_episode as mix_final_audio_episode, save_voice_lock as save_final_voice_lock  # noqa: E402
+from scripts.final_audio_pipeline import FinalAudioError, generate_final_voice_episode, generate_final_voice_line, inventory as final_audio_inventory, mix_episode as mix_final_audio_episode, save_voice_lock as save_final_voice_lock, upload_audio_asset as upload_final_audio_asset  # noqa: E402
 from scripts.novel_dynamic_shots import NovelDynamicShotError, load_dynamic_shots, summary as dynamic_shot_summary  # noqa: E402
 from scripts.novel_edit_timelines import NovelEditTimelineError, load_edit_timelines, summary as edit_timeline_summary  # noqa: E402
 from scripts.novel_qc import NovelQCError, add_annotation, add_issue, compare as compare_qc, load_qc_report, summary as qc_summary, update_issue  # noqa: E402
@@ -2671,6 +2671,28 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
             except Exception as error:
                 return self._error(HTTPStatus.INTERNAL_SERVER_ERROR, f"final voice episode generation failed: {error}")
+
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/final-audio/upload-asset", route)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                payload = self._read_json(max_bytes=42 * 1024 * 1024)
+                encoded = str(payload.get("content_base64") or "").strip()
+                if not encoded:
+                    raise ValueError("audio content is required")
+                try:
+                    content = base64.b64decode(encoded, validate=True)
+                except Exception as error:
+                    raise ValueError("audio base64 is invalid") from error
+                uploaded = upload_final_audio_asset(
+                    project,
+                    kind=str(payload.get("kind") or ""),
+                    filename=str(payload.get("filename") or "audio.wav"),
+                    content=content,
+                )
+                return self._json({**uploaded, "status_view": _final_audio_web_status(project)}, HTTPStatus.CREATED)
+            except (ValueError, TypeError, FinalAudioError, OSError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
 
         match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/final-audio/mix", route)
         if match:
