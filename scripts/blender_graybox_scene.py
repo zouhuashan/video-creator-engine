@@ -186,33 +186,45 @@ def _build_environment(white, gray):
         _box(f"Step{index}", (0, 1.45 + index * 0.32, 0.06 + index * 0.08), (2.9 - index * 0.22, 0.48, 0.08), gray)
 
 
+def _joint_limb(name: str, joint_location, radius: float, length: float, material, parent):
+    """Create a limb that rotates around a shoulder/hip pivot instead of its mesh center."""
+    pivot = bpy.data.objects.new(f"{name}.Pivot", None)
+    bpy.context.collection.objects.link(pivot)
+    pivot.parent = parent
+    pivot.location = joint_location
+
+    segment = _cylinder(name, (0, 0, 0), radius, length, material, pivot)
+    segment.location = (0, 0, -length / 2.0)
+    return pivot, segment
+
+
 def _build_actor(white, dark):
     root = bpy.data.objects.new("ActorRoot", None)
     bpy.context.collection.objects.link(root)
 
-    torso = _cylinder("Torso", (0, 0, 1.65), 0.34, 1.05, white, root)
-    torso.scale.x = 0.82
-    torso.scale.y = 0.55
-    _sphere("Head", (0, 0, 2.48), (0.30, 0.27, 0.36), white, root)
-    _cylinder("Neck", (0, 0, 2.10), 0.12, 0.28, white, root)
+    torso = _cylinder("Torso", (0, 0, 1.66), 0.32, 1.02, white, root)
+    torso.scale.x = 0.80
+    torso.scale.y = 0.56
+    _sphere("Head", (0, -0.01, 2.42), (0.27, 0.25, 0.31), white, root)
+    _cylinder("Neck", (0, 0, 2.08), 0.105, 0.24, white, root)
 
-    # Hair mass gives the AI video model a clear head orientation cue.
-    hair = _sphere("HairMass", (0, 0.05, 2.57), (0.34, 0.31, 0.32), dark, root)
-    hair.scale.z = 1.05
-    _box("FaceDirection", (0, -0.29, 2.45), (0.10, 0.04, 0.08), dark, root)
+    # Compact hair silhouette: keep a readable head-direction cue without turning
+    # the character into the elongated "egg head" seen in the first real smoke.
+    hair = _sphere("HairMass", (0, 0.035, 2.48), (0.30, 0.285, 0.32), dark, root)
+    hair.scale.z *= 1.05
+    face_marker = _sphere("FaceDirection", (0, -0.265, 2.41), (0.075, 0.035, 0.055), dark, root)
 
-    left_arm = _cylinder("Arm.L", (-0.48, 0, 1.68), 0.105, 0.92, white, root)
-    right_arm = _cylinder("Arm.R", (0.48, 0, 1.68), 0.105, 0.92, white, root)
+    left_arm, _ = _joint_limb("Arm.L", (-0.43, 0, 1.94), 0.095, 0.86, white, root)
+    right_arm, _ = _joint_limb("Arm.R", (0.43, 0, 1.94), 0.095, 0.86, white, root)
     left_arm.rotation_euler.y = 0.08
     right_arm.rotation_euler.y = -0.08
 
-    left_leg = _cylinder("Leg.L", (-0.18, 0, 0.72), 0.13, 1.25, white, root)
-    right_leg = _cylinder("Leg.R", (0.18, 0, 0.72), 0.13, 1.25, white, root)
-    _box("Foot.L", (-0.18, -0.12, 0.08), (0.14, 0.27, 0.09), white, root)
-    _box("Foot.R", (0.18, -0.12, 0.08), (0.14, 0.27, 0.09), white, root)
+    left_leg, _ = _joint_limb("Leg.L", (-0.17, 0, 1.30), 0.12, 1.18, white, root)
+    right_leg, _ = _joint_limb("Leg.R", (0.17, 0, 1.30), 0.12, 1.18, white, root)
+    _box("Foot.L", (-0.17, -0.12, 0.09), (0.14, 0.25, 0.085), white, root)
+    _box("Foot.R", (0.17, -0.12, 0.09), (0.14, 0.25, 0.085), white, root)
 
-    # A simple robe silhouette makes occlusion and cloth volume easier to read.
-    bpy.ops.mesh.primitive_cone_add(vertices=20, radius1=0.62, radius2=0.34, depth=1.45, location=(0, 0, 1.05))
+    bpy.ops.mesh.primitive_cone_add(vertices=20, radius1=0.58, radius2=0.31, depth=1.38, location=(0, 0, 1.04))
     robe = bpy.context.object
     robe.name = "Robe"
     robe.data.materials.append(white)
@@ -270,16 +282,31 @@ def _build_camera(spec):
 
     target = bpy.data.objects.new("CameraTarget", None)
     bpy.context.collection.objects.link(target)
-    target.location = Vector(spec["camera_path"]["target"])
+
+    camera_cfg = spec["camera_path"]
+    actor = spec["actor"]
+    fps = int(spec["fps"])
+    end_frame = int(round(float(spec["duration_seconds"]) * fps))
+    stop_frame = int(round(float(actor["stop_time"]) * fps))
+
+    if camera_cfg.get("follow_actor"):
+        target_height = float(camera_cfg.get("target_height") or 1.55)
+        target_start = Vector(actor["start"]) + Vector((0, 0, target_height))
+        target_stop = Vector(actor["stop"]) + Vector((0, 0, target_height))
+        _keyframe(target, 1, location=target_start)
+        _keyframe(target, stop_frame, location=target_stop)
+        _keyframe(target, end_frame, location=target_stop)
+        _linear(target)
+    else:
+        target.location = Vector(camera_cfg["target"])
+
     constraint = cam.constraints.new(type="TRACK_TO")
     constraint.target = target
     constraint.track_axis = "TRACK_NEGATIVE_Z"
     constraint.up_axis = "UP_Y"
 
-    fps = int(spec["fps"])
-    end_frame = int(round(float(spec["duration_seconds"]) * fps))
-    _keyframe(cam, 1, location=Vector(spec["camera_path"]["start"]))
-    _keyframe(cam, end_frame, location=Vector(spec["camera_path"]["end"]))
+    _keyframe(cam, 1, location=Vector(camera_cfg["start"]))
+    _keyframe(cam, end_frame, location=Vector(camera_cfg["end"]))
     _linear(cam)
     return cam
 
