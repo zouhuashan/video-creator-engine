@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "default_shot": {
+    "id": "GB-SHOT-001",
+    "duration_seconds": 8,
+    "fps": 24,
+    "width": 720,
+    "height": 1280,
+    "environment": "ancient_courtyard_gate",
+    "action": "enter_stop_look_up",
+    "camera": "slow_dolly_in",
+    "actor": {
+      "start": [
+        0,
+        -4.5,
+        0
+      ],
+      "stop": [
+        0,
+        -0.3,
+        0
+      ],
+      "stop_time": 4.8,
+      "look_up_time": 5.4,
+      "hold_time": 7.2
+    },
+    "camera_path": {
+      "start": [
+        5.8,
+        -11.5,
+        3.8
+      ],
+      "end": [
+        4.1,
+        -7.5,
+        3.2
+      ],
+      "target": [
+        0,
+        -0.6,
+        1.45
+      ]
+    }
+  },
+  "minimax_h3": {
+    "model": "MiniMax-H3",
+    "resolution": "768P",
+    "ratio": "9:16",
+    "default_prompt": "Strictly follow the reference graybox video's camera trajectory, framing, character path, timing, occlusion and action beats. Replace the graybox with a premium semi-realistic 3D Chinese donghua scene set in ancient China. Preserve the exact motion skeleton. Use cinematic warm rim light, cool facial fill, realistic cloth thickness, hair strands, jade and wood material response, stable identity, stable anatomy, no camera drift, no extra characters, no shape warping.",
+    "max_reference_video_bytes": 41943040
+  }
+}
