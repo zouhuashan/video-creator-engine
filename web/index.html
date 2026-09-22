@@ -463,14 +463,52 @@
                   </select>
                 </label>
                 <button class="secondary-button" id="gptKeyframePrepare">① 抽取 Blender 控制帧</button>
-                <a class="secondary-button gpt-web-link" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">② 打开 ChatGPT 网页版</a>
                 <button class="primary-button" id="gptKeyframeInterpolate" disabled>④ 本地插帧 → 24fps</button>
               </div>
 
-              <div class="gpt-keyframe-guide">
-                <strong>③ 每帧在 ChatGPT 生成后传回这里</strong>
-                <small>每张使用：人物参考 + 场景参考 + 当前 Blender 控制帧；非重置帧再带上一张已通过的最终帧。系统每约 2 秒做一次 canonical reset，降低连续编辑累积漂移。</small>
+              <div class="codex-keyframe-batch">
+                <div class="graybox-card-head">
+                  <div>
+                    <span class="section-kicker">② / CODEX IMAGEGEN BATCH</span>
+                    <strong>Codex 自动读取全部帧 Prompt 并批量生成</strong>
+                    <small>使用本机已登录的 Codex CLI + $imagegen。先并发 Canonical Reset，再按上一帧依赖自动推进 Continuity；成功帧不会重复生成。</small>
+                  </div>
+                  <span class="status-dot off" id="gptCodexBatchStatus">CHECKING</span>
+                </div>
+                <div class="codex-keyframe-controls">
+                  <label>
+                    <span>并发</span>
+                    <select id="gptCodexConcurrency" class="select-field">
+                      <option value="1">1 · 最稳</option>
+                      <option value="2" selected>2 · 推荐</option>
+                      <option value="3">3 · 更快</option>
+                    </select>
+                  </label>
+                  <label class="confirm-row compact-confirm">
+                    <input type="checkbox" id="gptCodexUsageConfirm" />
+                    <span>我确认会消耗 Codex 图像生成套餐用量。</span>
+                  </label>
+                  <label class="confirm-row compact-confirm">
+                    <input type="checkbox" id="gptCodexUploadConfirm" />
+                    <span>我允许将人物、场景、Blender 控制帧及上一张最终帧发送给 Codex 图像生成。</span>
+                  </label>
+                  <button class="primary-button" id="gptCodexBatchStart" disabled>② Codex 批量生成剩余帧</button>
+                  <button class="secondary-button hidden" id="gptCodexBatchStop">停止批量生成</button>
+                </div>
+                <div class="codex-keyframe-progress">
+                  <div><strong id="gptCodexBatchProgress">0 / 0</strong><small id="gptCodexBatchMessage">等待控制帧</small></div>
+                  <div class="pipeline-progress-track"><span id="gptCodexBatchProgressBar"></span></div>
+                </div>
               </div>
+
+              <details class="gpt-keyframe-manual">
+                <summary>手工备用：ChatGPT 网页逐帧生成 / 手动上传</summary>
+                <div class="gpt-keyframe-guide">
+                  <strong>如果 Codex 图像生成不可用，可继续手工逐帧</strong>
+                  <small>每张使用：人物参考 + 场景参考 + 当前 Blender 控制帧；非重置帧再带上一张已通过的最终帧。系统每约 2 秒做一次 canonical reset。</small>
+                  <a class="secondary-button gpt-web-link" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">打开 ChatGPT 网页版</a>
+                </div>
+              </details>
 
               <div class="gpt-keyframe-reference-row" id="gptKeyframeReferenceSummary">等待准备控制帧。</div>
               <div class="gpt-keyframe-grid" id="gptKeyframeGrid"><div class="empty-state">白模通过并绑定人物/场景后，点击“① 抽取 Blender 控制帧”。</div></div>
@@ -482,7 +520,7 @@
                 </div>
                 <video id="gptKeyframeVideo" controls playsinline preload="metadata"></video>
               </div>
-              <p class="helper-text" id="gptKeyframeHint">这条路线当前是 ChatGPT Web 手工桥接，不调用 OpenAI Image API，也不会自动产生远程图片费用。</p>
+              <p class="helper-text" id="gptKeyframeHint">优先使用 Codex 批量生成；手工 ChatGPT Web 仅作为备用。Codex 路线使用你本机现有登录，不在 VideoCreator 保存 API Key。</p>
             </div>
 
             <div class="graybox-final-controls">
