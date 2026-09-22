@@ -58,6 +58,18 @@ class GrayboxManagerTelemetryTests(unittest.TestCase):
         self.assertIn('camera_cfg.get("follow_actor")', script)
         self.assertIn("_keyframe(target, 1, location=target_start)", script)
 
+    def test_graybox_v3_has_real_gate_entry_head_look_and_walk_weight(self):
+        script = (manager.ROOT / "scripts" / "blender_graybox_scene.py").read_text(encoding="utf-8")
+        self.assertIn("BackWallLeft", script)
+        self.assertIn("BackWallRight", script)
+        self.assertNotIn('_box("BackWall", (0, 3.5, 2.1)', script)
+        self.assertIn("LanternBody", script)
+        self.assertIn("HeadPivot", script)
+        self.assertIn("_keyframe(head_pivot, look_frame", script)
+        self.assertIn("BodyRoot", script)
+        self.assertIn("walk_start_frame", script)
+        self.assertIn("bob = 0.035", script)
+
     def test_progress_reader_accepts_per_frame_heartbeat(self):
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory)
