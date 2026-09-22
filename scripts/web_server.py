@@ -72,7 +72,7 @@ from scripts.novel_animatic_review import NovelAnimaticReviewError, load_review 
 from scripts.novel_voice_profiles import NovelVoiceProfileError, load_voice_profiles, summary as voice_profile_summary  # noqa: E402
 from scripts.novel_audio_assets import NovelAudioAssetError, load_audio_assets, summary as audio_asset_summary  # noqa: E402
 from scripts.novel_audio_mix import NovelAudioMixError, load_audio_mix, summary as audio_mix_summary  # noqa: E402
-from scripts.voice_timeline import VoiceTimelineError, generate_preview as generate_voice_timeline_preview, inventory as voice_timeline_inventory  # noqa: E402
+from scripts.voice_timeline import VoiceTimelineError, apply_to_shot_breakdown as apply_voice_timeline_to_shots, generate_preview as generate_voice_timeline_preview, inventory as voice_timeline_inventory  # noqa: E402
 from scripts.novel_dynamic_shots import NovelDynamicShotError, load_dynamic_shots, summary as dynamic_shot_summary  # noqa: E402
 from scripts.novel_edit_timelines import NovelEditTimelineError, load_edit_timelines, summary as edit_timeline_summary  # noqa: E402
 from scripts.novel_qc import NovelQCError, add_annotation, add_issue, compare as compare_qc, load_qc_report, summary as qc_summary, update_issue  # noqa: E402
@@ -2569,6 +2569,16 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
             except Exception as error:
                 return self._error(HTTPStatus.INTERNAL_SERVER_ERROR, f"voice timeline generation failed: {error}")
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/voice-timeline/apply-shot-timing", route)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                payload = self._read_json(max_bytes=64 * 1024)
+                result = apply_voice_timeline_to_shots(project, str(payload.get("episode_id") or ""))
+                _NOVEL_PROJECT_CACHE.clear()
+                return self._json(result, HTTPStatus.CREATED)
+            except (ValueError, VoiceTimelineError, NovelShotBreakdownError, OSError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
         match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/graybox/render", route)
         if match:
             try:
