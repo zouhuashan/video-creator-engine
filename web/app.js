@@ -1583,6 +1583,7 @@ function renderFinalAudioSection(episodeId) {
     '<span>' + escapeHtml(episode.final_voice_status || 'NOT_RUN') + ' · ' + Number(episode.ready_line_count || 0) + '/' + Number(episode.line_count || 0) + ' 句</span></div>' +
     '<div class="final-voice-line-list">' + (finalLines || '<div class="empty-state">先完成本集 P33 Timing Voice。</div>') + '</div>' +
     '<div class="final-mix-card"><div><strong>Final Mix</strong><small>对白/旁白优先；有 BGM 时自动 sidechain ducking；最终 -16 LUFS / -1 dBTP。</small></div>' +
+    '<div class="final-audio-upload"><select class="select-field" id="finalAudioAssetKind"><option value="bgm">BGM</option><option value="ambience">环境音</option><option value="sfx">SFX</option></select><input class="text-field" id="finalAudioAssetFile" type="file" accept="audio/*,.wav,.mp3,.m4a,.aac,.aiff,.aif,.flac"><button class="secondary-button small-button" id="uploadFinalAudioAsset">上传音频素材</button></div>' +
     '<label>BGM<select class="select-field" id="finalMixBgm">' + finalAudioOptionList(candidates.bgm) + '</select></label>' +
     '<label>环境音<select class="select-field" id="finalMixAmbience">' + finalAudioOptionList(candidates.ambience) + '</select></label>' +
     '<label>SFX<select class="select-field" id="finalMixSfx">' + finalAudioOptionList(candidates.sfx) + '</select></label>' +
@@ -1676,6 +1677,31 @@ async function generateFinalVoiceLine(unitId, button) {
     renderVoiceTimeline();
     log(unitId + ' 正式配音已重新生成并时长对齐。');
   } catch (error) { log(error.message, true); button.disabled = false; button.textContent = '单句正式重生成'; }
+}
+
+async function uploadFinalAudioAsset() {
+  const file = $('#finalAudioAssetFile')?.files?.[0];
+  const kind = $('#finalAudioAssetKind')?.value || 'bgm';
+  if (!file) { log('请选择要上传的 BGM / 环境音 / SFX 文件', true); return; }
+  if (file.size <= 0 || file.size > 30 * 1024 * 1024) { log('音频文件必须在 1 byte 到 30 MB 之间', true); return; }
+  const button = $('#uploadFinalAudioAsset');
+  button.disabled = true;
+  button.textContent = '上传中…';
+  try {
+    const contentBase64 = await fileToBase64(file);
+    const result = await api('/api/novel-anime/projects/' + encodeURIComponent(state.finalAudioProjectId) + '/final-audio/upload-asset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kind: kind, filename: file.name, content_base64: contentBase64 }),
+    });
+    state.finalAudio = result.status_view;
+    renderVoiceTimeline();
+    log('音频素材已上传：' + result.path);
+  } catch (error) {
+    log(error.message, true);
+    button.disabled = false;
+    button.textContent = '上传音频素材';
+  }
 }
 
 async function generateFinalMix() {
@@ -1779,6 +1805,7 @@ function renderVoiceTimeline() {
   document.querySelectorAll('[data-save-voice-lock]').forEach((button) => button.addEventListener('click', () => saveVoiceLock(button.dataset.saveVoiceLock, button)));
   $('#generateFinalVoiceEpisode')?.addEventListener('click', generateFinalVoiceEpisode);
   document.querySelectorAll('[data-generate-final-line]').forEach((button) => button.addEventListener('click', () => generateFinalVoiceLine(button.dataset.generateFinalLine, button)));
+  $('#uploadFinalAudioAsset')?.addEventListener('click', uploadFinalAudioAsset);
   $('#generateFinalMix')?.addEventListener('click', generateFinalMix);
 }
 
