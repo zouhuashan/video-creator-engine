@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import shutil
@@ -56,6 +57,17 @@ def blender_executable() -> Path | None:
     return None
 
 
+def _spec_sha256(project_dir: Path, spec_id: str = DEFAULT_SPEC_ID) -> str:
+    path = spec_path(Path(project_dir).resolve(), spec_id)
+    if not path.is_file():
+        return ""
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def _state_path(project_dir: Path) -> Path:
     return Path(project_dir).resolve() / "graybox" / "render-status.json"
 
@@ -107,6 +119,7 @@ def status(project_dir: Path, spec_id: str = DEFAULT_SPEC_ID) -> dict[str, Any]:
     spec_file = spec_path(project_dir, spec_id)
     spec = load_spec(project_dir, spec_id) if spec_file.is_file() else None
     output = _output_path(project_dir, spec_id)
+    current_spec_sha256 = _spec_sha256(project_dir, spec_id)
     state = _load_state(project_dir)
     try:
         pid = int(state.get("pid") or 0)
@@ -129,13 +142,21 @@ def status(project_dir: Path, spec_id: str = DEFAULT_SPEC_ID) -> dict[str, Any]:
                 "detail": "Blender 白模渲染进程已退出，未检测到有效 MP4",
                 "pid": None,
             })
+    render_matches_spec = bool(
+        output.is_file()
+        and output.stat().st_size > 1024
+        and current_spec_sha256
+        and str(state.get("spec_sha256") or "") == current_spec_sha256
+    )
     return {
         **state,
         "blender_installed": blender is not None,
         "blender_path": str(blender) if blender else "",
         "spec_ready": spec is not None,
         "spec": spec,
-        "output_ready": output.is_file() and output.stat().st_size > 1024,
+        "output_ready": render_matches_spec,
+        "render_stale": output.is_file() and output.stat().st_size > 1024 and not render_matches_spec,
+        "spec_sha256": current_spec_sha256,
         "output_path": str(output.relative_to(project_dir)) if output.is_file() else "",
         "output_bytes": output.stat().st_size if output.is_file() else 0,
         "log_path": str(_log_path(project_dir).relative_to(ROOT)),
@@ -201,6 +222,7 @@ def start_render(project_dir: Path, spec_id: str = DEFAULT_SPEC_ID) -> dict[str,
         "detail": f"正在渲染 {spec_id} · {spec['duration_seconds']}s · {spec['fps']}fps",
         "pid": process.pid,
         "spec_id": spec_id,
+        "spec_sha256": _spec_sha256(project_dir, spec_id),
         "output_path": str(output.relative_to(project_dir)),
     })
     return {**state, "action": "STARTED"}
