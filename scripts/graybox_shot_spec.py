@@ -118,11 +118,12 @@ def validate_spec(project_dir: Path, payload: Any) -> dict[str, Any]:
     camera["start"] = _vec3("camera_path.start", camera.get("start"))
     camera["end"] = _vec3("camera_path.end", camera.get("end"))
     camera["target"] = _vec3("camera_path.target", camera.get("target"))
+    walk_start_time = float(actor.get("walk_start_time") or 0)
     stop_time = float(actor.get("stop_time") or 0)
     look_up_time = float(actor.get("look_up_time") or 0)
     hold_time = float(actor.get("hold_time") or 0)
-    if not (0 < stop_time < look_up_time <= hold_time <= duration):
-        raise GrayboxShotSpecError("actor timing must satisfy stop < look_up <= hold <= duration")
+    if not (0 <= walk_start_time < stop_time < look_up_time <= hold_time <= duration):
+        raise GrayboxShotSpecError("actor timing must satisfy walk_start < stop < look_up <= hold <= duration")
     character = spec.get("character")
     if not isinstance(character, dict) or not str(character.get("name") or "").strip():
         raise GrayboxShotSpecError("graybox character identity is required")
