@@ -1311,6 +1311,9 @@ def _generate_graybox_final(project: Path, payload: dict[str, object]) -> dict[s
         raise ValueError("白模参考视频不存在")
 
     spec = load_graybox_spec(project)
+    review = spec.get("review") if isinstance(spec.get("review"), dict) else {}
+    if str(review.get("status") or "").upper() != "APPROVED":
+        raise ValueError("Blender 白模必须先人工审核通过，才能进入 MiniMax H3 最终生成")
     prompt = str(payload.get("prompt") or ((spec.get("ai_video") or {}).get("prompt") or "")).strip()
     if not prompt:
         raise ValueError("MiniMax H3 prompt 不能为空")
