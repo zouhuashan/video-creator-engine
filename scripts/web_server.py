@@ -72,6 +72,7 @@ from scripts.novel_animatic_review import NovelAnimaticReviewError, load_review 
 from scripts.novel_voice_profiles import NovelVoiceProfileError, load_voice_profiles, summary as voice_profile_summary  # noqa: E402
 from scripts.novel_audio_assets import NovelAudioAssetError, load_audio_assets, summary as audio_asset_summary  # noqa: E402
 from scripts.novel_audio_mix import NovelAudioMixError, load_audio_mix, summary as audio_mix_summary  # noqa: E402
+from scripts.voice_timeline import VoiceTimelineError, generate_preview as generate_voice_timeline_preview, inventory as voice_timeline_inventory  # noqa: E402
 from scripts.novel_dynamic_shots import NovelDynamicShotError, load_dynamic_shots, summary as dynamic_shot_summary  # noqa: E402
 from scripts.novel_edit_timelines import NovelEditTimelineError, load_edit_timelines, summary as edit_timeline_summary  # noqa: E402
 from scripts.novel_qc import NovelQCError, add_annotation, add_issue, compare as compare_qc, load_qc_report, summary as qc_summary, update_issue  # noqa: E402
@@ -1553,6 +1554,31 @@ def _generate_graybox_final(project: Path, payload: dict[str, object]) -> dict[s
     }
 
 
+def _voice_timeline_web_status(project: Path) -> dict[str, object]:
+    payload = deepcopy(voice_timeline_inventory(project))
+    for episode in payload.get("episodes", []):
+        if not isinstance(episode, dict):
+            continue
+        for line in episode.get("lines", []):
+            if not isinstance(line, dict):
+                continue
+            audio_path = str(line.get("audio_path") or "")
+            if audio_path and (project / audio_path).is_file():
+                line["audio_url"] = _media_url(project, audio_path)
+        for key in ("srt_path", "ass_path"):
+            relative = str(episode.get(key) or "")
+            if relative and (project / relative).is_file():
+                episode[key.replace("_path", "_url")] = _media_url(project, relative)
+    payload["project_id"] = project.name
+    payload["timing_voice"] = {
+        "provider": "macos_say",
+        "billable": False,
+        "purpose": "TIMING_ONLY",
+        "final_voice_provider": "TBD",
+    }
+    return payload
+
+
 def _integration_status() -> list[dict[str, object]]:
     runtime = RUNTIME_INTEGRATIONS.get("arcreel", {})
     local_sidecar = ROOT / "integrations" / "arcreel" / "compose.yml"
@@ -2188,6 +2214,14 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
             except (ValueError, NovelAudioAssetError) as error:
                 return self._error(HTTPStatus.NOT_FOUND, str(error))
             return self._json(result)
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/voice-timeline", parsed.path)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                result = _voice_timeline_web_status(project)
+            except (ValueError, VoiceTimelineError, NovelVoiceProfileError, NovelEpisodeScriptError, NovelShotBreakdownError, OSError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+            return self._json(result)
         match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/audio-mix", parsed.path)
         if match:
             try:
@@ -2519,6 +2553,22 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                 return self._json({**_graybox_web_status(project), "uploaded_scene": uploaded}, HTTPStatus.CREATED)
             except (ValueError, GrayboxReferenceError, GrayboxShotSpecError, GrayboxRenderError, OSError, json.JSONDecodeError) as error:
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/voice-timeline/generate", route)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                payload = self._read_json(max_bytes=64 * 1024)
+                generate_voice_timeline_preview(
+                    project,
+                    str(payload.get("episode_id") or ""),
+                    voice=str(payload.get("voice") or "Tingting"),
+                )
+                _NOVEL_PROJECT_CACHE.clear()
+                return self._json(_voice_timeline_web_status(project), HTTPStatus.CREATED)
+            except (ValueError, VoiceTimelineError, NovelVoiceProfileError, NovelEpisodeScriptError, NovelShotBreakdownError, OSError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+            except Exception as error:
+                return self._error(HTTPStatus.INTERNAL_SERVER_ERROR, f"voice timeline generation failed: {error}")
         match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/graybox/render", route)
         if match:
             try:
