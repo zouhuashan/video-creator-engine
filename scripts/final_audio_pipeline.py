@@ -565,6 +565,54 @@ def mix_episode(
     return result
 
 
+def _audio_magic_valid(path: Path) -> bool:
+    try:
+        head = path.read_bytes()[:16]
+    except OSError:
+        return False
+    if head.startswith(b"RIFF") and len(head) >= 12 and head[8:12] == b"WAVE":
+        return True
+    if head.startswith(b"ID3") or (len(head) >= 2 and head[0] == 0xFF and (head[1] & 0xE0) == 0xE0):
+        return True
+    if head.startswith(b"fLaC"):
+        return True
+    if head.startswith(b"FORM") and len(head) >= 12 and head[8:12] in {b"AIFF", b"AIFC"}:
+        return True
+    if len(head) >= 12 and head[4:8] == b"ftyp":
+        return True
+    return False
+
+
+def upload_audio_asset(project: Path, *, kind: str, filename: str, content: bytes) -> dict[str, Any]:
+    project = Path(project).resolve()
+    kind = str(kind or "").strip().lower()
+    if kind not in {"bgm", "ambience", "sfx"}:
+        raise FinalAudioError("audio kind 必须是 bgm / ambience / sfx")
+    if not isinstance(content, (bytes, bytearray)) or not content or len(content) > 30 * 1024 * 1024:
+        raise FinalAudioError("音频文件必须在 1 byte 到 30 MB 之间")
+    suffix = Path(str(filename or "")).suffix.lower()
+    if suffix not in AUDIO_EXTENSIONS:
+        raise FinalAudioError("只支持 WAV / MP3 / M4A / AAC / AIFF / FLAC")
+    safe_stem = _safe_id(Path(str(filename or "audio")).stem)[:80]
+    directory = project / "audio" / kind
+    directory.mkdir(parents=True, exist_ok=True)
+    candidate = directory / f"{safe_stem}{suffix}"
+    counter = 2
+    while candidate.exists():
+        candidate = directory / f"{safe_stem}-{counter}{suffix}"
+        counter += 1
+    candidate.write_bytes(bytes(content))
+    if not _audio_magic_valid(candidate):
+        candidate.unlink(missing_ok=True)
+        raise FinalAudioError("上传文件头不是受支持的音频格式")
+    return {
+        "status": "READY",
+        "kind": kind,
+        "path": candidate.relative_to(project).as_posix(),
+        "bytes": candidate.stat().st_size,
+    }
+
+
 def inventory(project: Path) -> dict[str, Any]:
     project = Path(project).resolve()
     locks = load_voice_locks(project)
@@ -657,4 +705,5 @@ __all__ = [
     "load_voice_locks",
     "mix_episode",
     "save_voice_lock",
+    "upload_audio_asset",
 ]
