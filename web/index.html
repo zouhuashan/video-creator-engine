@@ -352,6 +352,23 @@
               </div>
             </div>
 
+            <div class="graybox-adjust-card">
+              <div>
+                <span class="section-kicker">NATURAL LANGUAGE TUNE</span>
+                <strong>白模微调</strong>
+                <small>支持：镜头慢一点、最后多停 N 秒、推进幅度变小/变大、人物走慢/平缓、人物离门近一点/远一点。</small>
+              </div>
+              <div class="graybox-adjust-row">
+                <input id="grayboxAdjustInput" class="text-field" type="text" placeholder="例如：镜头慢一点，最后多停 1 秒" />
+                <button class="secondary-button" id="grayboxAdjustButton">应用并重做白模</button>
+              </div>
+              <div class="graybox-review-actions">
+                <button class="secondary-button small-button" id="grayboxApproveButton">白模通过</button>
+                <button class="secondary-button small-button" id="grayboxRequestChangesButton">需要修改</button>
+                <span class="muted" id="grayboxReviewStatus">PENDING</span>
+              </div>
+            </div>
+
             <div class="graybox-final-controls">
               <div class="graybox-key-row">
                 <div>
