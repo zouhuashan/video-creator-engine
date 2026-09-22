@@ -3982,6 +3982,12 @@ Status: CODE PASS / LOCAL BLENDER WEB REVERIFY
 
 执行记录（2026-09-22）：
 
+- 首个真实白模 MP4 视觉复盘（8 秒 / 24fps / 720×1280）发现三类 blocking 缺陷，并已直接修复：
+  - **鸡蛋头 / 头发体积异常**：`HairMass` 创建时已经使用 Z scale 0.32，旧代码随后又执行 `hair.scale.z = 1.05`，把头发高度错误放大 3 倍以上。改为乘法微调 `hair.scale.z *= 1.05`，并缩小头部与面向标记。
+  - **开场人物被裁在画面左侧 / 并非从古宅门口进入**：旧 actor path 为 `y=-4.5 → -0.3`，人物从镜头前景进入而不是从门口进入。blocking revision 升级为 v2：人物从门口附近 `y=1.55` 向院内/镜头方向走到 `y=-1.15`；Camera 位置同步重排，并新增 `follow_actor`，CameraTarget 在走路阶段跟随角色中心，避免开场出框。
+  - **走路滑行 / 四肢绕几何中心摆动**：旧 Arm/Leg 直接旋转 cylinder 本体，pivot 在几何中心，不是肩/髋关节。现新增 `_joint_limb()`，肩/髋使用 Empty pivot，四肢围绕真实关节点摆动；脚绑定到腿 pivot，一起参与步态，不再固定粘在 Root 下方。
+- `config/graybox-to-video.json` 新增 `blocking_revision=2`。旧的系统默认 smoke Shot Spec 若仍处于 `PENDING + NOT_STARTED`，下一次点击“生成 Blender 白模”时会自动迁移到最新 blocking；已经人工修改/审核过的镜头不会被自动覆盖。
+
 - Blender 5.2.1 第二个实机兼容修复：动作 API 修复后，白模继续启动并在 Output 配置阶段报 `enum "FFMPEG" not found`。Blender 5.x 已把“媒体类型”和“图片文件格式”拆开，`ImageFormatSettings.file_format` 只接收 PNG/JPEG/EXR 等图片格式；视频输出必须使用 `ImageFormatSettings.media_type = "VIDEO"`，容器/编码继续由 `scene.render.ffmpeg` 控制。现已：
   - Blender 5.x → `media_type = VIDEO`；
   - Blender <= 4.x → 保留 `file_format = FFMPEG` fallback；
