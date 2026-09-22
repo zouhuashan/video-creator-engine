@@ -286,13 +286,17 @@ function renderGraybox() {
   $('#grayboxElapsed').textContent = render.elapsed_seconds == null
     ? '运行时长：—'
     : `已运行 ${formatGrayboxSeconds(render.elapsed_seconds)}`;
+  const activityAge = heartbeatAge == null ? Number.POSITIVE_INFINITY : Number(heartbeatAge);
+  const possiblyStalled = render.status === 'RUNNING' && processAlive && activityAge > 60;
   $('#grayboxProcessStatus').textContent = render.status === 'RUNNING'
-    ? (processAlive ? 'PROCESS ALIVE' : 'PROCESS CHECKING')
+    ? (possiblyStalled ? 'PROCESS ALIVE · STALLED?' : processAlive ? 'PROCESS ALIVE' : 'PROCESS CHECKING')
     : (render.status || 'IDLE');
-  $('#grayboxProcessStatus').classList.toggle('off', render.status !== 'RUNNING' || !processAlive);
+  $('#grayboxProcessStatus').classList.toggle('off', render.status !== 'RUNNING' || !processAlive || possiblyStalled);
   $('#grayboxLiveSummary').textContent = render.status === 'RUNNING'
     ? (processAlive
-      ? `Blender 进程存活 · ${render.progress_source === 'heartbeat' ? '逐帧心跳' : render.progress_source === 'blender_log' ? '从 Blender 日志解析帧数' : '等待首个帧心跳'}`
+      ? (possiblyStalled
+        ? `Blender 进程仍存活，但已 ${formatGrayboxSeconds(activityAge)}没有新的渲染活动；可能卡住，请展开日志确认。`
+        : `Blender 进程存活 · ${render.progress_source === 'heartbeat' ? '逐帧心跳' : render.progress_source === 'blender_log' ? '从 Blender 日志解析帧数' : '等待首个帧心跳'}`)
       : 'Blender 状态仍为 RUNNING，正在确认进程状态…')
     : render.status === 'PASS'
       ? 'Blender 白模渲染完成'
