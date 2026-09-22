@@ -1439,7 +1439,7 @@ def _generate_graybox_final(project: Path, payload: dict[str, object]) -> dict[s
         "reference_video": relative,
         "character_reference": str((reference_binding.get("character_reference") or {}).get("path") or ""),
         "scene_reference": str((reference_binding.get("scene_reference") or {}).get("path") or ""),
-        "reference_binding": _relative(project, project / "graybox" / "reference-binding.json"),
+        "reference_binding": _relative(project, project / "graybox" / "reference-bindings" / f"{str(spec.get('id') or 'GB-SHOT-001')}.json"),
         "reference_image_count": 2,
         "prompt": prompt,
         "confirm_billable": True,
