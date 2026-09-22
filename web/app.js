@@ -1,4 +1,4 @@
-const state = { projects: [], animeProjects: [], project: null, providers: [], integrations: [], studio: null, readiness: null, backups: null, activeNovelProjectId: null, studioProjectId: null, imageStudio: null, imageStudioProjectId: null, imageStudioSelected: null, imageStudioProviderPreference: 'AUTO', imageStudioStylePreset: 'CINEMATIC_3D_DONGHUA', graybox: null, grayboxProjectId: null, grayboxPollTimer: null, gptKeyframes: null, pipeline: null, pipelineProjectId: null, voiceTimeline: null, voiceTimelineProjectId: null, finalAudio: null, finalAudioProjectId: null, novelImportResult: null, selectedProvider: 'local_ken_burns', selectedImage: null, currentView: 'workspace', currentWorkspace: 'overview' };
+const state = { projects: [], animeProjects: [], project: null, providers: [], integrations: [], studio: null, readiness: null, backups: null, activeNovelProjectId: null, studioProjectId: null, imageStudio: null, imageStudioProjectId: null, imageStudioSelected: null, imageStudioProviderPreference: 'AUTO', imageStudioStylePreset: 'CINEMATIC_3D_DONGHUA', graybox: null, grayboxProjectId: null, grayboxPollTimer: null, gptKeyframes: null, gptKeyframePollTimer: null, pipeline: null, pipelineProjectId: null, voiceTimeline: null, voiceTimelineProjectId: null, finalAudio: null, finalAudioProjectId: null, novelImportResult: null, selectedProvider: 'local_ken_burns', selectedImage: null, currentView: 'workspace', currentWorkspace: 'overview' };
 const ACTIVE_NOVEL_PROJECT_KEY = 'videocreator.activeNovelProjectId.v1';
 const IMAGE_STYLE_PROJECT_KEY_PREFIX = 'videocreator.imageStylePreset.v2.';
 
@@ -308,6 +308,25 @@ async function fileToBase64(file) {
   });
 }
 
+function syncCodexKeyframePolling() {
+  const batchStatus = String(state.gptKeyframes?.codex_batch?.status || '');
+  const running = batchStatus === 'RUNNING' || batchStatus === 'CANCEL_REQUESTED';
+  if (running && !state.gptKeyframePollTimer && state.grayboxProjectId) {
+    state.gptKeyframePollTimer = window.setInterval(async () => {
+      try {
+        state.gptKeyframes = await api('/api/novel-anime/projects/' + encodeURIComponent(state.grayboxProjectId) + '/graybox/gpt-keyframes');
+        renderGptKeyframes();
+      } catch (error) {
+        const message = $('#gptCodexBatchMessage');
+        if (message) message.textContent = 'Codex 状态刷新失败：' + error.message;
+      }
+    }, 2000);
+  } else if (!running && state.gptKeyframePollTimer) {
+    window.clearInterval(state.gptKeyframePollTimer);
+    state.gptKeyframePollTimer = null;
+  }
+}
+
 function renderGptKeyframes() {
   const data = state.gptKeyframes || {};
   const frames = data.frames || [];
@@ -361,7 +380,7 @@ function renderGptKeyframes() {
       const ready = frame.status === 'READY' && frame.generated_url;
       const reset = frame.reference_mode === 'CANONICAL_RESET';
       return '<article class="gpt-keyframe-card">' +
-        '<div class="gpt-keyframe-card-head"><div><strong>' + escapeHtml(frame.id) + '</strong><small>' + Number(frame.timestamp_seconds || 0).toFixed(2) + 's · ' + escapeHtml(frame.reference_mode || '') + '</small></div><span class="pipeline-stage-status ' + (ready ? 'pass' : 'pending') + '">' + escapeHtml(frame.status || 'CONTROL_READY') + '</span></div>' +
+        '<div class="gpt-keyframe-card-head"><div><strong>' + escapeHtml(frame.id) + '</strong><small>' + Number(frame.timestamp_seconds || 0).toFixed(2) + 's · ' + escapeHtml(frame.reference_mode || '') + '</small></div><span class="pipeline-stage-status ' + (ready ? 'pass' : frame.status === 'FAILED' ? 'fail' : 'pending') + '">' + escapeHtml(frame.status || 'CONTROL_READY') + '</span></div>' +
         '<div class="gpt-keyframe-images">' +
           '<figure><img src="' + escapeHtml(frame.control_url || '') + '" alt="Blender control frame"><figcaption>Blender 控制帧</figcaption></figure>' +
           (ready ? '<figure><img src="' + escapeHtml(frame.generated_url) + '" alt="AI final keyframe"><figcaption>AI 最终关键帧</figcaption></figure>' : '<div class="gpt-keyframe-missing">等待 ChatGPT 最终帧</div>') +
@@ -373,11 +392,56 @@ function renderGptKeyframes() {
         '<details class="gpt-keyframe-prompt"><summary>' + (reset ? 'Canonical Reset 提示词' : 'Continuity 提示词') + '</summary><textarea readonly>' + escapeHtml(frame.prompt || '') + '</textarea></details>' +
         '<div class="gpt-keyframe-upload"><input type="file" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" data-gpt-file="' + Number(frame.index) + '"><button class="primary-button small-button" data-gpt-upload="' + Number(frame.index) + '">' + (ready ? '替换最终帧' : '上传 ChatGPT 最终帧') + '</button></div>' +
         (frame.previous_index == null ? '<small class="gpt-keyframe-note">只需人物参考 + 场景参考 + 当前控制帧。</small>' : '<small class="gpt-keyframe-note">额外带上 GPT-KF-' + String(frame.previous_index).padStart(3, '0') + ' 最终帧作为连续性参考。</small>') +
+        (frame.codex_error ? '<div class="gpt-keyframe-error">Codex：' + escapeHtml(frame.codex_error) + '</div>' : '') +
       '</article>';
     }).join('');
     grid.querySelectorAll('[data-gpt-copy]').forEach((button) => button.addEventListener('click', () => copyGptKeyframePrompt(Number(button.dataset.gptCopy))));
     grid.querySelectorAll('[data-gpt-upload]').forEach((button) => button.addEventListener('click', () => uploadGptKeyframe(Number(button.dataset.gptUpload), button)));
   }
+
+  const codex = data.codex_batch || {};
+  const codexStatus = String(codex.status || 'IDLE');
+  const codexRunning = codexStatus === 'RUNNING' || codexStatus === 'CANCEL_REQUESTED';
+  const codexInstalled = Boolean(codex.installed);
+  const codexTotal = Number(codex.total_count || data.keyframe_count || frames.length || 0);
+  const codexCompleted = Number(codex.completed_count || data.generated_count || 0);
+  const codexFailed = Number(codex.failed_count || frames.filter((frame) => frame.status === 'FAILED').length);
+  const codexRemaining = Math.max(0, codexTotal - codexCompleted);
+  const codexStatusEl = $('#gptCodexBatchStatus');
+  if (codexStatusEl) {
+    codexStatusEl.textContent = !codexInstalled ? 'CODEX NOT INSTALLED' : codexStatus;
+    codexStatusEl.classList.toggle('off', !codexInstalled || !['PASS', 'RUNNING'].includes(codexStatus));
+  }
+  const progressText = $('#gptCodexBatchProgress');
+  if (progressText) progressText.textContent = codexCompleted + ' / ' + codexTotal + (codexFailed ? ' · ' + codexFailed + ' FAILED' : '');
+  const progressBar = $('#gptCodexBatchProgressBar');
+  if (progressBar) progressBar.style.width = (codexTotal ? Math.max(0, Math.min(100, codexCompleted * 100 / codexTotal)) : 0) + '%';
+  const batchMessage = $('#gptCodexBatchMessage');
+  if (batchMessage) {
+    batchMessage.textContent = !codexInstalled
+      ? '未检测到 codex CLI；可使用下方 ChatGPT Web 手工备用。'
+      : (codex.message || (frames.length ? 'Codex 已就绪，可批量生成剩余关键帧。' : '先抽取 Blender 控制帧。'));
+  }
+
+  const usageConfirm = Boolean($('#gptCodexUsageConfirm')?.checked);
+  const uploadConfirm = Boolean($('#gptCodexUploadConfirm')?.checked);
+  const codexStart = $('#gptCodexBatchStart');
+  if (codexStart) {
+    codexStart.disabled = !codexInstalled || !frames.length || !codexRemaining || codexRunning || !usageConfirm || !uploadConfirm;
+    codexStart.textContent = codexFailed
+      ? '② Codex 重试失败 / 剩余 ' + codexRemaining + ' 张'
+      : codexRemaining
+        ? '② Codex 批量生成剩余 ' + codexRemaining + ' 张'
+        : '✓ Codex 关键帧已全部完成';
+  }
+  const codexStop = $('#gptCodexBatchStop');
+  if (codexStop) {
+    codexStop.classList.toggle('hidden', !codexRunning);
+    codexStop.disabled = codexStatus === 'CANCEL_REQUESTED';
+  }
+  if ($('#gptCodexConcurrency')) $('#gptCodexConcurrency').disabled = codexRunning;
+  if ($('#gptCodexUsageConfirm')) $('#gptCodexUsageConfirm').disabled = codexRunning;
+  if ($('#gptCodexUploadConfirm')) $('#gptCodexUploadConfirm').disabled = codexRunning;
 
   const readyForVideo = frames.length > 1 && Number(data.generated_count || 0) === Number(data.keyframe_count || 0);
   $('#gptKeyframeInterpolate').disabled = !readyForVideo;
@@ -395,9 +459,12 @@ function renderGptKeyframes() {
   }
   $('#gptKeyframeHint').textContent = status === 'VIDEO_READY'
     ? 'P35 本地视频已生成。先播放检查脸/衣服/建筑闪烁与插帧伪影；如果 9 帧不够，再改用 17 帧。'
-    : frames.length
-      ? '按卡片顺序在 ChatGPT 网页版生成并回传。约每 2 秒自动提示一次 canonical reset，避免人物和古宅越改越漂。'
-      : '这条路线当前是 ChatGPT Web 手工桥接，不调用 OpenAI Image API，也不会自动产生远程图片费用。';
+    : codexRunning
+      ? 'Codex 正在后台逐波生成关键帧；页面每 2 秒自动刷新。Canonical Reset 可并发，Continuity 会等待上一张 READY。'
+      : frames.length
+        ? '优先点击 Codex 批量生成；成功帧会自动保存、规范化并标为 READY。失败帧不会自动烧第二次额度，可手工重试。'
+        : '先准备 Blender 控制帧；之后可让 Codex 自动读取全部 Prompt 并生成到 P35 目录。';
+  syncCodexKeyframePolling();
 }
 
 async function loadGptKeyframes(projectId = state.grayboxProjectId) {
@@ -498,6 +565,58 @@ async function uploadGptKeyframe(index, button) {
     renderGptKeyframes();
     log('P35 ' + String(index).padStart(3, '0') + ' 最终关键帧已回传并规范化为 9:16。');
   } catch (error) { log(error.message, true); button.disabled = false; button.textContent = '上传 ChatGPT 最终帧'; }
+}
+
+async function startCodexKeyframeBatch() {
+  const projectId = state.grayboxProjectId;
+  if (!projectId) return;
+  const usageConfirm = Boolean($('#gptCodexUsageConfirm')?.checked);
+  const uploadConfirm = Boolean($('#gptCodexUploadConfirm')?.checked);
+  if (!usageConfirm || !uploadConfirm) {
+    log('启动 Codex 批量生成前，需要同时确认套餐用量和参考图上传。', true);
+    renderGptKeyframes();
+    return;
+  }
+  const button = $('#gptCodexBatchStart');
+  button.disabled = true;
+  button.textContent = '正在启动 Codex…';
+  try {
+    state.gptKeyframes = await api('/api/novel-anime/projects/' + encodeURIComponent(projectId) + '/graybox/gpt-keyframes/codex-batch/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        concurrency: Number($('#gptCodexConcurrency')?.value || 2),
+        confirm_codex_usage: true,
+        confirm_reference_upload: true,
+      }),
+    });
+    renderGptKeyframes();
+    log('P35 Codex ImageGen 批量生成已启动；只生成未完成/失败帧。');
+  } catch (error) {
+    log(error.message, true);
+    renderGptKeyframes();
+  }
+}
+
+async function stopCodexKeyframeBatch() {
+  const projectId = state.grayboxProjectId;
+  if (!projectId) return;
+  const button = $('#gptCodexBatchStop');
+  button.disabled = true;
+  button.textContent = '正在停止…';
+  try {
+    state.gptKeyframes = await api('/api/novel-anime/projects/' + encodeURIComponent(projectId) + '/graybox/gpt-keyframes/codex-batch/stop', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+    renderGptKeyframes();
+    log('已请求停止 P35 Codex 批量生成；已完成关键帧会保留。');
+  } catch (error) {
+    log(error.message, true);
+    button.disabled = false;
+    button.textContent = '停止批量生成';
+  }
 }
 
 async function interpolateGptKeyframes() {
@@ -3266,6 +3385,10 @@ $('#grayboxSaveMiniMaxKey').addEventListener('click', saveMiniMaxKey);
 $('#grayboxGenerateFinalButton').addEventListener('click', generateGrayboxFinal);
 $('#grayboxSaveSmokeReview').addEventListener('click', saveGrayboxSmokeReview);
 $('#gptKeyframePrepare').addEventListener('click', prepareGptKeyframes);
+$('#gptCodexBatchStart').addEventListener('click', startCodexKeyframeBatch);
+$('#gptCodexBatchStop').addEventListener('click', stopCodexKeyframeBatch);
+$('#gptCodexUsageConfirm').addEventListener('change', renderGptKeyframes);
+$('#gptCodexUploadConfirm').addEventListener('change', renderGptKeyframes);
 $('#gptKeyframeInterpolate').addEventListener('click', interpolateGptKeyframes);
 
 $('#novelImportRights').addEventListener('change', updateNovelImportRightsUI);
