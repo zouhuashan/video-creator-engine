@@ -1246,6 +1246,9 @@ def _provider_status() -> list[dict[str, object]]:
 
 def _graybox_web_status(project: Path) -> dict[str, object]:
     project = Path(project).resolve()
+    # Keep the disposable smoke shot on the latest blocking revision as long as
+    # the user has not approved it or generated a paid final video.
+    ensure_graybox_spec(project)
     render = graybox_render_status(project)
     spec = render.get("spec") if isinstance(render.get("spec"), dict) else None
     output = str(render.get("output_path") or "")
