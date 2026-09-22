@@ -268,3 +268,29 @@ body.rig-v2-open { overflow: hidden; }
 .project-delete-button:hover{background:rgba(239,130,125,.16);border-color:rgba(239,130,125,.68)}
 .project-delete-button:disabled{opacity:.38;cursor:not-allowed;background:rgba(239,130,125,.04)}
 @media(max-width:650px){.project-select-actions{grid-template-columns:1fr}.project-delete-button{padding:10px 13px}}
+
+.graybox-panel{margin-top:18px}
+.graybox-status-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:14px 0}
+.graybox-status-grid>div,.graybox-shot-card,.graybox-video-card,.graybox-adjust-card,.graybox-final-controls{border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.025);border-radius:14px;padding:14px}
+.graybox-status-grid small,.graybox-card-head span{display:block;color:var(--muted);font-size:11px;margin-bottom:5px}
+.graybox-shot-card{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.graybox-shot-card>div:first-child{display:grid;gap:5px}
+.graybox-shot-card small{color:var(--muted);line-height:1.5}
+.graybox-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.graybox-preview-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+.graybox-video-card video{width:100%;aspect-ratio:9/16;max-height:520px;background:#090b10;border-radius:10px}
+.graybox-video-empty{display:grid;place-items:center;min-height:260px;padding:20px;color:var(--muted);text-align:center;border:1px dashed rgba(255,255,255,.08);border-radius:10px}
+.graybox-card-head{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:10px}
+.graybox-adjust-card{margin-top:12px;display:grid;gap:10px}
+.graybox-adjust-card>div:first-child{display:grid;gap:4px}
+.graybox-adjust-card small{color:var(--muted);line-height:1.5}
+.graybox-adjust-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}
+.graybox-review-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.graybox-review-actions .muted{margin-left:auto}
+.graybox-final-controls{margin-top:12px;display:grid;gap:12px}
+.graybox-key-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:end}
+.graybox-final-options{display:grid;gap:8px}
+.graybox-final-button{justify-self:start}
+.graybox-log-line{margin-top:10px;color:var(--muted);font-size:12px}
+@media(max-width:900px){.graybox-status-grid{grid-template-columns:1fr 1fr}.graybox-preview-grid{grid-template-columns:1fr}.graybox-shot-card{align-items:flex-start;flex-direction:column}.graybox-actions{justify-content:flex-start}}
+@media(max-width:650px){.graybox-status-grid{grid-template-columns:1fr}.graybox-adjust-row,.graybox-key-row{grid-template-columns:1fr}}
