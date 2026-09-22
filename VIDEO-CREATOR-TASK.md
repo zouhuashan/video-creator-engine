@@ -4130,10 +4130,19 @@ NEXT：先在用户 Mac 完成 `GB-SHOT-001` 的真实 Blender smoke。若白模
 
 
 ### P32-02 Shot Reference Binding：人物 + 场景 → 白模 → MiniMax
-Status: CODE PASS / CI PASS / REAL MINIMAX SMOKE PENDING
+Status: CODE PASS / CI PASS / HAILUO H3 ARCHITECTURE SMOKE PASS / FRAME PRECISION PENDING
 
 执行记录（2026-09-22）：
 
+- 已完成一次真实 **Hailuo Web / MiniMax H3** 8 秒 smoke：
+  - 输入：`GB-SHOT-001` Blender 白模 + 人物参考 + 古宅场景参考 + 强约束 Prompt；
+  - 实际消耗：112 贝壳；
+  - 输出：8 秒 / 24fps / 768×1344；
+  - 人物黑红深青服装、高马尾与整体身份特征基本保持；
+  - 古宅门楼、中央灯笼、石阶/石狮、湿地面与冷暖夜景明显遵守场景参考；
+  - `走入 → 停步 → 抬头看灯` 核心动作 beat 得到保留；
+  - 因尚未完成逐帧 camera/timing 差值量化，本轮只判定 **Graybox → AI Final Visual 架构成立**，不虚报 frame-exact motion lock；
+  - 成本策略因此调整：H3 固定为昂贵 Final Render，不再承担镜头时长/对白/字幕试错。
 - P32-02 真实成片 smoke 验收已正式接入 Web，不再只停在“MiniMax 返回视频即可”的技术成功：
   - 新增 `P32-02 / SMOKE REVIEW`；
   - 每次只绑定当前最新一版 MiniMax final output；
@@ -4265,4 +4274,102 @@ P32-02 / SMOKE REVIEW：
 → 如果重新生成最终成片，旧验收自动 STALE，必须重新检查
 ```
 
-NEXT：在本地 Web 直接对 `GB-SHOT-001` 做真实付费 smoke：绑定真实人物 LookDev + 古宅场景参考 → MiniMax H3 → 在 `P32-02 / SMOKE REVIEW` 中逐项确认人物身份、古宅场景、白模动态。三项全部 PASS 后，再进入多镜头 reference package、角色多角度 pack 与 Scene Bible 自动选图。
+NEXT：P32 暂停继续烧 H3。先进入 P33 Voice Timeline，把对白/旁白真实时长、字幕和 Shot Duration 固定；随后再用已锁定时长的 Blender 白模做下一轮 H3 精确 motion smoke。
+---
+
+### P33 Voice Timeline：配音 → 字幕 → Shot Duration
+Status: CODE PASS / CI RUNNING / LOCAL WEB SMOKE PENDING
+
+目标：
+
+- 在任何昂贵 AI Video 之前先锁定对白/旁白时长；
+- 临时 Timing Voice 必须零远程费用；
+- 字幕直接来自剧本文本 + TTS 时间轴，禁止无意义的 TTS → Whisper/ASR 反识别；
+- 实际语音时长反向驱动 Shot Duration，避免固定 8 秒导致对白塞不下或 H3 浪费。
+
+执行记录（2026-09-22）：
+
+- 新增 `scripts/voice_timeline.py`，建立独立 Voice-first timing 层：
+  - 直接读取 `voice-profiles.json` 的 DIALOGUE / NARRATION；
+  - 映射回 Episode / Scene / Shot；
+  - 若 Shot Breakdown 尚未建立，不阻塞声音流程，先使用稳定 `SHOT-<scene>-001` 建议 ID；
+  - 初始 timing 使用剧本 `estimated_duration_seconds`；
+  - 本机生成后切换为 `ACTUAL_TTS`。
+- Timing Voice：
+  - 固定使用本机 `macOS say` + FFmpeg 转 48kHz mono WAV；
+  - 默认 voice = `Tingting`，Web 可改；
+  - 只用于时长和节奏预演，`billable=false`；
+  - 最终角色声线仍通过可替换 TTS Provider 处理，本阶段不把系统锁死在 macOS voice。
+- 自动字幕：
+  - 生成 `subtitles/voice-timeline/s01e001.srt`；
+  - 同时生成 `ASS`，默认 1080×1920 / PingFang SC / 底部安全区 / 描边；
+  - subtitle source = `SCRIPT_TTS_TIMING`；
+  - `asr_round_trip=false`。
+- 时长产物：
+  - `audio/voice-timeline.json`：逐句 text / speaker / scene / shot / audio / start / end / duration；
+  - `audio/shot-timing.json`：每个 Shot 的 spoken duration + recommended duration；
+  - 推荐 Shot Duration = 实际对白/旁白总时长 + 0.6 秒动作余量，最短 1 秒。
+- 新增 Web API：
+  - `GET .../voice-timeline`；
+  - `POST .../voice-timeline/generate`；
+  - `POST .../voice-timeline/apply-shot-timing`。
+- “07 音频制作”正式加入 **VOICE FIRST / ZERO-COST TIMING**：
+  - 选择集数；
+  - 设置 Timing Voice；
+  - “生成本集临时配音 + 字幕”；
+  - 每句直接在线播放 WAV；
+  - 显示实际 start/end/duration；
+  - 同屏显示对应 Scene / Shot 和建议镜头长度；
+  - SRT / ASS 直接打开；
+  - 显示付费 = 0。
+- 新增“应用到镜头时长”：
+  - 只有本集所有句子实际 TTS 完成后才可点击；
+  - 只接受 `ACTUAL_TTS`，不会把估算值误写回正式 Shot；
+  - 写回 `storyboard/shot-breakdown.json` 的 `duration_seconds`；
+  - 自动重新计算 shot continuity signature；
+  - Shot Breakdown revision +1；
+  - 明确返回后续需要重建：Storyboard / Animatic / Dynamic Shots / Edit Timelines。
+- 回归：
+  - Voice Timeline 不使用 ASR；
+  - 剧本估算时长正确生成建议 Shot Duration；
+  - 已存在 Timing WAV 时读取真实音频时长；
+  - ACTUAL_TTS 可安全写回匹配 Shot；
+  - P31 workflow 已纳入 `scripts/voice_timeline.py`、`tests/test_voice_timeline.py`；
+  - Web JS 仍经过 Node syntax check。
+
+关键提交：
+- `7ff572ab` Voice Timeline core
+- `f60832d8` Web API
+- `bdfe7d0c` Audio Studio UI
+- `76e0f44e` timing tests
+- `2476744d` Audio Studio styles
+- `ea4ca8dd` CI gate
+- `deacde2e` voice-before-shot dependency correction
+- `a65480cf` ACTUAL_TTS → Shot Duration
+- `cda36def` timing apply API
+- `95f1a977` Web apply action
+- `575e2df0` writeback regression
+
+当前 Web 验收路径：
+
+```text
+更新 main + 重启 VideoCreator Web
+→ 国漫制作台
+→ 07 音频制作
+
+VOICE FIRST / ZERO-COST TIMING
+→ 选择 S01E001
+→ Timing Voice 保持 Tingting（或输入本机已有 voice）
+→ 点击“生成本集临时配音 + 字幕”
+→ 逐句试听
+→ 检查 start/end/duration
+→ 打开 SRT / ASS
+→ 确认建议 Shot Duration
+
+满意：
+→ 点击“应用到镜头时长”
+→ 系统只把 ACTUAL_TTS 时长写回当前集 Shot Breakdown
+→ 后续 Storyboard / Animatic / Blender 按新时长重建
+```
+
+NEXT：先在本机 Web 对当前小说项目 S01E001 做 Timing Voice smoke。确认中文发音、SRT/ASS 和 Shot Duration 写回正常后，再接“最终角色 Voice Provider + BGM ducking + Final Mix”；H3 保持最后一道昂贵渲染工序。
