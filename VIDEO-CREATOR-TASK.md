@@ -4278,7 +4278,7 @@ NEXT：P32 暂停继续烧 H3。先进入 P33 Voice Timeline，把对白/旁白�
 ---
 
 ### P33 Voice Timeline：配音 → 字幕 → Shot Duration
-Status: CODE PASS / CI RUNNING / LOCAL WEB SMOKE PENDING
+Status: CODE PASS / CI PASS / LOCAL WEB SMOKE PENDING
 
 目标：
 
@@ -4336,6 +4336,7 @@ Status: CODE PASS / CI RUNNING / LOCAL WEB SMOKE PENDING
   - ACTUAL_TTS 可安全写回匹配 Shot；
   - P31 workflow 已纳入 `scripts/voice_timeline.py`、`tests/test_voice_timeline.py`；
   - Web JS 仍经过 Node syntax check。
+- GitHub Actions P31 Novel Import Regression run `35727729885` = SUCCESS（包含 Voice Timeline build + ACTUAL_TTS writeback 回归）。
 
 关键提交：
 - `7ff572ab` Voice Timeline core
