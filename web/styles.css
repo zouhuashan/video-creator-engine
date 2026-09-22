@@ -304,3 +304,18 @@ body.rig-v2-open { overflow: hidden; }
 .graybox-log-details{border-top:1px solid rgba(255,255,255,.06);padding-top:9px}
 .graybox-log-details summary{cursor:pointer;color:var(--muted);font-size:11px;display:flex;justify-content:space-between;gap:10px}
 .graybox-log-details pre{margin:10px 0 0;max-height:280px;overflow:auto;padding:12px;border-radius:10px;background:#080a0e;border:1px solid rgba(255,255,255,.06);color:#b8c0cc;font:11px/1.5 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;white-space:pre-wrap;word-break:break-word}
+
+.graybox-reference-card{margin-top:12px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.025);border-radius:14px;padding:14px;display:grid;gap:12px}
+.graybox-reference-card .graybox-card-head>div{display:grid;gap:3px}
+.graybox-reference-card .graybox-card-head small{color:var(--muted);font-size:11px;line-height:1.5}
+.graybox-reference-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.graybox-reference-slot{display:grid;grid-template-columns:180px minmax(0,1fr);gap:12px;border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:12px;background:rgba(0,0,0,.12)}
+.graybox-reference-preview{min-height:180px;border:1px dashed rgba(255,255,255,.1);border-radius:10px;background:#090b10;display:grid;place-items:center;overflow:hidden;color:var(--muted);text-align:center;padding:8px;font-size:11px}
+.graybox-reference-preview img{width:100%;height:100%;max-height:240px;object-fit:contain}
+.graybox-reference-body{display:grid;gap:8px;align-content:start}
+.graybox-reference-body small{color:var(--muted);line-height:1.5}
+.graybox-scene-upload{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center}
+.graybox-scene-upload input[type="file"]{min-width:0;color:var(--muted);font-size:11px}
+.graybox-reference-package{padding:10px 12px;border-radius:10px;background:rgba(115,214,174,.06);border:1px solid rgba(115,214,174,.14);color:var(--muted);font-size:11px;line-height:1.5}
+@media(max-width:1100px){.graybox-reference-grid{grid-template-columns:1fr}.graybox-reference-slot{grid-template-columns:150px minmax(0,1fr)}}
+@media(max-width:650px){.graybox-reference-slot{grid-template-columns:1fr}.graybox-reference-preview{min-height:140px}.graybox-scene-upload{grid-template-columns:1fr}}
