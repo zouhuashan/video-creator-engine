@@ -439,6 +439,28 @@ function renderGraybox() {
     $('#grayboxFinalMeta').textContent = '尚未生成';
   }
 
+  const smoke = data.smoke_review || {};
+  const smokeCharacter = $('#grayboxSmokeCharacter');
+  const smokeScene = $('#grayboxSmokeScene');
+  const smokeMotion = $('#grayboxSmokeMotion');
+  const smokeNote = $('#grayboxSmokeNote');
+  smokeCharacter.value = smoke.character_identity || 'PENDING';
+  smokeScene.value = smoke.scene_fidelity || 'PENDING';
+  smokeMotion.value = smoke.motion_skeleton || 'PENDING';
+  if (document.activeElement !== smokeNote) smokeNote.value = smoke.note || '';
+  $('#grayboxSmokeStatus').textContent = smoke.stale ? 'STALE' : (smoke.status || 'PENDING');
+  $('#grayboxSmokeStatus').classList.toggle('off', smoke.status !== 'PASS' || smoke.stale);
+  $('#grayboxSaveSmokeReview').disabled = !finalItem?.media_url;
+  $('#grayboxSmokeHint').textContent = !finalItem?.media_url
+    ? '先生成 MiniMax 最终成片，再检查人物身份、古宅场景和白模动态。'
+    : smoke.stale
+      ? '最新成片已经变化；旧 smoke 结论已失效，请重新检查三项。'
+      : smoke.status === 'PASS'
+        ? 'P32-02 smoke PASS：人物身份 + 古宅场景 + Blender 动态骨架已同时通过。'
+        : smoke.status === 'FAIL'
+          ? '本次 smoke 有失败项；请根据失败轴修改参考图、Prompt 或白模后重新生成。'
+          : '逐项播放对照：人物身份 / 场景 / 白模运镜走位时序，三项全部 PASS 才算 smoke 通过。';
+
   if (!$('#grayboxPrompt').value.trim() && data.default_prompt) $('#grayboxPrompt').value = data.default_prompt;
   const ensureButton = $('#grayboxEnsureSpecButton');
   ensureButton.disabled = !state.grayboxProjectId || data.spec_ready;
@@ -675,6 +697,45 @@ async function generateGrayboxFinal() {
     log(error.message, true);
   } finally {
     button.textContent = '③ 白模 → MiniMax H3 成片';
+    renderGraybox();
+  }
+}
+
+async function saveGrayboxSmokeReview() {
+  const projectId = resolveActiveNovelProject(state.grayboxProjectId || state.imageStudioProjectId);
+  if (!projectId) return;
+  const finalItem = (state.graybox?.final_items || [])[0];
+  if (!finalItem?.media_url) {
+    log('必须先生成 MiniMax H3 最终成片，才能保存 smoke 验收。', true);
+    return;
+  }
+  const button = $('#grayboxSaveSmokeReview');
+  button.disabled = true;
+  button.textContent = '保存验收中…';
+  try {
+    state.graybox = await api(`/api/novel-anime/projects/${encodeURIComponent(projectId)}/graybox/smoke-review`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        character_identity: $('#grayboxSmokeCharacter').value,
+        scene_fidelity: $('#grayboxSmokeScene').value,
+        motion_skeleton: $('#grayboxSmokeMotion').value,
+        note: $('#grayboxSmokeNote').value.trim(),
+      }),
+    });
+    renderGraybox();
+    const review = state.graybox?.smoke_review || {};
+    $('#grayboxLogLine').textContent = review.status === 'PASS'
+      ? 'P32-02 smoke PASS：人物身份、古宅场景、白模动态三项同时通过。'
+      : review.status === 'FAIL'
+        ? 'P32-02 smoke 已记录失败项；按失败轴调整后重新生成本镜头。'
+        : 'P32-02 smoke 已保存，仍有待检查项。';
+    log(`P32 smoke review: ${review.status || 'PENDING'}`);
+  } catch (error) {
+    $('#grayboxLogLine').textContent = error.message;
+    log(error.message, true);
+  } finally {
+    button.textContent = '保存本次 smoke 验收';
     renderGraybox();
   }
 }
@@ -2600,6 +2661,7 @@ $('#grayboxBindSceneReference').addEventListener('click', () => bindGrayboxRefer
 $('#grayboxUploadSceneReference').addEventListener('click', uploadGrayboxSceneReference);
 $('#grayboxSaveMiniMaxKey').addEventListener('click', saveMiniMaxKey);
 $('#grayboxGenerateFinalButton').addEventListener('click', generateGrayboxFinal);
+$('#grayboxSaveSmokeReview').addEventListener('click', saveGrayboxSmokeReview);
 
 $('#novelImportRights').addEventListener('change', updateNovelImportRightsUI);
 $('#novelImportFile').addEventListener('change', (event) => {
