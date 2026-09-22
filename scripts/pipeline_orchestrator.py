@@ -630,7 +630,12 @@ def run_pipeline(
     tts_result: dict[str, Any] | None = None
     if voice:
         tts_result = {"status": "PASS", "asset": _relative(project, voice), "reused": True, "provider": "existing"}
-        stages.append(_stage("tts", "PASS", "existing TTS/audio asset reused", **tts_result))
+        stages.append(_stage(
+            "tts",
+            "PASS",
+            "existing TTS/audio asset reused",
+            **{key: value for key, value in tts_result.items() if key != "status"},
+        ))
     elif dry_run:
         stages.append(_stage(
             "tts",
