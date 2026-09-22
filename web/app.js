@@ -1,4 +1,4 @@
-const state = { projects: [], animeProjects: [], project: null, providers: [], integrations: [], studio: null, readiness: null, backups: null, activeNovelProjectId: null, studioProjectId: null, imageStudio: null, imageStudioProjectId: null, imageStudioSelected: null, imageStudioProviderPreference: 'AUTO', imageStudioStylePreset: 'CINEMATIC_3D_DONGHUA', pipeline: null, pipelineProjectId: null, novelImportResult: null, selectedProvider: 'local_ken_burns', selectedImage: null, currentView: 'workspace', currentWorkspace: 'overview' };
+const state = { projects: [], animeProjects: [], project: null, providers: [], integrations: [], studio: null, readiness: null, backups: null, activeNovelProjectId: null, studioProjectId: null, imageStudio: null, imageStudioProjectId: null, imageStudioSelected: null, imageStudioProviderPreference: 'AUTO', imageStudioStylePreset: 'CINEMATIC_3D_DONGHUA', graybox: null, grayboxProjectId: null, pipeline: null, pipelineProjectId: null, novelImportResult: null, selectedProvider: 'local_ken_burns', selectedImage: null, currentView: 'workspace', currentWorkspace: 'overview' };
 const ACTIVE_NOVEL_PROJECT_KEY = 'videocreator.activeNovelProjectId.v1';
 const IMAGE_STYLE_PROJECT_KEY_PREFIX = 'videocreator.imageStylePreset.v2.';
 
@@ -222,6 +222,208 @@ async function approvePipeline() {
     log('成片已人工确认；系统仍不会自动发布平台。');
   } catch (error) {
     log(error.message, true);
+  }
+}
+
+function renderGraybox() {
+  const data = state.graybox || {};
+  const render = data.render || {};
+  const spec = data.spec || {};
+  const review = spec.review || {};
+  const minimax = data.minimax || {};
+  const installed = Boolean(data.blender_installed);
+
+  $('#grayboxStatus').textContent = render.status === 'PASS' && render.output_ready ? 'GRAYBOX READY' : installed ? (render.status || 'READY') : 'NO BLENDER';
+  $('#grayboxStatus').classList.toggle('off', !installed || render.status === 'FAIL');
+  $('#grayboxBlender').textContent = installed ? 'READY' : 'NOT INSTALLED';
+  $('#grayboxSpecStatus').textContent = data.spec_ready ? (review.status || 'PENDING') : 'NOT READY';
+  $('#grayboxRenderStatus').textContent = render.render_stale ? 'STALE · NEED RERENDER' : (render.status || (render.output_ready ? 'PASS' : 'NOT STARTED'));
+  $('#grayboxMiniMaxStatus').textContent = `MiniMax H3 · ${minimax.configured ? 'READY' : 'NOT CONFIGURED'}`;
+  $('#grayboxReviewStatus').textContent = review.status || 'PENDING';
+
+  if (spec.duration_seconds) {
+    $('#grayboxShotTitle').textContent = `${Number(spec.duration_seconds).toFixed(1)} 秒 · 古宅入场镜头`;
+    const actor = spec.actor || {};
+    $('#grayboxShotDetail').textContent = `${spec.character?.name || '项目角色'}：从古宅门口走入 → ${Number(actor.stop_time || 0).toFixed(1)}s 停下 → ${Number(actor.look_up_time || 0).toFixed(1)}s 抬头看灯 → 镜头缓慢前推。`;
+  }
+
+  const preview = $('#grayboxPreview');
+  const empty = $('#grayboxVideoEmpty');
+  if (render.output_ready && render.media_url) {
+    preview.src = render.media_url + `?v=${encodeURIComponent(data.render?.spec_sha256 || Date.now())}`;
+    preview.classList.remove('hidden');
+    empty.classList.add('hidden');
+    $('#grayboxRenderMeta').textContent = `${spec.fps || 24}fps · ${spec.width || 720}×${spec.height || 1280} · ${review.status || 'PENDING'}`;
+  } else {
+    preview.removeAttribute('src');
+    preview.classList.add('hidden');
+    empty.classList.remove('hidden');
+    empty.textContent = render.render_stale
+      ? '镜头方案已修改，旧白模已失效。请重新生成 Blender 白模。'
+      : (render.detail || '生成后可直接在这里检查镜头、走位、动作和遮挡关系。');
+    $('#grayboxRenderMeta').textContent = render.status || '等待生成';
+  }
+
+  const finalItem = (data.final_items || [])[0];
+  const finalPreview = $('#grayboxFinalPreview');
+  const finalEmpty = $('#grayboxFinalEmpty');
+  if (finalItem?.media_url) {
+    finalPreview.src = finalItem.media_url;
+    finalPreview.classList.remove('hidden');
+    finalEmpty.classList.add('hidden');
+    $('#grayboxFinalMeta').textContent = `${finalItem.model || 'MiniMax H3'} · ${finalItem.resolution || ''} · ${finalItem.review_status || 'PENDING'}`;
+  } else {
+    finalPreview.removeAttribute('src');
+    finalPreview.classList.add('hidden');
+    finalEmpty.classList.remove('hidden');
+    $('#grayboxFinalMeta').textContent = '尚未生成';
+  }
+
+  if (!$('#grayboxPrompt').value.trim() && data.default_prompt) $('#grayboxPrompt').value = data.default_prompt;
+  $('#grayboxEnsureSpecButton').disabled = !state.grayboxProjectId;
+  $('#grayboxRenderButton').disabled = !installed || !data.spec_ready || render.status === 'RUNNING';
+  $('#grayboxAdjustButton').disabled = !data.spec_ready || render.status === 'RUNNING';
+  $('#grayboxGenerateFinalButton').disabled = !render.output_ready || !minimax.configured || review.status !== 'APPROVED';
+  $('#grayboxHint').textContent = review.status === 'APPROVED'
+    ? '白模已人工通过。确认付费与上传授权后，可进入 MiniMax H3 最终成片。'
+    : '先检查白模镜头、走位、动作和遮挡；白模通过后才允许调用付费 AI 视频 Provider。';
+}
+
+async function loadGraybox(projectId = resolveActiveNovelProject(state.grayboxProjectId || state.imageStudioProjectId)) {
+  if (!projectId) return;
+  state.grayboxProjectId = projectId;
+  state.graybox = await api(`/api/novel-anime/projects/${encodeURIComponent(projectId)}/graybox`);
+  renderGraybox();
+}
+
+async function ensureGrayboxShotSpec() {
+  const projectId = resolveActiveNovelProject(state.grayboxProjectId || state.imageStudioProjectId);
+  if (!projectId) { log('没有可用的国漫项目', true); return; }
+  const button = $('#grayboxEnsureSpecButton');
+  button.disabled = true;
+  try {
+    state.graybox = await api(`/api/novel-anime/projects/${encodeURIComponent(projectId)}/graybox/spec`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    state.grayboxProjectId = projectId;
+    renderGraybox();
+    log('P32 镜头方案已生成：8 秒古宅入场白模。');
+  } catch (error) { log(error.message, true); }
+  finally { button.disabled = false; }
+}
+
+async function waitForGrayboxRender(projectId) {
+  for (let index = 0; index < 240; index += 1) {
+    await new Promise((resolve) => window.setTimeout(resolve, 2000));
+    const current = await api(`/api/novel-anime/projects/${encodeURIComponent(projectId)}/graybox`);
+    state.graybox = current;
+    renderGraybox();
+    if (current.render?.status === 'PASS' && current.render?.output_ready) return current;
+    if (current.render?.status === 'FAIL') throw new Error(current.render?.detail || 'Blender 白模渲染失败');
+  }
+  throw new Error('Blender 白模渲染等待超时；请查看 graybox 日志。');
+}
+
+async function renderGrayboxShot() {
+  const projectId = resolveActiveNovelProject(state.grayboxProjectId || state.imageStudioProjectId);
+  if (!projectId) return;
+  const button = $('#grayboxRenderButton');
+  button.disabled = true;
+  button.textContent = 'Blender 渲染中…';
+  $('#grayboxLogLine').textContent = '正在后台调用 Blender 构建场景、人物、动作、镜头并渲染 MP4…';
+  try {
+    await api(`/api/novel-anime/projects/${encodeURIComponent(projectId)}/graybox/render`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    await waitForGrayboxRender(projectId);
+    $('#grayboxLogLine').textContent = 'Blender 白模已完成。请直接播放检查；不满意可用自然语言微调。';
+    log('P32 Blender 白模完成，可在 Web 直接预览。');
+  } catch (error) {
+    $('#grayboxLogLine').textContent = error.message;
+    log(error.message, true);
+  } finally {
+    button.textContent = '② 生成 Blender 白模';
+    await loadGraybox(projectId).catch(() => {});
+  }
+}
+
+async function adjustGrayboxShot() {
+  const projectId = resolveActiveNovelProject(state.grayboxProjectId || state.imageStudioProjectId);
+  const instruction = $('#grayboxAdjustInput').value.trim();
+  if (!projectId || !instruction) { log('请输入白模微调要求', true); return; }
+  const button = $('#grayboxAdjustButton');
+  button.disabled = true;
+  try {
+    const result = await api(`/api/novel-anime/projects/${encodeURIComponent(projectId)}/graybox/adjust`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ instruction }),
+    });
+    state.graybox = result;
+    renderGraybox();
+    $('#grayboxLogLine').textContent = `已应用：${(result.changes || []).join('；')}。正在重做白模…`;
+    log(`P32 白模微调：${instruction}`);
+    await renderGrayboxShot();
+  } catch (error) { log(error.message, true); }
+  finally { button.disabled = false; }
+}
+
+async function reviewGraybox(status) {
+  const projectId = resolveActiveNovelProject(state.grayboxProjectId || state.imageStudioProjectId);
+  if (!projectId) return;
+  try {
+    state.graybox = await api(`/api/novel-anime/projects/${encodeURIComponent(projectId)}/graybox/review`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status, note: status === 'APPROVED' ? 'Web graybox review approved' : $('#grayboxAdjustInput').value.trim() }),
+    });
+    renderGraybox();
+    log(status === 'APPROVED' ? 'Blender 白模已通过；现在可以进入 AI 最终成片。' : '白模标记为需要修改。');
+  } catch (error) { log(error.message, true); }
+}
+
+async function saveMiniMaxKey() {
+  const input = $('#grayboxMiniMaxKey');
+  const button = $('#grayboxSaveMiniMaxKey');
+  button.disabled = true;
+  try {
+    await api('/api/settings/keys', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: 'minimax_h3', key: input.value }),
+    });
+    input.value = '';
+    await loadGraybox();
+    log('MiniMax H3 Key 已保存到当前 Web 服务进程。');
+  } catch (error) { log(error.message, true); }
+  finally { button.disabled = false; }
+}
+
+async function generateGrayboxFinal() {
+  const projectId = resolveActiveNovelProject(state.grayboxProjectId || state.imageStudioProjectId);
+  if (!projectId) return;
+  const confirmBillable = $('#grayboxBillableConfirm').checked;
+  const uploadAuthorized = $('#grayboxUploadConfirm').checked;
+  if (!confirmBillable || !uploadAuthorized) {
+    log('生成最终视频前需要同时确认付费调用与白模上传授权。', true);
+    return;
+  }
+  if (!window.confirm('将上传当前白模 MP4 给 MiniMax H3 并产生 API 费用。确认继续？')) return;
+  const button = $('#grayboxGenerateFinalButton');
+  button.disabled = true;
+  button.textContent = 'MiniMax H3 生成中…';
+  $('#grayboxLogLine').textContent = '正在把 Blender 白模作为参考视频提交给 MiniMax H3…';
+  try {
+    const result = await api(`/api/novel-anime/projects/${encodeURIComponent(projectId)}/graybox/final`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt: $('#grayboxPrompt').value.trim(),
+        resolution: $('#grayboxResolution').value,
+        confirm_billable: true,
+        upload_authorized: true,
+      }),
+    });
+    await loadGraybox(projectId);
+    $('#grayboxFinalPreview').src = result.media_url;
+    $('#grayboxLogLine').textContent = 'MiniMax H3 最终镜头已返回，请人工检查与白模的运镜、走位和动作时序是否一致。';
+    log(`P32 AI 最终镜头完成：${result.output}`);
+  } catch (error) {
+    $('#grayboxLogLine').textContent = error.message;
+    log(error.message, true);
+  } finally {
+    button.textContent = '③ 白模 → MiniMax H3 成片';
+    renderGraybox();
   }
 }
 
@@ -2084,6 +2286,7 @@ async function load(preferredProjectId = '') {
       await loadStudio(activeNovelProjectId);
       await loadPipeline(activeNovelProjectId);
       await loadImageStudio(activeNovelProjectId);
+      await loadGraybox(activeNovelProjectId);
     }
 
     if (state.projects.length) {
@@ -2133,6 +2336,15 @@ async function generateStoryboard() {
   } catch (error) { log(error.message, true); $('#outputStatus').textContent = '生成失败'; }
   finally { button.innerHTML = '<span>◈</span>生成完整本地分镜'; button.disabled = false; }
 }
+
+$('#grayboxEnsureSpecButton').addEventListener('click', ensureGrayboxShotSpec);
+$('#grayboxRenderButton').addEventListener('click', renderGrayboxShot);
+$('#grayboxRefreshButton').addEventListener('click', () => loadGraybox().catch((error) => log(error.message, true)));
+$('#grayboxAdjustButton').addEventListener('click', adjustGrayboxShot);
+$('#grayboxApproveButton').addEventListener('click', () => reviewGraybox('APPROVED'));
+$('#grayboxRequestChangesButton').addEventListener('click', () => reviewGraybox('CHANGES_REQUESTED'));
+$('#grayboxSaveMiniMaxKey').addEventListener('click', saveMiniMaxKey);
+$('#grayboxGenerateFinalButton').addEventListener('click', generateGrayboxFinal);
 
 $('#novelImportRights').addEventListener('change', updateNovelImportRightsUI);
 $('#novelImportFile').addEventListener('change', (event) => {
