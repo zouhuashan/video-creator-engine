@@ -84,7 +84,7 @@ from scripts.comfyui_service_manager import ComfyUIServiceError, service_status 
 from scripts.comfyui_installer import ComfyUIInstallError, start_background_install as start_comfyui_install, status as comfyui_install_status  # noqa: E402
 from scripts.comfyui_model_manager import ComfyUIModelError, start_background_install as start_comfyui_model_install, status as comfyui_model_status  # noqa: E402
 from scripts.comfyui_lora_manager import ComfyUILoraError, lora_descriptor as comfyui_lora_descriptor, start_background_install as start_comfyui_lora_install, status as comfyui_lora_status  # noqa: E402
-from scripts.graybox_shot_spec import GrayboxShotSpecError, ensure_default_spec as ensure_graybox_spec, load_spec as load_graybox_spec  # noqa: E402
+from scripts.graybox_shot_spec import GrayboxShotSpecError, apply_natural_language_adjustment as adjust_graybox_spec, ensure_default_spec as ensure_graybox_spec, load_spec as load_graybox_spec, review_spec as review_graybox_spec  # noqa: E402
 from scripts.graybox_manager import GrayboxRenderError, start_render as start_graybox_render, status as graybox_render_status  # noqa: E402
 
 
@@ -2271,6 +2271,28 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                 if not result.get("spec"):
                     ensure_graybox_spec(project)
                 return self._json(_graybox_web_status(project), HTTPStatus.CREATED)
+            except (ValueError, GrayboxShotSpecError, GrayboxRenderError, OSError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/graybox/adjust", route)
+        if match:
+            try:
+                payload = self._read_json(max_bytes=64 * 1024)
+                project = _safe_project(match.group(1))
+                result = adjust_graybox_spec(project, str(payload.get("instruction") or ""))
+                return self._json({**result, **_graybox_web_status(project)}, HTTPStatus.CREATED)
+            except (ValueError, GrayboxShotSpecError, GrayboxRenderError, OSError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/graybox/review", route)
+        if match:
+            try:
+                payload = self._read_json(max_bytes=64 * 1024)
+                project = _safe_project(match.group(1))
+                result = review_graybox_spec(
+                    project,
+                    str(payload.get("status") or ""),
+                    str(payload.get("note") or ""),
+                )
+                return self._json({**result, **_graybox_web_status(project)}, HTTPStatus.CREATED)
             except (ValueError, GrayboxShotSpecError, GrayboxRenderError, OSError, json.JSONDecodeError) as error:
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
         match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/graybox/render", route)
