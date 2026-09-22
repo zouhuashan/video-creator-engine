@@ -221,8 +221,10 @@ def _build_actor(white, dark):
 
     left_leg, _ = _joint_limb("Leg.L", (-0.17, 0, 1.30), 0.12, 1.18, white, root)
     right_leg, _ = _joint_limb("Leg.R", (0.17, 0, 1.30), 0.12, 1.18, white, root)
-    _box("Foot.L", (-0.17, -0.12, 0.09), (0.14, 0.25, 0.085), white, root)
-    _box("Foot.R", (0.17, -0.12, 0.09), (0.14, 0.25, 0.085), white, root)
+    left_foot = _box("Foot.L", (0, 0, 0), (0.14, 0.25, 0.085), white, left_leg)
+    right_foot = _box("Foot.R", (0, 0, 0), (0.14, 0.25, 0.085), white, right_leg)
+    left_foot.location = (0, -0.12, -1.16)
+    right_foot.location = (0, -0.12, -1.16)
 
     bpy.ops.mesh.primitive_cone_add(vertices=20, radius1=0.58, radius2=0.31, depth=1.38, location=(0, 0, 1.04))
     robe = bpy.context.object
