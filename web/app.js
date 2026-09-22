@@ -1,4 +1,4 @@
-const state = { projects: [], animeProjects: [], project: null, providers: [], integrations: [], studio: null, readiness: null, backups: null, activeNovelProjectId: null, studioProjectId: null, imageStudio: null, imageStudioProjectId: null, imageStudioSelected: null, imageStudioProviderPreference: 'AUTO', imageStudioStylePreset: 'CINEMATIC_3D_DONGHUA', graybox: null, grayboxProjectId: null, grayboxPollTimer: null, pipeline: null, pipelineProjectId: null, voiceTimeline: null, voiceTimelineProjectId: null, novelImportResult: null, selectedProvider: 'local_ken_burns', selectedImage: null, currentView: 'workspace', currentWorkspace: 'overview' };
+const state = { projects: [], animeProjects: [], project: null, providers: [], integrations: [], studio: null, readiness: null, backups: null, activeNovelProjectId: null, studioProjectId: null, imageStudio: null, imageStudioProjectId: null, imageStudioSelected: null, imageStudioProviderPreference: 'AUTO', imageStudioStylePreset: 'CINEMATIC_3D_DONGHUA', graybox: null, grayboxProjectId: null, grayboxPollTimer: null, pipeline: null, pipelineProjectId: null, voiceTimeline: null, voiceTimelineProjectId: null, finalAudio: null, finalAudioProjectId: null, novelImportResult: null, selectedProvider: 'local_ken_burns', selectedImage: null, currentView: 'workspace', currentWorkspace: 'overview' };
 const ACTIVE_NOVEL_PROJECT_KEY = 'videocreator.activeNovelProjectId.v1';
 const IMAGE_STYLE_PROJECT_KEY_PREFIX = 'videocreator.imageStylePreset.v2.';
 
@@ -37,6 +37,8 @@ function clearActiveNovelProject() {
   state.pipeline = null;
   state.voiceTimeline = null;
   state.voiceTimelineProjectId = null;
+  state.finalAudio = null;
+  state.finalAudioProjectId = null;
   try { window.localStorage.removeItem(ACTIVE_NOVEL_PROJECT_KEY); } catch (_) {}
 }
 
@@ -80,6 +82,7 @@ function setActiveNovelProject(projectId, { persist = true } = {}) {
   state.pipelineProjectId = value;
   state.imageStudioProjectId = value;
   state.voiceTimelineProjectId = value;
+  state.finalAudioProjectId = value;
   if (persist) rememberActiveNovelProject(value);
   const selectors = ['#studioProjectSelect', '#pipelineProjectSelect', '#imageStudioProject'];
   selectors.forEach((selector) => {
