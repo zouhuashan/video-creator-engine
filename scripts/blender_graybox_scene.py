@@ -305,15 +305,20 @@ def _configure_scene(spec, output: Path):
     output.parent.mkdir(parents=True, exist_ok=True)
     scene.render.filepath = str(output)
 
+    if not bool(getattr(bpy.app.build_options, "codec_ffmpeg", False)):
+        raise RuntimeError("this Blender build was compiled without FFmpeg support")
+
     # Blender 5.x separates output media type from still-image file format.
     # ImageFormatSettings.file_format no longer accepts "FFMPEG"; select VIDEO
     # through media_type and keep container/codec settings under render.ffmpeg.
     image_settings = scene.render.image_settings
     if hasattr(image_settings, "media_type"):
         image_settings.media_type = "VIDEO"
+        print(f"[graybox] Blender {bpy.app.version_string}: video output via ImageFormatSettings.media_type=VIDEO")
     else:
         # Blender <= 4.x legacy API.
         image_settings.file_format = "FFMPEG"
+        print(f"[graybox] Blender {bpy.app.version_string}: video output via legacy file_format=FFMPEG")
 
     if scene.render.ffmpeg is None:
         raise RuntimeError("this Blender build does not expose FFmpeg video output")
