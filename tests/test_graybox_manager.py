@@ -38,6 +38,15 @@ class GrayboxManagerTelemetryTests(unittest.TestCase):
         self.assertNotIn("obj.animation_data.action.fcurves", script)
         self.assertIn("keeping Blender default interpolation", script)
 
+    def test_blender_graybox_uses_blender_5_video_media_type(self):
+        script = (manager.ROOT / "scripts" / "blender_graybox_scene.py").read_text(encoding="utf-8")
+        self.assertIn('image_settings.media_type = "VIDEO"', script)
+        self.assertIn('image_settings.file_format = "FFMPEG"', script)
+        self.assertIn('hasattr(image_settings, "media_type")', script)
+        self.assertNotIn('scene.render.image_settings.file_format = "FFMPEG"', script)
+        self.assertIn('scene.render.ffmpeg.format = "MPEG4"', script)
+        self.assertIn('scene.render.ffmpeg.codec = "H264"', script)
+
     def test_progress_reader_accepts_per_frame_heartbeat(self):
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory)
