@@ -58,15 +58,26 @@ def blender_executable() -> Path | None:
     return None
 
 
+def _render_spec_payload(project_dir: Path, spec_id: str = DEFAULT_SPEC_ID) -> dict[str, Any]:
+    """Return only fields whose changes require a Blender re-render.
+
+    Human review metadata and downstream AI-video settings must never invalidate
+    an already rendered blocking MP4.
+    """
+    spec = load_spec(Path(project_dir).resolve(), spec_id)
+    payload = dict(spec)
+    for key in ("review", "created_at", "updated_at", "ai_video"):
+        payload.pop(key, None)
+    return payload
+
+
 def _spec_sha256(project_dir: Path, spec_id: str = DEFAULT_SPEC_ID) -> str:
     path = spec_path(Path(project_dir).resolve(), spec_id)
     if not path.is_file():
         return ""
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+    payload = _render_spec_payload(project_dir, spec_id)
+    encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
 
 
 def _state_path(project_dir: Path) -> Path:
@@ -292,6 +303,36 @@ def start_render(project_dir: Path, spec_id: str = DEFAULT_SPEC_ID) -> dict[str,
         "output_path": str(output.relative_to(project_dir)),
     })
     return {**state, "action": "STARTED"}
+
+
+def adopt_existing_render(project_dir: Path, spec_id: str = DEFAULT_SPEC_ID) -> dict[str, Any]:
+    """Re-bind an existing MP4 to the current render-semantic spec signature.
+
+    This is intentionally explicit and is used only after a human confirms the
+    visible whitebox still represents the desired camera/action skeleton.
+    """
+    project_dir = Path(project_dir).resolve()
+    output = _output_path(project_dir, spec_id)
+    if not output.is_file() or output.stat().st_size <= 1024:
+        raise GrayboxRenderError("没有可沿用的 Blender 白模 MP4")
+    state = _load_state(project_dir)
+    if str(state.get("status") or "").upper() == "RUNNING":
+        raise GrayboxRenderError("Blender 白模仍在渲染，不能沿用旧输出")
+    ensure_default_spec(project_dir)
+    signature = _spec_sha256(project_dir, spec_id)
+    adopted = _write_state(project_dir, {
+        **state,
+        "status": "PASS",
+        "step": "COMPLETE",
+        "detail": "现有 Blender 白模已人工确认，并重新绑定到当前渲染语义签名",
+        "pid": None,
+        "spec_id": spec_id,
+        "spec_sha256": signature,
+        "output_path": str(output.relative_to(project_dir)),
+        "adopted_existing_render": True,
+        "adopted_at_epoch": time.time(),
+    })
+    return {**adopted, "action": "ADOPTED_EXISTING_RENDER"}
 
 
 def reset(project_dir: Path) -> dict[str, Any]:
