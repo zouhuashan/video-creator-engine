@@ -129,6 +129,103 @@ def validate_spec(project_dir: Path, payload: Any) -> dict[str, Any]:
     return spec
 
 
+def apply_natural_language_adjustment(project_dir: Path, instruction: str, spec_id: str = DEFAULT_SPEC_ID) -> dict[str, Any]:
+    """Apply a small, deterministic graybox edit from common Chinese natural-language instructions.
+
+    This intentionally handles only safe camera/timing/position changes. Unknown instructions are
+    rejected instead of silently inventing motion.
+    """
+    text = str(instruction or "").strip()
+    if not text:
+        raise GrayboxShotSpecError("graybox adjustment instruction is empty")
+    spec = load_spec(project_dir, spec_id)
+    changed: list[str] = []
+
+    duration = float(spec["duration_seconds"])
+    actor = spec["actor"]
+    camera = spec["camera_path"]
+
+    if any(token in text for token in ("镜头慢一点", "镜头再慢", "运镜慢一点", "推进慢一点")):
+        new_duration = min(15.0, round(duration + 1.0, 2))
+        scale = new_duration / duration
+        spec["duration_seconds"] = new_duration
+        for key in ("stop_time", "look_up_time", "hold_time"):
+            actor[key] = round(min(new_duration, float(actor[key]) * scale), 2)
+        changed.append(f"duration_seconds {duration:g} → {new_duration:g}")
+
+    hold_match = __import__("re").search(r"(?:结尾|最后).*?(\d+(?:\.\d+)?)\s*秒", text)
+    if hold_match and any(token in text for token in ("停留", "停", "多留", "多停")):
+        extra = max(0.2, min(5.0, float(hold_match.group(1))))
+        old_duration = float(spec["duration_seconds"])
+        new_duration = min(15.0, round(old_duration + extra, 2))
+        spec["duration_seconds"] = new_duration
+        actor["hold_time"] = new_duration
+        changed.append(f"final_hold +{new_duration - old_duration:g}s")
+
+    if any(token in text for token in ("推进幅度变小", "推进少一点", "镜头别推那么近", "镜头推进小一点")):
+        start = list(camera["start"])
+        end = list(camera["end"])
+        factor = 0.55
+        camera["end"] = [round(start[i] + (end[i] - start[i]) * factor, 3) for i in range(3)]
+        changed.append("camera_dolly_distance ×0.55")
+
+    if any(token in text for token in ("推进幅度变大", "推进多一点", "镜头推近一点")):
+        start = list(camera["start"])
+        end = list(camera["end"])
+        factor = 1.25
+        camera["end"] = [round(start[i] + (end[i] - start[i]) * factor, 3) for i in range(3)]
+        changed.append("camera_dolly_distance ×1.25")
+
+    if any(token in text for token in ("人物走路再平缓", "走路平缓", "走慢一点", "人物慢一点")):
+        old_stop = float(actor["stop_time"])
+        max_stop = max(0.8, float(spec["duration_seconds"]) - 2.2)
+        actor["stop_time"] = round(min(max_stop, old_stop + 0.8), 2)
+        actor["look_up_time"] = round(max(float(actor["look_up_time"]), float(actor["stop_time"]) + 0.55), 2)
+        actor["hold_time"] = round(max(float(actor["hold_time"]), float(actor["look_up_time"]) + 0.8), 2)
+        if actor["hold_time"] > float(spec["duration_seconds"]):
+            spec["duration_seconds"] = min(15.0, round(actor["hold_time"] + 0.4, 2))
+        changed.append(f"actor.stop_time {old_stop:g} → {actor['stop_time']:g}")
+
+    if any(token in text for token in ("人物离建筑近一点", "人物靠近门", "贴近建筑", "离门近一点")):
+        old = list(actor["stop"])
+        actor["stop"] = [old[0], round(old[1] + 0.8, 3), old[2]]
+        changed.append("actor.stop closer_to_gate +0.8m")
+
+    if any(token in text for token in ("人物离建筑远一点", "离门远一点", "人物后退一点")):
+        old = list(actor["stop"])
+        actor["stop"] = [old[0], round(old[1] - 0.8, 3), old[2]]
+        changed.append("actor.stop farther_from_gate -0.8m")
+
+    if not changed:
+        raise GrayboxShotSpecError(
+            "暂不支持这条白模微调。当前支持：镜头慢一点、最后多停 N 秒、推进幅度变小/变大、"
+            "人物走慢/平缓、人物离门近一点/远一点。"
+        )
+
+    spec["updated_at"] = utc_timestamp()
+    spec["review"] = {"required": True, "status": "CHANGES_REQUESTED", "note": text}
+    validated = validate_spec(project_dir, spec)
+    write_spec(project_dir, validated, overwrite=True)
+    return {
+        "status": "UPDATED",
+        "instruction": text,
+        "changes": changed,
+        "spec": validated,
+    }
+
+
+def review_spec(project_dir: Path, status: str, note: str = "", spec_id: str = DEFAULT_SPEC_ID) -> dict[str, Any]:
+    value = str(status or "").strip().upper()
+    if value not in {"APPROVED", "CHANGES_REQUESTED", "PENDING"}:
+        raise GrayboxShotSpecError("graybox review status must be APPROVED, CHANGES_REQUESTED or PENDING")
+    spec = load_spec(project_dir, spec_id)
+    spec["review"] = {"required": True, "status": value, "note": str(note or "").strip()}
+    spec["updated_at"] = utc_timestamp()
+    validated = validate_spec(project_dir, spec)
+    write_spec(project_dir, validated, overwrite=True)
+    return {"status": value, "spec": validated}
+
+
 def spec_path(project_dir: Path, spec_id: str = DEFAULT_SPEC_ID) -> Path:
     return Path(project_dir).resolve() / OUTPUT_DIR / f"{spec_id}.json"
 
