@@ -1244,6 +1244,126 @@ def _provider_status() -> list[dict[str, object]]:
     return status
 
 
+def _graybox_web_status(project: Path) -> dict[str, object]:
+    project = Path(project).resolve()
+    render = graybox_render_status(project)
+    spec = render.get("spec") if isinstance(render.get("spec"), dict) else None
+    output = str(render.get("output_path") or "")
+    provider = next((item for item in _provider_status() if item.get("id") == "minimax_h3"), {
+        "id": "minimax_h3",
+        "label": "MiniMax H3 · 白模转成片",
+        "remote": True,
+        "configured": False,
+        "source": "none",
+    })
+    final_dir = project / "graybox" / "final"
+    final_items: list[dict[str, object]] = []
+    if final_dir.is_dir():
+        for metadata_path in sorted(final_dir.glob("*.json"), reverse=True):
+            try:
+                metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            if not isinstance(metadata, dict):
+                continue
+            relative = str(metadata.get("output") or "")
+            media = project / relative if relative else None
+            if not media or not media.is_file():
+                continue
+            final_items.append({
+                **metadata,
+                "media_url": _media_url(project, relative),
+                "metadata": _relative(project, metadata_path),
+            })
+    return {
+        "project_id": project.name,
+        "blender_installed": bool(render.get("blender_installed")),
+        "blender_path": str(render.get("blender_path") or ""),
+        "spec_ready": bool(render.get("spec_ready")),
+        "spec": spec,
+        "render": {
+            "status": str(render.get("status") or ("READY" if render.get("output_ready") else "NOT_STARTED")),
+            "step": str(render.get("step") or ""),
+            "detail": str(render.get("detail") or ""),
+            "output_ready": bool(render.get("output_ready")),
+            "output_path": output,
+            "output_bytes": int(render.get("output_bytes") or 0),
+            "media_url": _media_url(project, output) if output and render.get("output_ready") else "",
+            "log_path": str(render.get("log_path") or ""),
+        },
+        "minimax": provider,
+        "default_prompt": str(((spec or {}).get("ai_video") or {}).get("prompt") or ""),
+        "final_items": final_items[:8],
+    }
+
+
+def _generate_graybox_final(project: Path, payload: dict[str, object]) -> dict[str, object]:
+    if payload.get("confirm_billable") is not True:
+        raise ValueError("MiniMax H3 远程生成需要 confirm_billable=true")
+    if payload.get("upload_authorized") is not True:
+        raise ValueError("上传白模参考视频前需要 upload_authorized=true")
+    state = graybox_render_status(project)
+    if not state.get("output_ready"):
+        raise ValueError("Blender 白模尚未生成完成")
+    relative = str(state.get("output_path") or "")
+    reference_video = project / relative
+    if not reference_video.is_file():
+        raise ValueError("白模参考视频不存在")
+
+    spec = load_graybox_spec(project)
+    prompt = str(payload.get("prompt") or ((spec.get("ai_video") or {}).get("prompt") or "")).strip()
+    if not prompt:
+        raise ValueError("MiniMax H3 prompt 不能为空")
+    model = str(payload.get("model") or "MiniMax-H3").strip()
+    resolution = str(payload.get("resolution") or "768P").strip().upper()
+    if resolution not in {"768P", "2K"}:
+        raise ValueError("MiniMax H3 resolution must be 768P or 2K")
+    api_key = RUNTIME_KEYS.get("minimax_h3") or os.environ.get(KEY_ENV["minimax_h3"])
+    if not api_key:
+        raise ValueError("请先在白模工作流中配置 MiniMax API Key")
+
+    final_dir = project / "graybox" / "final"
+    final_dir.mkdir(parents=True, exist_ok=True)
+    stamp = time.strftime("%Y%m%d-%H%M%S") + f"-{time.time_ns() % 100000:05d}"
+    output = final_dir / f"{stamp}-minimax-h3.mp4"
+    request = VideoGenerationRequest(
+        image_paths=(),
+        reference_video_paths=(reference_video.resolve(),),
+        output_path=output,
+        shot_duration_seconds=float(spec.get("duration_seconds") or 8),
+        fps=int(spec.get("fps") or 24),
+        width=int(spec.get("width") or 720),
+        height=int(spec.get("height") or 1280),
+        prompt_text=prompt,
+        model=model,
+    )
+    result = MiniMaxH3Video(api_key=str(api_key), resolution=resolution).generate(request)
+    output_relative = _relative(project, result.output_path)
+    metadata = {
+        "schema_version": 1,
+        "provider": result.provider,
+        "model": model,
+        "resolution": resolution,
+        "task_id": result.task_id,
+        "duration_seconds": result.duration_seconds,
+        "shot_spec_id": str(spec.get("id") or ""),
+        "reference_video": relative,
+        "prompt": prompt,
+        "confirm_billable": True,
+        "upload_authorized": True,
+        "output": output_relative,
+        "review_status": "PENDING",
+        "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    }
+    metadata_path = output.with_suffix(".json")
+    metadata_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return {
+        **metadata,
+        "media_url": _media_url(project, output_relative),
+        "metadata": _relative(project, metadata_path),
+    }
+
+
 def _integration_status() -> list[dict[str, object]]:
     runtime = RUNTIME_INTEGRATIONS.get("arcreel", {})
     local_sidecar = ROOT / "integrations" / "arcreel" / "compose.yml"
