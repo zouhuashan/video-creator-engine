@@ -1231,7 +1231,7 @@ def _update_image_studio_review(project: Path, payload: dict[str, object]) -> di
 
 def _provider_status() -> list[dict[str, object]]:
     status = [{"id": "local_ken_burns", "label": "本地动态分镜", "remote": False, "configured": True}]
-    for provider_id, label in (("openai_sora", "OpenAI Sora"), ("runway", "Runway"), ("wan", "Wan 2.1")):
+    for provider_id, label in (("minimax_h3", "MiniMax H3 · 白模转成片"), ("openai_sora", "OpenAI Sora"), ("runway", "Runway"), ("wan", "Wan 2.1")):
         env_name = KEY_ENV[provider_id]
         status.append({
             "id": provider_id,
