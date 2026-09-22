@@ -13,6 +13,7 @@ import time
 from pathlib import Path
 
 import bpy
+from bpy_extras import anim_utils
 from mathutils import Vector
 
 
@@ -134,11 +135,42 @@ def _keyframe(obj, frame: int, *, location=None, rotation=None):
 
 
 def _linear(obj) -> None:
-    if not obj.animation_data or not obj.animation_data.action:
+    """Set keyframe interpolation without depending on removed Blender 5.x Action.fcurves."""
+    anim_data = getattr(obj, "animation_data", None)
+    action = getattr(anim_data, "action", None) if anim_data else None
+    if action is None:
         return
-    for curve in obj.animation_data.action.fcurves:
-        for point in curve.keyframe_points:
-            point.interpolation = "LINEAR"
+
+    curves = None
+
+    # Blender <= 4.x legacy/compatibility API.
+    try:
+        curves = getattr(action, "fcurves", None)
+    except Exception:
+        curves = None
+
+    # Blender 4.4+ slotted/layered actions; required on Blender 5.x where
+    # Action.fcurves was removed.
+    if curves is None:
+        try:
+            channelbag = anim_utils.animdata_get_channelbag_for_assigned_slot(anim_data)
+            curves = getattr(channelbag, "fcurves", None) if channelbag is not None else None
+        except Exception as error:
+            print(f"[graybox] WARN: unable to resolve Action channelbag for {obj.name}: {error}")
+            curves = None
+
+    if curves is None:
+        print(f"[graybox] WARN: no editable F-Curves found for {obj.name}; keeping Blender default interpolation")
+        return
+
+    try:
+        for curve in curves:
+            for point in curve.keyframe_points:
+                point.interpolation = "LINEAR"
+    except Exception as error:
+        # Interpolation is a quality preference, not a render-critical step.
+        # Never abort the whole graybox render because Blender changes animation APIs.
+        print(f"[graybox] WARN: failed to force LINEAR interpolation for {obj.name}: {error}")
 
 
 def _build_environment(white, gray):
