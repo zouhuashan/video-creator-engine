@@ -1103,6 +1103,14 @@ def _verified_checkpoint_present() -> bool:
     return checkpoint.is_file()
 
 
+def _display_path(path: Path) -> str:
+    resolved = Path(path).resolve()
+    try:
+        return resolved.relative_to(ROOT.resolve()).as_posix()
+    except ValueError:
+        return str(resolved)
+
+
 def status() -> dict[str, Any]:
     state = _load_state()
     try:
@@ -1117,7 +1125,7 @@ def status() -> dict[str, Any]:
         **state,
         "installed": installed,
         "install_dir": str(INSTALL_DIR),
-        "log_path": str(LOG_PATH.relative_to(ROOT)),
+        "log_path": _display_path(LOG_PATH),
         "log_tail": _tail_log(16) if state.get("status") in {"RUNNING", "FAIL"} else "",
         "models_installed": verified_checkpoint,
         "model_checkpoint_present": verified_checkpoint,
@@ -1143,7 +1151,7 @@ def start_background_install() -> dict[str, Any]:
         except OSError as error:
             raise ComfyUIInstallError(f"无法启动 ComfyUI 安装进程: {error}") from error
     state = _write_state("RUNNING", "STARTING", "安装器已启动", pid=process.pid, install_dir=str(INSTALL_DIR))
-    return {**state, "action": "STARTED", "installed": False, "log_path": str(LOG_PATH.relative_to(ROOT))}
+    return {**state, "action": "STARTED", "installed": False, "log_path": _display_path(LOG_PATH)}
 
 
 def main() -> int:
