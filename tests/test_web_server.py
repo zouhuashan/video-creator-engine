@@ -35,6 +35,21 @@ from scripts.novel_qc import build_qc_report, write_qc_report
 
 
 class WebServerTests(unittest.TestCase):
+    def test_p35_gpt_keyframe_web_exposes_manual_bridge_and_local_interpolation(self):
+        index = (web_server.WEB_ROOT / "index.html").read_text(encoding="utf-8")
+        app = (web_server.WEB_ROOT / "app.js").read_text(encoding="utf-8")
+        server = Path(web_server.__file__).read_text(encoding="utf-8")
+        self.assertIn("P35 / GPT KEYFRAME → LOCAL VIDEO", index)
+        self.assertIn('id="gptKeyframePrepare"', index)
+        self.assertIn('id="gptKeyframeInterpolate"', index)
+        self.assertIn("https://chatgpt.com/", index)
+        self.assertIn("/graybox/gpt-keyframes/prepare", app)
+        self.assertIn("/graybox/gpt-keyframes/upload", app)
+        self.assertIn("/graybox/gpt-keyframes/interpolate", app)
+        self.assertIn("copyGptKeyframePrompt", app)
+        self.assertIn("gpt_keyframe_pipeline", server)
+        self.assertNotIn("OPENAI_API_KEY", index)
+
     def test_p34_final_audio_web_exposes_voice_lock_billing_gate_and_mix_without_secret(self):
         app = (web_server.WEB_ROOT / "app.js").read_text(encoding="utf-8")
         server = Path(web_server.__file__).read_text(encoding="utf-8")
