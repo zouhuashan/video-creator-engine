@@ -48,7 +48,9 @@ class WebServerTests(unittest.TestCase):
         self.assertIn("/graybox/gpt-keyframes/interpolate", app)
         self.assertIn("copyGptKeyframePrompt", app)
         self.assertIn("gpt_keyframe_pipeline", server)
-        self.assertNotIn("OPENAI_API_KEY", index)
+        p35_panel = index[index.index("P35 / GPT KEYFRAME → LOCAL VIDEO"):index.index("graybox-final-controls")]
+        self.assertIn("ChatGPT Web 手工桥接", p35_panel)
+        self.assertNotIn("API Key", p35_panel)
 
     def test_p34_final_audio_web_exposes_voice_lock_billing_gate_and_mix_without_secret(self):
         app = (web_server.WEB_ROOT / "app.js").read_text(encoding="utf-8")
