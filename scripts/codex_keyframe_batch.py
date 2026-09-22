@@ -319,8 +319,10 @@ def _run_one_frame(project: Path, spec_id: str, index: int, cancel: threading.Ev
         return index, False, error
 
     prompt = _codex_prompt(manifest, frame, refs, raw.resolve())
-    command = [
-        executable,
+    command = [executable]
+    for _, reference_path in refs:
+        command.extend(["--image", str(reference_path)])
+    command.extend([
         "exec",
         "--sandbox",
         "workspace-write",
@@ -328,7 +330,7 @@ def _run_one_frame(project: Path, spec_id: str, index: int, cancel: threading.Ev
         "-o",
         str(final_message_path.resolve()),
         prompt,
-    ]
+    ])
 
     started = time.time()
     with log_path.open("w", encoding="utf-8") as log:
