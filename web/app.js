@@ -283,6 +283,8 @@ function renderGraybox() {
   $('#grayboxEnsureSpecButton').disabled = !state.grayboxProjectId;
   $('#grayboxRenderButton').disabled = !installed || !data.spec_ready || render.status === 'RUNNING';
   $('#grayboxAdjustButton').disabled = !data.spec_ready || render.status === 'RUNNING';
+  $('#grayboxApproveButton').disabled = !render.output_ready || render.status === 'RUNNING';
+  $('#grayboxRequestChangesButton').disabled = !data.spec_ready || render.status === 'RUNNING';
   $('#grayboxGenerateFinalButton').disabled = !render.output_ready || !minimax.configured || review.status !== 'APPROVED';
   $('#grayboxHint').textContent = review.status === 'APPROVED'
     ? '白模已人工通过。确认付费与上传授权后，可进入 MiniMax H3 最终成片。'
@@ -2364,7 +2366,10 @@ $('#pipelineRunButton').addEventListener('click', runAutoPipeline);
 $('#pipelineApproveButton').addEventListener('click', approvePipeline);
 $('#imageStudioProject').addEventListener('change', (event) => {
   const projectId = setActiveNovelProject(event.target.value);
-  if (projectId) loadImageStudio(projectId).catch((error) => log(error.message, true));
+  if (projectId) {
+    loadImageStudio(projectId).catch((error) => log(error.message, true));
+    loadGraybox(projectId).catch((error) => log(error.message, true));
+  }
 });
 $('#imageStudioDeleteProjectButton').addEventListener('click', deleteCurrentImageStudioProject);
 $('#imageStudioSaveKey').addEventListener('click', saveImageStudioKey);
