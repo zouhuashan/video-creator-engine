@@ -35,6 +35,36 @@ from scripts.novel_qc import build_qc_report, write_qc_report
 
 
 class WebServerTests(unittest.TestCase):
+    def test_p34_final_audio_web_exposes_voice_lock_billing_gate_and_mix_without_secret(self):
+        app = (web_server.WEB_ROOT / "app.js").read_text(encoding="utf-8")
+        server = Path(web_server.__file__).read_text(encoding="utf-8")
+        self.assertIn("P34 / FINAL VOICE + FINAL MIX", app)
+        self.assertIn("final-audio/voice-lock", app)
+        self.assertIn("final-audio/generate-episode", app)
+        self.assertIn("final-audio/generate-line", app)
+        self.assertIn("final-audio/upload-asset", app)
+        self.assertIn("final-audio/mix", app)
+        self.assertIn("finalVoiceBillable", app)
+        self.assertIn("finalVoiceUpload", app)
+        self.assertIn('"fish_audio": "FISH_AUDIO_API_KEY"', server)
+
+        old = web_server.RUNTIME_KEYS.get("fish_audio")
+        web_server.RUNTIME_KEYS["fish_audio"] = "fish-secret-value"
+        try:
+            with patch.object(web_server, "final_audio_inventory", return_value={
+                "provider": {"id": "fish_audio"},
+                "episodes": [],
+            }):
+                status = web_server._final_audio_web_status(Path("/tmp/demo-project"))
+        finally:
+            if old is None:
+                web_server.RUNTIME_KEYS.pop("fish_audio", None)
+            else:
+                web_server.RUNTIME_KEYS["fish_audio"] = old
+        self.assertTrue(status["provider"]["configured"])
+        self.assertEqual(status["provider"]["source"], "session")
+        self.assertNotIn("fish-secret-value", str(status))
+
     def test_provider_status_never_exposes_secret_values(self):
         previous = os.environ.get("OPENAI_API_KEY")
         os.environ["OPENAI_API_KEY"] = "secret-value"
