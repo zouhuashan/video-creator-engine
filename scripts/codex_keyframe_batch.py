@@ -319,35 +319,43 @@ def _run_one_frame(project: Path, spec_id: str, index: int, cancel: threading.Ev
         return index, False, error
 
     prompt = _codex_prompt(manifest, frame, refs, raw.resolve())
-    command = [executable]
-    for _, reference_path in refs:
-        command.extend(["--image", str(reference_path)])
-    command.extend([
+    prompt_path = log_dir / f"KF-{index:03d}-prompt.txt"
+    prompt_path.write_text(prompt, encoding="utf-8")
+    # Codex CLI currently has a greedy --image parser in some releases.  Keep
+    # the subcommand first, pass all references as one comma-delimited value,
+    # and send the prompt through stdin instead of a positional argument.
+    command = [
+        executable,
         "exec",
         "--sandbox",
         "workspace-write",
         "--ephemeral",
         "-o",
         str(final_message_path.resolve()),
-        prompt,
-    ])
+        "--image",
+        ",".join(str(reference_path) for _, reference_path in refs),
+    ]
 
     started = time.time()
-    with log_path.open("w", encoding="utf-8") as log:
+    with log_path.open("w", encoding="utf-8") as log, prompt_path.open("r", encoding="utf-8") as prompt_stream:
         log.write("=== VideoCreator P35 Codex ImageGen ===\n")
         log.write(f"frame=KF-{index:03d}\n")
         log.write(f"started_at={_now()}\n")
         log.write(f"reference_count={len(refs)}\n")
+        log.write("command_mode=codex exec + comma-separated --image + stdin prompt\n")
+        log.write("command=" + " ".join(command[:-1]) + " <IMAGE_PATHS_REDACTED>\n")
         log.flush()
         try:
+            child_env = os.environ.copy()
+            child_env.setdefault("RUST_LOG", "info")
             process = subprocess.Popen(
                 command,
                 cwd=ROOT,
-                stdin=subprocess.DEVNULL,
+                stdin=prompt_stream,
                 stdout=log,
                 stderr=subprocess.STDOUT,
                 text=True,
-                env=os.environ.copy(),
+                env=child_env,
                 start_new_session=True,
             )
         except OSError as error:
@@ -545,6 +553,47 @@ def _run_batch(project: Path, spec_id: str, concurrency: int, cancel: threading.
             _ACTIVE.pop(_key(project, spec_id), None)
 
 
+def logs(project: Path, *, max_chars: int = 12000) -> dict[str, Any]:
+    project = Path(project).resolve()
+    manifest = p35.load_manifest(project)
+    if manifest is None:
+        raise CodexKeyframeBatchError("P35 manifest 不存在")
+    spec_id = str(manifest.get("shot_spec_id") or "GB-SHOT-001")
+    root = _shot_root(project, spec_id)
+    entries: list[dict[str, Any]] = []
+    for frame in manifest.get("frames", []):
+        index = int(frame.get("index", -1))
+        if index < 0:
+            continue
+        relative = str(frame.get("codex_log_path") or "")
+        log_path = project / relative if relative else root / LOG_DIR_NAME / f"KF-{index:03d}.log"
+        if not log_path.is_file() and not frame.get("codex_error"):
+            continue
+        tail = _tail(log_path, max_chars=max(800, min(int(max_chars), 20000))) if log_path.is_file() else ""
+        entries.append({
+            "index": index,
+            "id": str(frame.get("id") or f"GPT-KF-{index:03d}"),
+            "status": str(frame.get("status") or ""),
+            "attempts": int(frame.get("codex_attempts") or 0),
+            "error": str(frame.get("codex_error") or ""),
+            "log_path": relative or str(log_path.relative_to(project)),
+            "tail": tail,
+        })
+    entries.sort(key=lambda item: item["index"])
+    failed = [item for item in entries if item["status"] == "FAILED"]
+    return {
+        "project_id": project.name,
+        "shot_spec_id": spec_id,
+        "failed_count": len(failed),
+        "entries": entries,
+        "summary": (
+            f"{len(failed)} 张失败；展开对应 KF 日志查看 Codex CLI 原始输出。"
+            if failed else
+            "当前没有 FAILED 关键帧。"
+        ),
+    }
+
+
 def start(
     project: Path,
     *,
@@ -644,6 +693,7 @@ __all__ = [
     "DEFAULT_CONCURRENCY",
     "MAX_CONCURRENCY",
     "environment_status",
+    "logs",
     "start",
     "status",
     "stop",
