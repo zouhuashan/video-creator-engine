@@ -13,6 +13,7 @@ on:
       - "scripts/graybox_manager.py"
       - "scripts/graybox_reference_binding.py"
       - "scripts/voice_timeline.py"
+      - "scripts/final_audio_pipeline.py"
       - "scripts/blender_graybox_scene.py"
       - "config/graybox-to-video.json"
       - "adapters/video_generation/minimax_h3.py"
@@ -32,6 +33,7 @@ on:
       - "tests/test_graybox_reference_binding.py"
       - "tests/test_minimax_h3.py"
       - "tests/test_voice_timeline.py"
+      - "tests/test_final_audio_pipeline.py"
       - ".github/workflows/p31-novel-import-regression.yml"
   workflow_dispatch:
 
@@ -63,6 +65,7 @@ jobs:
             scripts/graybox_manager.py \
             scripts/graybox_reference_binding.py \
             scripts/voice_timeline.py \
+            scripts/final_audio_pipeline.py \
             scripts/blender_graybox_scene.py \
             scripts/web_server.py \
             adapters/video_generation/minimax_h3.py \
@@ -95,6 +98,7 @@ jobs:
             tests.test_graybox_reference_binding \
             tests.test_minimax_h3 \
             tests.test_voice_timeline \
+            tests.test_final_audio_pipeline \
             tests.test_web_server.WebServerTests.test_graybox_final_passes_character_and_scene_images_to_minimax \
             tests.test_web_server.WebServerTests.test_graybox_smoke_review_tracks_exact_latest_final_and_three_axes \
             tests.test_comfyui_image_provider \
