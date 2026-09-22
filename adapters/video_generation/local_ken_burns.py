@@ -19,6 +19,8 @@ class LocalKenBurnsVideo(VideoGenerationProvider):
 
     def generate(self, request: VideoGenerationRequest) -> VideoGenerationResult:
         request.validate()
+        if not request.image_paths:
+            raise VideoGenerationError("local Ken Burns generation requires at least one image")
         output = Path(request.output_path).expanduser().resolve()
         output.parent.mkdir(parents=True, exist_ok=True)
         command = self._command(request, output)
