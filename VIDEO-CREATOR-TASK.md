@@ -4145,6 +4145,14 @@ Status: CODE PASS / CI PASS / REAL MINIMAX SMOKE PENDING
   - 新增 `/graybox/smoke-review` API 与回归测试。
 - 本轮新增提交：`510cd8ae`、`3e9d4d85`、`c1933673`、`4819c1f7`。
 - 该 smoke 仍坚持 Human Visual Gate：代码负责锁定“验收的是哪一版 final + 哪两张 reference + 哪个 graybox”，不使用自动模型替代最终视觉判断。
+- 为避免首轮 Gemini / MiniMax smoke 被“没有合适参考图”卡住，仓库已加入内置参考素材：
+  - `assets/p32/GB-SHOT-001/reference-board.webp`；
+  - Web 的 REFERENCE BINDING 新增“使用内置 Smoke 人物 + 古宅参考”；
+  - 点击后会从仓库 reference board 自动拆出当前项目专属人物图与场景图；
+  - 人物图注册为正常 Image Studio character_bible inventory；
+  - 场景图写入当前项目 `graybox/references/scenes/`；
+  - 两张图会自动绑定到 `GB-SHOT-001`，无需命令行或手工上传；
+  - 该素材仅用于 P32 首轮能力验证，不替代后续正式 Character Bible / Scene Bible。
 - 回归基线已修复并重新转绿：
   - P31 workflow 现在安装 `requirements-web.txt`，不再因缺 Pillow 假失败；
   - Graybox pivot 回归改为验证通用 `f"{name}.Pivot"` helper，不再硬编码旧字符串；
