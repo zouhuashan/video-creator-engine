@@ -3982,6 +3982,16 @@ Status: CODE PASS / LOCAL BLENDER WEB REVERIFY
 
 执行记录（2026-09-22）：
 
+- P32 实时渲染可观测性补强：真实 Web smoke 出现白模长时间停留在 `RUNNING`，但页面无法判断 Blender 是否仍在工作。现已补齐：
+  - Blender 每帧写 `graybox/render-progress.json` 心跳，记录 current_frame / total_frames / progress_percent / updated_at_epoch；
+  - 后台 manager 同时读取 PID 存活状态、运行时长、progress heartbeat、日志最后更新时间和最近 60 行日志；
+  - 兼容已由旧代码启动的当前渲染：若没有 progress JSON，会从现有 Blender 日志中的 `Fra:xx` 尝试恢复当前帧；
+  - Web 新增“Blender 实时渲染状态”：进程存活、当前帧 / 总帧、百分比、最近心跳、运行时长；
+  - Web 可直接展开“实时 Blender 日志”，无需终端；
+  - 页面刷新后只要状态仍是 RUNNING，就自动每 2 秒继续轮询；
+  - 进程仍存活但超过 60 秒无日志/心跳更新时显示 `PROCESS ALIVE · STALLED?`，明确提示可能卡住但不擅自终止 Blender；
+  - 进程退出后 manager 仍会自动把遗留 RUNNING 修正为 PASS 或 FAIL。
+
 - P32 Web 状态纠偏：真实页面曾显示 `Shot Spec = PENDING`，同时“① 生成镜头方案”仍保持可点击。这里的 `PENDING` 实际是**人工 review 状态**，不是“镜头方案还没生成”，因此再次点击幂等接口后页面几乎不变化，用户会误判按钮失效。现已改为：
   - 已存在 Shot Spec → 显示 `READY · REVIEW PENDING`；
   - Step 1 按钮 → `✓ 镜头方案已就绪` 并禁用；
@@ -4049,7 +4059,7 @@ Status: CODE PASS / LOCAL BLENDER WEB REVERIFY
   - 最终 AI 视频调用前必须通过白模人工审核；
   - Node `--check web/app.js` 继续覆盖 Web 语法。
 - 当前边界：GitHub 只能完成代码与静态回归，无法替代用户 Mac 上真实 Blender 后台渲染，因此本阶段状态为 `CODE PASS / LOCAL BLENDER WEB REVERIFY`，不虚报本地 Blender PASS。
-- 关键提交：`52634cdc`、`ff6f293d`、`fa3e214c`、`f63ba990`、`f58a3fa7`、`1b7856f7`、`09f0a654`、`bd1e8659`、`e6c7dd24`、`faddf94d`、`8bd50110`、`083162c4`、`4cf518f8`、`6dc77daf`、`fac6c766`。
+- 关键提交：`52634cdc`、`ff6f293d`、`fa3e214c`、`f63ba990`、`f58a3fa7`、`1b7856f7`、`09f0a654`、`bd1e8659`、`e6c7dd24`、`faddf94d`、`8bd50110`、`083162c4`、`4cf518f8`、`6dc77daf`、`fac6c766`、`f346cb1b`、`3a61f352`、`0af00c9d`、`37206f62`、`7b9f4392`、`077f6628`、`40d308a4`、`5943f0bb`、`051f94e4`、`8cbd56ce`。
 
 当前 Web 验收路径：
 
