@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "shot_spec_id": "GB-SHOT-001",
+  "purpose": "P32 Graybox-to-Video smoke reference pack",
+  "character_reference": "character-reference.webp",
+  "scene_reference": "scene-reference.webp",
+  "character_role": "identity, hair, costume silhouette, colors, accessories",
+  "scene_role": "ancient gate architecture, lantern, material palette, environment mood",
+  "motion_role": "Blender graybox reference video remains authoritative for camera, framing, actor path, action timing and occlusion",
+  "generated_for": [
+    "Gemini web smoke",
+    "MiniMax H3 smoke"
+  ],
+  "human_review_required": true
+}
