@@ -142,6 +142,37 @@ def _media_url(project: Path, relative_path: str) -> str:
     return f"/media/{project_part}/{path_part}"
 
 
+def _parse_http_byte_range(value: str, size: int) -> tuple[int, int] | None:
+    """Parse one RFC 7233 bytes range; return inclusive (start, end)."""
+    header = str(value or "").strip()
+    if not header:
+        return None
+    match = re.fullmatch(r"bytes=(\d*)-(\d*)", header)
+    if not match:
+        raise ValueError("invalid Range header")
+    start_raw, end_raw = match.groups()
+    if not start_raw and not end_raw:
+        raise ValueError("invalid Range header")
+    if size <= 0:
+        raise ValueError("range not satisfiable")
+
+    if not start_raw:
+        suffix = int(end_raw)
+        if suffix <= 0:
+            raise ValueError("range not satisfiable")
+        start = max(0, size - suffix)
+        end = size - 1
+        return start, end
+
+    start = int(start_raw)
+    if start >= size:
+        raise ValueError("range not satisfiable")
+    end = size - 1 if not end_raw else min(size - 1, int(end_raw))
+    if end < start:
+        raise ValueError("range not satisfiable")
+    return start, end
+
+
 def _image_file_valid(path: Path) -> bool:
     try:
         with path.open("rb") as handle:
@@ -2786,13 +2817,52 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
     def _serve_file(self, path: Path, content_type: str) -> None:
         if not path.is_file():
             return self._error(HTTPStatus.NOT_FOUND, "file not found")
-        data = path.read_bytes()
-        self.send_response(HTTPStatus.OK)
+
+        try:
+            size = path.stat().st_size
+        except OSError:
+            return self._error(HTTPStatus.NOT_FOUND, "file not found")
+
+        range_header = self.headers.get("Range", "")
+        byte_range = None
+        if range_header:
+            try:
+                byte_range = _parse_http_byte_range(range_header, size)
+            except (TypeError, ValueError):
+                self.send_response(HTTPStatus.REQUESTED_RANGE_NOT_SATISFIABLE)
+                self.send_header("Content-Range", f"bytes */{size}")
+                self.send_header("Accept-Ranges", "bytes")
+                self.send_header("Content-Length", "0")
+                self.send_header("Cache-Control", "no-cache")
+                self.end_headers()
+                return
+
+        start, end = byte_range if byte_range is not None else (0, max(0, size - 1))
+        length = max(0, end - start + 1)
+        self.send_response(HTTPStatus.PARTIAL_CONTENT if byte_range is not None else HTTPStatus.OK)
         self.send_header("Content-Type", content_type)
-        self.send_header("Content-Length", str(len(data)))
-        self.send_header("Cache-Control", "no-store")
+        self.send_header("Accept-Ranges", "bytes")
+        self.send_header("Content-Length", str(length))
+        if byte_range is not None:
+            self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+        self.send_header("Cache-Control", "no-cache")
         self.end_headers()
-        self.wfile.write(data)
+
+        if length <= 0:
+            return
+        try:
+            with path.open("rb") as handle:
+                handle.seek(start)
+                remaining = length
+                while remaining > 0:
+                    chunk = handle.read(min(256 * 1024, remaining))
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+                    remaining -= len(chunk)
+        except (BrokenPipeError, ConnectionResetError):
+            # Browsers routinely cancel/restart media range requests while seeking.
+            return
 
     def _json(self, payload: object, status: HTTPStatus = HTTPStatus.OK) -> None:
         data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
