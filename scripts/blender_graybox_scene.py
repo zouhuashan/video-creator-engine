@@ -304,7 +304,19 @@ def _configure_scene(spec, output: Path):
 
     output.parent.mkdir(parents=True, exist_ok=True)
     scene.render.filepath = str(output)
-    scene.render.image_settings.file_format = "FFMPEG"
+
+    # Blender 5.x separates output media type from still-image file format.
+    # ImageFormatSettings.file_format no longer accepts "FFMPEG"; select VIDEO
+    # through media_type and keep container/codec settings under render.ffmpeg.
+    image_settings = scene.render.image_settings
+    if hasattr(image_settings, "media_type"):
+        image_settings.media_type = "VIDEO"
+    else:
+        # Blender <= 4.x legacy API.
+        image_settings.file_format = "FFMPEG"
+
+    if scene.render.ffmpeg is None:
+        raise RuntimeError("this Blender build does not expose FFmpeg video output")
     scene.render.ffmpeg.format = "MPEG4"
     scene.render.ffmpeg.codec = "H264"
     scene.render.ffmpeg.constant_rate_factor = "MEDIUM"
