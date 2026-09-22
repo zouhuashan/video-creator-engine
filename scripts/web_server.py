@@ -1286,6 +1286,8 @@ def _graybox_web_status(project: Path) -> dict[str, object]:
             "step": str(render.get("step") or ""),
             "detail": str(render.get("detail") or ""),
             "output_ready": bool(render.get("output_ready")),
+            "render_stale": bool(render.get("render_stale")),
+            "spec_sha256": str(render.get("spec_sha256") or ""),
             "output_path": output,
             "output_bytes": int(render.get("output_bytes") or 0),
             "media_url": _media_url(project, output) if output and render.get("output_ready") else "",
@@ -2290,9 +2292,14 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
             try:
                 payload = self._read_json(max_bytes=64 * 1024)
                 project = _safe_project(match.group(1))
+                review_status = str(payload.get("status") or "").strip().upper()
+                if review_status == "APPROVED":
+                    current_render = graybox_render_status(project)
+                    if not current_render.get("output_ready"):
+                        raise ValueError("必须先生成与当前 Shot Spec 匹配的 Blender 白模，才能标记为通过")
                 result = review_graybox_spec(
                     project,
-                    str(payload.get("status") or ""),
+                    review_status,
                     str(payload.get("note") or ""),
                 )
                 return self._json({**result, **_graybox_web_status(project)}, HTTPStatus.CREATED)
