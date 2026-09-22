@@ -4514,7 +4514,7 @@ NEXT：在本机 Web 对当前项目选择一条旁白或主角台词，配置 F
 ---
 
 ### P35 GPT Keyframe → Local Video：Blender 控制帧 + ChatGPT 关键帧 + 本地 24fps
-Status: CODE PASS / CI RUNNING / LOCAL VISUAL SMOKE PENDING
+Status: CODE PASS / CI PASS / LOCAL VISUAL SMOKE PENDING
 
 目标：
 
@@ -4592,6 +4592,7 @@ Status: CODE PASS / CI RUNNING / LOCAL VISUAL SMOKE PENDING
   - 最终 FFmpeg filter 必须包含 `minterpolate=fps=24` 和 Shot Duration trim；
   - Web 必须暴露 P35 controls / ChatGPT Web bridge / upload / interpolate；
   - P31 workflow 已纳入 `scripts/gpt_keyframe_pipeline.py` 与 `tests/test_gpt_keyframe_pipeline.py`。
+- GitHub Actions P31 Novel Import Regression run `35733041001` = SUCCESS，覆盖 P35 core + Web + Node syntax check。
 
 关键提交：
 - `afdaf55e` GPT Keyframe pipeline core
@@ -4603,6 +4604,8 @@ Status: CODE PASS / CI RUNNING / LOCAL VISUAL SMOKE PENDING
 - `dfb3c24c` extraction / upload / interpolate tests
 - `34aeec39` P35 Web regression
 - `6639812b` CI gate
+- `a7e3dc93` self-contained interpolation regression fix
+- `e6845698` P35 Web regression scope fix
 
 当前 Web smoke 路径：
 
