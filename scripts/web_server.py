@@ -2262,19 +2262,7 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
         if match:
             try:
                 project = _safe_project(match.group(1))
-                result = {
-                    "project_id": project.name,
-                    **{
-                        key: value
-                        for key, value in {
-                            **graybox_render_status(project),
-                            **{"spec": load_graybox_spec(project) if (project / "graybox" / "shot-specs" / "GB-SHOT-001.json").is_file() else None},
-                        }.items()
-                        if key not in {"blender_path"}
-                    },
-                }
-                if not result.get("spec"):
-                    ensure_graybox_spec(project)
+                ensure_graybox_spec(project)
                 return self._json(_graybox_web_status(project), HTTPStatus.CREATED)
             except (ValueError, GrayboxShotSpecError, GrayboxRenderError, OSError, json.JSONDecodeError) as error:
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
