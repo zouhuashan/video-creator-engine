@@ -611,8 +611,8 @@ function renderGraybox() {
 
   const preview = $('#grayboxPreview');
   const empty = $('#grayboxVideoEmpty');
-  if (render.output_ready && render.media_url) {
-    const nextSrc = render.media_url + `?v=${encodeURIComponent(data.render?.spec_sha256 || 'ready')}`;
+  if (render.media_url) {
+    const nextSrc = render.media_url + `?v=${encodeURIComponent(data.render?.spec_sha256 || render.output_bytes || 'ready')}`;
     const currentSrc = preview.getAttribute('src') || '';
     if (currentSrc !== nextSrc) {
       const wasPlaying = !preview.paused && !preview.ended;
@@ -627,7 +627,9 @@ function renderGraybox() {
     }
     preview.classList.remove('hidden');
     empty.classList.add('hidden');
-    $('#grayboxRenderMeta').textContent = `${spec.fps || 24}fps · ${spec.width || 720}×${spec.height || 1280} · ${review.status || 'PENDING'}`;
+    $('#grayboxRenderMeta').textContent = render.render_stale
+      ? `STALE HASH · MP4 可人工沿用 · ${spec.fps || 24}fps · ${spec.width || 720}×${spec.height || 1280}`
+      : `${spec.fps || 24}fps · ${spec.width || 720}×${spec.height || 1280} · ${review.status || 'PENDING'}`;
   } else {
     preview.removeAttribute('src');
     preview.classList.add('hidden');
