@@ -3973,3 +3973,97 @@ Status: CODE PASS / FINAL PROVIDER WEB REVERIFY
 - Qwen-Image-Edit-2511 + Anyto3DDonghuaStyle 可作为“本地概念图 → 3D 国漫风格转换”的第二阶段 Image-to-Image 路线；但基础模型体积和运行资源显著高于当前 Animagine，必须单独做磁盘 / 内存 / MPS 预检后再进入 Web 一键安装，不能静默替换现有低成本链路。
 
 NEXT：先完成一张 `FINAL_VISUAL + SINGLE_LOOKDEV_HERO` 的《照骨灯》角色真实验收；通过后再把该 LookDev 作为角色锚点，进入多角度 consistency / keyframe / image-to-video，而不是再次从纯文本生成九宫格。
+
+
+## P32 — Graybox-to-Video 白模动态骨架主线
+
+### P32-01 《照骨灯》8 秒 Blender 白模闭环
+Status: CODE PASS / LOCAL BLENDER WEB REVERIFY
+
+执行记录（2026-09-22）：
+
+- 正式停止把 Animagine / 国风 LoRA 当作最终 3D 国漫画质生产器。它们继续保留为低成本 Concept Preview；Blender 固定为 **GRAYBOX / CAMERA / POSE / MOTION CONTROL**；AI Video 固定为 **FINAL VISUAL**。
+- 首个 smoke shot 固定为 8 秒：
+  - 古宅门口；
+  - 项目主角从入口走入；
+  - 约 4.8 秒停下；
+  - 约 5.4 秒抬头看灯；
+  - 结尾保持；
+  - Camera 使用缓慢 dolly-in。
+- 新增 `config/graybox-to-video.json`，将首镜头、24fps、9:16、人物起止坐标、动作时间点、Camera 起止位置和 MiniMax H3 默认 Prompt 配置化。
+- 新增 `scripts/graybox_shot_spec.py`：
+  - 从当前小说项目 Story Bible 读取项目角色；
+  - 生成版本化 `graybox/shot-specs/GB-SHOT-001.json`；
+  - 对 duration / fps / resolution / actor path / camera path / action timing 做严格校验；
+  - Shot Spec 只保存结构化镜头参数，不依赖 Blender GUI。
+- 新增自然语言白模微调：
+  - “镜头慢一点”
+  - “最后多停 N 秒”
+  - “推进幅度变小 / 变大”
+  - “人物走慢一点 / 人物走路再平缓”
+  - “人物离门近一点 / 远一点”
+  - 不认识的指令会明确拒绝，不会擅自脑补动作。
+- 新增 `scripts/blender_graybox_scene.py`：
+  - 由 Blender `--background --factory-startup --python` 直接执行；
+  - 无需 Computer Use / 鼠标点击 / Blender 插件；
+  - 自动搭古宅白模、台阶、门墙、简模人物、长袍轮廓、头部方向标记；
+  - 自动 K 帧人物走位、简易步态、停下、抬头/抬手动作；
+  - 自动 K 帧 Camera dolly-in；
+  - 使用 Blender Workbench 快速渲染；
+  - 输出 MP4 + 对应 `.blend` 文件。
+- 新增 `scripts/graybox_manager.py`：
+  - 自动发现 macOS Blender；
+  - 后台静默启动 Blender；
+  - 状态落到项目 `graybox/render-status.json`；
+  - 详细日志写 `logs/graybox-<project>.log`；
+  - Web 可轮询 RUNNING / PASS / FAIL；
+  - Shot Spec 使用 SHA256 绑定白模 MP4；一旦自然语言修改 Shot Spec，旧 MP4 自动标记 `STALE`，不能继续进入最终生成。
+- Web AI 生图页面下方新增 **P32 / GRAYBOX TO VIDEO**：
+  - “① 生成镜头方案”
+  - “② 生成 Blender 白模”
+  - Web 内直接播放白模 MP4；
+  - Blender / Shot Spec / Render / MiniMax 状态卡；
+  - 自然语言“白模微调”输入框；
+  - “白模通过 / 需要修改”人工审核；
+  - 白模未与当前 Shot Spec 匹配时不允许点击通过；
+  - 修改 Shot Spec 后自动重新生成当前镜头，不重跑整部小说。
+- 新增 MiniMax H3 最终视觉入口：
+  - 白模 MP4 作为 reference video；
+  - 默认 Prompt 明确要求严格跟随 Camera trajectory / framing / character path / timing / occlusion / action beats，只替换角色、场景、材质、光影与最终国漫画质；
+  - API Key 仍只保存在当前 Web 服务进程，不写盘；
+  - 必须同时确认“付费调用”和“允许上传白模 MP4”；
+  - **服务端强制要求白模人工 APPROVED 后才能进入付费生成**。
+- Web 最终预览与白模预览并排，方便肉眼比较“动态骨架 vs AI 成片”。
+- P32 回归新增：
+  - 自然语言 timing / hold / camera push / actor position 修改；
+  - 未知自然语言必须失败；
+  - Web 必须暴露 spec / render / adjust / review / final 全链路；
+  - 最终 AI 视频调用前必须通过白模人工审核；
+  - Node `--check web/app.js` 继续覆盖 Web 语法。
+- 当前边界：GitHub 只能完成代码与静态回归，无法替代用户 Mac 上真实 Blender 后台渲染，因此本阶段状态为 `CODE PASS / LOCAL BLENDER WEB REVERIFY`，不虚报本地 Blender PASS。
+- 关键提交：`52634cdc`、`ff6f293d`、`fa3e214c`、`f63ba990`、`f58a3fa7`、`1b7856f7`、`09f0a654`、`bd1e8659`、`e6c7dd24`、`faddf94d`、`8bd50110`、`083162c4`。
+
+当前 Web 验收路径：
+
+```text
+更新 main + 重启 VideoCreator Web
+→ AI 生图页面往下滚到 P32 / GRAYBOX TO VIDEO
+→ Blender 应显示 READY
+→ 点击“① 生成镜头方案”
+→ 点击“② 生成 Blender 白模”
+→ 等待 Web 自动轮询完成
+→ 直接播放 8 秒白模
+
+不满意：
+→ 输入“镜头慢一点，最后多停 1 秒”
+→ 点击“应用并重做白模”
+→ 系统只修改当前 Shot Spec + 重新渲染当前镜头
+
+满意：
+→ 点击“白模通过”
+→ 配置 MiniMax Key
+→ 勾选付费确认 + 白模上传授权
+→ “③ 白模 → MiniMax H3 成片”
+```
+
+NEXT：先在用户 Mac 完成 `GB-SHOT-001` 的真实 Blender smoke。若白模动作/镜头不满意，继续只迭代 Shot Spec / Blender Graybox；白模通过后再验证 MiniMax H3 reference-video Provider。随后把单镜头扩展为 Storyboard → 多 Shot Spec → 批量白模 → 批量 AI Video。
