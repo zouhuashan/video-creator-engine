@@ -253,11 +253,38 @@ def write_spec(project_dir: Path, spec: dict[str, Any], *, overwrite: bool = Fal
 
 
 def ensure_default_spec(project_dir: Path) -> Path:
+    project_dir = Path(project_dir).resolve()
     path = spec_path(project_dir)
-    if path.is_file():
-        validate_spec(project_dir, _load_json(path))
+    if not path.is_file():
+        return write_spec(project_dir, build_default_spec(project_dir))
+
+    current = validate_spec(project_dir, _load_json(path))
+    cfg = _load_json(CONFIG_PATH)
+    template = cfg.get("default_shot") if isinstance(cfg.get("default_shot"), dict) else {}
+    desired_revision = int((template or {}).get("blocking_revision") or 1)
+    current_revision = int(current.get("blocking_revision") or 1)
+    review = current.get("review") if isinstance(current.get("review"), dict) else {}
+    ai_video = current.get("ai_video") if isinstance(current.get("ai_video"), dict) else {}
+
+    # The first smoke shot is a disposable system default. If it is still untouched
+    # (review PENDING and no final-video generation), migrate it to the latest
+    # blocking revision automatically so a known-bad camera/actor layout does not persist.
+    if (
+        current_revision < desired_revision
+        and str(review.get("status") or "PENDING").upper() == "PENDING"
+        and str(ai_video.get("status") or "NOT_STARTED").upper() == "NOT_STARTED"
+    ):
+        replacement = build_default_spec(project_dir)
+        replacement["created_at"] = current.get("created_at") or replacement["created_at"]
+        replacement["review"] = {
+            "required": True,
+            "status": "PENDING",
+            "note": f"Auto-migrated graybox blocking revision {current_revision} → {desired_revision}",
+        }
+        write_spec(project_dir, replacement, overwrite=True)
         return path
-    return write_spec(project_dir, build_default_spec(project_dir))
+
+    return path
 
 
 def load_spec(project_dir: Path, spec_id: str = DEFAULT_SPEC_ID) -> dict[str, Any]:
