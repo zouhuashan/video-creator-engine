@@ -87,7 +87,7 @@ from scripts.comfyui_model_manager import ComfyUIModelError, start_background_in
 from scripts.comfyui_lora_manager import ComfyUILoraError, lora_descriptor as comfyui_lora_descriptor, start_background_install as start_comfyui_lora_install, status as comfyui_lora_status  # noqa: E402
 from scripts.graybox_shot_spec import GrayboxShotSpecError, apply_natural_language_adjustment as adjust_graybox_spec, ensure_default_spec as ensure_graybox_spec, load_spec as load_graybox_spec, review_spec as review_graybox_spec  # noqa: E402
 from scripts.graybox_manager import GrayboxRenderError, start_render as start_graybox_render, status as graybox_render_status  # noqa: E402
-from scripts.graybox_reference_binding import GrayboxReferenceError, bind_reference as bind_graybox_reference, inventory as graybox_reference_inventory, resolve_bound_paths as resolve_graybox_reference_paths, upload_scene_reference as upload_graybox_scene_reference  # noqa: E402
+from scripts.graybox_reference_binding import GrayboxReferenceError, bind_reference as bind_graybox_reference, install_smoke_reference_pack as install_graybox_smoke_reference_pack, inventory as graybox_reference_inventory, resolve_bound_paths as resolve_graybox_reference_paths, upload_scene_reference as upload_graybox_scene_reference  # noqa: E402
 
 
 PROVIDER_TYPES = {
@@ -2488,6 +2488,14 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                     relative_path=str(payload.get("path") or ""),
                 )
                 return self._json(_graybox_web_status(project), HTTPStatus.CREATED)
+            except (ValueError, GrayboxReferenceError, GrayboxShotSpecError, GrayboxRenderError, OSError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/graybox/references/install-smoke-pack", route)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                installed = install_graybox_smoke_reference_pack(project)
+                return self._json({**_graybox_web_status(project), "installed_smoke_pack": installed}, HTTPStatus.CREATED)
             except (ValueError, GrayboxReferenceError, GrayboxShotSpecError, GrayboxRenderError, OSError, json.JSONDecodeError) as error:
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
         match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/graybox/references/scene-upload", route)
