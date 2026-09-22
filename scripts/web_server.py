@@ -73,6 +73,7 @@ from scripts.novel_voice_profiles import NovelVoiceProfileError, load_voice_prof
 from scripts.novel_audio_assets import NovelAudioAssetError, load_audio_assets, summary as audio_asset_summary  # noqa: E402
 from scripts.novel_audio_mix import NovelAudioMixError, load_audio_mix, summary as audio_mix_summary  # noqa: E402
 from scripts.voice_timeline import VoiceTimelineError, apply_to_shot_breakdown as apply_voice_timeline_to_shots, generate_preview as generate_voice_timeline_preview, inventory as voice_timeline_inventory  # noqa: E402
+from scripts.final_audio_pipeline import FinalAudioError, generate_final_voice_episode, generate_final_voice_line, inventory as final_audio_inventory, mix_episode as mix_final_audio_episode, save_voice_lock as save_final_voice_lock  # noqa: E402
 from scripts.novel_dynamic_shots import NovelDynamicShotError, load_dynamic_shots, summary as dynamic_shot_summary  # noqa: E402
 from scripts.novel_edit_timelines import NovelEditTimelineError, load_edit_timelines, summary as edit_timeline_summary  # noqa: E402
 from scripts.novel_qc import NovelQCError, add_annotation, add_issue, compare as compare_qc, load_qc_report, summary as qc_summary, update_issue  # noqa: E402
@@ -104,6 +105,7 @@ KEY_ENV = {
     "openai_image": "OPENAI_API_KEY",
     "runway": "RUNWAY_API_KEY",
     "wan": "FAL_KEY",
+    "fish_audio": "FISH_AUDIO_API_KEY",
 }
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
 VIDEO_EXTENSIONS = {".mp4", ".webm", ".mov"}
@@ -1579,6 +1581,34 @@ def _voice_timeline_web_status(project: Path) -> dict[str, object]:
     return payload
 
 
+def _final_audio_web_status(project: Path) -> dict[str, object]:
+    payload = deepcopy(final_audio_inventory(project))
+    runtime_key = RUNTIME_KEYS.get("fish_audio")
+    env_key = os.environ.get(KEY_ENV["fish_audio"], "")
+    provider = payload.get("provider") if isinstance(payload.get("provider"), dict) else {}
+    payload["provider"] = {
+        **provider,
+        "configured": bool(runtime_key or env_key),
+        "source": "session" if runtime_key else ("environment" if env_key else "none"),
+    }
+    for episode in payload.get("episodes", []):
+        if not isinstance(episode, dict):
+            continue
+        for line in episode.get("lines", []):
+            if not isinstance(line, dict):
+                continue
+            relative = str(line.get("final_audio_path") or "")
+            if relative and (project / relative).is_file():
+                line["final_audio_url"] = _media_url(project, relative)
+        mix = episode.get("final_mix") if isinstance(episode.get("final_mix"), dict) else {}
+        for key in ("wav_path", "m4a_path"):
+            relative = str(mix.get(key) or "")
+            if relative and (project / relative).is_file():
+                mix[key.replace("_path", "_url")] = _media_url(project, relative)
+        episode["final_mix"] = mix
+    return payload
+
+
 def _integration_status() -> list[dict[str, object]]:
     runtime = RUNTIME_INTEGRATIONS.get("arcreel", {})
     local_sidecar = ROOT / "integrations" / "arcreel" / "compose.yml"
@@ -2222,6 +2252,13 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
             except (ValueError, VoiceTimelineError, NovelVoiceProfileError, NovelEpisodeScriptError, NovelShotBreakdownError, OSError, json.JSONDecodeError) as error:
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
             return self._json(result)
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/final-audio", parsed.path)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                return self._json(_final_audio_web_status(project))
+            except (ValueError, FinalAudioError, NovelVoiceProfileError, OSError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
         match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/audio-mix", parsed.path)
         if match:
             try:
@@ -2579,6 +2616,79 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                 return self._json(result, HTTPStatus.CREATED)
             except (ValueError, VoiceTimelineError, NovelShotBreakdownError, OSError, json.JSONDecodeError) as error:
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/final-audio/voice-lock", route)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                payload = self._read_json(max_bytes=64 * 1024)
+                save_final_voice_lock(
+                    project,
+                    character_id=str(payload.get("character_id") or ""),
+                    voice_id=str(payload.get("voice_id") or ""),
+                    speed=float(payload.get("speed") or 1.0),
+                    emotion_default=str(payload.get("emotion_default") or ""),
+                    provider=str(payload.get("provider") or "fish_audio"),
+                )
+                return self._json(_final_audio_web_status(project), HTTPStatus.CREATED)
+            except (ValueError, TypeError, FinalAudioError, NovelVoiceProfileError, OSError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/final-audio/generate-line", route)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                payload = self._read_json(max_bytes=64 * 1024)
+                api_key = RUNTIME_KEYS.get("fish_audio") or os.environ.get(KEY_ENV["fish_audio"], "")
+                result = generate_final_voice_line(
+                    project,
+                    str(payload.get("episode_id") or ""),
+                    str(payload.get("unit_id") or ""),
+                    api_key=api_key,
+                    confirm_billable=payload.get("confirm_billable") is True,
+                    text_upload_authorized=payload.get("text_upload_authorized") is True,
+                )
+                return self._json({**result, "status_view": _final_audio_web_status(project)}, HTTPStatus.CREATED)
+            except (ValueError, TypeError, FinalAudioError, NovelVoiceProfileError, OSError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+            except Exception as error:
+                return self._error(HTTPStatus.INTERNAL_SERVER_ERROR, f"final voice generation failed: {error}")
+
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/final-audio/generate-episode", route)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                payload = self._read_json(max_bytes=64 * 1024)
+                api_key = RUNTIME_KEYS.get("fish_audio") or os.environ.get(KEY_ENV["fish_audio"], "")
+                generate_final_voice_episode(
+                    project,
+                    str(payload.get("episode_id") or ""),
+                    api_key=api_key,
+                    confirm_billable=payload.get("confirm_billable") is True,
+                    text_upload_authorized=payload.get("text_upload_authorized") is True,
+                )
+                return self._json(_final_audio_web_status(project), HTTPStatus.CREATED)
+            except (ValueError, TypeError, FinalAudioError, NovelVoiceProfileError, OSError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+            except Exception as error:
+                return self._error(HTTPStatus.INTERNAL_SERVER_ERROR, f"final voice episode generation failed: {error}")
+
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/final-audio/mix", route)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                payload = self._read_json(max_bytes=64 * 1024)
+                result = mix_final_audio_episode(
+                    project,
+                    str(payload.get("episode_id") or ""),
+                    bgm_path=str(payload.get("bgm_path") or ""),
+                    ambience_path=str(payload.get("ambience_path") or ""),
+                    sfx_path=str(payload.get("sfx_path") or ""),
+                )
+                return self._json({**result, "status_view": _final_audio_web_status(project)}, HTTPStatus.CREATED)
+            except (ValueError, TypeError, FinalAudioError, NovelVoiceProfileError, OSError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+            except Exception as error:
+                return self._error(HTTPStatus.INTERNAL_SERVER_ERROR, f"final mix failed: {error}")
         match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/graybox/render", route)
         if match:
             try:
