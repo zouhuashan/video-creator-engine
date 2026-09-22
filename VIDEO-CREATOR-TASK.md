@@ -4553,6 +4553,14 @@ Status: CODE PASS / CI PASS / LOCAL VISUAL SMOKE PENDING
   - 每约 2 秒自动标记一次 `CANONICAL_RESET`；
   - Reset 帧重新以人物参考 + 场景参考 + 当前 Blender 帧为准，不继承之前 AI 帧的视觉漂移；
   - 其余帧使用 `PREVIOUS_CONTINUITY`，可带上一张最终帧维持连续性。
+- P35 Web Gate UX 修复（2026-09-22）：
+  - 发现首版把 `Shot Spec review == APPROVED` 直接做成“抽帧按钮 disabled”，即使白模已经生成且人物/场景 READY，用户也会看到整块无法操作；
+  - 现在只要 **有效白模 + 人物参考 + 场景参考** 就允许点击“①”；
+  - 如果白模尚未 APPROVED，按钮文字自动变为“① 确认白模并抽取控制帧”；
+  - 点击后弹出明确的人工作品确认：确认当前镜头/走位/动作可作为控制骨架；
+  - 用户确认后 Web 自动调用 `graybox/review → APPROVED`，再继续抽取控制帧；
+  - 不再要求用户滚回 P32 上方寻找“白模通过”按钮；
+  - P35 状态条改为输出**真实阻断项**（缺白模 / 白模 stale / 缺人物 / 缺场景），而不是笼统显示“需要 APPROVED + references”。
 - Web P32 区下方新增 **P35 / GPT KEYFRAME → LOCAL VIDEO**：
   - ① 抽取 Blender 控制帧；
   - ② 直接打开 ChatGPT 网页版；
@@ -4606,6 +4614,8 @@ Status: CODE PASS / CI PASS / LOCAL VISUAL SMOKE PENDING
 - `6639812b` CI gate
 - `a7e3dc93` self-contained interpolation regression fix
 - `e6845698` P35 Web regression scope fix
+- `0bacb8aa` P35 inline graybox approval UX fix
+- `0ccc6675` P35 inline approval regression
 
 当前 Web smoke 路径：
 
