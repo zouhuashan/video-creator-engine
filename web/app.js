@@ -324,11 +324,15 @@ function renderGptKeyframes() {
   const refs = graybox.references || {};
   const review = graybox.spec?.review || {};
   const render = graybox.render || {};
+  const hasExistingGraybox = Boolean(render.output_path && Number(render.output_bytes || 0) > 1024);
   const hasUsableGraybox = Boolean(render.output_ready && !render.render_stale);
-  const canPrepare = Boolean(hasUsableGraybox && refs.ready);
+  const canAdoptExisting = Boolean(render.render_stale && hasExistingGraybox);
+  const canPrepare = Boolean((hasUsableGraybox || canAdoptExisting) && refs.ready);
   const needsGrayboxApproval = canPrepare && review.status !== 'APPROVED';
   $('#gptKeyframePrepare').disabled = !canPrepare;
-  $('#gptKeyframePrepare').textContent = needsGrayboxApproval ? '① 确认白模并抽取控制帧' : '① 抽取 Blender 控制帧';
+  $('#gptKeyframePrepare').textContent = canAdoptExisting
+    ? '① 确认沿用现有白模并抽帧'
+    : needsGrayboxApproval ? '① 确认白模并抽取控制帧' : '① 抽取 Blender 控制帧';
 
   const referenceSummary = $('#gptKeyframeReferenceSummary');
   if (data.character_reference && data.scene_reference) {
@@ -337,11 +341,15 @@ function renderGptKeyframes() {
     referenceSummary.innerHTML = '输入锁定：' + characterLink + ' + ' + sceneLink + ' + Blender 控制帧 · ' + Number(data.generated_count || 0) + '/' + Number(data.keyframe_count || 0) + ' 张 AI 帧已回传';
   } else {
     const blockers = [];
-    if (!hasUsableGraybox) blockers.push(render.render_stale ? '白模已失效，需重新渲染' : '缺有效白模');
+    if (!hasUsableGraybox && !canAdoptExisting) blockers.push(render.render_stale ? '白模已失效且没有可沿用 MP4' : '缺有效白模');
     if (!refs.character_bound) blockers.push('缺人物参考');
     if (!refs.scene_bound) blockers.push('缺场景参考');
     referenceSummary.textContent = canPrepare
-      ? (needsGrayboxApproval ? '白模 / 人物 / 场景已就绪；点击①后会让你确认白模，通过后自动抽帧。' : '人物 / 场景 / 白模均已就绪，可以直接抽取控制帧。')
+      ? (canAdoptExisting
+          ? '检测到旧 render hash，但白模 MP4 仍存在。点击①可人工确认沿用，不需要重新渲染。'
+          : needsGrayboxApproval
+            ? '白模 / 人物 / 场景已就绪；点击①后会让你确认白模，通过后自动抽帧。'
+            : '人物 / 场景 / 白模均已就绪，可以直接抽取控制帧。')
       : '当前阻断：' + (blockers.length ? blockers.join(' · ') : '等待项目状态刷新');
   }
 
@@ -402,35 +410,56 @@ async function prepareGptKeyframes() {
   const projectId = resolveActiveNovelProject(state.grayboxProjectId || state.imageStudioProjectId);
   if (!projectId) return;
   const button = $('#gptKeyframePrepare');
-  const reviewStatus = String(state.graybox?.spec?.review?.status || 'PENDING').toUpperCase();
-  const render = state.graybox?.render || {};
+  let reviewStatus = String(state.graybox?.spec?.review?.status || 'PENDING').toUpperCase();
+  let render = state.graybox?.render || {};
   const refs = state.graybox?.references || {};
+  const hasExistingGraybox = Boolean(render.output_path && Number(render.output_bytes || 0) > 1024);
+  let staleAdoptionConfirmed = false;
 
-  if (!render.output_ready || render.render_stale) {
-    log(render.render_stale ? '当前 Blender 白模已经失效，请先重新生成白模。' : '请先生成 Blender 白模。', true);
+  if (render.render_stale && hasExistingGraybox) {
+    staleAdoptionConfirmed = window.confirm(
+      '当前白模 MP4 仍然存在，但它使用的是旧版 render hash，因此被误标成 STALE。\n\n如果你刚才看到的这个白模镜头、人物走位和动作就是要继续使用的骨架，点击“确定”即可沿用现有 MP4，不会重新渲染 192 帧。'
+    );
+    if (!staleAdoptionConfirmed) return;
+  } else if (!render.output_ready || render.render_stale) {
+    log(render.render_stale ? '当前白模没有可安全沿用的 MP4，请重新生成。' : '请先生成 Blender 白模。', true);
     return;
   }
+
   if (!refs.ready) {
     log('请先完成当前镜头的人物参考 + 场景参考绑定。', true);
     return;
   }
 
-  if (reviewStatus !== 'APPROVED') {
+  if (!staleAdoptionConfirmed && reviewStatus !== 'APPROVED') {
     const confirmed = window.confirm('当前 Blender 白模已经生成，人物与场景参考也已绑定。\n\n继续 P35 前需要把当前白模标记为“通过”。\n确认这个白模的镜头、走位和动作可以作为关键帧控制骨架吗？');
     if (!confirmed) return;
   }
 
   button.disabled = true;
-  button.textContent = reviewStatus === 'APPROVED' ? '正在抽取控制帧…' : '正在确认白模并抽帧…';
+  button.textContent = staleAdoptionConfirmed ? '正在沿用现有白模并抽帧…' : reviewStatus === 'APPROVED' ? '正在抽取控制帧…' : '正在确认白模并抽帧…';
   try {
+    if (staleAdoptionConfirmed) {
+      state.graybox = await api('/api/novel-anime/projects/' + encodeURIComponent(projectId) + '/graybox/adopt-render', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirm_existing_render: true }),
+      });
+      render = state.graybox?.render || {};
+      reviewStatus = String(state.graybox?.spec?.review?.status || reviewStatus).toUpperCase();
+      log('现有 Blender 白模已重新绑定到新的 render signature；未重新渲染。');
+    }
+
     if (reviewStatus !== 'APPROVED') {
       state.graybox = await api('/api/novel-anime/projects/' + encodeURIComponent(projectId) + '/graybox/review', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'APPROVED', note: 'P35 Web keyframe route approved before control-frame extraction' }),
       });
+      reviewStatus = 'APPROVED';
       log('当前 Blender 白模已确认通过，继续准备 P35 控制帧。');
     }
+
     state.gptKeyframes = await api('/api/novel-anime/projects/' + encodeURIComponent(projectId) + '/graybox/gpt-keyframes/prepare', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ keyframe_count: Number($('#gptKeyframeCount').value || 9) }),
