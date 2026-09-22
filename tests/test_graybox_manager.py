@@ -71,6 +71,65 @@ class GrayboxManagerTelemetryTests(unittest.TestCase):
         self.assertIn("walk_start_frame", script)
         self.assertIn("bob = 0.035", script)
 
+    def test_render_signature_ignores_review_timestamps_and_ai_video_metadata(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            spec_file = project / "graybox" / "shot-specs" / "GB-SHOT-001.json"
+            spec_file.parent.mkdir(parents=True)
+            spec_file.write_text("{}", encoding="utf-8")
+            base = {
+                "id": "GB-SHOT-001",
+                "duration_seconds": 8,
+                "fps": 24,
+                "width": 720,
+                "height": 1280,
+                "actor": {"start": [0, 4, 0], "stop": [0, 0, 0]},
+                "camera_path": {"start": [5, -10, 3], "end": [4, -7, 3]},
+                "review": {"status": "PENDING", "note": ""},
+                "created_at": "2026-09-22T10:00:00Z",
+                "updated_at": "2026-09-22T10:00:00Z",
+                "ai_video": {"provider": "minimax_h3", "status": "NOT_STARTED", "prompt": "old"},
+            }
+            approved = {
+                **base,
+                "review": {"status": "APPROVED", "note": "human approved"},
+                "updated_at": "2026-09-22T11:00:00Z",
+                "ai_video": {"provider": "minimax_h3", "status": "READY", "prompt": "new downstream prompt"},
+            }
+            changed = {
+                **approved,
+                "actor": {"start": [0, 5, 0], "stop": [0, 0, 0]},
+            }
+            with patch.object(manager, "load_spec", return_value=base):
+                first = manager._spec_sha256(project)
+            with patch.object(manager, "load_spec", return_value=approved):
+                second = manager._spec_sha256(project)
+            with patch.object(manager, "load_spec", return_value=changed):
+                third = manager._spec_sha256(project)
+
+            self.assertEqual(first, second)
+            self.assertNotEqual(second, third)
+
+    def test_adopt_existing_render_rebinds_legacy_hash_without_rerender(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            output = project / "graybox" / "renders" / "GB-SHOT-001.mp4"
+            output.parent.mkdir(parents=True)
+            output.write_bytes(b"v" * 4096)
+            state_path = project / "graybox" / "render-status.json"
+            state_path.write_text('{"status":"PASS","spec_sha256":"legacy-raw-hash"}', encoding="utf-8")
+
+            with patch.object(manager, "ensure_default_spec"),                  patch.object(manager, "_spec_sha256", return_value="semantic-render-hash"):
+                result = manager.adopt_existing_render(project)
+
+            self.assertEqual(result["action"], "ADOPTED_EXISTING_RENDER")
+            self.assertEqual(result["status"], "PASS")
+            self.assertEqual(result["spec_sha256"], "semantic-render-hash")
+            self.assertTrue(result["adopted_existing_render"])
+            stored = manager._load_state(project)
+            self.assertEqual(stored["spec_sha256"], "semantic-render-hash")
+            self.assertEqual(stored["output_path"], "graybox/renders/GB-SHOT-001.mp4")
+
     def test_progress_reader_accepts_per_frame_heartbeat(self):
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory)
