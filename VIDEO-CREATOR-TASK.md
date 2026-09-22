@@ -3981,6 +3981,14 @@ NEXT：先完成一张 `FINAL_VISUAL + SINGLE_LOOKDEV_HERO` 的《照骨灯》�
 Status: CODE PASS / LOCAL BLENDER WEB REVERIFY
 
 执行记录（2026-09-22）：
+- P32 Web 视频预览修复：用户上传并复核的 `GB-SHOT-001.mp4` 本身为完整 8.000 秒 / 24fps / 192 帧，但 Web `<video>` 只能播放约 3 秒。文件检查同时确认该 MP4 的 `moov` atom 位于文件末尾，而旧 `/media/...` 服务只会整文件 `200 OK`，不支持浏览器视频常用的 HTTP byte Range。现已：
+  - `/media` 支持单段 `Range: bytes=...`；
+  - 正常返回 `206 Partial Content` / `Content-Range` / `Accept-Ranges: bytes`；
+  - 超范围请求返回 `416 Requested Range Not Satisfiable`；
+  - 文件按 range seek + chunk streaming，不再整文件 `read_bytes` 后一次性写出；
+  - 允许浏览器 seek / 尾部 `moov` 元数据读取；
+  - P32 Web render 刷新时只有 media URL 真正变化才修改 `<video src>`，避免状态刷新把当前播放时间重置；
+  - 最终视频预览同样采用“src 变化才重载”策略。
 
 - P32 白模 v3 纠偏：对用户上传的真实 `GB-SHOT-001.mp4` 做逐时刻检查后，确认技术链已经完整输出 8 秒 / 24fps / 192 帧，但动态骨架仍不适合作为 MiniMax reference：
   - 人物虽然有位移，但起点仍在门内侧，不能读成“从门外穿门进入”；
