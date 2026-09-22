@@ -459,6 +459,13 @@ class WebServerTests(unittest.TestCase):
         self.assertIn("/graybox/final", app)
         self.assertIn("waitForGrayboxRender", app)
         self.assertIn("MiniMax H3", index)
+        self.assertIn('id="grayboxSmokeReview"', index)
+        self.assertIn('id="grayboxSmokeCharacter"', index)
+        self.assertIn('id="grayboxSmokeScene"', index)
+        self.assertIn('id="grayboxSmokeMotion"', index)
+        self.assertIn('id="grayboxSaveSmokeReview"', index)
+        self.assertIn("/graybox/smoke-review", app)
+        self.assertIn("saveGrayboxSmokeReview", app)
 
     def test_graybox_final_passes_character_and_scene_images_to_minimax(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -522,6 +529,43 @@ class WebServerTests(unittest.TestCase):
             self.assertEqual(result["reference_image_count"], 2)
             self.assertEqual(result["character_reference"], "lookdev/character.png")
             self.assertEqual(result["scene_reference"], "graybox/references/scenes/gate.png")
+
+    def test_graybox_smoke_review_tracks_exact_latest_final_and_three_axes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            latest = {
+                "output": "graybox/final/latest.mp4",
+                "task_id": "task-smoke-001",
+                "character_reference": "lookdev/character.png",
+                "scene_reference": "graybox/references/scenes/gate.png",
+            }
+            with patch.object(web_server, "_graybox_web_status", return_value={
+                "spec": {"id": "GB-SHOT-001"},
+                "final_items": [latest],
+            }):
+                review = web_server._save_graybox_smoke_review(project, {
+                    "character_identity": "PASS",
+                    "scene_fidelity": "PASS",
+                    "motion_skeleton": "PASS",
+                    "note": "identity, scene and motion all match",
+                })
+
+            self.assertEqual(review["status"], "PASS")
+            self.assertEqual(review["final_output"], latest["output"])
+            self.assertEqual(review["final_task_id"], latest["task_id"])
+            self.assertTrue(web_server._graybox_smoke_review_path(project, "GB-SHOT-001").is_file())
+
+            loaded = web_server._load_graybox_smoke_review(project, "GB-SHOT-001", latest)
+            self.assertEqual(loaded["status"], "PASS")
+            self.assertFalse(loaded["stale"])
+
+            stale = web_server._load_graybox_smoke_review(project, "GB-SHOT-001", {
+                **latest,
+                "output": "graybox/final/newer.mp4",
+            })
+            self.assertEqual(stale["status"], "PENDING")
+            self.assertTrue(stale["stale"])
+            self.assertEqual(stale["previous_status"], "PASS")
 
     def test_graybox_final_requires_human_approved_blockout(self):
         project = Path("/tmp/graybox-test")
