@@ -4130,7 +4130,7 @@ NEXT：先在用户 Mac 完成 `GB-SHOT-001` 的真实 Blender smoke。若白模
 
 
 ### P32-02 Shot Reference Binding：人物 + 场景 → 白模 → MiniMax
-Status: CODE PASS / REAL MINIMAX SMOKE PENDING
+Status: CODE PASS / CI PASS / REAL MINIMAX SMOKE PENDING
 
 执行记录（2026-09-22）：
 
@@ -4145,6 +4145,14 @@ Status: CODE PASS / REAL MINIMAX SMOKE PENDING
   - 新增 `/graybox/smoke-review` API 与回归测试。
 - 本轮新增提交：`510cd8ae`、`3e9d4d85`、`c1933673`、`4819c1f7`。
 - 该 smoke 仍坚持 Human Visual Gate：代码负责锁定“验收的是哪一版 final + 哪两张 reference + 哪个 graybox”，不使用自动模型替代最终视觉判断。
+- 回归基线已修复并重新转绿：
+  - P31 workflow 现在安装 `requirements-web.txt`，不再因缺 Pillow 假失败；
+  - Graybox pivot 回归改为验证通用 `f"{name}.Pivot"` helper，不再硬编码旧字符串；
+  - P32 MiniMax mock、Web 项目根目录动态解析与 CI 自包含 fixture 已修正；
+  - P30 既有 ComfyUI 临时日志路径、TTS/字幕 stage 重复 `status` 问题一并修复；
+  - GitHub Actions：P30 Provider Regression run `35704343353` = SUCCESS；
+  - GitHub Actions：P31 Novel Import Regression run `35704290952` = SUCCESS，且已纳入 `test_graybox_smoke_review_tracks_exact_latest_final_and_three_axes`。
+- CI/回归修复提交：`eec92a94`、`f4c6f39f`、`4d4e71aa`、`0936e993`、`9b10cae2`、`2f9a9421`、`1ce691af`、`91528456`、`8c7dc6ca`。
 - 在 P32 白模主线中正式加入 **Shot-level Reference Binding**。Blender 继续只负责 Camera / Blocking / Actor Path / Action Timing / Occlusion，不承担最终人物和场景建模。
 - 新增 `scripts/graybox_reference_binding.py`：
   - 人物参考候选直接读取当前项目 `lookdev/image-studio/**/character_bible` 真实产物；
@@ -4237,6 +4245,16 @@ REFERENCE BINDING：
 → 配置 MiniMax H3 Key
 → 勾选付费确认 + 上传授权
 → ③ 白模 → MiniMax H3 成片
+→ 播放最新最终成片
+
+P32-02 / SMOKE REVIEW：
+→ 人物身份 / 服装一致性：PASS / FAIL
+→ 古宅场景 / 材质一致性：PASS / FAIL
+→ 白模运镜 / 走位 / 时序：PASS / FAIL
+→ 填写备注
+→ “保存本次 smoke 验收”
+→ 仅三项全部 PASS 时，P32-02 smoke = PASS
+→ 如果重新生成最终成片，旧验收自动 STALE，必须重新检查
 ```
 
 NEXT：在本地 Web 直接对 `GB-SHOT-001` 做真实付费 smoke：绑定真实人物 LookDev + 古宅场景参考 → MiniMax H3 → 在 `P32-02 / SMOKE REVIEW` 中逐项确认人物身份、古宅场景、白模动态。三项全部 PASS 后，再进入多镜头 reference package、角色多角度 pack 与 Scene Bible 自动选图。
