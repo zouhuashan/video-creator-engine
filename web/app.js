@@ -315,7 +315,19 @@ function renderGraybox() {
   const preview = $('#grayboxPreview');
   const empty = $('#grayboxVideoEmpty');
   if (render.output_ready && render.media_url) {
-    preview.src = render.media_url + `?v=${encodeURIComponent(data.render?.spec_sha256 || Date.now())}`;
+    const nextSrc = render.media_url + `?v=${encodeURIComponent(data.render?.spec_sha256 || 'ready')}`;
+    const currentSrc = preview.getAttribute('src') || '';
+    if (currentSrc !== nextSrc) {
+      const wasPlaying = !preview.paused && !preview.ended;
+      const currentTime = Number(preview.currentTime || 0);
+      preview.src = nextSrc;
+      if (currentTime > 0) {
+        preview.addEventListener('loadedmetadata', () => {
+          if (Number.isFinite(preview.duration)) preview.currentTime = Math.min(currentTime, Math.max(0, preview.duration - 0.05));
+          if (wasPlaying) preview.play().catch(() => {});
+        }, { once: true });
+      }
+    }
     preview.classList.remove('hidden');
     empty.classList.add('hidden');
     $('#grayboxRenderMeta').textContent = `${spec.fps || 24}fps · ${spec.width || 720}×${spec.height || 1280} · ${review.status || 'PENDING'}`;
@@ -333,7 +345,7 @@ function renderGraybox() {
   const finalPreview = $('#grayboxFinalPreview');
   const finalEmpty = $('#grayboxFinalEmpty');
   if (finalItem?.media_url) {
-    finalPreview.src = finalItem.media_url;
+    if ((finalPreview.getAttribute('src') || '') !== finalItem.media_url) finalPreview.src = finalItem.media_url;
     finalPreview.classList.remove('hidden');
     finalEmpty.classList.add('hidden');
     $('#grayboxFinalMeta').textContent = `${finalItem.model || 'MiniMax H3'} · ${finalItem.resolution || ''} · ${finalItem.review_status || 'PENDING'}`;
