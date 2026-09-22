@@ -499,6 +499,14 @@
                   <div><strong id="gptCodexBatchProgress">0 / 0</strong><small id="gptCodexBatchMessage">等待控制帧</small></div>
                   <div class="pipeline-progress-track"><span id="gptCodexBatchProgressBar"></span></div>
                 </div>
+                <div class="codex-log-toolbar">
+                  <button class="secondary-button small-button" id="gptCodexLogsRefresh">查看 / 刷新 Codex 日志</button>
+                  <small>失败时会显示每个 KF 的 Codex CLI 原始输出尾部，不再只显示 FAILED。</small>
+                </div>
+                <div class="codex-log-panel hidden" id="gptCodexLogsPanel">
+                  <div class="codex-log-summary" id="gptCodexLogsSummary">尚未读取日志。</div>
+                  <div class="codex-log-list" id="gptCodexLogsList"></div>
+                </div>
               </div>
 
               <details class="gpt-keyframe-manual">
