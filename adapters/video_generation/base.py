@@ -23,12 +23,18 @@ class VideoGenerationRequest:
     transition_seconds: float = 0.4
     prompt_text: str = ""
     model: str = "gen4.5"
+    reference_video_paths: tuple[Path, ...] = ()
+    reference_audio_paths: tuple[Path, ...] = ()
 
     def validate(self) -> None:
-        if not self.image_paths:
-            raise VideoGenerationError("at least one image is required")
+        if not self.image_paths and not self.reference_video_paths and not self.reference_audio_paths:
+            raise VideoGenerationError("at least one image, reference video, or reference audio is required")
         if any(not Path(path).is_file() for path in self.image_paths):
             raise VideoGenerationError("every input image must exist")
+        if any(not Path(path).is_file() for path in self.reference_video_paths):
+            raise VideoGenerationError("every reference video must exist")
+        if any(not Path(path).is_file() for path in self.reference_audio_paths):
+            raise VideoGenerationError("every reference audio file must exist")
         if self.output_path.suffix.lower() != ".mp4":
             raise VideoGenerationError("output must be an .mp4 file")
         if self.shot_duration_seconds <= 0 or self.fps <= 0:
