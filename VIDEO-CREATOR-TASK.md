@@ -3982,6 +3982,12 @@ Status: CODE PASS / LOCAL BLENDER WEB REVERIFY
 
 执行记录（2026-09-22）：
 
+- Blender 5.2.1 实机兼容修复：首次真实后台白模 smoke 在动作插值阶段崩溃，日志为 `AttributeError: 'Action' object has no attribute 'fcurves'`。原因是 Blender 5.x 已移除旧 `Action.fcurves` 入口，动画 F-Curve 需要从当前 Action Slot 对应的 Channelbag 访问。现已：
+  - 使用 `bpy_extras.anim_utils.animdata_get_channelbag_for_assigned_slot()` 支持 Blender 5.x slotted/layered Action；
+  - 旧 Blender 仍优先兼容 `Action.fcurves`；
+  - `_linear()` 改为 best-effort：插值调整失败只写 WARN，绝不再中断白模渲染；
+  - 回归测试明确禁止重新出现 `obj.animation_data.action.fcurves` 直连写法。
+
 - P32 实时渲染可观测性补强：真实 Web smoke 出现白模长时间停留在 `RUNNING`，但页面无法判断 Blender 是否仍在工作。现已补齐：
   - Blender 每帧写 `graybox/render-progress.json` 心跳，记录 current_frame / total_frames / progress_percent / updated_at_epoch；
   - 后台 manager 同时读取 PID 存活状态、运行时长、progress heartbeat、日志最后更新时间和最近 60 行日志；
