@@ -101,11 +101,37 @@ class CodexKeyframeBatchTests(unittest.TestCase):
             self.assertTrue(ok)
             command = captured["command"]
             self.assertEqual(command[0], "/usr/local/bin/codex")
-            self.assertEqual(command.count("--image"), 4)
-            self.assertIn("exec", command)
+            self.assertEqual(command[1], "exec")
+            self.assertEqual(command.count("--image"), 1)
+            image_arg = command[command.index("--image") + 1]
+            self.assertEqual(len(image_arg.split(",")), 4)
             self.assertIn("--sandbox", command)
             self.assertIn("workspace-write", command)
             self.assertIn("--ephemeral", command)
+            self.assertNotIn("$imagegen", " ".join(command))
+
+    def test_logs_returns_failed_frame_tail_for_web_diagnostics(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            manifest = self.manifest(project)
+            root = project / "graybox" / "gpt-keyframes" / "GB-SHOT-001"
+            log_dir = root / batch.LOG_DIR_NAME
+            log_dir.mkdir(parents=True, exist_ok=True)
+            log_path = log_dir / "KF-000.log"
+            log_path.write_text("line one\nerror: image generation unavailable\n", encoding="utf-8")
+            manifest["frames"][0]["status"] = "FAILED"
+            manifest["frames"][0]["codex_attempts"] = 1
+            manifest["frames"][0]["codex_error"] = "image generation unavailable"
+            manifest["frames"][0]["codex_log_path"] = log_path.relative_to(project).as_posix()
+            (root / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+            with patch.object(batch.p35, "load_graybox_spec", return_value={"id": "GB-SHOT-001"}):
+                result = batch.logs(project)
+
+            self.assertEqual(result["failed_count"], 1)
+            self.assertEqual(result["entries"][0]["status"], "FAILED")
+            self.assertIn("image generation unavailable", result["entries"][0]["tail"])
+            self.assertIn("image generation unavailable", result["entries"][0]["error"])
 
     def test_status_marks_restarted_running_batch_interrupted_without_losing_frames(self):
         with tempfile.TemporaryDirectory() as directory:
