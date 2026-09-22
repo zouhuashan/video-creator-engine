@@ -472,6 +472,47 @@
               <p class="helper-text" id="grayboxHint">第一阶段固定 8 秒、24fps、9:16。白模不满意时只重做该镜头，不重新生成整部小说。</p>
             </div>
 
+            <div class="graybox-reference-card" id="grayboxSmokeReview">
+              <div class="graybox-card-head">
+                <div>
+                  <span class="section-kicker">P32-02 / SMOKE REVIEW</span>
+                  <strong>真实成片三项验收</strong>
+                  <small>只检查本次最新 MiniMax 输出：人物身份、古宅场景、Blender 动态骨架必须同时守住。</small>
+                </div>
+                <span class="status-dot off" id="grayboxSmokeStatus">PENDING</span>
+              </div>
+              <div class="graybox-final-options">
+                <label>
+                  <span>人物身份 / 服装一致性</span>
+                  <select id="grayboxSmokeCharacter" class="select-field">
+                    <option value="PENDING">待检查</option>
+                    <option value="PASS">PASS · 人物一致</option>
+                    <option value="FAIL">FAIL · 人物漂移</option>
+                  </select>
+                </label>
+                <label>
+                  <span>古宅场景 / 材质一致性</span>
+                  <select id="grayboxSmokeScene" class="select-field">
+                    <option value="PENDING">待检查</option>
+                    <option value="PASS">PASS · 场景一致</option>
+                    <option value="FAIL">FAIL · 场景漂移</option>
+                  </select>
+                </label>
+                <label>
+                  <span>白模运镜 / 走位 / 时序</span>
+                  <select id="grayboxSmokeMotion" class="select-field">
+                    <option value="PENDING">待检查</option>
+                    <option value="PASS">PASS · 动态遵循</option>
+                    <option value="FAIL">FAIL · 动态偏离</option>
+                  </select>
+                </label>
+              </div>
+              <label class="field-label" for="grayboxSmokeNote">Smoke 备注</label>
+              <textarea id="grayboxSmokeNote" class="prompt-field" rows="3" placeholder="例如：人物脸稳定；门楼材质正确；3.2s 停步和 5.4s 抬头均跟随白模。"></textarea>
+              <button class="secondary-button" id="grayboxSaveSmokeReview">保存本次 smoke 验收</button>
+              <p class="helper-text" id="grayboxSmokeHint">生成 MiniMax 最终成片后，在 Web 直接完成三项验收。</p>
+            </div>
+
             <div class="graybox-log-line" id="grayboxLogLine">P32 等待开始。</div>
           </div>
         </section>
