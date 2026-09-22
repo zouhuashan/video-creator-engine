@@ -308,6 +308,85 @@
               <div class="image-studio-gallery" id="imageStudioGallery"><div class="empty-state">还没有 AI 生图资产。</div></div>
             </div>
           </div>
+
+          <div class="panel graybox-panel" id="grayboxPanel">
+            <div class="panel-heading">
+              <div>
+                <span class="section-kicker">P32 / GRAYBOX TO VIDEO</span>
+                <h2>Blender 白模 → AI 最终成片</h2>
+                <p class="panel-subtitle">先用 Blender 锁死空间、镜头、人物走位与动作时序，再把白模 MP4 作为参考视频交给 MiniMax H3。Blender 不负责最终画质。</p>
+              </div>
+              <span class="status-dot off" id="grayboxStatus">CHECKING</span>
+            </div>
+
+            <div class="graybox-status-grid">
+              <div><small>Blender</small><strong id="grayboxBlender">检测中…</strong></div>
+              <div><small>Shot Spec</small><strong id="grayboxSpecStatus">NOT READY</strong></div>
+              <div><small>白模</small><strong id="grayboxRenderStatus">NOT STARTED</strong></div>
+              <div><small>最终 Provider</small><strong id="grayboxMiniMaxStatus">MiniMax H3 · NOT CONFIGURED</strong></div>
+            </div>
+
+            <div class="graybox-shot-card">
+              <div>
+                <span class="section-kicker">FIRST SMOKE SHOT</span>
+                <strong id="grayboxShotTitle">8 秒 · 古宅入场镜头</strong>
+                <small id="grayboxShotDetail">角色从古宅门口走入 → 停下 → 抬头看灯 → 镜头缓慢前推。白模只负责动态骨架。</small>
+              </div>
+              <div class="graybox-actions">
+                <button class="secondary-button small-button" id="grayboxEnsureSpecButton">① 生成镜头方案</button>
+                <button class="primary-button small-button" id="grayboxRenderButton">② 生成 Blender 白模</button>
+                <button class="ghost-button small-button" id="grayboxRefreshButton">↻ 刷新</button>
+              </div>
+            </div>
+
+            <div class="graybox-preview-grid">
+              <div class="graybox-video-card">
+                <div class="graybox-card-head"><strong>白模动态骨架</strong><span id="grayboxRenderMeta">等待生成</span></div>
+                <div class="graybox-video-empty" id="grayboxVideoEmpty">生成后可直接在这里检查镜头、走位、动作和遮挡关系。</div>
+                <video class="hidden" id="grayboxPreview" controls playsinline></video>
+              </div>
+              <div class="graybox-video-card">
+                <div class="graybox-card-head"><strong>MiniMax H3 最终成片</strong><span id="grayboxFinalMeta">尚未生成</span></div>
+                <div class="graybox-video-empty" id="grayboxFinalEmpty">白模通过后，再让 AI 只负责角色、材质、光影和最终国漫画质。</div>
+                <video class="hidden" id="grayboxFinalPreview" controls playsinline></video>
+              </div>
+            </div>
+
+            <div class="graybox-final-controls">
+              <div class="graybox-key-row">
+                <div>
+                  <label class="field-label" for="grayboxMiniMaxKey">MiniMax API Key</label>
+                  <input id="grayboxMiniMaxKey" class="text-field" type="password" autocomplete="off" placeholder="仅保存在当前 Web 服务进程" />
+                </div>
+                <button class="secondary-button" id="grayboxSaveMiniMaxKey">保存 Key</button>
+              </div>
+
+              <label class="field-label" for="grayboxPrompt">白模转国漫 Prompt</label>
+              <textarea id="grayboxPrompt" class="prompt-field" rows="5" placeholder="系统会自动加载 P32 默认提示词：严格跟随白模镜头、走位、动作、遮挡和时序，只替换最终视觉。"></textarea>
+
+              <div class="graybox-final-options">
+                <label>
+                  <span>输出清晰度</span>
+                  <select id="grayboxResolution" class="select-field">
+                    <option value="768P">768P · 首轮低成本验收</option>
+                    <option value="2K">2K · 通过后再升清</option>
+                  </select>
+                </label>
+                <label class="confirm-row compact-confirm">
+                  <input type="checkbox" id="grayboxBillableConfirm" />
+                  <span>我确认本次会调用付费 AI 视频 Provider。</span>
+                </label>
+                <label class="confirm-row compact-confirm">
+                  <input type="checkbox" id="grayboxUploadConfirm" />
+                  <span>我允许把当前白模 MP4 上传给 MiniMax H3 作为参考视频。</span>
+                </label>
+              </div>
+              <button class="primary-button graybox-final-button" id="grayboxGenerateFinalButton">③ 白模 → MiniMax H3 成片</button>
+              <p class="helper-text" id="grayboxHint">第一阶段固定 8 秒、24fps、9:16。白模不满意时只重做该镜头，不重新生成整部小说。</p>
+            </div>
+
+            <div class="graybox-log-line" id="grayboxLogLine">P32 等待开始。</div>
+          </div>
         </section>
 
         <section class="page-view hidden" id="projectsView">
