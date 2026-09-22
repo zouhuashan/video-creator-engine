@@ -8,6 +8,7 @@ same Provider adapters as the CLI.
 
 from __future__ import annotations
 
+import base64
 import json
 import mimetypes
 import os
@@ -86,6 +87,7 @@ from scripts.comfyui_model_manager import ComfyUIModelError, start_background_in
 from scripts.comfyui_lora_manager import ComfyUILoraError, lora_descriptor as comfyui_lora_descriptor, start_background_install as start_comfyui_lora_install, status as comfyui_lora_status  # noqa: E402
 from scripts.graybox_shot_spec import GrayboxShotSpecError, apply_natural_language_adjustment as adjust_graybox_spec, ensure_default_spec as ensure_graybox_spec, load_spec as load_graybox_spec, review_spec as review_graybox_spec  # noqa: E402
 from scripts.graybox_manager import GrayboxRenderError, start_render as start_graybox_render, status as graybox_render_status  # noqa: E402
+from scripts.graybox_reference_binding import GrayboxReferenceError, bind_reference as bind_graybox_reference, inventory as graybox_reference_inventory, resolve_bound_paths as resolve_graybox_reference_paths, upload_scene_reference as upload_graybox_scene_reference  # noqa: E402
 
 
 PROVIDER_TYPES = {
@@ -1275,6 +1277,31 @@ def _provider_status() -> list[dict[str, object]]:
     return status
 
 
+def _graybox_reference_web_inventory(project: Path) -> dict[str, object]:
+    inventory = graybox_reference_inventory(project)
+
+    def decorate(item: object) -> object:
+        if not isinstance(item, dict):
+            return item
+        path = str(item.get("path") or "")
+        return {
+            **item,
+            "media_url": _media_url(project, path) if path else "",
+        }
+
+    binding = inventory.get("binding") if isinstance(inventory.get("binding"), dict) else {}
+    web_binding = dict(binding)
+    for key in ("character_reference", "scene_reference"):
+        web_binding[key] = decorate(binding.get(key))
+
+    return {
+        **inventory,
+        "binding": web_binding,
+        "character_candidates": [decorate(item) for item in inventory.get("character_candidates", [])],
+        "scene_candidates": [decorate(item) for item in inventory.get("scene_candidates", [])],
+    }
+
+
 def _graybox_web_status(project: Path) -> dict[str, object]:
     project = Path(project).resolve()
     # Keep the disposable smoke shot on the latest blocking revision as long as
@@ -1283,6 +1310,7 @@ def _graybox_web_status(project: Path) -> dict[str, object]:
     render = graybox_render_status(project)
     spec = render.get("spec") if isinstance(render.get("spec"), dict) else None
     output = str(render.get("output_path") or "")
+    references = _graybox_reference_web_inventory(project)
     provider = next((item for item in _provider_status() if item.get("id") == "minimax_h3"), {
         "id": "minimax_h3",
         "label": "MiniMax H3 · 白模转成片",
@@ -1337,6 +1365,7 @@ def _graybox_web_status(project: Path) -> dict[str, object]:
             "log_tail": str(render.get("log_tail") or ""),
         },
         "minimax": provider,
+        "references": references,
         "default_prompt": str(((spec or {}).get("ai_video") or {}).get("prompt") or ""),
         "final_items": final_items[:8],
     }
@@ -1359,9 +1388,21 @@ def _generate_graybox_final(project: Path, payload: dict[str, object]) -> dict[s
     review = spec.get("review") if isinstance(spec.get("review"), dict) else {}
     if str(review.get("status") or "").upper() != "APPROVED":
         raise ValueError("Blender 白模必须先人工审核通过，才能进入 MiniMax H3 最终生成")
+    character_reference, scene_reference, reference_binding = resolve_graybox_reference_paths(
+        project,
+        require_complete=True,
+    )
+
     prompt = str(payload.get("prompt") or ((spec.get("ai_video") or {}).get("prompt") or "")).strip()
     if not prompt:
         raise ValueError("MiniMax H3 prompt 不能为空")
+    prompt = (
+        prompt
+        + "\n\nReference binding rules:"
+        + "\n- Reference image 1 is the CHARACTER identity reference. Preserve face, age, hair, body proportion, costume silhouette, colors and accessories."
+        + "\n- Reference image 2 is the SCENE reference. Preserve architectural language, gate/lantern/material palette and environment mood."
+        + "\n- The graybox reference video controls camera trajectory, framing, actor path, action timing and occlusion. Do not replace its motion logic with the still images."
+    )
     model = str(payload.get("model") or "MiniMax-H3").strip()
     resolution = str(payload.get("resolution") or "768P").strip().upper()
     if resolution not in {"768P", "2K"}:
@@ -1375,7 +1416,7 @@ def _generate_graybox_final(project: Path, payload: dict[str, object]) -> dict[s
     stamp = time.strftime("%Y%m%d-%H%M%S") + f"-{time.time_ns() % 100000:05d}"
     output = final_dir / f"{stamp}-minimax-h3.mp4"
     request = VideoGenerationRequest(
-        image_paths=(),
+        image_paths=(character_reference.resolve(), scene_reference.resolve()),
         reference_video_paths=(reference_video.resolve(),),
         output_path=output,
         shot_duration_seconds=float(spec.get("duration_seconds") or 8),
@@ -1396,6 +1437,10 @@ def _generate_graybox_final(project: Path, payload: dict[str, object]) -> dict[s
         "duration_seconds": result.duration_seconds,
         "shot_spec_id": str(spec.get("id") or ""),
         "reference_video": relative,
+        "character_reference": str((reference_binding.get("character_reference") or {}).get("path") or ""),
+        "scene_reference": str((reference_binding.get("scene_reference") or {}).get("path") or ""),
+        "reference_binding": _relative(project, project / "graybox" / "reference-binding.json"),
+        "reference_image_count": 2,
         "prompt": prompt,
         "confirm_billable": True,
         "upload_authorized": True,
@@ -2336,6 +2381,40 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                 return self._json({**result, **_graybox_web_status(project)}, HTTPStatus.CREATED)
             except (ValueError, GrayboxShotSpecError, GrayboxRenderError, OSError, json.JSONDecodeError) as error:
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/graybox/references/bind", route)
+        if match:
+            try:
+                payload = self._read_json(max_bytes=64 * 1024)
+                project = _safe_project(match.group(1))
+                bind_graybox_reference(
+                    project,
+                    kind=str(payload.get("kind") or ""),
+                    relative_path=str(payload.get("path") or ""),
+                )
+                return self._json(_graybox_web_status(project), HTTPStatus.CREATED)
+            except (ValueError, GrayboxReferenceError, GrayboxShotSpecError, GrayboxRenderError, OSError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/graybox/references/scene-upload", route)
+        if match:
+            try:
+                payload = self._read_json(max_bytes=18 * 1024 * 1024)
+                project = _safe_project(match.group(1))
+                encoded = str(payload.get("content_base64") or "").strip()
+                if not encoded:
+                    raise ValueError("scene reference content is required")
+                try:
+                    content = base64.b64decode(encoded, validate=True)
+                except Exception as error:
+                    raise ValueError("scene reference base64 is invalid") from error
+                uploaded = upload_graybox_scene_reference(
+                    project,
+                    filename=str(payload.get("filename") or "scene-reference.png"),
+                    content=content,
+                )
+                bind_graybox_reference(project, kind="scene", relative_path=str(uploaded["path"]))
+                return self._json({**_graybox_web_status(project), "uploaded_scene": uploaded}, HTTPStatus.CREATED)
+            except (ValueError, GrayboxReferenceError, GrayboxShotSpecError, GrayboxRenderError, OSError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
         match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/graybox/render", route)
         if match:
             try:
@@ -2351,7 +2430,7 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                 project = _safe_project(match.group(1))
                 payload = self._read_json(max_bytes=256 * 1024)
                 return self._json(_generate_graybox_final(project, payload), HTTPStatus.CREATED)
-            except (ValueError, GrayboxShotSpecError, GrayboxRenderError, VideoGenerationError, OSError, KeyError, TypeError, json.JSONDecodeError) as error:
+            except (ValueError, GrayboxReferenceError, GrayboxShotSpecError, GrayboxRenderError, VideoGenerationError, OSError, KeyError, TypeError, json.JSONDecodeError) as error:
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
             except Exception as error:
                 return self._error(HTTPStatus.INTERNAL_SERVER_ERROR, f"graybox final generation failed: {error}")
