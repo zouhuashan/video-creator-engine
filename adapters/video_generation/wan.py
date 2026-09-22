@@ -34,6 +34,8 @@ class WanImageToVideo(VideoGenerationProvider):
 
     def generate(self, request: VideoGenerationRequest) -> VideoGenerationResult:
         request.validate()
+        if request.reference_video_paths or request.reference_audio_paths:
+            raise VideoGenerationError("Wan image-to-video adapter does not accept reference video/audio")
         if not self.api_key:
             raise VideoGenerationError("FAL_KEY is required for the Wan provider")
         if len(request.image_paths) != 1:
