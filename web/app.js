@@ -1582,6 +1582,7 @@ function renderVoiceTimeline() {
       <label><span>集数</span><select class="select-field" id="voiceTimelineEpisode">${episodes.map((episode) => `<option value="${escapeHtml(episode.episode_id)}" ${episode.episode_id === active.episode_id ? 'selected' : ''}>${escapeHtml(episode.episode_id)} · ${episode.line_count || 0} 句 · ${Number(episode.duration_seconds || 0).toFixed(1)}s</option>`).join('')}</select></label>
       <label><span>Timing Voice</span><input class="text-field" id="voiceTimelineVoice" value="${escapeHtml(voice)}" placeholder="Tingting"></label>
       <button class="primary-button small-button" id="voiceTimelineGenerate">生成本集临时配音 + 字幕</button>
+      <button class="secondary-button small-button" id="voiceTimelineApplyTiming" ${active.status === 'READY' ? '' : 'disabled'}>应用到镜头时长</button>
     </div>
     <div class="voice-timeline-summary">
       <span>来源：${escapeHtml(sourceLabel)}</span>
@@ -1591,7 +1592,7 @@ function renderVoiceTimeline() {
       ${subtitleLinks ? `<span class="voice-subtitle-links">${subtitleLinks}</span>` : '<span>字幕：待生成</span>'}
     </div>
     <div class="voice-line-list">${lineCards}</div>
-    <div class="voice-timeline-note">生成完成后，系统会同时写入 <code>audio/voice-timeline.json</code>、<code>audio/shot-timing.json</code>、SRT 和 ASS。后续 Blender Shot Duration 直接读取这里的建议时长。</div>
+    <div class="voice-timeline-note">生成完成后，系统会同时写入 <code>audio/voice-timeline.json</code>、<code>audio/shot-timing.json</code>、SRT 和 ASS。点击“应用到镜头时长”后，只写回当前集的 ACTUAL_TTS 时长，并明确要求下游 Storyboard / Animatic 重建。</div>
   `;
 
   $('#voiceTimelineEpisode')?.addEventListener('change', (event) => {
@@ -1599,6 +1600,32 @@ function renderVoiceTimeline() {
     renderVoiceTimeline();
   });
   $('#voiceTimelineGenerate')?.addEventListener('click', generateVoiceTimelinePreview);
+  $('#voiceTimelineApplyTiming')?.addEventListener('click', applyVoiceTimelineTiming);
+}
+
+async function applyVoiceTimelineTiming() {
+  const target = $('#voiceTimelinePanel');
+  const projectId = state.studio?.directory_id || state.voiceTimelineProjectId;
+  const episodeId = $('#voiceTimelineEpisode')?.value || target?.dataset.episodeId || '';
+  const button = $('#voiceTimelineApplyTiming');
+  if (!projectId || !episodeId || !button) return;
+  button.disabled = true;
+  button.textContent = '正在写回镜头…';
+  try {
+    const result = await api(`/api/novel-anime/projects/${encodeURIComponent(projectId)}/voice-timeline/apply-shot-timing`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ episode_id: episodeId }),
+    });
+    log(`${episodeId} 已按真实 TTS 时长更新 ${result.updated_shot_count || 0} 个镜头；Storyboard / Animatic 需要按新时长重建。`);
+    await loadStudio(projectId);
+    state.currentWorkspace = 'audio';
+    renderStudio();
+  } catch (error) {
+    log(error.message, true);
+    button.disabled = false;
+    button.textContent = '应用到镜头时长';
+  }
 }
 
 async function loadVoiceTimeline(projectId = state.studio?.directory_id || state.voiceTimelineProjectId) {
