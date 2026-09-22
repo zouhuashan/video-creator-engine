@@ -252,12 +252,65 @@ function syncGrayboxPolling() {
   }
 }
 
+function renderGrayboxReferenceSelect(selector, candidates, boundPath, emptyLabel) {
+  const select = $(selector);
+  if (!select) return;
+  const current = select.value;
+  const items = Array.isArray(candidates) ? candidates : [];
+  select.innerHTML = [
+    `<option value="">${escapeHtml(emptyLabel)}</option>`,
+    ...items.map((item) => {
+      const status = item.review_status ? ` · ${item.review_status}` : '';
+      const source = item.source === 'scene_upload'
+        ? '上传场景'
+        : item.source === 'image_studio_keyframe'
+          ? '关键帧'
+          : 'Image Studio';
+      return `<option value="${escapeHtml(item.path)}">${escapeHtml(item.label || item.path)} · ${escapeHtml(source)}${escapeHtml(status)}</option>`;
+    }),
+  ].join('');
+  const preferred = boundPath || current;
+  if (preferred && items.some((item) => item.path === preferred)) select.value = preferred;
+}
+
+function renderGrayboxReferencePreview(imageSelector, emptySelector, entry) {
+  const image = $(imageSelector);
+  const empty = $(emptySelector);
+  if (entry?.media_url) {
+    if ((image.getAttribute('src') || '') !== entry.media_url) image.src = entry.media_url;
+    image.classList.remove('hidden');
+    empty.classList.add('hidden');
+  } else {
+    image.removeAttribute('src');
+    image.classList.add('hidden');
+    empty.classList.remove('hidden');
+  }
+}
+
+async function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('读取场景参考图失败'));
+    reader.onload = () => {
+      const value = String(reader.result || '');
+      const comma = value.indexOf(',');
+      if (comma < 0) return reject(new Error('场景参考图编码失败'));
+      resolve(value.slice(comma + 1));
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 function renderGraybox() {
   const data = state.graybox || {};
   const render = data.render || {};
   const spec = data.spec || {};
   const review = spec.review || {};
   const minimax = data.minimax || {};
+  const references = data.references || {};
+  const binding = references.binding || {};
+  const characterReference = binding.character_reference || null;
+  const sceneReference = binding.scene_reference || null;
   const installed = Boolean(data.blender_installed);
 
   $('#grayboxStatus').textContent = render.status === 'PASS' && render.output_ready ? 'GRAYBOX READY' : installed ? (render.status || 'READY') : 'NO BLENDER';
@@ -269,6 +322,36 @@ function renderGraybox() {
   $('#grayboxRenderStatus').textContent = render.render_stale ? 'STALE · NEED RERENDER' : (render.status || (render.output_ready ? 'PASS' : 'NOT STARTED'));
   $('#grayboxMiniMaxStatus').textContent = `MiniMax H3 · ${minimax.configured ? 'READY' : 'NOT CONFIGURED'}`;
   $('#grayboxReviewStatus').textContent = review.status || 'PENDING';
+
+  renderGrayboxReferenceSelect(
+    '#grayboxCharacterReferenceSelect',
+    references.character_candidates || [],
+    characterReference?.path || '',
+    references.character_candidates?.length ? '选择人物参考…' : '暂无人物参考图'
+  );
+  renderGrayboxReferenceSelect(
+    '#grayboxSceneReferenceSelect',
+    references.scene_candidates || [],
+    sceneReference?.path || '',
+    references.scene_candidates?.length ? '选择已有场景参考…' : '暂无已有场景参考'
+  );
+  renderGrayboxReferencePreview('#grayboxCharacterReferencePreview', '#grayboxCharacterReferenceEmpty', characterReference);
+  renderGrayboxReferencePreview('#grayboxSceneReferencePreview', '#grayboxSceneReferenceEmpty', sceneReference);
+  $('#grayboxCharacterReferenceMeta').textContent = characterReference
+    ? `${characterReference.label || characterReference.character_id || '人物参考'} · ${characterReference.review_status || 'BOUND'} · ${characterReference.style_label || '未记录风格'}`
+    : (references.character_candidates?.length
+      ? '请选择一张 Image Studio 角色图并绑定到当前镜头。'
+      : '当前项目还没有可绑定的角色图；先在 Image Studio 生成一张角色定妆 / LookDev。');
+  $('#grayboxSceneReferenceMeta').textContent = sceneReference
+    ? `${sceneReference.label || '场景参考'} · ${sceneReference.source === 'scene_upload' ? 'Web 上传' : '项目已有素材'}`
+    : '可选择项目已有关键帧，或直接上传古宅 / 门楼场景参考图。';
+  $('#grayboxReferenceStatus').textContent = references.ready ? 'READY' : `${references.character_bound ? '人物✓' : '人物×'} · ${references.scene_bound ? '场景✓' : '场景×'}`;
+  $('#grayboxReferenceStatus').classList.toggle('off', !references.ready);
+  $('#grayboxReferencePackageStatus').textContent = references.ready
+    ? '最终输入包 READY：Blender 白模 MP4 + 人物参考图 + 场景参考图 + Shot Prompt。'
+    : `最终输入包未完成：${references.character_bound ? '' : '缺人物参考 '}${references.scene_bound ? '' : '缺场景参考'}`.trim();
+  $('#grayboxBindCharacterReference').disabled = !(references.character_candidates || []).length;
+  $('#grayboxBindSceneReference').disabled = !(references.scene_candidates || []).length;
 
   const currentFrame = Number(render.current_frame || 0);
   const totalFrames = Number(render.total_frames || 0);
@@ -369,10 +452,12 @@ function renderGraybox() {
   $('#grayboxAdjustButton').disabled = !data.spec_ready || render.status === 'RUNNING';
   $('#grayboxApproveButton').disabled = !render.output_ready || render.status === 'RUNNING';
   $('#grayboxRequestChangesButton').disabled = !data.spec_ready || render.status === 'RUNNING';
-  $('#grayboxGenerateFinalButton').disabled = !render.output_ready || !minimax.configured || review.status !== 'APPROVED';
-  $('#grayboxHint').textContent = review.status === 'APPROVED'
-    ? '白模已人工通过。确认付费与上传授权后，可进入 MiniMax H3 最终成片。'
-    : '先检查白模镜头、走位、动作和遮挡；白模通过后才允许调用付费 AI 视频 Provider。';
+  $('#grayboxGenerateFinalButton').disabled = !render.output_ready || !minimax.configured || review.status !== 'APPROVED' || !references.ready;
+  $('#grayboxHint').textContent = review.status !== 'APPROVED'
+    ? '先检查白模镜头、走位、动作和遮挡；白模通过后才允许调用付费 AI 视频 Provider。'
+    : !references.ready
+      ? '白模已通过；继续绑定人物参考 + 场景参考，完成最终输入包后才能生成成片。'
+      : '白模 + 人物参考 + 场景参考均已就绪。确认付费与上传授权后，可进入 MiniMax H3 最终成片。';
   syncGrayboxPolling();
 }
 
@@ -470,8 +555,70 @@ async function reviewGraybox(status) {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status, note: status === 'APPROVED' ? 'Web graybox review approved' : $('#grayboxAdjustInput').value.trim() }),
     });
     renderGraybox();
-    log(status === 'APPROVED' ? 'Blender 白模已通过；现在可以进入 AI 最终成片。' : '白模标记为需要修改。');
+    log(status === 'APPROVED' ? 'Blender 白模已通过；下一步确认人物参考与场景参考绑定。' : '白模标记为需要修改。');
   } catch (error) { log(error.message, true); }
+}
+
+async function bindGrayboxReference(kind) {
+  const projectId = resolveActiveNovelProject(state.grayboxProjectId || state.imageStudioProjectId);
+  if (!projectId) return;
+  const isCharacter = kind === 'character';
+  const select = $(isCharacter ? '#grayboxCharacterReferenceSelect' : '#grayboxSceneReferenceSelect');
+  const button = $(isCharacter ? '#grayboxBindCharacterReference' : '#grayboxBindSceneReference');
+  const path = select.value;
+  if (!path) {
+    log(isCharacter ? '请先选择人物参考图' : '请先选择场景参考图', true);
+    return;
+  }
+  button.disabled = true;
+  try {
+    state.graybox = await api(`/api/novel-anime/projects/${encodeURIComponent(projectId)}/graybox/references/bind`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kind, path }),
+    });
+    renderGraybox();
+    log(isCharacter ? '人物参考已绑定到当前白模镜头。' : '场景参考已绑定到当前白模镜头。');
+  } catch (error) {
+    log(error.message, true);
+  } finally {
+    renderGraybox();
+  }
+}
+
+async function uploadGrayboxSceneReference() {
+  const projectId = resolveActiveNovelProject(state.grayboxProjectId || state.imageStudioProjectId);
+  if (!projectId) return;
+  const file = $('#grayboxSceneReferenceFile').files?.[0];
+  if (!file) { log('请先选择一张场景参考图', true); return; }
+  const limit = Number(state.graybox?.references?.max_scene_upload_bytes || 12 * 1024 * 1024);
+  if (file.size <= 0 || file.size > limit) {
+    log(`场景参考图必须在 1 byte 到 ${Math.round(limit / 1024 / 1024)} MB 之间`, true);
+    return;
+  }
+  if (!/\.(png|jpe?g|webp)$/i.test(file.name)) {
+    log('场景参考图必须是 PNG、JPEG 或 WebP', true);
+    return;
+  }
+  const button = $('#grayboxUploadSceneReference');
+  button.disabled = true;
+  button.textContent = '上传绑定中…';
+  try {
+    const contentBase64 = await fileToBase64(file);
+    state.graybox = await api(`/api/novel-anime/projects/${encodeURIComponent(projectId)}/graybox/references/scene-upload`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename: file.name, content_base64: contentBase64 }),
+    });
+    $('#grayboxSceneReferenceFile').value = '';
+    renderGraybox();
+    log('场景参考图已上传并自动绑定到当前镜头。');
+  } catch (error) {
+    log(error.message, true);
+  } finally {
+    button.textContent = '上传并绑定场景图';
+    renderGraybox();
+  }
 }
 
 async function saveMiniMaxKey() {
@@ -492,17 +639,22 @@ async function saveMiniMaxKey() {
 async function generateGrayboxFinal() {
   const projectId = resolveActiveNovelProject(state.grayboxProjectId || state.imageStudioProjectId);
   if (!projectId) return;
+  const referencesReady = Boolean(state.graybox?.references?.ready);
+  if (!referencesReady) {
+    log('生成最终视频前必须先绑定人物参考图和场景参考图。', true);
+    return;
+  }
   const confirmBillable = $('#grayboxBillableConfirm').checked;
   const uploadAuthorized = $('#grayboxUploadConfirm').checked;
   if (!confirmBillable || !uploadAuthorized) {
-    log('生成最终视频前需要同时确认付费调用与白模上传授权。', true);
+    log('生成最终视频前需要同时确认付费调用与白模/人物/场景参考素材上传授权。', true);
     return;
   }
-  if (!window.confirm('将上传当前白模 MP4 给 MiniMax H3 并产生 API 费用。确认继续？')) return;
+  if (!window.confirm('将上传当前白模 MP4 + 人物参考图 + 场景参考图给 MiniMax H3，并产生 API 费用。确认继续？')) return;
   const button = $('#grayboxGenerateFinalButton');
   button.disabled = true;
   button.textContent = 'MiniMax H3 生成中…';
-  $('#grayboxLogLine').textContent = '正在把 Blender 白模作为参考视频提交给 MiniMax H3…';
+  $('#grayboxLogLine').textContent = '正在提交：Blender 白模 + 人物参考 + 场景参考 → MiniMax H3…';
   try {
     const result = await api(`/api/novel-anime/projects/${encodeURIComponent(projectId)}/graybox/final`, {
       method: 'POST',
@@ -2443,6 +2595,9 @@ $('#grayboxRefreshButton').addEventListener('click', () => loadGraybox().catch((
 $('#grayboxAdjustButton').addEventListener('click', adjustGrayboxShot);
 $('#grayboxApproveButton').addEventListener('click', () => reviewGraybox('APPROVED'));
 $('#grayboxRequestChangesButton').addEventListener('click', () => reviewGraybox('CHANGES_REQUESTED'));
+$('#grayboxBindCharacterReference').addEventListener('click', () => bindGrayboxReference('character'));
+$('#grayboxBindSceneReference').addEventListener('click', () => bindGrayboxReference('scene'));
+$('#grayboxUploadSceneReference').addEventListener('click', uploadGrayboxSceneReference);
 $('#grayboxSaveMiniMaxKey').addEventListener('click', saveMiniMaxKey);
 $('#grayboxGenerateFinalButton').addEventListener('click', generateGrayboxFinal);
 
