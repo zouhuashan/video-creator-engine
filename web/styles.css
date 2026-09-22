@@ -391,3 +391,15 @@ body.rig-v2-open { overflow: hidden; }
 .gpt-keyframe-manual .gpt-keyframe-guide{margin-top:9px}.gpt-keyframe-error{padding:7px 8px;border:1px solid rgba(238,111,111,.35);border-radius:8px;background:rgba(238,111,111,.06);color:#e9a1a1;font-size:8px;line-height:1.45;overflow-wrap:anywhere}
 @media(max-width:1180px){.codex-keyframe-controls{grid-template-columns:100px 1fr 1fr}.codex-keyframe-controls button{min-height:39px}}
 @media(max-width:720px){.codex-keyframe-controls{grid-template-columns:1fr}.codex-keyframe-progress>div:first-child{display:grid}.codex-keyframe-progress small{text-align:left}}
+
+
+/* P35 Codex diagnostics */
+.codex-log-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.codex-log-toolbar small{color:var(--muted);font-size:8px}
+.codex-log-panel{display:grid;gap:9px;padding:10px;border:1px solid rgba(238,111,111,.22);border-radius:10px;background:rgba(238,111,111,.035)}
+.codex-log-summary{color:#dfb0b0;font-size:9px;line-height:1.45}
+.codex-log-list{display:grid;gap:8px}
+.codex-log-entry{border:1px solid var(--line);border-radius:9px;background:#080a0f;overflow:hidden}
+.codex-log-entry summary{display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;font-size:9px}.codex-log-entry summary strong{margin-right:auto}
+.codex-log-entry pre{max-height:300px;overflow:auto;margin:0;padding:10px;border-top:1px solid var(--line);background:#050609;color:#bbc4d4;font:8px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;overflow-wrap:anywhere}
+.codex-log-error{padding:8px 10px;border-top:1px solid rgba(238,111,111,.25);background:rgba(238,111,111,.06);color:#efaaaa;font:8px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;overflow-wrap:anywhere}
+.codex-log-path{display:block;padding:6px 10px;color:var(--muted);font:7px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;border-top:1px solid var(--line)}
