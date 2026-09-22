@@ -47,6 +47,17 @@ class GrayboxManagerTelemetryTests(unittest.TestCase):
         self.assertIn('scene.render.ffmpeg.format = "MPEG4"', script)
         self.assertIn('scene.render.ffmpeg.codec = "H264"', script)
 
+    def test_graybox_actor_avoids_first_smoke_visual_regressions(self):
+        script = (manager.ROOT / "scripts" / "blender_graybox_scene.py").read_text(encoding="utf-8")
+        self.assertIn("hair.scale.z *= 1.05", script)
+        self.assertNotIn("hair.scale.z = 1.05", script)
+        self.assertIn("def _joint_limb", script)
+        self.assertIn("Arm.L.Pivot", script)
+        self.assertIn("Leg.L.Pivot", script)
+        self.assertIn("left_foot.location = (0, -0.12, -1.16)", script)
+        self.assertIn('camera_cfg.get("follow_actor")', script)
+        self.assertIn("_keyframe(target, 1, location=target_start)", script)
+
     def test_progress_reader_accepts_per_frame_heartbeat(self):
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory)
