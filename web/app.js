@@ -1,4 +1,4 @@
-const state = { projects: [], animeProjects: [], project: null, providers: [], integrations: [], studio: null, readiness: null, backups: null, activeNovelProjectId: null, studioProjectId: null, imageStudio: null, imageStudioProjectId: null, imageStudioSelected: null, imageStudioProviderPreference: 'AUTO', imageStudioStylePreset: 'CINEMATIC_3D_DONGHUA', graybox: null, grayboxProjectId: null, grayboxPollTimer: null, pipeline: null, pipelineProjectId: null, novelImportResult: null, selectedProvider: 'local_ken_burns', selectedImage: null, currentView: 'workspace', currentWorkspace: 'overview' };
+const state = { projects: [], animeProjects: [], project: null, providers: [], integrations: [], studio: null, readiness: null, backups: null, activeNovelProjectId: null, studioProjectId: null, imageStudio: null, imageStudioProjectId: null, imageStudioSelected: null, imageStudioProviderPreference: 'AUTO', imageStudioStylePreset: 'CINEMATIC_3D_DONGHUA', graybox: null, grayboxProjectId: null, grayboxPollTimer: null, pipeline: null, pipelineProjectId: null, voiceTimeline: null, voiceTimelineProjectId: null, novelImportResult: null, selectedProvider: 'local_ken_burns', selectedImage: null, currentView: 'workspace', currentWorkspace: 'overview' };
 const ACTIVE_NOVEL_PROJECT_KEY = 'videocreator.activeNovelProjectId.v1';
 const IMAGE_STYLE_PROJECT_KEY_PREFIX = 'videocreator.imageStylePreset.v2.';
 
@@ -35,6 +35,8 @@ function clearActiveNovelProject() {
   state.imageStudio = null;
   state.studio = null;
   state.pipeline = null;
+  state.voiceTimeline = null;
+  state.voiceTimelineProjectId = null;
   try { window.localStorage.removeItem(ACTIVE_NOVEL_PROJECT_KEY); } catch (_) {}
 }
 
@@ -77,6 +79,7 @@ function setActiveNovelProject(projectId, { persist = true } = {}) {
   state.studioProjectId = value;
   state.pipelineProjectId = value;
   state.imageStudioProjectId = value;
+  state.voiceTimelineProjectId = value;
   if (persist) rememberActiveNovelProject(value);
   const selectors = ['#studioProjectSelect', '#pipelineProjectSelect', '#imageStudioProject'];
   selectors.forEach((selector) => {
@@ -1520,6 +1523,124 @@ async function openStudioResource(workspaceId, key, value) {
   } catch (error) { showStudioDetail(`${key}（摘要）`, { error: error.message, summary: value }); }
 }
 
+function voiceTimelineShotTiming(data, line) {
+  return (data?.shot_timing || []).find((item) => item.episode_id === line.episode_id && item.shot_id === line.shot_id) || null;
+}
+
+function renderVoiceTimeline() {
+  const target = $('#voiceTimelinePanel');
+  if (!target) return;
+  const data = state.voiceTimeline;
+  if (!data) {
+    target.innerHTML = '<div class="empty-state">正在载入 Voice Timeline…</div>';
+    return;
+  }
+  const episodes = data.episodes || [];
+  if (!episodes.length) {
+    target.innerHTML = '<div class="empty-state">当前剧本没有对白或旁白。先在编剧室生成 DIALOGUE / NARRATION 后再进入配音。</div>';
+    return;
+  }
+
+  const previous = target.dataset.episodeId;
+  const active = episodes.find((item) => item.episode_id === previous) || episodes[0];
+  target.dataset.episodeId = active.episode_id;
+  const readyCount = episodes.filter((item) => item.status === 'READY').length;
+  const sourceLabel = data.asr_round_trip === false ? 'SCRIPT → TTS TIMING → SUBTITLE' : 'UNKNOWN';
+  const voice = active.voice || 'Tingting';
+
+  const lines = active.lines || [];
+  const lineCards = lines.map((line) => {
+    const timing = voiceTimelineShotTiming(data, line);
+    const speaker = line.kind === 'NARRATION' ? '旁白' : (line.speaker_character_id || '角色');
+    const duration = Number(line.duration_seconds || line.estimated_duration_seconds || 0);
+    return `<article class="voice-line-card">
+      <div class="voice-line-time"><strong>${Number(line.start_seconds || 0).toFixed(2)}s</strong><span>→ ${Number(line.end_seconds || 0).toFixed(2)}s</span></div>
+      <div class="voice-line-copy">
+        <div class="voice-line-meta"><span>${escapeHtml(speaker)}</span><span>${escapeHtml(line.kind)}</span><span>${escapeHtml(line.status || 'PLANNED')}</span></div>
+        <strong>${escapeHtml(line.text || '')}</strong>
+        <small>${escapeHtml(line.scene_id || 'NO SCENE')} · ${escapeHtml(line.shot_id || 'NO SHOT')} · 语音 ${duration.toFixed(2)}s${timing ? ` · 建议镜头 ${Number(timing.recommended_duration_seconds || 0).toFixed(2)}s · ${escapeHtml(timing.timing_source || '')}` : ''}</small>
+        ${line.audio_url ? `<audio controls preload="metadata" src="${escapeHtml(line.audio_url)}"></audio>` : '<em>尚未生成本地 Timing Voice</em>'}
+      </div>
+    </article>`;
+  }).join('');
+
+  const subtitleLinks = [
+    active.srt_url ? `<a href="${escapeHtml(active.srt_url)}" target="_blank" rel="noopener noreferrer">SRT 字幕</a>` : '',
+    active.ass_url ? `<a href="${escapeHtml(active.ass_url)}" target="_blank" rel="noopener noreferrer">ASS 字幕</a>` : '',
+  ].filter(Boolean).join('');
+
+  target.innerHTML = `
+    <div class="voice-timeline-head">
+      <div>
+        <span class="section-kicker">VOICE FIRST / ZERO-COST TIMING</span>
+        <strong>先定声音时长，再决定 Blender / H3 镜头时长</strong>
+        <small>临时配音使用本机 macOS say，只用于 Timing，不调用付费 TTS；字幕直接来自剧本文本，不走 Whisper / ASR。</small>
+      </div>
+      <span class="status-dot ${readyCount ? '' : 'off'}">${readyCount}/${episodes.length} READY</span>
+    </div>
+    <div class="voice-timeline-toolbar">
+      <label><span>集数</span><select class="select-field" id="voiceTimelineEpisode">${episodes.map((episode) => `<option value="${escapeHtml(episode.episode_id)}" ${episode.episode_id === active.episode_id ? 'selected' : ''}>${escapeHtml(episode.episode_id)} · ${episode.line_count || 0} 句 · ${Number(episode.duration_seconds || 0).toFixed(1)}s</option>`).join('')}</select></label>
+      <label><span>Timing Voice</span><input class="text-field" id="voiceTimelineVoice" value="${escapeHtml(voice)}" placeholder="Tingting"></label>
+      <button class="primary-button small-button" id="voiceTimelineGenerate">生成本集临时配音 + 字幕</button>
+    </div>
+    <div class="voice-timeline-summary">
+      <span>来源：${escapeHtml(sourceLabel)}</span>
+      <span>本集 ${active.generated_line_count || 0}/${active.line_count || 0} 句已生成</span>
+      <span>预计/实际时长 ${Number(active.duration_seconds || 0).toFixed(2)}s</span>
+      <span>付费：0</span>
+      ${subtitleLinks ? `<span class="voice-subtitle-links">${subtitleLinks}</span>` : '<span>字幕：待生成</span>'}
+    </div>
+    <div class="voice-line-list">${lineCards}</div>
+    <div class="voice-timeline-note">生成完成后，系统会同时写入 <code>audio/voice-timeline.json</code>、<code>audio/shot-timing.json</code>、SRT 和 ASS。后续 Blender Shot Duration 直接读取这里的建议时长。</div>
+  `;
+
+  $('#voiceTimelineEpisode')?.addEventListener('change', (event) => {
+    target.dataset.episodeId = event.target.value;
+    renderVoiceTimeline();
+  });
+  $('#voiceTimelineGenerate')?.addEventListener('click', generateVoiceTimelinePreview);
+}
+
+async function loadVoiceTimeline(projectId = state.studio?.directory_id || state.voiceTimelineProjectId) {
+  if (!projectId) return;
+  state.voiceTimelineProjectId = projectId;
+  try {
+    state.voiceTimeline = await api(`/api/novel-anime/projects/${encodeURIComponent(projectId)}/voice-timeline`);
+    renderVoiceTimeline();
+  } catch (error) {
+    const target = $('#voiceTimelinePanel');
+    if (target) target.innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
+  }
+}
+
+async function generateVoiceTimelinePreview() {
+  const target = $('#voiceTimelinePanel');
+  const projectId = state.studio?.directory_id || state.voiceTimelineProjectId;
+  const episodeId = $('#voiceTimelineEpisode')?.value || target?.dataset.episodeId || '';
+  const voice = $('#voiceTimelineVoice')?.value?.trim() || 'Tingting';
+  const button = $('#voiceTimelineGenerate');
+  if (!projectId || !episodeId) return;
+  button.disabled = true;
+  button.textContent = '正在生成本地 Timing Voice…';
+  try {
+    state.voiceTimeline = await api(`/api/novel-anime/projects/${encodeURIComponent(projectId)}/voice-timeline/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ episode_id: episodeId, voice }),
+    });
+    target.dataset.episodeId = episodeId;
+    renderVoiceTimeline();
+    await loadStudio(projectId);
+    state.currentWorkspace = 'audio';
+    renderStudio();
+    log(`${episodeId} Timing Voice + SRT/ASS 已生成；现在可用真实语音时长驱动镜头长度。`);
+  } catch (error) {
+    log(error.message, true);
+    button.disabled = false;
+    button.textContent = '生成本集临时配音 + 字幕';
+  }
+}
+
 function renderStudio() {
   if (!state.studio) {
     $('#studioContent').innerHTML = '<div class="empty-state">请选择一个国漫项目后再进入制作台。</div>';
@@ -1542,8 +1663,10 @@ function renderStudio() {
   const action = active.id === 'review' ? `<div class="review-action"><strong>记录审片问题</strong><div class="form-row"><input id="issueTitle" class="text-field" placeholder="问题标题"><input id="issueRefs" class="text-field" placeholder="关联 ID（逗号分隔）"><button class="secondary-button small-button" id="issueButton">创建问题单</button></div><small>问题会写入项目 QC，仍需人工处理后才能通过发布门。</small></div>` : '';
   const characterGallery = active.id === 'assets' ? '<div class="native-asset-section"><div class="panel-heading"><div><span class="section-kicker">LOCAL CHARACTER ASSETS</span><h3>角色转面与零成本动作预览</h3><p class="panel-subtitle">直接使用本地透明角色图和程序化镜头，不上传素材，不调用外部模型。</p></div></div><div class="character-asset-gallery" id="characterAssetGallery"><div class="empty-state">正在载入角色资产…</div></div></div>' : '';
   const episodeMasterGallery = active.id === 'render' ? '<div class="native-asset-section"><div class="panel-heading"><div><span class="section-kicker">LOCAL EPISODE REVIEW</span><h3>《镜花缘》前五集本地母版</h3><p class="panel-subtitle">在线播放、检查剧情/画面/声音/字幕，并逐集保存人工审核。这里不会自动发布。</p></div></div><div id="episodeMasterGallery"><div class="empty-state">正在载入五集母版…</div></div></div>' : '';
-  $('#studioContent').innerHTML = `<div class="studio-hero"><div><span class="section-kicker">${escapeHtml(state.studio.project_id)}</span><h3>${escapeHtml(state.studio.title)} · ${escapeHtml(active.title)}</h3><p>${escapeHtml(active.description)}。页面直接读取项目 Schema、状态机和 QC 结果，不维护 Web 独立数据。</p></div><span class="studio-status">${escapeHtml(active.status)}</span></div><div class="studio-data-grid">${cards || '<div class="empty-state">当前工作区暂无数据。</div>'}</div>${characterGallery}${episodeMasterGallery}${action}<div class="studio-api">工作区 API：/api/novel-anime/projects/${encodeURIComponent(state.studio.directory_id)}/workspaces</div>`;
+  const voiceTimelinePanel = active.id === 'audio' ? '<div class="native-asset-section"><div id="voiceTimelinePanel"><div class="empty-state">正在载入 Voice Timeline…</div></div></div>' : '';
+  $('#studioContent').innerHTML = `<div class="studio-hero"><div><span class="section-kicker">${escapeHtml(state.studio.project_id)}</span><h3>${escapeHtml(state.studio.title)} · ${escapeHtml(active.title)}</h3><p>${escapeHtml(active.description)}。页面直接读取项目 Schema、状态机和 QC 结果，不维护 Web 独立数据。</p></div><span class="studio-status">${escapeHtml(active.status)}</span></div><div class="studio-data-grid">${cards || '<div class="empty-state">当前工作区暂无数据。</div>'}</div>${characterGallery}${voiceTimelinePanel}${episodeMasterGallery}${action}<div class="studio-api">工作区 API：/api/novel-anime/projects/${encodeURIComponent(state.studio.directory_id)}/workspaces</div>`;
   if (active.id === 'assets') loadCharacterAssetGallery();
+  if (active.id === 'audio') loadVoiceTimeline(state.studio.directory_id);
   if (active.id === 'render') loadEpisodeMasterGallery();
   document.querySelectorAll('[data-studio-resource]').forEach((button) => button.addEventListener('click', () => {
     const key = button.dataset.studioResource;
