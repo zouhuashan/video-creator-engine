@@ -47,6 +47,9 @@ class WebServerTests(unittest.TestCase):
         self.assertIn("/graybox/gpt-keyframes/upload", app)
         self.assertIn("/graybox/gpt-keyframes/interpolate", app)
         self.assertIn("copyGptKeyframePrompt", app)
+        self.assertIn("确认白模并抽取控制帧", app)
+        self.assertIn("graybox/review", app)
+        self.assertIn("P35 Web keyframe route approved before control-frame extraction", app)
         self.assertIn("gpt_keyframe_pipeline", server)
         p35_panel = index[index.index("P35 / GPT KEYFRAME → LOCAL VIDEO"):index.index("graybox-final-controls")]
         self.assertIn("ChatGPT Web 手工桥接", p35_panel)
