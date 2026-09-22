@@ -423,6 +423,42 @@ class WebServerTests(unittest.TestCase):
                     style_preset="CINEMATIC_3D_DONGHUA",
                 )
 
+    def test_web_exposes_p32_graybox_workflow_without_terminal_steps(self):
+        index = (web_server.WEB_ROOT / "index.html").read_text(encoding="utf-8")
+        app = (web_server.WEB_ROOT / "app.js").read_text(encoding="utf-8")
+        self.assertIn('id="grayboxPanel"', index)
+        self.assertIn('id="grayboxEnsureSpecButton"', index)
+        self.assertIn('id="grayboxRenderButton"', index)
+        self.assertIn('id="grayboxAdjustInput"', index)
+        self.assertIn('id="grayboxGenerateFinalButton"', index)
+        self.assertIn("/graybox/spec", app)
+        self.assertIn("/graybox/render", app)
+        self.assertIn("/graybox/adjust", app)
+        self.assertIn("/graybox/review", app)
+        self.assertIn("/graybox/final", app)
+        self.assertIn("waitForGrayboxRender", app)
+        self.assertIn("MiniMax H3", index)
+
+    def test_graybox_final_requires_human_approved_blockout(self):
+        project = Path("/tmp/graybox-test")
+        with patch.object(web_server, "graybox_render_status", return_value={
+            "output_ready": True,
+            "output_path": "graybox/renders/GB-SHOT-001.mp4",
+        }), patch.object(web_server, "load_graybox_spec", return_value={
+            "id": "GB-SHOT-001",
+            "duration_seconds": 8,
+            "fps": 24,
+            "width": 720,
+            "height": 1280,
+            "review": {"status": "PENDING"},
+            "ai_video": {"prompt": "test"},
+        }), patch.object(Path, "is_file", return_value=True):
+            with self.assertRaisesRegex(ValueError, "必须先人工审核通过"):
+                web_server._generate_graybox_final(project, {
+                    "confirm_billable": True,
+                    "upload_authorized": True,
+                })
+
     def test_web_exposes_managed_comfyui_controls(self):
         index = (web_server.WEB_ROOT / "index.html").read_text(encoding="utf-8")
         app = (web_server.WEB_ROOT / "app.js").read_text(encoding="utf-8")
