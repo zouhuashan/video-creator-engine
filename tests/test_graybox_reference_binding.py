@@ -73,6 +73,24 @@ class GrayboxReferenceBindingTests(unittest.TestCase):
             scene_root = project / "graybox" / "references" / "scenes"
             self.assertFalse(scene_root.exists() and any(scene_root.iterdir()))
 
+    def test_packaged_smoke_reference_pack_installs_and_binds_both_images(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            result = refs.install_smoke_reference_pack(project)
+            self.assertEqual(result["status"], "INSTALLED_AND_BOUND")
+            self.assertTrue((project / result["character_reference"]).is_file())
+            self.assertTrue((project / result["scene_reference"]).is_file())
+            inventory = refs.inventory(project)
+            self.assertTrue(inventory["ready"])
+            self.assertEqual(
+                inventory["binding"]["character_reference"]["source"],
+                "image_studio_character",
+            )
+            self.assertEqual(
+                inventory["binding"]["scene_reference"]["source"],
+                "scene_upload",
+            )
+
     def test_complete_binding_resolves_character_then_scene(self):
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory)
