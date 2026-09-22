@@ -90,6 +90,7 @@ from scripts.comfyui_lora_manager import ComfyUILoraError, lora_descriptor as co
 from scripts.graybox_shot_spec import GrayboxShotSpecError, apply_natural_language_adjustment as adjust_graybox_spec, ensure_default_spec as ensure_graybox_spec, load_spec as load_graybox_spec, review_spec as review_graybox_spec  # noqa: E402
 from scripts.graybox_manager import GrayboxRenderError, start_render as start_graybox_render, status as graybox_render_status  # noqa: E402
 from scripts.graybox_reference_binding import GrayboxReferenceError, bind_reference as bind_graybox_reference, install_smoke_reference_pack as install_graybox_smoke_reference_pack, inventory as graybox_reference_inventory, resolve_bound_paths as resolve_graybox_reference_paths, upload_scene_reference as upload_graybox_scene_reference  # noqa: E402
+from scripts.gpt_keyframe_pipeline import GPTKeyframeError, interpolate as interpolate_gpt_keyframes, inventory as gpt_keyframe_inventory, prepare as prepare_gpt_keyframes, upload_generated_frame as upload_gpt_keyframe  # noqa: E402
 
 
 PROVIDER_TYPES = {
@@ -1396,6 +1397,30 @@ def _save_graybox_smoke_review(project: Path, payload: dict[str, object]) -> dic
     return review
 
 
+def _gpt_keyframe_web_status(project: Path) -> dict[str, object]:
+    payload = deepcopy(gpt_keyframe_inventory(project))
+
+    def media(relative: str) -> str:
+        relative = str(relative or "")
+        return _media_url(project, relative) if relative and (project / relative).is_file() else ""
+
+    for key in ("character_reference", "scene_reference"):
+        relative = str(payload.get(key) or "")
+        if relative:
+            payload[key + "_url"] = media(relative)
+    for frame in payload.get("frames", []):
+        if not isinstance(frame, dict):
+            continue
+        frame["control_url"] = media(str(frame.get("control_path") or ""))
+        frame["generated_url"] = media(str(frame.get("generated_path") or ""))
+    interpolation = payload.get("interpolation") if isinstance(payload.get("interpolation"), dict) else {}
+    output = str(interpolation.get("output") or "")
+    if output:
+        interpolation["media_url"] = media(output)
+    payload["interpolation"] = interpolation
+    return payload
+
+
 def _graybox_web_status(project: Path) -> dict[str, object]:
     project = Path(project).resolve()
     # Keep the disposable smoke shot on the latest blocking revision as long as
@@ -2244,6 +2269,13 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
             except (ValueError, NovelAudioAssetError) as error:
                 return self._error(HTTPStatus.NOT_FOUND, str(error))
             return self._json(result)
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/graybox/gpt-keyframes", parsed.path)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                return self._json(_gpt_keyframe_web_status(project))
+            except (ValueError, GPTKeyframeError, GrayboxReferenceError, GrayboxShotSpecError, GrayboxRenderError, OSError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
         match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/voice-timeline", parsed.path)
         if match:
             try:
@@ -2590,6 +2622,51 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                 return self._json({**_graybox_web_status(project), "uploaded_scene": uploaded}, HTTPStatus.CREATED)
             except (ValueError, GrayboxReferenceError, GrayboxShotSpecError, GrayboxRenderError, OSError, json.JSONDecodeError) as error:
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/graybox/gpt-keyframes/prepare", route)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                payload = self._read_json(max_bytes=64 * 1024)
+                prepare_gpt_keyframes(project, keyframe_count=int(payload.get("keyframe_count") or 9))
+                return self._json(_gpt_keyframe_web_status(project), HTTPStatus.CREATED)
+            except (ValueError, TypeError, GPTKeyframeError, GrayboxReferenceError, GrayboxShotSpecError, GrayboxRenderError, OSError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+            except Exception as error:
+                return self._error(HTTPStatus.INTERNAL_SERVER_ERROR, f"GPT keyframe prepare failed: {error}")
+
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/graybox/gpt-keyframes/upload", route)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                payload = self._read_json(max_bytes=24 * 1024 * 1024)
+                encoded = str(payload.get("content_base64") or "").strip()
+                if not encoded:
+                    raise ValueError("generated keyframe content is required")
+                try:
+                    content = base64.b64decode(encoded, validate=True)
+                except Exception as error:
+                    raise ValueError("generated keyframe base64 is invalid") from error
+                upload_gpt_keyframe(
+                    project,
+                    index=int(payload.get("index")),
+                    filename=str(payload.get("filename") or "generated.png"),
+                    content=content,
+                )
+                return self._json(_gpt_keyframe_web_status(project), HTTPStatus.CREATED)
+            except (ValueError, TypeError, GPTKeyframeError, OSError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/graybox/gpt-keyframes/interpolate", route)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                interpolate_gpt_keyframes(project)
+                return self._json(_gpt_keyframe_web_status(project), HTTPStatus.CREATED)
+            except (ValueError, GPTKeyframeError, OSError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+            except Exception as error:
+                return self._error(HTTPStatus.INTERNAL_SERVER_ERROR, f"GPT keyframe interpolation failed: {error}")
+
         match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/voice-timeline/generate", route)
         if match:
             try:
