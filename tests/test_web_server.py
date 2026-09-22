@@ -258,7 +258,7 @@ class WebServerTests(unittest.TestCase):
         self.assertIn("/api/image-studio/character-bootstrap", app)
         self.assertIn("bootstrapImageStudioCharacters", app)
         self.assertIn("handleCharacterBibleAction", app)
-        self.assertIn("无需重新上传 TXT", index)
+        self.assertIn("不需要重新上传 TXT", index)
 
     def test_web_exposes_project_delete_action(self):
         index = (web_server.WEB_ROOT / "index.html").read_text(encoding="utf-8")
@@ -385,7 +385,7 @@ class WebServerTests(unittest.TestCase):
         self.assertEqual(anime["lora_id"], "")
 
     def test_cinematic_3d_final_route_refuses_local_animagine_fallback(self):
-        project = web_server._safe_project("jinghua-yuan-series")
+        project = Path("/tmp/p31-image-route-test")
         with patch.object(web_server, "_comfyui_image_status", return_value={
             "connected": True,
             "workflow_ready": True,
@@ -405,7 +405,7 @@ class WebServerTests(unittest.TestCase):
                 )
 
     def test_cinematic_3d_final_route_rejects_explicit_comfyui(self):
-        project = web_server._safe_project("jinghua-yuan-series")
+        project = Path("/tmp/p31-image-route-test")
         with patch.object(web_server, "_comfyui_image_status", return_value={
             "connected": True,
             "workflow_ready": True,
@@ -481,7 +481,7 @@ class WebServerTests(unittest.TestCase):
             scene.write_bytes(b"s" * 2048)
             captured = {}
 
-            def fake_generate(_provider, request):
+            def fake_generate(request):
                 captured["request"] = request
                 request.output_path.parent.mkdir(parents=True, exist_ok=True)
                 request.output_path.write_bytes(b"o" * 2048)
