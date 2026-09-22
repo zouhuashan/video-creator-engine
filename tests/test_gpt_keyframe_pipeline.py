@@ -75,8 +75,9 @@ class GPTKeyframePipelineTests(unittest.TestCase):
             with patch.object(p35, "graybox_render_status", return_value=render),                  patch.object(p35, "load_graybox_spec", return_value=spec),                  patch.object(p35, "resolve_graybox_reference_paths", return_value=(character, scene, binding)),                  patch.object(p35, "_require_ffmpeg", return_value="/usr/bin/ffmpeg"),                  patch.object(p35, "_run", side_effect=self.fake_image_run):
                 payload = p35.prepare(project, keyframe_count=9)
 
-            with self.assertRaisesRegex(p35.GPTKeyframeError, "全部 AI"):
-                p35.interpolate(project)
+            with patch.object(p35, "load_graybox_spec", return_value=spec):
+                with self.assertRaisesRegex(p35.GPTKeyframeError, "全部 AI"):
+                    p35.interpolate(project)
 
             root = project / p35.ROOT_RELATIVE / "GB-SHOT-001"
             for frame in payload["frames"]:
