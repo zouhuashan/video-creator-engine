@@ -2080,6 +2080,13 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
             except (ValueError, NovelAnimeRepositoryError) as error:
                 return self._error(HTTPStatus.NOT_FOUND, str(error))
             return self._json({"project_id": project.name, "root": match.group(2), "impact": impact})
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/graybox", parsed.path)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                return self._json(_graybox_web_status(project))
+            except (ValueError, GrayboxShotSpecError, GrayboxRenderError, OSError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
         match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)", parsed.path)
         if match:
             try:
@@ -2246,6 +2253,45 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                 NovelCharacterCandidateError,
             ) as error:
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/graybox/spec", route)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                result = {
+                    "project_id": project.name,
+                    **{
+                        key: value
+                        for key, value in {
+                            **graybox_render_status(project),
+                            **{"spec": load_graybox_spec(project) if (project / "graybox" / "shot-specs" / "GB-SHOT-001.json").is_file() else None},
+                        }.items()
+                        if key not in {"blender_path"}
+                    },
+                }
+                if not result.get("spec"):
+                    ensure_graybox_spec(project)
+                return self._json(_graybox_web_status(project), HTTPStatus.CREATED)
+            except (ValueError, GrayboxShotSpecError, GrayboxRenderError, OSError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/graybox/render", route)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                ensure_graybox_spec(project)
+                result = start_graybox_render(project)
+                return self._json({**result, "project_id": project.name}, HTTPStatus.ACCEPTED)
+            except (ValueError, GrayboxShotSpecError, GrayboxRenderError, OSError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/graybox/final", route)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                payload = self._read_json(max_bytes=256 * 1024)
+                return self._json(_generate_graybox_final(project, payload), HTTPStatus.CREATED)
+            except (ValueError, GrayboxShotSpecError, GrayboxRenderError, VideoGenerationError, OSError, KeyError, TypeError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+            except Exception as error:
+                return self._error(HTTPStatus.INTERNAL_SERVER_ERROR, f"graybox final generation failed: {error}")
         if route in {"/api/image-studio/character-bible", "/api/image-studio/keyframe"}:
             try:
                 payload = self._read_json()
