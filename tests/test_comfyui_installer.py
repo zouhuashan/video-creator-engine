@@ -145,6 +145,7 @@ class ComfyUIInstallerTests(unittest.TestCase):
              patch.object(installer, "_python_version", return_value=(3, 13)), \
              patch.object(installer, "_apple_silicon_host", return_value=True), \
              patch.object(installer, "_python_machine", side_effect=lambda executable: "x86_64" if "opt/local" in executable else "arm64"), \
+             patch.object(installer, "_python_runtime_healthy", return_value=(True, "")), \
              patch.object(installer.sys, "executable", "/opt/homebrew/python3.14"):
             candidates = installer._python_candidates()
 
