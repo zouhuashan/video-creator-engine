@@ -236,7 +236,9 @@ function renderGraybox() {
   $('#grayboxStatus').textContent = render.status === 'PASS' && render.output_ready ? 'GRAYBOX READY' : installed ? (render.status || 'READY') : 'NO BLENDER';
   $('#grayboxStatus').classList.toggle('off', !installed || render.status === 'FAIL');
   $('#grayboxBlender').textContent = installed ? 'READY' : 'NOT INSTALLED';
-  $('#grayboxSpecStatus').textContent = data.spec_ready ? (review.status || 'PENDING') : 'NOT READY';
+  $('#grayboxSpecStatus').textContent = data.spec_ready
+    ? `READY · REVIEW ${review.status || 'PENDING'}`
+    : 'NOT READY';
   $('#grayboxRenderStatus').textContent = render.render_stale ? 'STALE · NEED RERENDER' : (render.status || (render.output_ready ? 'PASS' : 'NOT STARTED'));
   $('#grayboxMiniMaxStatus').textContent = `MiniMax H3 · ${minimax.configured ? 'READY' : 'NOT CONFIGURED'}`;
   $('#grayboxReviewStatus').textContent = review.status || 'PENDING';
@@ -280,7 +282,14 @@ function renderGraybox() {
   }
 
   if (!$('#grayboxPrompt').value.trim() && data.default_prompt) $('#grayboxPrompt').value = data.default_prompt;
-  $('#grayboxEnsureSpecButton').disabled = !state.grayboxProjectId;
+  const ensureButton = $('#grayboxEnsureSpecButton');
+  ensureButton.disabled = !state.grayboxProjectId || data.spec_ready;
+  ensureButton.textContent = data.spec_ready ? '✓ 镜头方案已就绪' : '① 生成镜头方案';
+  $('#grayboxStepHint').textContent = data.spec_ready
+    ? (render.output_ready
+      ? '镜头方案和当前白模已匹配；请播放检查，满意后点击“白模通过”。'
+      : '镜头方案已生成。下一步直接点击“② 生成 Blender 白模”。')
+    : '先点击“① 生成镜头方案”，再进入 Blender 白模。';
   $('#grayboxRenderButton').disabled = !installed || !data.spec_ready || render.status === 'RUNNING';
   $('#grayboxAdjustButton').disabled = !data.spec_ready || render.status === 'RUNNING';
   $('#grayboxApproveButton').disabled = !render.output_ready || render.status === 'RUNNING';
@@ -303,13 +312,26 @@ async function ensureGrayboxShotSpec() {
   if (!projectId) { log('没有可用的国漫项目', true); return; }
   const button = $('#grayboxEnsureSpecButton');
   button.disabled = true;
+  button.textContent = '镜头方案处理中…';
+  $('#grayboxStepHint').textContent = '正在创建并校验 Shot Spec…';
+  $('#grayboxLogLine').textContent = '正在生成 8 秒古宅入场镜头方案…';
   try {
-    state.graybox = await api(`/api/novel-anime/projects/${encodeURIComponent(projectId)}/graybox/spec`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    state.graybox = await api(`/api/novel-anime/projects/${encodeURIComponent(projectId)}/graybox/spec`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    });
     state.grayboxProjectId = projectId;
     renderGraybox();
-    log('P32 镜头方案已生成：8 秒古宅入场白模。');
-  } catch (error) { log(error.message, true); }
-  finally { button.disabled = false; }
+    $('#grayboxLogLine').textContent = '镜头方案已就绪。下一步点击“② 生成 Blender 白模”。';
+    log('P32 镜头方案 READY：下一步可生成 Blender 白模。');
+  } catch (error) {
+    $('#grayboxStepHint').textContent = `镜头方案失败：${error.message}`;
+    $('#grayboxLogLine').textContent = error.message;
+    log(error.message, true);
+  } finally {
+    renderGraybox();
+  }
 }
 
 async function waitForGrayboxRender(projectId) {
