@@ -4553,6 +4553,22 @@ Status: CODE PASS / CI PASS / LOCAL VISUAL SMOKE PENDING
   - 每约 2 秒自动标记一次 `CANONICAL_RESET`；
   - Reset 帧重新以人物参考 + 场景参考 + 当前 Blender 帧为准，不继承之前 AI 帧的视觉漂移；
   - 其余帧使用 `PREVIOUS_CONTINUITY`，可带上一张最终帧维持连续性。
+- P35 / Graybox render hash 语义修复（2026-09-22）：
+  - 根因：旧版 `graybox_manager._spec_sha256()` 直接 hash 整个 Shot Spec 文件；点击“白模通过”只修改 `review / note / updated_at`，也会把已完成 MP4 误判为 STALE；
+  - 新版 render signature 只计算真正影响 Blender 输出的字段；
+  - `review / created_at / updated_at / ai_video` 明确排除在 render signature 之外；
+  - 后续审核、备注、AI Prompt 修改不会再要求 Blender 重渲染；
+  - Actor / Camera / Duration / FPS / Resolution 等真实渲染字段变化仍会正确触发 STALE；
+  - 对已经存在的 legacy raw-hash 白模增加显式 `graybox/adopt-render`：
+    - 必须由用户确认当前可见 MP4 就是要继续使用的动作骨架；
+    - 确认后直接把现有 MP4 重新绑定到新 semantic render signature；
+    - **不会重新渲染 192 帧**；
+  - STALE MP4 现在仍保留 Web 预览，并显示 `STALE HASH · MP4 可人工沿用`，便于确认后迁移；
+  - P35 如果发现 `render_stale + 现有 MP4`，按钮变为“① 确认沿用现有白模并抽帧”，不再直接禁用。
+- 回归：
+  - `35734561651` P31 = SUCCESS：legacy stale MP4 沿用流程；
+  - `35734614418` P31 = SUCCESS：review/timestamp/ai_video 不改变 render signature，Actor 变化仍改变 signature；
+  - `35734725563` P30 = SUCCESS：STALE 白模预览 UI。
 - P35 Web Gate UX 修复（2026-09-22）：
   - 发现首版把 `Shot Spec review == APPROVED` 直接做成“抽帧按钮 disabled”，即使白模已经生成且人物/场景 READY，用户也会看到整块无法操作；
   - 现在只要 **有效白模 + 人物参考 + 场景参考** 就允许点击“①”；
@@ -4616,6 +4632,12 @@ Status: CODE PASS / CI PASS / LOCAL VISUAL SMOKE PENDING
 - `e6845698` P35 Web regression scope fix
 - `0bacb8aa` P35 inline graybox approval UX fix
 - `0ccc6675` P35 inline approval regression
+- `76283488` render-semantic signature fix
+- `342881b6` explicit legacy render adoption API
+- `4789e44a` P35 stale legacy reuse UX
+- `7ece86e7` render signature regression
+- `763671b3` expose stale MP4 for review
+- `a4fd2807` stale whitebox preview UI
 
 当前 Web smoke 路径：
 
