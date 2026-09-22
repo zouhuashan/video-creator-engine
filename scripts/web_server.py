@@ -266,8 +266,8 @@ def _novel_projects_signature(projects_root: Path) -> tuple[tuple[str, int, int]
     return tuple(signature)
 
 
-def _novel_anime_projects(projects_root: Path = PROJECTS_ROOT) -> list[dict[str, object]]:
-    projects_root = projects_root.resolve()
+def _novel_anime_projects(projects_root: Path | None = None) -> list[dict[str, object]]:
+    projects_root = Path(projects_root or PROJECTS_ROOT).resolve()
     cache_key = str(projects_root)
     signature = _novel_projects_signature(projects_root)
     with _NOVEL_PROJECT_CACHE_LOCK:
