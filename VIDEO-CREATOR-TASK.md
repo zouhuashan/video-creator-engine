@@ -4374,3 +4374,140 @@ VOICE FIRST / ZERO-COST TIMING
 ```
 
 NEXT：先在本机 Web 对当前小说项目 S01E001 做 Timing Voice smoke。确认中文发音、SRT/ASS 和 Shot Duration 写回正常后，再接“最终角色 Voice Provider + BGM ducking + Final Mix”；H3 保持最后一道昂贵渲染工序。
+---
+
+### P34 Final Voice + Final Mix：正式角色配音 + 声线锁 + BGM Ducking
+Status: CODE PASS / CI PASS / LOCAL WEB + REAL FISH TTS SMOKE PENDING
+
+目标：
+
+- P33 的 Timing Voice 只负责零成本锁定时长，正式成片声音必须切换到角色级 Final Voice；
+- 同一 `character_id` 跨镜头/跨集固定 `provider + voice_id + speed + emotion_default`，禁止声线漂移；
+- 正式 TTS 不允许重新改变已经批准的 Shot Timing，生成后自动 time-conform 到 P33 Voice Timeline；
+- 对白/旁白永远优先于 BGM；BGM 自动 sidechain ducking；
+- 支持 BGM / ambience / SFX 三层音频，并输出 Final Mix WAV + AAC/M4A；
+- 远程 TTS 必须显式付费确认与文本上传授权，API Key 只驻留当前 Web 进程。
+
+执行记录（2026-09-22）：
+
+- 新增 `scripts/final_audio_pipeline.py`：
+  - 第一正式 Provider 接入现有 `FishAudioTTS / S2-Pro`；
+  - 使用 `audio/voice-locks.json` 保存角色与旁白 Voice Lock；
+  - Narrator 和每个 Story Bible character 独立锁定；
+  - Voice Lock 字段：`provider / voice_id / speed / emotion_default / status`；
+  - 角色不存在、voice_id 非法、语速超范围立即拒绝。
+- 正式配音严格继承 P33 时间轴：
+  - 必须先有 READY 的 `audio/voice-timeline.json`；
+  - Fish Audio 返回的原始正式声音先保存 source；
+  - FFmpeg `atempo + apad + atrim` 自动对齐 P33 每句已批准 duration；
+  - 即使更换正式声线，也不会静默改变 Shot Duration；
+  - 单句结果记录 source duration / target duration / speed ratio / aligned duration。
+- 正式配音支持两种 Web 操作：
+  - 单句“正式重生成”；
+  - “生成本集正式配音”；
+  - 本集只有所有句子 READY 后才允许进入 Final Mix。
+- Fish Audio 计费门：
+  - `FISH_AUDIO_API_KEY` 可从环境变量读取，也可在 Web 临时输入；
+  - Web Key 写入 `RUNTIME_KEYS['fish_audio']`，只存在当前 server process；
+  - API 与页面状态永不返回 Key 内容；
+  - 每次正式 TTS 强制 `confirm_billable=true`；
+  - 每次正式 TTS 强制 `text_upload_authorized=true`；
+  - 未锁声线 / 未配置 Key / 未确认付费 / 未授权文本上传均拒绝远程调用。
+- 07 音频制作新增 **P34 / FINAL VOICE + FINAL MIX**：
+  - Web 输入 Fish Audio Key；
+  - 为旁白及每个角色填写 Fish `reference_id`；
+  - 配置角色 speed / 默认 emotion；
+  - 点击“锁定声线”；
+  - 逐句在线播放正式角色配音；
+  - 显示“原始正式声 Xs → 已对齐 Ys”；
+  - 支持单句重做而不是整集重烧。
+- BGM / Ambience / SFX：
+  - Web 可直接上传 WAV / MP3 / M4A / AAC / AIFF / FLAC；
+  - 单文件最大 30 MB；
+  - 服务端校验音频 magic/header，伪装 HTML 等文件立即拒绝并清理；
+  - 项目内分别保存到 `audio/bgm/`、`audio/ambience/`、`audio/sfx/`；
+  - Final Mix 下拉框直接选择当前项目音频素材。
+- Final Mix：
+  - 所有正式 Voice 按 P33 `start_seconds` 使用 FFmpeg `adelay` 对齐；
+  - Voice 汇总为 dialogue/narration 主轨；
+  - BGM 默认 volume 0.35；
+  - BGM 使用 `sidechaincompress` 根据 voice sidechain 自动 ducking；
+  - 当前 ducking：threshold 0.035 / ratio 10 / attack 18ms / release 350ms；
+  - ambience 默认 0.18；
+  - SFX 默认 0.45；
+  - 最终 `loudnorm=I=-16:TP=-1:LRA=11`；
+  - 输出 `audio/final-mix/s01e001-final-mix.wav`；
+  - 同时编码 `s01e001-final-mix.m4a` 192 kbps AAC；
+  - Web 可以直接试听 Final Mix。
+- Web API：
+  - `GET .../final-audio`；
+  - `POST .../final-audio/voice-lock`；
+  - `POST .../final-audio/generate-line`；
+  - `POST .../final-audio/generate-episode`；
+  - `POST .../final-audio/upload-asset`；
+  - `POST .../final-audio/mix`。
+- 回归覆盖：
+  - narrator / character voice lock 持久化；
+  - 正式 TTS 付费确认与文本上传授权强制 gate；
+  - Final Voice time-conform 不改变 P33 时长；
+  - BGM sidechaincompress / -16 LUFS / -1 dBTP filter graph；
+  - BGM / ambience / SFX 安全上传；
+  - Web 必须暴露 P34 Voice Lock / 计费 gate / Final Mix；
+  - session Fish Key 不得出现在任何 Web status 返回值。
+- GitHub Actions：
+  - P31 Novel Import Regression run `35729386872` = SUCCESS；
+  - P30 / P31 相关 P34 提交均保持绿色。
+
+主要提交：
+- `a8e3049a` Web audio bed upload support
+- `1481cb03` audio asset upload API
+- `ce5d5d10` Web BGM / ambience / SFX upload
+- `6aad0616` Web upload UI styles
+- `ea57971d` upload validation regression
+- `109a6e58` P34 Web / secret-safety regression
+- `2bafc30b` CI P34 Web controls + key safety gate
+
+当前 Web 验收路径：
+
+```text
+更新 main + 重启 VideoCreator Web
+→ 国漫制作台
+→ 07 音频制作
+
+P33：
+→ 先生成 Timing Voice + SRT / ASS
+→ 必要时“应用到镜头时长”
+
+P34 / FINAL VOICE + FINAL MIX：
+→ 输入 Fish Audio API Key
+→ 保存（只驻留当前 Web 进程）
+
+VOICE LOCK：
+→ 旁白填写 Fish reference_id
+→ 每个角色填写自己的 Fish reference_id
+→ 设置 speed / 默认 emotion
+→ 分别点击“锁定声线”
+
+正式配音：
+→ 勾选“我确认正式 Fish Audio TTS 会产生费用”
+→ 勾选“允许将本集对白/旁白文本发送给 Fish Audio”
+→ 先选一句点“单句正式重生成”做音色 smoke
+→ 满意后再点“生成本集正式配音”
+
+Final Mix：
+→ Web 上传或选择 BGM
+→ 可选环境音
+→ 可选 SFX
+→ 点击“生成 Final Mix”
+→ Web 直接试听 M4A
+→ 检查对白清晰度 / BGM ducking / 环境音 / SFX / 响度
+```
+
+成本策略：
+
+- `macOS say` 继续承担零成本 Timing Voice；
+- Fish Audio 只在镜头时长已经锁定后做 Final Voice；
+- 首次先生成 **1 句**正式配音检查声线，不要直接烧整集；
+- H3 仍只在故事、Timing、Blender、正式声音都确定后执行最终昂贵视觉生成。
+
+NEXT：在本机 Web 对当前项目选择一条旁白或主角台词，配置 Fish Audio voice_id 后只生成 **1 句 Final Voice smoke**。确认音色、中文发音、情绪与 P33 时长对齐都正常，再批量生成整集；之后进入 Final Video Assembly：H3 视频 + Final Mix + ASS 字幕 → FFmpeg 母版。
