@@ -324,8 +324,11 @@ function renderGptKeyframes() {
   const refs = graybox.references || {};
   const review = graybox.spec?.review || {};
   const render = graybox.render || {};
-  const canPrepare = Boolean(render.output_ready && !render.render_stale && review.status === 'APPROVED' && refs.ready);
+  const hasUsableGraybox = Boolean(render.output_ready && !render.render_stale);
+  const canPrepare = Boolean(hasUsableGraybox && refs.ready);
+  const needsGrayboxApproval = canPrepare && review.status !== 'APPROVED';
   $('#gptKeyframePrepare').disabled = !canPrepare;
+  $('#gptKeyframePrepare').textContent = needsGrayboxApproval ? '① 确认白模并抽取控制帧' : '① 抽取 Blender 控制帧';
 
   const referenceSummary = $('#gptKeyframeReferenceSummary');
   if (data.character_reference && data.scene_reference) {
@@ -333,7 +336,13 @@ function renderGptKeyframes() {
     const sceneLink = data.scene_reference_url ? '<a href="' + escapeHtml(data.scene_reference_url) + '" target="_blank" rel="noopener noreferrer">场景参考</a>' : escapeHtml(data.scene_reference);
     referenceSummary.innerHTML = '输入锁定：' + characterLink + ' + ' + sceneLink + ' + Blender 控制帧 · ' + Number(data.generated_count || 0) + '/' + Number(data.keyframe_count || 0) + ' 张 AI 帧已回传';
   } else {
-    referenceSummary.textContent = canPrepare ? '人物 / 场景 / 白模均已就绪，可以抽取控制帧。' : '需要：白模 APPROVED + 人物参考 + 场景参考。';
+    const blockers = [];
+    if (!hasUsableGraybox) blockers.push(render.render_stale ? '白模已失效，需重新渲染' : '缺有效白模');
+    if (!refs.character_bound) blockers.push('缺人物参考');
+    if (!refs.scene_bound) blockers.push('缺场景参考');
+    referenceSummary.textContent = canPrepare
+      ? (needsGrayboxApproval ? '白模 / 人物 / 场景已就绪；点击①后会让你确认白模，通过后自动抽帧。' : '人物 / 场景 / 白模均已就绪，可以直接抽取控制帧。')
+      : '当前阻断：' + (blockers.length ? blockers.join(' · ') : '等待项目状态刷新');
   }
 
   const grid = $('#gptKeyframeGrid');
@@ -393,17 +402,43 @@ async function prepareGptKeyframes() {
   const projectId = resolveActiveNovelProject(state.grayboxProjectId || state.imageStudioProjectId);
   if (!projectId) return;
   const button = $('#gptKeyframePrepare');
+  const reviewStatus = String(state.graybox?.spec?.review?.status || 'PENDING').toUpperCase();
+  const render = state.graybox?.render || {};
+  const refs = state.graybox?.references || {};
+
+  if (!render.output_ready || render.render_stale) {
+    log(render.render_stale ? '当前 Blender 白模已经失效，请先重新生成白模。' : '请先生成 Blender 白模。', true);
+    return;
+  }
+  if (!refs.ready) {
+    log('请先完成当前镜头的人物参考 + 场景参考绑定。', true);
+    return;
+  }
+
+  if (reviewStatus !== 'APPROVED') {
+    const confirmed = window.confirm('当前 Blender 白模已经生成，人物与场景参考也已绑定。\n\n继续 P35 前需要把当前白模标记为“通过”。\n确认这个白模的镜头、走位和动作可以作为关键帧控制骨架吗？');
+    if (!confirmed) return;
+  }
+
   button.disabled = true;
-  button.textContent = '正在抽取控制帧…';
+  button.textContent = reviewStatus === 'APPROVED' ? '正在抽取控制帧…' : '正在确认白模并抽帧…';
   try {
+    if (reviewStatus !== 'APPROVED') {
+      state.graybox = await api('/api/novel-anime/projects/' + encodeURIComponent(projectId) + '/graybox/review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'APPROVED', note: 'P35 Web keyframe route approved before control-frame extraction' }),
+      });
+      log('当前 Blender 白模已确认通过，继续准备 P35 控制帧。');
+    }
     state.gptKeyframes = await api('/api/novel-anime/projects/' + encodeURIComponent(projectId) + '/graybox/gpt-keyframes/prepare', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ keyframe_count: Number($('#gptKeyframeCount').value || 9) }),
     });
-    renderGptKeyframes();
+    renderGraybox();
     log('P35 Blender 控制帧已准备：' + state.gptKeyframes.keyframe_count + ' 张。');
   } catch (error) { log(error.message, true); }
-  finally { button.textContent = '① 抽取 Blender 控制帧'; renderGptKeyframes(); }
+  finally { renderGptKeyframes(); }
 }
 
 async function copyGptKeyframePrompt(index) {
