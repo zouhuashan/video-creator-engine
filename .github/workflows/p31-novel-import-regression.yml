@@ -92,6 +92,7 @@ jobs:
             tests.test_graybox_reference_binding \
             tests.test_minimax_h3 \
             tests.test_web_server.WebServerTests.test_graybox_final_passes_character_and_scene_images_to_minimax \
+            tests.test_web_server.WebServerTests.test_graybox_smoke_review_tracks_exact_latest_final_and_three_axes \
             tests.test_comfyui_image_provider \
             tests.test_comfyui_lora_manager \
             tests.test_openai_image_provider
