@@ -1530,6 +1530,176 @@ function voiceTimelineShotTiming(data, line) {
   return (data?.shot_timing || []).find((item) => item.episode_id === line.episode_id && item.shot_id === line.shot_id) || null;
 }
 
+function finalAudioOptionList(items) {
+  return ['<option value="">不使用</option>'].concat((items || []).map(function(item) {
+    return '<option value="' + escapeHtml(item) + '">' + escapeHtml(item) + '</option>';
+  })).join('');
+}
+
+function renderFinalAudioSection(episodeId) {
+  const data = state.finalAudio;
+  if (!data) return '<div class="final-audio-section"><div class="empty-state">正在载入 Final Voice…</div></div>';
+  const provider = data.provider || {};
+  const locks = [data.locks?.narrator].concat(data.locks?.characters || []).filter(Boolean);
+  const episode = (data.episodes || []).find(function(item) { return item.episode_id === episodeId; }) || {};
+  const candidates = data.audio_candidates || {};
+  const lockCards = locks.map(function(lock) {
+    return '<article class="voice-lock-card" data-voice-lock-card="' + escapeHtml(lock.character_id) + '">' +
+      '<div><strong>' + escapeHtml(lock.character_name || lock.character_id) + '</strong><small>' +
+      escapeHtml(lock.character_id) + ' · ' + escapeHtml(lock.status || 'UNLOCKED') + '</small></div>' +
+      '<label>Fish voice_id<input class="text-field" data-lock-voice-id value="' + escapeHtml(lock.voice_id || '') + '" placeholder="Fish Audio reference_id"></label>' +
+      '<label>语速<input class="text-field" data-lock-speed type="number" min="0.5" max="2" step="0.05" value="' + Number(lock.speed || 1).toFixed(2) + '"></label>' +
+      '<label>默认情绪<input class="text-field" data-lock-emotion value="' + escapeHtml(lock.emotion_default || '') + '" placeholder="calm / sad / angry"></label>' +
+      '<button class="secondary-button small-button" data-save-voice-lock="' + escapeHtml(lock.character_id) + '">锁定声线</button>' +
+      '</article>';
+  }).join('');
+
+  const finalLines = (episode.lines || []).map(function(line) {
+    const timingText = Number(line.duration_seconds || 0).toFixed(2);
+    const sourceText = line.source_duration_seconds
+      ? ' · 原始正式声 ' + Number(line.source_duration_seconds).toFixed(2) + 's → 已对齐 ' + Number(line.aligned_duration_seconds || 0).toFixed(2) + 's'
+      : '';
+    return '<article class="final-voice-line">' +
+      '<div><span class="pipeline-stage-status ' + (line.final_status === 'READY' ? 'pass' : 'pending') + '">' + escapeHtml(line.final_status || 'NOT_RUN') + '</span>' +
+      '<strong>' + escapeHtml(line.text || '') + '</strong>' +
+      '<small>' + escapeHtml(line.kind || '') + ' · ' + escapeHtml(line.speaker_character_id || 'NARRATOR') + ' · Timing ' + timingText + 's' + sourceText + '</small>' +
+      (line.final_audio_url ? '<audio controls preload="metadata" src="' + escapeHtml(line.final_audio_url) + '"></audio>' : '') +
+      '</div><button class="secondary-button small-button" data-generate-final-line="' + escapeHtml(line.unit_id) + '" ' +
+      (provider.configured && episode.timing_status === 'READY' ? '' : 'disabled') + '>单句正式重生成</button></article>';
+  }).join('');
+
+  const mix = episode.final_mix || {};
+  return '<section class="final-audio-section">' +
+    '<div class="final-audio-head"><div><span class="section-kicker">P34 / FINAL VOICE + FINAL MIX</span>' +
+    '<strong>正式角色配音 · 声线锁 · BGM 自动 Ducking</strong>' +
+    '<small>Fish Audio 仅在明确付费确认后调用。正式语音会自动压缩/拉伸到 P33 已锁定的 Timing Voice 时长，不允许换声线后重新打乱镜头。</small></div>' +
+    '<span class="status-dot ' + (provider.configured ? '' : 'off') + '">' + (provider.configured ? 'FISH READY' : 'FISH KEY MISSING') + '</span></div>' +
+    '<div class="final-audio-key-row"><input class="text-field" id="finalAudioKey" type="password" autocomplete="off" placeholder="Fish Audio API Key（仅当前 Web 进程）">' +
+    '<button class="secondary-button small-button" id="finalAudioSaveKey">保存 Fish Key</button><small>' + escapeHtml(provider.source || 'none') + ' · Key 不写盘</small></div>' +
+    '<div class="voice-lock-grid">' + (lockCards || '<div class="empty-state">当前没有需要锁定的角色声线。</div>') + '</div>' +
+    '<div class="final-voice-gate"><label><input type="checkbox" id="finalVoiceBillable"> 我确认正式 Fish Audio TTS 会产生费用</label>' +
+    '<label><input type="checkbox" id="finalVoiceUpload"> 我允许将本集对白/旁白文本发送给 Fish Audio</label>' +
+    '<button class="primary-button small-button" id="generateFinalVoiceEpisode" ' + (provider.configured && episode.timing_status === 'READY' ? '' : 'disabled') + '>生成本集正式配音</button>' +
+    '<span>' + escapeHtml(episode.final_voice_status || 'NOT_RUN') + ' · ' + Number(episode.ready_line_count || 0) + '/' + Number(episode.line_count || 0) + ' 句</span></div>' +
+    '<div class="final-voice-line-list">' + (finalLines || '<div class="empty-state">先完成本集 P33 Timing Voice。</div>') + '</div>' +
+    '<div class="final-mix-card"><div><strong>Final Mix</strong><small>对白/旁白优先；有 BGM 时自动 sidechain ducking；最终 -16 LUFS / -1 dBTP。</small></div>' +
+    '<label>BGM<select class="select-field" id="finalMixBgm">' + finalAudioOptionList(candidates.bgm) + '</select></label>' +
+    '<label>环境音<select class="select-field" id="finalMixAmbience">' + finalAudioOptionList(candidates.ambience) + '</select></label>' +
+    '<label>SFX<select class="select-field" id="finalMixSfx">' + finalAudioOptionList(candidates.sfx) + '</select></label>' +
+    '<button class="secondary-button small-button" id="generateFinalMix" ' + (episode.final_voice_status === 'READY' ? '' : 'disabled') + '>生成 Final Mix</button>' +
+    '<div class="final-mix-result"><span>' + escapeHtml(mix.status || 'NOT_RUN') + (mix.dialogue_ducking ? ' · BGM DUCKING ON' : '') + '</span>' +
+    (mix.m4a_url ? '<audio controls preload="metadata" src="' + escapeHtml(mix.m4a_url) + '"></audio>' : '') +
+    (mix.wav_url ? '<a href="' + escapeHtml(mix.wav_url) + '" target="_blank" rel="noopener noreferrer">WAV</a>' : '') +
+    '</div></div></section>';
+}
+
+async function refreshFinalAudio(projectId = state.finalAudioProjectId || state.studio?.directory_id) {
+  if (!projectId) return;
+  state.finalAudioProjectId = projectId;
+  state.finalAudio = await api('/api/novel-anime/projects/' + encodeURIComponent(projectId) + '/final-audio');
+}
+
+function finalVoiceGate() {
+  return {
+    confirm_billable: Boolean($('#finalVoiceBillable')?.checked),
+    text_upload_authorized: Boolean($('#finalVoiceUpload')?.checked),
+  };
+}
+
+async function saveFinalAudioKey() {
+  const input = $('#finalAudioKey');
+  const key = input?.value?.trim() || '';
+  if (!key) { log('请输入 Fish Audio API Key', true); return; }
+  const button = $('#finalAudioSaveKey');
+  button.disabled = true;
+  try {
+    await api('/api/settings/keys', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider: 'fish_audio', key: key }),
+    });
+    input.value = '';
+    await refreshFinalAudio();
+    renderVoiceTimeline();
+    log('Fish Audio Key 已保存到当前 Web 服务进程，不写盘。');
+  } catch (error) { log(error.message, true); }
+  finally { button.disabled = false; }
+}
+
+async function saveVoiceLock(characterId, button) {
+  const card = button.closest('[data-voice-lock-card]');
+  button.disabled = true;
+  try {
+    state.finalAudio = await api('/api/novel-anime/projects/' + encodeURIComponent(state.finalAudioProjectId) + '/final-audio/voice-lock', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        character_id: characterId,
+        provider: 'fish_audio',
+        voice_id: card.querySelector('[data-lock-voice-id]').value.trim(),
+        speed: Number(card.querySelector('[data-lock-speed]').value || 1),
+        emotion_default: card.querySelector('[data-lock-emotion]').value.trim(),
+      }),
+    });
+    renderVoiceTimeline();
+    log(characterId + ' 正式声线锁已保存。');
+  } catch (error) { log(error.message, true); button.disabled = false; }
+}
+
+async function generateFinalVoiceEpisode() {
+  const episodeId = $('#voiceTimelineEpisode')?.value || $('#voiceTimelinePanel')?.dataset.episodeId || '';
+  const button = $('#generateFinalVoiceEpisode');
+  button.disabled = true;
+  button.textContent = '正在生成正式配音…';
+  try {
+    state.finalAudio = await api('/api/novel-anime/projects/' + encodeURIComponent(state.finalAudioProjectId) + '/final-audio/generate-episode', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(Object.assign({ episode_id: episodeId }, finalVoiceGate())),
+    });
+    renderVoiceTimeline();
+    log(episodeId + ' 正式角色配音已生成并自动对齐 Timing Voice。');
+  } catch (error) { log(error.message, true); button.disabled = false; button.textContent = '生成本集正式配音'; }
+}
+
+async function generateFinalVoiceLine(unitId, button) {
+  const episodeId = $('#voiceTimelineEpisode')?.value || $('#voiceTimelinePanel')?.dataset.episodeId || '';
+  button.disabled = true;
+  button.textContent = '生成中…';
+  try {
+    const result = await api('/api/novel-anime/projects/' + encodeURIComponent(state.finalAudioProjectId) + '/final-audio/generate-line', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(Object.assign({ episode_id: episodeId, unit_id: unitId }, finalVoiceGate())),
+    });
+    state.finalAudio = result.status_view;
+    renderVoiceTimeline();
+    log(unitId + ' 正式配音已重新生成并时长对齐。');
+  } catch (error) { log(error.message, true); button.disabled = false; button.textContent = '单句正式重生成'; }
+}
+
+async function generateFinalMix() {
+  const episodeId = $('#voiceTimelineEpisode')?.value || $('#voiceTimelinePanel')?.dataset.episodeId || '';
+  const button = $('#generateFinalMix');
+  button.disabled = true;
+  button.textContent = '正在混音…';
+  try {
+    const result = await api('/api/novel-anime/projects/' + encodeURIComponent(state.finalAudioProjectId) + '/final-audio/mix', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        episode_id: episodeId,
+        bgm_path: $('#finalMixBgm')?.value || '',
+        ambience_path: $('#finalMixAmbience')?.value || '',
+        sfx_path: $('#finalMixSfx')?.value || '',
+      }),
+    });
+    state.finalAudio = result.status_view;
+    renderVoiceTimeline();
+    log(episodeId + ' Final Mix 完成：-16 LUFS / -1 dBTP' + (result.dialogue_ducking ? ' · BGM 自动 Ducking 已启用。' : '。'));
+  } catch (error) { log(error.message, true); button.disabled = false; button.textContent = '生成 Final Mix'; }
+}
+
 function renderVoiceTimeline() {
   const target = $('#voiceTimelinePanel');
   if (!target) return;
@@ -1596,6 +1766,7 @@ function renderVoiceTimeline() {
     </div>
     <div class="voice-line-list">${lineCards}</div>
     <div class="voice-timeline-note">生成完成后，系统会同时写入 <code>audio/voice-timeline.json</code>、<code>audio/shot-timing.json</code>、SRT 和 ASS。点击“应用到镜头时长”后，只写回当前集的 ACTUAL_TTS 时长，并明确要求下游 Storyboard / Animatic 重建。</div>
+    ${renderFinalAudioSection(active.episode_id)}
   `;
 
   $('#voiceTimelineEpisode')?.addEventListener('change', (event) => {
@@ -1604,6 +1775,11 @@ function renderVoiceTimeline() {
   });
   $('#voiceTimelineGenerate')?.addEventListener('click', generateVoiceTimelinePreview);
   $('#voiceTimelineApplyTiming')?.addEventListener('click', applyVoiceTimelineTiming);
+  $('#finalAudioSaveKey')?.addEventListener('click', saveFinalAudioKey);
+  document.querySelectorAll('[data-save-voice-lock]').forEach((button) => button.addEventListener('click', () => saveVoiceLock(button.dataset.saveVoiceLock, button)));
+  $('#generateFinalVoiceEpisode')?.addEventListener('click', generateFinalVoiceEpisode);
+  document.querySelectorAll('[data-generate-final-line]').forEach((button) => button.addEventListener('click', () => generateFinalVoiceLine(button.dataset.generateFinalLine, button)));
+  $('#generateFinalMix')?.addEventListener('click', generateFinalMix);
 }
 
 async function applyVoiceTimelineTiming() {
@@ -1635,7 +1811,13 @@ async function loadVoiceTimeline(projectId = state.studio?.directory_id || state
   if (!projectId) return;
   state.voiceTimelineProjectId = projectId;
   try {
-    state.voiceTimeline = await api(`/api/novel-anime/projects/${encodeURIComponent(projectId)}/voice-timeline`);
+    const [timeline, finalAudio] = await Promise.all([
+      api(`/api/novel-anime/projects/${encodeURIComponent(projectId)}/voice-timeline`),
+      api(`/api/novel-anime/projects/${encodeURIComponent(projectId)}/final-audio`),
+    ]);
+    state.voiceTimeline = timeline;
+    state.finalAudio = finalAudio;
+    state.finalAudioProjectId = projectId;
     renderVoiceTimeline();
   } catch (error) {
     const target = $('#voiceTimelinePanel');
