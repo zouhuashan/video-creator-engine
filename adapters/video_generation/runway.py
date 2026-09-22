@@ -32,6 +32,8 @@ class RunwayImageToVideo(VideoGenerationProvider):
 
     def generate(self, request: VideoGenerationRequest) -> VideoGenerationResult:
         request.validate()
+        if request.reference_video_paths or request.reference_audio_paths:
+            raise VideoGenerationError("Runway image-to-video adapter does not accept reference video/audio")
         if not self.api_key:
             raise VideoGenerationError("RUNWAY_API_KEY is required for the Runway provider")
         if len(request.image_paths) != 1:
