@@ -1471,7 +1471,7 @@ def _graybox_web_status(project: Path) -> dict[str, object]:
             "spec_sha256": str(render.get("spec_sha256") or ""),
             "output_path": output,
             "output_bytes": int(render.get("output_bytes") or 0),
-            "media_url": _media_url(project, output) if output and render.get("output_ready") else "",
+            "media_url": _media_url(project, output) if output and (project / output).is_file() else "",
             "log_path": str(render.get("log_path") or ""),
             "process_alive": bool(render.get("process_alive")),
             "elapsed_seconds": render.get("elapsed_seconds"),
