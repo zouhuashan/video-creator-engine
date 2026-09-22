@@ -1302,6 +1302,97 @@ def _graybox_reference_web_inventory(project: Path) -> dict[str, object]:
     }
 
 
+def _graybox_smoke_review_path(project: Path, spec_id: str) -> Path:
+    clean = re.sub(r"[^A-Za-z0-9._-]+", "-", str(spec_id or "GB-SHOT-001")).strip("-._") or "GB-SHOT-001"
+    return Path(project).resolve() / "graybox" / "smoke-reviews" / f"{clean}.json"
+
+
+def _graybox_smoke_review_default(spec_id: str, final_output: str = "") -> dict[str, object]:
+    return {
+        "schema_version": 1,
+        "shot_spec_id": str(spec_id or "GB-SHOT-001"),
+        "final_output": str(final_output or ""),
+        "character_identity": "PENDING",
+        "scene_fidelity": "PENDING",
+        "motion_skeleton": "PENDING",
+        "status": "PENDING",
+        "note": "",
+        "updated_at": "",
+        "stale": False,
+    }
+
+
+def _load_graybox_smoke_review(project: Path, spec_id: str, latest_final: dict[str, object] | None) -> dict[str, object]:
+    latest_output = str((latest_final or {}).get("output") or "")
+    default = _graybox_smoke_review_default(spec_id, latest_output)
+    review_path = _graybox_smoke_review_path(project, spec_id)
+    if not review_path.is_file():
+        return default
+    try:
+        payload = json.loads(review_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {**default, "detail": "smoke review file is invalid"}
+    if not isinstance(payload, dict):
+        return {**default, "detail": "smoke review file is invalid"}
+    stored_output = str(payload.get("final_output") or "")
+    if latest_output and stored_output != latest_output:
+        return {
+            **default,
+            "stale": bool(stored_output),
+            "previous_status": str(payload.get("status") or "PENDING"),
+            "detail": "已有 smoke 验收属于旧版最终视频；请对当前最新成片重新验收。",
+        }
+    return {
+        **default,
+        **payload,
+        "stale": False,
+    }
+
+
+def _save_graybox_smoke_review(project: Path, payload: dict[str, object]) -> dict[str, object]:
+    state = _graybox_web_status(project)
+    spec = state.get("spec") if isinstance(state.get("spec"), dict) else {}
+    spec_id = str((spec or {}).get("id") or "GB-SHOT-001")
+    final_items = state.get("final_items") if isinstance(state.get("final_items"), list) else []
+    latest_final = final_items[0] if final_items and isinstance(final_items[0], dict) else None
+    if not latest_final:
+        raise ValueError("必须先生成 MiniMax H3 最终视频，才能保存 P32 smoke 验收")
+
+    allowed = {"PENDING", "PASS", "FAIL"}
+    axes: dict[str, str] = {}
+    for key, label in (
+        ("character_identity", "人物身份"),
+        ("scene_fidelity", "古宅场景"),
+        ("motion_skeleton", "白模动态"),
+    ):
+        value = str(payload.get(key) or "PENDING").strip().upper()
+        if value not in allowed:
+            raise ValueError(f"{label} smoke 状态必须是 PENDING / PASS / FAIL")
+        axes[key] = value
+
+    axis_values = tuple(axes.values())
+    overall = "PASS" if all(value == "PASS" for value in axis_values) else ("FAIL" if "FAIL" in axis_values else "PENDING")
+    review = {
+        "schema_version": 1,
+        "shot_spec_id": spec_id,
+        "final_output": str(latest_final.get("output") or ""),
+        "final_task_id": str(latest_final.get("task_id") or ""),
+        "character_reference": str(latest_final.get("character_reference") or ""),
+        "scene_reference": str(latest_final.get("scene_reference") or ""),
+        **axes,
+        "status": overall,
+        "note": str(payload.get("note") or "").strip()[:2000],
+        "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "stale": False,
+    }
+    review_path = _graybox_smoke_review_path(project, spec_id)
+    review_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = review_path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(review, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    tmp.replace(review_path)
+    return review
+
+
 def _graybox_web_status(project: Path) -> dict[str, object]:
     project = Path(project).resolve()
     # Keep the disposable smoke shot on the latest blocking revision as long as
@@ -1368,6 +1459,11 @@ def _graybox_web_status(project: Path) -> dict[str, object]:
         "references": references,
         "default_prompt": str(((spec or {}).get("ai_video") or {}).get("prompt") or ""),
         "final_items": final_items[:8],
+        "smoke_review": _load_graybox_smoke_review(
+            project,
+            str((spec or {}).get("id") or "GB-SHOT-001"),
+            final_items[0] if final_items else None,
+        ),
     }
 
 
@@ -2423,6 +2519,15 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                 result = start_graybox_render(project)
                 return self._json({**result, "project_id": project.name}, HTTPStatus.ACCEPTED)
             except (ValueError, GrayboxShotSpecError, GrayboxRenderError, OSError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/graybox/smoke-review", route)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                payload = self._read_json(max_bytes=64 * 1024)
+                _save_graybox_smoke_review(project, payload)
+                return self._json(_graybox_web_status(project), HTTPStatus.CREATED)
+            except (ValueError, GrayboxShotSpecError, GrayboxRenderError, OSError, json.JSONDecodeError) as error:
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
         match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/graybox/final", route)
         if match:
