@@ -353,6 +353,28 @@
               </div>
             </div>
 
+            <div class="graybox-live-monitor" id="grayboxLiveMonitor">
+              <div class="graybox-card-head">
+                <div>
+                  <strong>Blender 实时渲染状态</strong>
+                  <small id="grayboxLiveSummary">等待渲染</small>
+                </div>
+                <span class="status-dot off" id="grayboxProcessStatus">IDLE</span>
+              </div>
+              <div class="graybox-progress-track" aria-label="Blender render progress">
+                <span id="grayboxProgressBar"></span>
+              </div>
+              <div class="graybox-live-meta">
+                <span id="grayboxFrameProgress">0 / 0 帧 · 0%</span>
+                <span id="grayboxHeartbeat">暂无心跳</span>
+                <span id="grayboxElapsed">—</span>
+              </div>
+              <details class="graybox-log-details" id="grayboxLogDetails">
+                <summary>查看实时 Blender 日志 <span id="grayboxLogAge">—</span></summary>
+                <pre id="grayboxLiveLog">暂无日志。</pre>
+              </details>
+            </div>
+
             <div class="graybox-adjust-card">
               <div>
                 <span class="section-kicker">NATURAL LANGUAGE TUNE</span>
