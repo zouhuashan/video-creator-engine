@@ -26,6 +26,7 @@ on:
       - "tests/test_comfyui_lora_manager.py"
       - "tests/test_openai_image_provider.py"
       - "tests/test_graybox_shot_spec.py"
+      - "tests/test_graybox_manager.py"
       - ".github/workflows/p31-novel-import-regression.yml"
   workflow_dispatch:
 
@@ -53,6 +54,7 @@ jobs:
             scripts/comfyui_lora_manager.py \
             scripts/graybox_shot_spec.py \
             scripts/graybox_manager.py \
+            scripts/blender_graybox_scene.py \
             scripts/web_server.py \
             adapters/video_generation/minimax_h3.py \
             support/providers/comfyui_image_provider.py \
@@ -78,6 +80,7 @@ jobs:
             tests.test_web_server.WebServerTests.test_web_exposes_p32_graybox_workflow_without_terminal_steps \
             tests.test_web_server.WebServerTests.test_graybox_final_requires_human_approved_blockout \
             tests.test_graybox_shot_spec \
+            tests.test_graybox_manager \
             tests.test_comfyui_image_provider \
             tests.test_comfyui_lora_manager \
             tests.test_openai_image_provider
