@@ -664,7 +664,7 @@ def run_pipeline(
             "subtitles",
             "PASS",
             "existing subtitle asset reused",
-            **subtitle_result,
+            **{key: value for key, value in subtitle_result.items() if key != "status"},
         ))
     elif dry_run:
         stages.append(_stage(
