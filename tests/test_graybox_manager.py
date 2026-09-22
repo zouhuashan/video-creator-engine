@@ -31,6 +31,13 @@ class GrayboxManagerTelemetryTests(unittest.TestCase):
             self.assertIn("Fra:42", result["text"])
             self.assertIsNotNone(result["updated_seconds_ago"])
 
+    def test_blender_graybox_uses_blender_5_slotted_action_api(self):
+        script = (manager.ROOT / "scripts" / "blender_graybox_scene.py").read_text(encoding="utf-8")
+        self.assertIn("animdata_get_channelbag_for_assigned_slot", script)
+        self.assertIn('getattr(action, "fcurves", None)', script)
+        self.assertNotIn("obj.animation_data.action.fcurves", script)
+        self.assertIn("keeping Blender default interpolation", script)
+
     def test_progress_reader_accepts_per_frame_heartbeat(self):
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory)
