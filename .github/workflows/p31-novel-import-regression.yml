@@ -90,6 +90,7 @@ jobs:
             tests.test_web_server.WebServerTests.test_cinematic_3d_final_route_refuses_local_animagine_fallback \
             tests.test_web_server.WebServerTests.test_cinematic_3d_final_route_rejects_explicit_comfyui \
             tests.test_web_server.WebServerTests.test_web_exposes_p32_graybox_workflow_without_terminal_steps \
+            tests.test_web_server.WebServerTests.test_p34_final_audio_web_exposes_voice_lock_billing_gate_and_mix_without_secret \
             tests.test_web_server.WebServerTests.test_http_byte_range_parser_supports_video_streaming_ranges \
             tests.test_web_server.WebServerTests.test_p32_video_preview_does_not_reset_same_src_during_state_refresh \
             tests.test_web_server.WebServerTests.test_graybox_final_requires_human_approved_blockout \
