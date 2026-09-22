@@ -13,7 +13,10 @@ IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
 MAX_SCENE_REFERENCE_BYTES = 12 * 1024 * 1024
 DEFAULT_SPEC_ID = "GB-SHOT-001"
 ROOT = Path(__file__).resolve().parents[1]
-SMOKE_REFERENCE_BOARD = ROOT / "assets" / "p32" / DEFAULT_SPEC_ID / "reference-board.webp"
+SMOKE_REFERENCE_ROOT = ROOT / "assets" / "p32" / DEFAULT_SPEC_ID
+SMOKE_REFERENCE_BOARD = SMOKE_REFERENCE_ROOT / "reference-board.webp"
+SMOKE_REFERENCE_CHARACTER = SMOKE_REFERENCE_ROOT / "character-reference.webp"
+SMOKE_REFERENCE_SCENE = SMOKE_REFERENCE_ROOT / "scene-reference.webp"
 
 
 class GrayboxReferenceError(RuntimeError):
@@ -236,8 +239,10 @@ def install_smoke_reference_pack(project_dir: Path) -> dict[str, Any]:
     """
     project = Path(project_dir).resolve()
     board = SMOKE_REFERENCE_BOARD.resolve()
-    if not board.is_file():
-        raise GrayboxReferenceError("packaged P32 smoke reference board is missing")
+    packaged_character = SMOKE_REFERENCE_CHARACTER.resolve()
+    packaged_scene = SMOKE_REFERENCE_SCENE.resolve()
+    if not ((packaged_character.is_file() and packaged_scene.is_file()) or board.is_file()):
+        raise GrayboxReferenceError("packaged P32 smoke reference assets are missing")
     try:
         from PIL import Image
     except ImportError as error:
@@ -251,22 +256,31 @@ def install_smoke_reference_pack(project_dir: Path) -> dict[str, Any]:
     scene_path = scene_dir / f"{DEFAULT_SPEC_ID}-scene.webp"
 
     try:
-        with Image.open(board) as source:
-            source = source.convert("RGB")
-            width, height = source.size
-            if width < 8 or height < 8:
-                raise GrayboxReferenceError("packaged P32 smoke reference board is too small")
-            split = max(1, min(width - 1, int(round(width * 0.50))))
-            # The left board contains the hero plus small callouts. Crop the far
-            # left notes while keeping the full-body silhouette; the right half
-            # remains the complete ancient-gate scene.
-            character_left = max(0, int(round(split * 0.13)))
-            character = source.crop((character_left, 0, split, height))
-            scene = source.crop((split, 0, width, height))
-            character.thumbnail((768, 1365), Image.Resampling.LANCZOS)
-            scene.thumbnail((768, 1365), Image.Resampling.LANCZOS)
-            character.save(character_path, "WEBP", quality=90, method=6)
-            scene.save(scene_path, "WEBP", quality=90, method=6)
+        if packaged_character.is_file() and packaged_scene.is_file():
+            # Prefer the separately generated references so neither Gemini nor
+            # MiniMax receives UI labels/callouts from the combined concept board.
+            with Image.open(packaged_character) as source:
+                character = source.convert("RGB")
+                character.thumbnail((768, 1365), Image.Resampling.LANCZOS)
+                character.save(character_path, "WEBP", quality=90, method=6)
+            with Image.open(packaged_scene) as source:
+                scene = source.convert("RGB")
+                scene.thumbnail((768, 1365), Image.Resampling.LANCZOS)
+                scene.save(scene_path, "WEBP", quality=90, method=6)
+        else:
+            with Image.open(board) as source:
+                source = source.convert("RGB")
+                width, height = source.size
+                if width < 8 or height < 8:
+                    raise GrayboxReferenceError("packaged P32 smoke reference board is too small")
+                split = max(1, min(width - 1, int(round(width * 0.50))))
+                character_left = max(0, int(round(split * 0.13)))
+                character = source.crop((character_left, 0, split, height))
+                scene = source.crop((split, 0, width, height))
+                character.thumbnail((768, 1365), Image.Resampling.LANCZOS)
+                scene.thumbnail((768, 1365), Image.Resampling.LANCZOS)
+                character.save(character_path, "WEBP", quality=90, method=6)
+                scene.save(scene_path, "WEBP", quality=90, method=6)
     except GrayboxReferenceError:
         raise
     except Exception as error:
@@ -288,6 +302,8 @@ def install_smoke_reference_pack(project_dir: Path) -> dict[str, Any]:
         "style_label": "P32 Smoke · cinematic 3D donghua",
         "source": "repo_packaged_smoke_reference",
         "source_board": "assets/p32/GB-SHOT-001/reference-board.webp",
+        "source_character": "assets/p32/GB-SHOT-001/character-reference.webp",
+        "source_scene": "assets/p32/GB-SHOT-001/scene-reference.webp",
         "created_at": _utc_timestamp(),
     }
     character_path.with_suffix(".json").write_text(
@@ -303,6 +319,8 @@ def install_smoke_reference_pack(project_dir: Path) -> dict[str, Any]:
         "character_reference": character_relative,
         "scene_reference": scene_relative,
         "source_board": "assets/p32/GB-SHOT-001/reference-board.webp",
+        "source_character": "assets/p32/GB-SHOT-001/character-reference.webp",
+        "source_scene": "assets/p32/GB-SHOT-001/scene-reference.webp",
         "binding": binding,
     }
 
