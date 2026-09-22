@@ -35,9 +35,11 @@ class GrayboxDefaultBlockingTests(unittest.TestCase):
     def test_default_smoke_starts_at_gate_and_walks_inward(self):
         config = graybox._load_json(graybox.CONFIG_PATH)
         shot = config["default_shot"]
-        self.assertGreaterEqual(int(shot["blocking_revision"]), 2)
+        self.assertGreaterEqual(int(shot["blocking_revision"]), 3)
+        self.assertGreater(shot["actor"]["start"][1], 3.5)
         self.assertGreater(shot["actor"]["start"][1], shot["actor"]["stop"][1])
-        self.assertTrue(shot["camera_path"]["follow_actor"])
+        self.assertGreater(float(shot["actor"]["walk_start_time"]), 0.0)
+        self.assertFalse(shot["camera_path"]["follow_actor"])
         self.assertGreater(float(shot["camera_path"]["target_height"]), 1.0)
 
 
