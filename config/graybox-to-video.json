@@ -1,5 +1,5 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "default_shot": {
     "id": "GB-SHOT-001",
     "duration_seconds": 8,
@@ -12,38 +12,39 @@
     "actor": {
       "start": [
         0,
-        1.55,
+        4.15,
         0
       ],
       "stop": [
         0,
-        -1.15,
+        -0.85,
         0
       ],
-      "stop_time": 4.6,
-      "look_up_time": 5.35,
-      "hold_time": 7.25
+      "stop_time": 4.75,
+      "look_up_time": 5.45,
+      "hold_time": 7.3,
+      "walk_start_time": 0.6
     },
     "camera_path": {
       "start": [
-        3.2,
-        -8.4,
-        2.85
+        3.55,
+        -10.4,
+        3.15
       ],
       "end": [
-        2.55,
-        -6.45,
-        2.62
+        3.05,
+        -8.65,
+        2.95
       ],
       "target": [
         0,
-        -0.15,
-        1.55
+        -0.55,
+        1.6
       ],
-      "follow_actor": true,
-      "target_height": 1.55
+      "follow_actor": false,
+      "target_height": 1.6
     },
-    "blocking_revision": 2
+    "blocking_revision": 3
   },
   "minimax_h3": {
     "model": "MiniMax-H3",
