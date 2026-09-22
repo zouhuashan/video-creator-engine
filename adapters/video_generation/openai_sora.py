@@ -43,6 +43,8 @@ class OpenAISoraVideo(VideoGenerationProvider):
 
     def generate(self, request: VideoGenerationRequest) -> VideoGenerationResult:
         request.validate()
+        if request.reference_video_paths or request.reference_audio_paths:
+            raise VideoGenerationError("OpenAI Sora adapter does not accept reference video/audio in this contract")
         if not self.api_key:
             raise VideoGenerationError("OPENAI_API_KEY is required for the OpenAI Sora provider")
         if len(request.image_paths) > 1:
