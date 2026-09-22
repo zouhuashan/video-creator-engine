@@ -3982,6 +3982,13 @@ Status: CODE PASS / LOCAL BLENDER WEB REVERIFY
 
 执行记录（2026-09-22）：
 
+- Blender 5.2.1 第二个实机兼容修复：动作 API 修复后，白模继续启动并在 Output 配置阶段报 `enum "FFMPEG" not found`。Blender 5.x 已把“媒体类型”和“图片文件格式”拆开，`ImageFormatSettings.file_format` 只接收 PNG/JPEG/EXR 等图片格式；视频输出必须使用 `ImageFormatSettings.media_type = "VIDEO"`，容器/编码继续由 `scene.render.ffmpeg` 控制。现已：
+  - Blender 5.x → `media_type = VIDEO`；
+  - Blender <= 4.x → 保留 `file_format = FFMPEG` fallback；
+  - MPEG4 / H.264 / CRF / GOP / no-audio 配置保持；
+  - 启动前检查 `bpy.app.build_options.codec_ffmpeg`；
+  - Blender 日志直接打印版本和实际采用的新/旧视频输出 API。
+
 - Blender 5.2.1 实机兼容修复：首次真实后台白模 smoke 在动作插值阶段崩溃，日志为 `AttributeError: 'Action' object has no attribute 'fcurves'`。原因是 Blender 5.x 已移除旧 `Action.fcurves` 入口，动画 F-Curve 需要从当前 Action Slot 对应的 Channelbag 访问。现已：
   - 使用 `bpy_extras.anim_utils.animdata_get_channelbag_for_assigned_slot()` 支持 Blender 5.x slotted/layered Action；
   - 旧 Blender 仍优先兼容 `Action.fcurves`；
