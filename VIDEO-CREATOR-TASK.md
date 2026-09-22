@@ -4577,6 +4577,18 @@ Status: CODE PASS / CI PASS / LOCAL VISUAL SMOKE PENDING
   - 用户确认后 Web 自动调用 `graybox/review → APPROVED`，再继续抽取控制帧；
   - 不再要求用户滚回 P32 上方寻找“白模通过”按钮；
   - P35 状态条改为输出**真实阻断项**（缺白模 / 白模 stale / 缺人物 / 缺场景），而不是笼统显示“需要 APPROVED + references”。
+- P35 Codex 首轮批量失败诊断与修复（2026-09-23）：
+  - 本机 Web 首轮出现 `0 / 9 · 5 FAILED`，恰好是 5 个 Canonical Reset 全部失败，说明不是单帧美术质量问题，而是 Codex CLI 调用层系统性失败；
+  - 原调用把多个 `--image` 放在 `exec` 前面并把 Prompt 作为位置参数；Codex CLI 当前 `--image` 在部分版本存在 greedy parser 行为，会把后续位置参数吞成图片路径；
+  - 新调用固定为：`codex exec ... --image image1,image2,image3`，全部参考图使用单个逗号分隔值；
+  - Prompt 不再作为位置参数，改为通过 stdin 输入，规避 `exec --image <file> "<prompt>"` 的已知解析冲突；
+  - Codex 子进程启用 `RUST_LOG=info`（若用户未显式设置），便于排障；
+  - 每帧写入 `codex-logs/KF-xxx.log` 和 prompt 文件；
+  - 新增 `GET .../graybox/gpt-keyframes/codex-batch/logs`；
+  - Web 新增“查看 / 刷新 Codex 日志”，失败时自动读取并展开每个 KF 的 error + 原始 Codex CLI log tail；
+  - 不再只显示抽象 `FAILED` 数字；
+  - 回归 run `35752798757` = SUCCESS：验证 robust stdin exec、单个逗号 `--image`、日志返回；
+  - 回归 run `35752831955` = SUCCESS：验证 P35 Web 必须暴露 Codex diagnostics panel / logs API / Node syntax。
 - P35 Codex 批量生图升级（2026-09-22）：
   - 新增 `scripts/codex_keyframe_batch.py`；
   - backend = `CODEX_IMAGEGEN_BATCH`；
@@ -4683,6 +4695,13 @@ Status: CODE PASS / CI PASS / LOCAL VISUAL SMOKE PENDING
 - `39d363a6` Codex batch Web styles
 - `3cd1ab4f` CI gate for Codex batch
 - `32d9c2c6` self-contained Codex batch regression fix
+- `9b3104f4` robust Codex exec + log reader
+- `08f0a437` Codex log Web API
+- `905bb847` visible Web log panel
+- `acfdc039` auto-load failed-frame logs
+- `ed098832` diagnostics styles
+- `60e64244` robust exec/log regression
+- `5f266f74` Web-visible diagnostics regression
 
 当前 Web smoke 路径：
 
@@ -4726,4 +4745,4 @@ P35 / GPT KEYFRAME → LOCAL VIDEO
 
 当前边界：P35 已从 **MANUAL_WEB_BRIDGE** 升级为 **CODEX_IMAGEGEN_BATCH + ChatGPT Web 手工备用**。正式自动批量路线使用用户已有 Codex 登录与套餐额度，不使用 VideoCreator 内保存的 API Key。若后续整集/批量镜头的 Codex 套餐消耗过高，再切换为独立 `OPENAI_IMAGE_API` Provider 做可计费、可控并发的大批量生产。
 
-NEXT：本机更新 main、重启 Web，对 `GB-SHOT-001` 先做 9 张 Codex ImageGen smoke：并发 2，确认两项授权后启动批量生成。9 张关键帧全部 READY 后先检查人物/服装/古宅稳定性，再做 `9 keyframes → FFmpeg minterpolate → 24fps`，与 H3 112 贝壳版本并排比较；只有插帧伪影明显时才升到 17 张。
+NEXT：本机更新 main、重启 Web；旧的 5 FAILED 可直接再次点“② Codex 重试失败 / 剩余 9 张”。新版本会使用 `codex exec + comma-separated --image + stdin prompt`。若仍失败，Web 会自动展开“Codex 日志”，直接把第一条 FAILED 的原始 CLI 输出用于下一轮修复；不要再盲目重复消耗额度。成功 9/9 READY 后再进入本地 24fps 插帧。
