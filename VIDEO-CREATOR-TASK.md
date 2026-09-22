@@ -3982,6 +3982,21 @@ Status: CODE PASS / LOCAL BLENDER WEB REVERIFY
 
 执行记录（2026-09-22）：
 
+- P32 白模 v3 纠偏：对用户上传的真实 `GB-SHOT-001.mp4` 做逐时刻检查后，确认技术链已经完整输出 8 秒 / 24fps / 192 帧，但动态骨架仍不适合作为 MiniMax reference：
+  - 人物虽然有位移，但起点仍在门内侧，不能读成“从门外穿门进入”；
+  - 旧环境使用整块 `BackWall`，视觉上没有真正可穿过的门洞；
+  - 走路主要依靠 Root translation，缺少身体重量起伏；
+  - “抬头看灯”没有实际灯具目标，且旧版只旋转 HairMass，头颈动作不成立；
+  - Camera dolly 与人物接近同时发生，容易让人物运动和镜头运动互相掩盖。
+- `blocking_revision` 升级到 v3：
+  - actor start 移到门外 `y=4.15`，stop 移到院内 `y=-0.85`；
+  - 新增 0.6 秒起步预留；
+  - Camera 改为更弱的固定目标 dolly，不再 follow_actor；
+  - 整块 BackWall 拆成左右墙体，形成真正可穿过的门洞；
+  - 门楣下新增 LanternBody / LanternTop / LanternStem，作为明确抬头目标；
+  - 角色新增 BodyRoot walk bob 与 HeadPivot，抬头直接驱动完整头面方向；
+  - Web 每次加载 P32 时会自动 `ensure_graybox_spec()`；尚未 APPROVED 且未生成付费 final 的旧 smoke spec 会自动迁移到最新 blocking revision，旧 MP4 因 spec SHA 改变自动变为 STALE。
+
 - 首个真实白模 MP4 视觉复盘（8 秒 / 24fps / 720×1280）发现三类 blocking 缺陷，并已直接修复：
   - **鸡蛋头 / 头发体积异常**：`HairMass` 创建时已经使用 Z scale 0.32，旧代码随后又执行 `hair.scale.z = 1.05`，把头发高度错误放大 3 倍以上。改为乘法微调 `hair.scale.z *= 1.05`，并缩小头部与面向标记。
   - **开场人物被裁在画面左侧 / 并非从古宅门口进入**：旧 actor path 为 `y=-4.5 → -0.3`，人物从镜头前景进入而不是从门口进入。blocking revision 升级为 v2：人物从门口附近 `y=1.55` 向院内/镜头方向走到 `y=-1.15`；Camera 位置同步重排，并新增 `follow_actor`，CameraTarget 在走路阶段跟随角色中心，避免开场出框。
