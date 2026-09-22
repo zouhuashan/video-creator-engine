@@ -91,6 +91,7 @@ from scripts.graybox_shot_spec import GrayboxShotSpecError, apply_natural_langua
 from scripts.graybox_manager import GrayboxRenderError, adopt_existing_render as adopt_graybox_render, start_render as start_graybox_render, status as graybox_render_status  # noqa: E402
 from scripts.graybox_reference_binding import GrayboxReferenceError, bind_reference as bind_graybox_reference, install_smoke_reference_pack as install_graybox_smoke_reference_pack, inventory as graybox_reference_inventory, resolve_bound_paths as resolve_graybox_reference_paths, upload_scene_reference as upload_graybox_scene_reference  # noqa: E402
 from scripts.gpt_keyframe_pipeline import GPTKeyframeError, interpolate as interpolate_gpt_keyframes, inventory as gpt_keyframe_inventory, prepare as prepare_gpt_keyframes, upload_generated_frame as upload_gpt_keyframe  # noqa: E402
+from scripts.codex_keyframe_batch import CodexKeyframeBatchError, start as start_codex_keyframe_batch, status as codex_keyframe_batch_status, stop as stop_codex_keyframe_batch  # noqa: E402
 
 
 PROVIDER_TYPES = {
@@ -1418,6 +1419,7 @@ def _gpt_keyframe_web_status(project: Path) -> dict[str, object]:
     if output:
         interpolation["media_url"] = media(output)
     payload["interpolation"] = interpolation
+    payload["codex_batch"] = codex_keyframe_batch_status(project)
     return payload
 
 
@@ -2644,6 +2646,30 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
             except Exception as error:
                 return self._error(HTTPStatus.INTERNAL_SERVER_ERROR, f"GPT keyframe prepare failed: {error}")
+
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/graybox/gpt-keyframes/codex-batch/start", route)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                payload = self._read_json(max_bytes=64 * 1024)
+                start_codex_keyframe_batch(
+                    project,
+                    concurrency=int(payload.get("concurrency") or 2),
+                    confirm_codex_usage=payload.get("confirm_codex_usage") is True,
+                    confirm_reference_upload=payload.get("confirm_reference_upload") is True,
+                )
+                return self._json(_gpt_keyframe_web_status(project), HTTPStatus.CREATED)
+            except (ValueError, TypeError, CodexKeyframeBatchError, GPTKeyframeError, OSError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/graybox/gpt-keyframes/codex-batch/stop", route)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                stop_codex_keyframe_batch(project)
+                return self._json(_gpt_keyframe_web_status(project), HTTPStatus.CREATED)
+            except (ValueError, CodexKeyframeBatchError, GPTKeyframeError, OSError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
 
         match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/graybox/gpt-keyframes/upload", route)
         if match:
