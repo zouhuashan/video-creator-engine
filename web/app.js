@@ -308,6 +308,149 @@ async function fileToBase64(file) {
   });
 }
 
+function renderGptKeyframes() {
+  const data = state.gptKeyframes || {};
+  const frames = data.frames || [];
+  const status = data.status || 'NOT_PREPARED';
+  const statusEl = $('#gptKeyframeStatus');
+  if (!statusEl) return;
+  statusEl.textContent = status;
+  statusEl.classList.toggle('off', status !== 'VIDEO_READY' && status !== 'READY');
+
+  const countSelect = $('#gptKeyframeCount');
+  if (countSelect && ['9', '17'].includes(String(data.keyframe_count || ''))) countSelect.value = String(data.keyframe_count);
+
+  const graybox = state.graybox || {};
+  const refs = graybox.references || {};
+  const review = graybox.spec?.review || {};
+  const render = graybox.render || {};
+  const canPrepare = Boolean(render.output_ready && !render.render_stale && review.status === 'APPROVED' && refs.ready);
+  $('#gptKeyframePrepare').disabled = !canPrepare;
+
+  const referenceSummary = $('#gptKeyframeReferenceSummary');
+  if (data.character_reference && data.scene_reference) {
+    const characterLink = data.character_reference_url ? '<a href="' + escapeHtml(data.character_reference_url) + '" target="_blank" rel="noopener noreferrer">人物参考</a>' : escapeHtml(data.character_reference);
+    const sceneLink = data.scene_reference_url ? '<a href="' + escapeHtml(data.scene_reference_url) + '" target="_blank" rel="noopener noreferrer">场景参考</a>' : escapeHtml(data.scene_reference);
+    referenceSummary.innerHTML = '输入锁定：' + characterLink + ' + ' + sceneLink + ' + Blender 控制帧 · ' + Number(data.generated_count || 0) + '/' + Number(data.keyframe_count || 0) + ' 张 AI 帧已回传';
+  } else {
+    referenceSummary.textContent = canPrepare ? '人物 / 场景 / 白模均已就绪，可以抽取控制帧。' : '需要：白模 APPROVED + 人物参考 + 场景参考。';
+  }
+
+  const grid = $('#gptKeyframeGrid');
+  if (!frames.length) {
+    grid.innerHTML = '<div class="empty-state">尚未准备控制帧。首轮建议 9 张，确认人物与古宅稳定后再试 17 张。</div>';
+  } else {
+    grid.innerHTML = frames.map(function(frame) {
+      const ready = frame.status === 'READY' && frame.generated_url;
+      const reset = frame.reference_mode === 'CANONICAL_RESET';
+      return '<article class="gpt-keyframe-card">' +
+        '<div class="gpt-keyframe-card-head"><div><strong>' + escapeHtml(frame.id) + '</strong><small>' + Number(frame.timestamp_seconds || 0).toFixed(2) + 's · ' + escapeHtml(frame.reference_mode || '') + '</small></div><span class="pipeline-stage-status ' + (ready ? 'pass' : 'pending') + '">' + escapeHtml(frame.status || 'CONTROL_READY') + '</span></div>' +
+        '<div class="gpt-keyframe-images">' +
+          '<figure><img src="' + escapeHtml(frame.control_url || '') + '" alt="Blender control frame"><figcaption>Blender 控制帧</figcaption></figure>' +
+          (ready ? '<figure><img src="' + escapeHtml(frame.generated_url) + '" alt="AI final keyframe"><figcaption>AI 最终关键帧</figcaption></figure>' : '<div class="gpt-keyframe-missing">等待 ChatGPT 最终帧</div>') +
+        '</div>' +
+        '<div class="gpt-keyframe-actions">' +
+          '<a class="secondary-button small-button" href="' + escapeHtml(frame.control_url || '#') + '" target="_blank" rel="noopener noreferrer">打开控制帧</a>' +
+          '<button class="secondary-button small-button" data-gpt-copy="' + Number(frame.index) + '">复制 Prompt</button>' +
+        '</div>' +
+        '<details class="gpt-keyframe-prompt"><summary>' + (reset ? 'Canonical Reset 提示词' : 'Continuity 提示词') + '</summary><textarea readonly>' + escapeHtml(frame.prompt || '') + '</textarea></details>' +
+        '<div class="gpt-keyframe-upload"><input type="file" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" data-gpt-file="' + Number(frame.index) + '"><button class="primary-button small-button" data-gpt-upload="' + Number(frame.index) + '">' + (ready ? '替换最终帧' : '上传 ChatGPT 最终帧') + '</button></div>' +
+        (frame.previous_index == null ? '<small class="gpt-keyframe-note">只需人物参考 + 场景参考 + 当前控制帧。</small>' : '<small class="gpt-keyframe-note">额外带上 GPT-KF-' + String(frame.previous_index).padStart(3, '0') + ' 最终帧作为连续性参考。</small>') +
+      '</article>';
+    }).join('');
+    grid.querySelectorAll('[data-gpt-copy]').forEach((button) => button.addEventListener('click', () => copyGptKeyframePrompt(Number(button.dataset.gptCopy))));
+    grid.querySelectorAll('[data-gpt-upload]').forEach((button) => button.addEventListener('click', () => uploadGptKeyframe(Number(button.dataset.gptUpload), button)));
+  }
+
+  const readyForVideo = frames.length > 1 && Number(data.generated_count || 0) === Number(data.keyframe_count || 0);
+  $('#gptKeyframeInterpolate').disabled = !readyForVideo;
+  const interpolation = data.interpolation || {};
+  const outputWrap = $('#gptKeyframeOutput');
+  const video = $('#gptKeyframeVideo');
+  if (interpolation.media_url) {
+    const src = interpolation.media_url + '?v=' + encodeURIComponent(String(data.updated_at || interpolation.output_bytes || 'ready'));
+    if ((video.getAttribute('src') || '') !== src) video.src = src;
+    $('#gptKeyframeOutputMeta').textContent = Number(data.keyframe_count || 0) + ' AI keyframes → ' + Number(interpolation.target_fps || data.target_fps || 24) + 'fps · ' + escapeHtml(interpolation.backend || 'FFMPEG_MINTERPOLATE');
+    outputWrap.classList.remove('hidden');
+  } else {
+    video.removeAttribute('src');
+    outputWrap.classList.add('hidden');
+  }
+  $('#gptKeyframeHint').textContent = status === 'VIDEO_READY'
+    ? 'P35 本地视频已生成。先播放检查脸/衣服/建筑闪烁与插帧伪影；如果 9 帧不够，再改用 17 帧。'
+    : frames.length
+      ? '按卡片顺序在 ChatGPT 网页版生成并回传。约每 2 秒自动提示一次 canonical reset，避免人物和古宅越改越漂。'
+      : '这条路线当前是 ChatGPT Web 手工桥接，不调用 OpenAI Image API，也不会自动产生远程图片费用。';
+}
+
+async function loadGptKeyframes(projectId = state.grayboxProjectId) {
+  if (!projectId) return;
+  state.gptKeyframes = await api('/api/novel-anime/projects/' + encodeURIComponent(projectId) + '/graybox/gpt-keyframes');
+  renderGptKeyframes();
+}
+
+async function prepareGptKeyframes() {
+  const projectId = resolveActiveNovelProject(state.grayboxProjectId || state.imageStudioProjectId);
+  if (!projectId) return;
+  const button = $('#gptKeyframePrepare');
+  button.disabled = true;
+  button.textContent = '正在抽取控制帧…';
+  try {
+    state.gptKeyframes = await api('/api/novel-anime/projects/' + encodeURIComponent(projectId) + '/graybox/gpt-keyframes/prepare', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ keyframe_count: Number($('#gptKeyframeCount').value || 9) }),
+    });
+    renderGptKeyframes();
+    log('P35 Blender 控制帧已准备：' + state.gptKeyframes.keyframe_count + ' 张。');
+  } catch (error) { log(error.message, true); }
+  finally { button.textContent = '① 抽取 Blender 控制帧'; renderGptKeyframes(); }
+}
+
+async function copyGptKeyframePrompt(index) {
+  const frame = (state.gptKeyframes?.frames || []).find((item) => Number(item.index) === Number(index));
+  if (!frame?.prompt) return;
+  try {
+    await navigator.clipboard.writeText(frame.prompt);
+    log(frame.id + ' Prompt 已复制。');
+  } catch (_) {
+    log('浏览器未允许自动复制，请展开卡片中的提示词手工复制。', true);
+  }
+}
+
+async function uploadGptKeyframe(index, button) {
+  const projectId = state.grayboxProjectId;
+  const input = document.querySelector('[data-gpt-file="' + index + '"]');
+  const file = input?.files?.[0];
+  if (!projectId || !file) { log('请选择 ChatGPT 生成的关键帧图片。', true); return; }
+  if (file.size <= 0 || file.size > 16 * 1024 * 1024) { log('关键帧图片必须在 1 byte 到 16 MB 之间。', true); return; }
+  button.disabled = true;
+  button.textContent = '上传中…';
+  try {
+    const contentBase64 = await fileToBase64(file);
+    state.gptKeyframes = await api('/api/novel-anime/projects/' + encodeURIComponent(projectId) + '/graybox/gpt-keyframes/upload', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ index: index, filename: file.name, content_base64: contentBase64 }),
+    });
+    renderGptKeyframes();
+    log('P35 ' + String(index).padStart(3, '0') + ' 最终关键帧已回传并规范化为 9:16。');
+  } catch (error) { log(error.message, true); button.disabled = false; button.textContent = '上传 ChatGPT 最终帧'; }
+}
+
+async function interpolateGptKeyframes() {
+  const projectId = state.grayboxProjectId;
+  if (!projectId) return;
+  const button = $('#gptKeyframeInterpolate');
+  button.disabled = true;
+  button.textContent = '本地插帧中…';
+  try {
+    state.gptKeyframes = await api('/api/novel-anime/projects/' + encodeURIComponent(projectId) + '/graybox/gpt-keyframes/interpolate', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+    });
+    renderGptKeyframes();
+    log('P35 本地 24fps 视频已生成：' + (state.gptKeyframes.interpolation?.output || 'READY'));
+  } catch (error) { log(error.message, true); }
+  finally { button.textContent = '④ 本地插帧 → 24fps'; renderGptKeyframes(); }
+}
 function renderGraybox() {
   const data = state.graybox || {};
   const render = data.render || {};
@@ -487,6 +630,7 @@ function renderGraybox() {
     : !references.ready
       ? '白模已通过；继续绑定人物参考 + 场景参考，完成最终输入包后才能生成成片。'
       : '白模 + 人物参考 + 场景参考均已就绪。确认付费与上传授权后，可进入 MiniMax H3 最终成片。';
+  renderGptKeyframes();
   syncGrayboxPolling();
 }
 
@@ -494,6 +638,11 @@ async function loadGraybox(projectId = resolveActiveNovelProject(state.grayboxPr
   if (!projectId) return;
   state.grayboxProjectId = projectId;
   state.graybox = await api(`/api/novel-anime/projects/${encodeURIComponent(projectId)}/graybox`);
+  try {
+    state.gptKeyframes = await api(`/api/novel-anime/projects/${encodeURIComponent(projectId)}/graybox/gpt-keyframes`);
+  } catch (_) {
+    state.gptKeyframes = null;
+  }
   renderGraybox();
 }
 
@@ -3050,6 +3199,8 @@ $('#grayboxUploadSceneReference').addEventListener('click', uploadGrayboxSceneRe
 $('#grayboxSaveMiniMaxKey').addEventListener('click', saveMiniMaxKey);
 $('#grayboxGenerateFinalButton').addEventListener('click', generateGrayboxFinal);
 $('#grayboxSaveSmokeReview').addEventListener('click', saveGrayboxSmokeReview);
+$('#gptKeyframePrepare').addEventListener('click', prepareGptKeyframes);
+$('#gptKeyframeInterpolate').addEventListener('click', interpolateGptKeyframes);
 
 $('#novelImportRights').addEventListener('change', updateNovelImportRightsUI);
 $('#novelImportFile').addEventListener('change', (event) => {
