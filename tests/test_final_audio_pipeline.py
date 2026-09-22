@@ -169,6 +169,26 @@ class FinalAudioPipelineTests(unittest.TestCase):
         self.assertIn("loudnorm=I=-16:TP=-1:LRA=11", graph)
         self.assertIn("adelay=1500|1500", graph)
 
+    def test_audio_asset_upload_accepts_real_wav_header_and_rejects_html(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            wav = b"RIFF" + (36).to_bytes(4, "little") + b"WAVEfmt " + b"\x00" * 24
+            uploaded = final_audio.upload_audio_asset(
+                project,
+                kind="bgm",
+                filename="theme.wav",
+                content=wav,
+            )
+            self.assertEqual(uploaded["kind"], "bgm")
+            self.assertTrue((project / uploaded["path"]).is_file())
+            with self.assertRaisesRegex(final_audio.FinalAudioError, "文件头"):
+                final_audio.upload_audio_asset(
+                    project,
+                    kind="sfx",
+                    filename="fake.mp3",
+                    content=b"<html>not audio</html>",
+                )
+
     def test_inventory_reports_audio_candidates_and_process_only_key_policy(self):
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory)
