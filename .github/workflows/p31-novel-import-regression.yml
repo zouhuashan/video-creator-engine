@@ -9,6 +9,11 @@ on:
       - "scripts/novel_source_ingest.py"
       - "scripts/web_server.py"
       - "scripts/comfyui_lora_manager.py"
+      - "scripts/graybox_shot_spec.py"
+      - "scripts/graybox_manager.py"
+      - "scripts/blender_graybox_scene.py"
+      - "config/graybox-to-video.json"
+      - "adapters/video_generation/minimax_h3.py"
       - "support/providers/comfyui_image_provider.py"
       - "support/providers/openai_image_provider.py"
       - "config/providers/comfyui-image-provider.json"
@@ -20,6 +25,7 @@ on:
       - "tests/test_comfyui_image_provider.py"
       - "tests/test_comfyui_lora_manager.py"
       - "tests/test_openai_image_provider.py"
+      - "tests/test_graybox_shot_spec.py"
       - ".github/workflows/p31-novel-import-regression.yml"
   workflow_dispatch:
 
@@ -45,7 +51,10 @@ jobs:
             scripts/novel_source_catalog.py \
             scripts/novel_source_ingest.py \
             scripts/comfyui_lora_manager.py \
+            scripts/graybox_shot_spec.py \
+            scripts/graybox_manager.py \
             scripts/web_server.py \
+            adapters/video_generation/minimax_h3.py \
             support/providers/comfyui_image_provider.py \
             support/providers/openai_image_provider.py
       - name: Check LoRA manager direct and module entrypoints
@@ -66,6 +75,9 @@ jobs:
             tests.test_web_server.WebServerTests.test_image_style_presets_default_to_cinematic_3d_and_keep_illustration_lora_separate \
             tests.test_web_server.WebServerTests.test_cinematic_3d_final_route_refuses_local_animagine_fallback \
             tests.test_web_server.WebServerTests.test_cinematic_3d_final_route_rejects_explicit_comfyui \
+            tests.test_web_server.WebServerTests.test_web_exposes_p32_graybox_workflow_without_terminal_steps \
+            tests.test_web_server.WebServerTests.test_graybox_final_requires_human_approved_blockout \
+            tests.test_graybox_shot_spec \
             tests.test_comfyui_image_provider \
             tests.test_comfyui_lora_manager \
             tests.test_openai_image_provider
