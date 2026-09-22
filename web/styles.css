@@ -294,3 +294,13 @@ body.rig-v2-open { overflow: hidden; }
 .graybox-log-line{margin-top:10px;color:var(--muted);font-size:12px}
 @media(max-width:900px){.graybox-status-grid{grid-template-columns:1fr 1fr}.graybox-preview-grid{grid-template-columns:1fr}.graybox-shot-card{align-items:flex-start;flex-direction:column}.graybox-actions{justify-content:flex-start}}
 @media(max-width:650px){.graybox-status-grid{grid-template-columns:1fr}.graybox-adjust-row,.graybox-key-row{grid-template-columns:1fr}}
+
+.graybox-live-monitor{margin-top:12px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.025);border-radius:14px;padding:14px;display:grid;gap:10px}
+.graybox-live-monitor .graybox-card-head>div{display:grid;gap:3px}
+.graybox-live-monitor .graybox-card-head small{color:var(--muted);font-size:11px}
+.graybox-progress-track{height:8px;border-radius:999px;background:rgba(255,255,255,.06);overflow:hidden}
+.graybox-progress-track>span{display:block;width:0;height:100%;background:linear-gradient(90deg,rgba(115,214,174,.8),rgba(238,163,91,.9));transition:width .25s ease}
+.graybox-live-meta{display:flex;gap:14px;flex-wrap:wrap;color:var(--muted);font-size:11px}
+.graybox-log-details{border-top:1px solid rgba(255,255,255,.06);padding-top:9px}
+.graybox-log-details summary{cursor:pointer;color:var(--muted);font-size:11px;display:flex;justify-content:space-between;gap:10px}
+.graybox-log-details pre{margin:10px 0 0;max-height:280px;overflow:auto;padding:12px;border-radius:10px;background:#080a0e;border:1px solid rgba(255,255,255,.06);color:#b8c0cc;font:11px/1.5 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;white-space:pre-wrap;word-break:break-word}
