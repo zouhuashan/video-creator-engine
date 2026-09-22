@@ -3982,6 +3982,14 @@ Status: CODE PASS / LOCAL BLENDER WEB REVERIFY
 
 执行记录（2026-09-22）：
 
+- P32 Web 状态纠偏：真实页面曾显示 `Shot Spec = PENDING`，同时“① 生成镜头方案”仍保持可点击。这里的 `PENDING` 实际是**人工 review 状态**，不是“镜头方案还没生成”，因此再次点击幂等接口后页面几乎不变化，用户会误判按钮失效。现已改为：
+  - 已存在 Shot Spec → 显示 `READY · REVIEW PENDING`；
+  - Step 1 按钮 → `✓ 镜头方案已就绪` 并禁用；
+  - 卡片内直接提示“下一步点击 ② 生成 Blender 白模”；
+  - 首次创建时按钮立即显示“镜头方案处理中…”；
+  - 成功/失败均直接显示在当前 P32 卡片，不依赖页面底部 Activity 日志；
+  - `POST .../graybox/spec` 简化为始终执行 ensure + validate 后返回当前状态，保持幂等但反馈明确。
+
 - 正式停止把 Animagine / 国风 LoRA 当作最终 3D 国漫画质生产器。它们继续保留为低成本 Concept Preview；Blender 固定为 **GRAYBOX / CAMERA / POSE / MOTION CONTROL**；AI Video 固定为 **FINAL VISUAL**。
 - 首个 smoke shot 固定为 8 秒：
   - 古宅门口；
@@ -4041,7 +4049,7 @@ Status: CODE PASS / LOCAL BLENDER WEB REVERIFY
   - 最终 AI 视频调用前必须通过白模人工审核；
   - Node `--check web/app.js` 继续覆盖 Web 语法。
 - 当前边界：GitHub 只能完成代码与静态回归，无法替代用户 Mac 上真实 Blender 后台渲染，因此本阶段状态为 `CODE PASS / LOCAL BLENDER WEB REVERIFY`，不虚报本地 Blender PASS。
-- 关键提交：`52634cdc`、`ff6f293d`、`fa3e214c`、`f63ba990`、`f58a3fa7`、`1b7856f7`、`09f0a654`、`bd1e8659`、`e6c7dd24`、`faddf94d`、`8bd50110`、`083162c4`。
+- 关键提交：`52634cdc`、`ff6f293d`、`fa3e214c`、`f63ba990`、`f58a3fa7`、`1b7856f7`、`09f0a654`、`bd1e8659`、`e6c7dd24`、`faddf94d`、`8bd50110`、`083162c4`、`4cf518f8`、`6dc77daf`、`fac6c766`。
 
 当前 Web 验收路径：
 
