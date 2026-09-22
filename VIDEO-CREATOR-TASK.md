@@ -4127,3 +4127,105 @@ Status: CODE PASS / LOCAL BLENDER WEB REVERIFY
 ```
 
 NEXT：先在用户 Mac 完成 `GB-SHOT-001` 的真实 Blender smoke。若白模动作/镜头不满意，继续只迭代 Shot Spec / Blender Graybox；白模通过后再验证 MiniMax H3 reference-video Provider。随后把单镜头扩展为 Storyboard → 多 Shot Spec → 批量白模 → 批量 AI Video。
+
+
+### P32-02 Shot Reference Binding：人物 + 场景 → 白模 → MiniMax
+Status: CODE PASS / LOCAL WEB REVERIFY
+
+执行记录（2026-09-22）：
+
+- 在 P32 白模主线中正式加入 **Shot-level Reference Binding**。Blender 继续只负责 Camera / Blocking / Actor Path / Action Timing / Occlusion，不承担最终人物和场景建模。
+- 新增 `scripts/graybox_reference_binding.py`：
+  - 人物参考候选直接读取当前项目 `lookdev/image-studio/**/character_bible` 真实产物；
+  - 保留 Image Studio 的 `character_id`、`review_status`、`style_label` 与 metadata 来源；
+  - 场景参考支持两类来源：
+    - Web 直接上传 PNG/JPEG/WebP；
+    - 当前项目 Image Studio 已生成的 keyframe；
+  - 场景上传单文件上限 12 MB；
+  - 只允许绑定当前项目 inventory 内的图片，禁止跨项目/目录逃逸路径；
+  - 上传后校验 PNG/JPEG/WebP magic，非法文件立即删除。
+- Reference Binding 从一开始就按镜头保存：
+  - `graybox/reference-bindings/GB-SHOT-001.json`
+  - 后续扩成 `GB-SHOT-002`、`GB-SHOT-003` 时互不污染。
+- Web P32 新增 **REFERENCE BINDING** 区：
+  - 人物参考下拉框；
+  - 人物参考缩略图；
+  - “绑定人物参考”；
+  - 场景参考下拉框；
+  - 场景参考缩略图；
+  - “绑定已有场景图”；
+  - “上传并绑定场景图”；
+  - 状态显示 `人物✓ / 场景✓ / READY`；
+  - 显示最终输入包状态。
+- P32 最终输入包明确为：
+  - Blender 白模 MP4；
+  - Reference image 1 = 人物身份/服装；
+  - Reference image 2 = 场景/建筑/色彩；
+  - Shot Prompt。
+- MiniMax H3 Adapter 原本已支持 `image_paths` 最多 9 张图，因此不重新设计 Provider 协议；P32 Final 调用从原来的 `image_paths=()` 改为固定传入：
+  - 第 1 张：character reference；
+  - 第 2 张：scene reference；
+  - 同时保留 1 个 graybox reference video。
+- Final Prompt 会自动附加职责说明：
+  - 人物图只负责 face / age / hair / body proportion / costume / colors / accessories；
+  - 场景图只负责 architecture / material palette / environment mood；
+  - 白模视频继续唯一控制 camera trajectory / framing / actor path / timing / occlusion；
+  - 静态图不得覆盖白模动态逻辑。
+- 服务端新增 Final Gate：
+  - 白模必须是当前 Shot Spec 对应的有效 render；
+  - 白模必须人工 `APPROVED`；
+  - 人物参考必须已绑定；
+  - 场景参考必须已绑定；
+  - MiniMax Key 必须配置；
+  - 用户必须确认付费调用与“白模 + 人物图 + 场景图”上传授权。
+- 最终 metadata 新增：
+  - `character_reference`
+  - `scene_reference`
+  - `reference_binding`
+  - `reference_image_count=2`
+- Web 的“③ 白模 → MiniMax H3 成片”只有在以下全部 READY 时才可用：
+  - 白模 output ready；
+  - 白模 review APPROVED；
+  - Character Reference READY；
+  - Scene Reference READY；
+  - MiniMax configured。
+- 回归覆盖：
+  - 人物只能绑定 Image Studio 当前项目 inventory；
+  - 场景上传 + 自动绑定；
+  - 非图片上传拒绝并清理；
+  - incomplete binding 阻止 final；
+  - Web 必须暴露人物/场景绑定控件与 API；
+  - `VideoGenerationRequest` 必须真的带 `2 image_paths + 1 reference_video_path`；
+  - MiniMax API payload 顺序必须为 `text → reference_video → character image → scene image`。
+- 关键提交：`07bebb37`、`4e0251d2`、`95660aee`、`52424f84`、`4c2c88c6`、`b5adc68f`、`bbc9a47a`、`65c850d2`、`e9338740`、`f26acdf0`、`948394f0`。
+
+当前 Web 验收路径：
+
+```text
+更新 main + 重启 VideoCreator Web
+→ P32 / GRAYBOX TO VIDEO
+→ 白模通过
+
+REFERENCE BINDING：
+→ 人物参考：从当前项目 Image Studio 角色图中选择
+→ “绑定人物参考”
+→ 场景参考：
+   A. 选择已有 Image Studio 关键帧
+   或
+   B. 直接上传古宅/门楼 PNG/JPEG/WebP
+→ “上传并绑定场景图”
+→ 状态应显示 READY
+→ 两张缩略图都应可见
+
+最终输入包：
+✓ Blender graybox MP4
+✓ Character reference
+✓ Scene reference
+✓ Shot prompt
+
+→ 配置 MiniMax H3 Key
+→ 勾选付费确认 + 上传授权
+→ ③ 白模 → MiniMax H3 成片
+```
+
+NEXT：先用 `GB-SHOT-001` 做真实 Reference Binding smoke；确认 MiniMax 能同时遵守人物身份、古宅场景和白模动态骨架。通过后再进入多镜头 reference package、角色多角度 pack 与 Scene Bible 自动选图。
