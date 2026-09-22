@@ -35,25 +35,33 @@ from scripts.novel_qc import build_qc_report, write_qc_report
 
 
 class WebServerTests(unittest.TestCase):
-    def test_p35_gpt_keyframe_web_exposes_manual_bridge_and_local_interpolation(self):
+    def test_p35_gpt_keyframe_web_exposes_codex_batch_manual_fallback_and_local_interpolation(self):
         index = (web_server.WEB_ROOT / "index.html").read_text(encoding="utf-8")
         app = (web_server.WEB_ROOT / "app.js").read_text(encoding="utf-8")
         server = Path(web_server.__file__).read_text(encoding="utf-8")
         self.assertIn("P35 / GPT KEYFRAME → LOCAL VIDEO", index)
         self.assertIn('id="gptKeyframePrepare"', index)
-        self.assertIn('id="gptKeyframeInterpolate"', index)
+        self.assertIn('id="gptCodexBatchStart"', index)
+        self.assertIn('id="gptCodexBatchStop"', index)
+        self.assertIn('id="gptCodexUsageConfirm"', index)
+        self.assertIn('id="gptCodexUploadConfirm"', index)
+        self.assertIn("CODEX IMAGEGEN BATCH", index)
+        self.assertIn("手工备用：ChatGPT 网页逐帧生成", index)
         self.assertIn("https://chatgpt.com/", index)
+        self.assertIn('id="gptKeyframeInterpolate"', index)
         self.assertIn("/graybox/gpt-keyframes/prepare", app)
+        self.assertIn("/graybox/gpt-keyframes/codex-batch/start", app)
+        self.assertIn("/graybox/gpt-keyframes/codex-batch/stop", app)
         self.assertIn("/graybox/gpt-keyframes/upload", app)
         self.assertIn("/graybox/gpt-keyframes/interpolate", app)
+        self.assertIn("startCodexKeyframeBatch", app)
+        self.assertIn("syncCodexKeyframePolling", app)
         self.assertIn("copyGptKeyframePrompt", app)
-        self.assertIn("确认白模并抽取控制帧", app)
-        self.assertIn("graybox/review", app)
-        self.assertIn("P35 Web keyframe route approved before control-frame extraction", app)
+        self.assertIn("codex_keyframe_batch", server)
         self.assertIn("gpt_keyframe_pipeline", server)
         p35_panel = index[index.index("P35 / GPT KEYFRAME → LOCAL VIDEO"):index.index("graybox-final-controls")]
-        self.assertIn("ChatGPT Web 手工桥接", p35_panel)
-        self.assertNotIn("API Key", p35_panel)
+        self.assertIn("不在 VideoCreator 保存 API Key", p35_panel)
+        self.assertNotIn("OPENAI_API_KEY", p35_panel)
 
     def test_p34_final_audio_web_exposes_voice_lock_billing_gate_and_mix_without_secret(self):
         app = (web_server.WEB_ROOT / "app.js").read_text(encoding="utf-8")
