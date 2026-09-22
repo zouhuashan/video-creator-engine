@@ -444,6 +444,47 @@
               </div>
             </div>
 
+            <div class="graybox-reference-card gpt-keyframe-panel" id="grayboxGptKeyframes">
+              <div class="graybox-card-head">
+                <div>
+                  <span class="section-kicker">P35 / GPT KEYFRAME → LOCAL VIDEO</span>
+                  <strong>Blender 控制帧 + ChatGPT 最终图 + 本地插帧</strong>
+                  <small>先用 9 张关键帧验证人物/古宅一致性。ChatGPT 网页版只负责重绘关键帧；动作、镜头和时序仍由 Blender 控制，最终 24fps 在本机完成。</small>
+                </div>
+                <span class="status-dot off" id="gptKeyframeStatus">NOT PREPARED</span>
+              </div>
+
+              <div class="gpt-keyframe-toolbar">
+                <label>
+                  <span>控制帧数量</span>
+                  <select id="gptKeyframeCount" class="select-field">
+                    <option value="9">9 张 · 8 秒约每秒 1 张（首轮）</option>
+                    <option value="17">17 张 · 约每 0.5 秒 1 张（更稳）</option>
+                  </select>
+                </label>
+                <button class="secondary-button" id="gptKeyframePrepare">① 抽取 Blender 控制帧</button>
+                <a class="secondary-button gpt-web-link" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">② 打开 ChatGPT 网页版</a>
+                <button class="primary-button" id="gptKeyframeInterpolate" disabled>④ 本地插帧 → 24fps</button>
+              </div>
+
+              <div class="gpt-keyframe-guide">
+                <strong>③ 每帧在 ChatGPT 生成后传回这里</strong>
+                <small>每张使用：人物参考 + 场景参考 + 当前 Blender 控制帧；非重置帧再带上一张已通过的最终帧。系统每约 2 秒做一次 canonical reset，降低连续编辑累积漂移。</small>
+              </div>
+
+              <div class="gpt-keyframe-reference-row" id="gptKeyframeReferenceSummary">等待准备控制帧。</div>
+              <div class="gpt-keyframe-grid" id="gptKeyframeGrid"><div class="empty-state">白模通过并绑定人物/场景后，点击“① 抽取 Blender 控制帧”。</div></div>
+
+              <div class="gpt-keyframe-output hidden" id="gptKeyframeOutput">
+                <div>
+                  <span class="section-kicker">LOCAL INTERPOLATED VIDEO</span>
+                  <strong id="gptKeyframeOutputMeta">等待生成</strong>
+                </div>
+                <video id="gptKeyframeVideo" controls playsinline preload="metadata"></video>
+              </div>
+              <p class="helper-text" id="gptKeyframeHint">这条路线当前是 ChatGPT Web 手工桥接，不调用 OpenAI Image API，也不会自动产生远程图片费用。</p>
+            </div>
+
             <div class="graybox-final-controls">
               <div class="graybox-key-row">
                 <div>
