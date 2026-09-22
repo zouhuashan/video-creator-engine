@@ -6,6 +6,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -81,6 +82,42 @@ def _log_path(project_dir: Path) -> Path:
     return LOG_DIR / f"graybox-{Path(project_dir).resolve().name}.log"
 
 
+def _progress_path(project_dir: Path) -> Path:
+    return Path(project_dir).resolve() / "graybox" / "render-progress.json"
+
+
+def _read_progress(project_dir: Path) -> dict[str, Any]:
+    path = _progress_path(project_dir)
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _tail_log(project_dir: Path, *, max_bytes: int = 24 * 1024, max_lines: int = 60) -> dict[str, Any]:
+    path = _log_path(project_dir)
+    if not path.is_file():
+        return {"text": "", "updated_seconds_ago": None, "frame_from_log": 0}
+    try:
+        size = path.stat().st_size
+        with path.open("rb") as handle:
+            handle.seek(max(0, size - max_bytes))
+            raw = handle.read()
+        text = raw.decode("utf-8", errors="replace")
+        lines = text.splitlines()[-max_lines:]
+        tail = "\n".join(lines)
+        frames = [int(match.group(1)) for match in re.finditer(r"\bFra:\s*(\d+)\b", tail)]
+        age = max(0.0, time.time() - path.stat().st_mtime)
+        return {
+            "text": tail,
+            "updated_seconds_ago": round(age, 1),
+            "frame_from_log": frames[-1] if frames else 0,
+        }
+    except OSError:
+        return {"text": "", "updated_seconds_ago": None, "frame_from_log": 0}
+
+
 def _write_state(project_dir: Path, payload: dict[str, Any]) -> dict[str, Any]:
     path = _state_path(project_dir)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -121,6 +158,8 @@ def status(project_dir: Path, spec_id: str = DEFAULT_SPEC_ID) -> dict[str, Any]:
     output = _output_path(project_dir, spec_id)
     current_spec_sha256 = _spec_sha256(project_dir, spec_id)
     state = _load_state(project_dir)
+    progress = _read_progress(project_dir)
+    log_tail = _tail_log(project_dir)
     try:
         pid = int(state.get("pid") or 0)
     except (TypeError, ValueError):
@@ -148,6 +187,16 @@ def status(project_dir: Path, spec_id: str = DEFAULT_SPEC_ID) -> dict[str, Any]:
         and current_spec_sha256
         and str(state.get("spec_sha256") or "") == current_spec_sha256
     )
+    total_frames = int(round(float((spec or {}).get("duration_seconds") or 0) * int((spec or {}).get("fps") or 0))) if spec else 0
+    current_frame = int(progress.get("current_frame") or log_tail.get("frame_from_log") or 0)
+    if total_frames:
+        current_frame = max(0, min(total_frames, current_frame))
+    progress_percent = round((current_frame * 100.0 / total_frames), 1) if total_frames else 0.0
+    process_alive = _pid_alive(pid) if pid else False
+    heartbeat_epoch = float(progress.get("updated_at_epoch") or 0)
+    heartbeat_age = round(max(0.0, time.time() - heartbeat_epoch), 1) if heartbeat_epoch else log_tail.get("updated_seconds_ago")
+    started_epoch = float(state.get("started_at_epoch") or 0)
+    elapsed_seconds = round(max(0.0, time.time() - started_epoch), 1) if started_epoch else None
     return {
         **state,
         "blender_installed": blender is not None,
@@ -160,6 +209,15 @@ def status(project_dir: Path, spec_id: str = DEFAULT_SPEC_ID) -> dict[str, Any]:
         "output_path": str(output.relative_to(project_dir)) if output.is_file() else "",
         "output_bytes": output.stat().st_size if output.is_file() else 0,
         "log_path": str(_log_path(project_dir).relative_to(ROOT)),
+        "process_alive": process_alive,
+        "elapsed_seconds": elapsed_seconds,
+        "current_frame": current_frame,
+        "total_frames": total_frames,
+        "progress_percent": progress_percent,
+        "heartbeat_seconds_ago": heartbeat_age,
+        "log_updated_seconds_ago": log_tail.get("updated_seconds_ago"),
+        "log_tail": str(log_tail.get("text") or ""),
+        "progress_source": "heartbeat" if progress else ("blender_log" if current_frame else "process"),
     }
 
 
@@ -190,6 +248,12 @@ def start_render(project_dir: Path, spec_id: str = DEFAULT_SPEC_ID) -> dict[str,
         return {**current, "action": "ALREADY_RUNNING"}
 
     log_path = _log_path(project_dir)
+    progress_path = _progress_path(project_dir)
+    try:
+        progress_path.unlink()
+    except FileNotFoundError:
+        pass
+    progress_path.parent.mkdir(parents=True, exist_ok=True)
     command = [
         str(blender),
         "--background",
@@ -199,10 +263,11 @@ def start_render(project_dir: Path, spec_id: str = DEFAULT_SPEC_ID) -> dict[str,
         "--",
         str(spec_file),
         str(output),
+        str(progress_path),
     ]
     with log_path.open("ab") as log:
         log.write(("\n=== Graybox render " + time.strftime("%Y-%m-%d %H:%M:%S") + " ===\n").encode("utf-8"))
-        log.write(("$ " + " ".join(command[:6]) + " -- <spec> <output>\n").encode("utf-8"))
+        log.write(("$ " + " ".join(command[:6]) + " -- <spec> <output> <progress>\n").encode("utf-8"))
         try:
             process = subprocess.Popen(
                 command,
@@ -221,6 +286,7 @@ def start_render(project_dir: Path, spec_id: str = DEFAULT_SPEC_ID) -> dict[str,
         "step": "BLENDER_RENDER",
         "detail": f"正在渲染 {spec_id} · {spec['duration_seconds']}s · {spec['fps']}fps",
         "pid": process.pid,
+        "started_at_epoch": time.time(),
         "spec_id": spec_id,
         "spec_sha256": _spec_sha256(project_dir, spec_id),
         "output_path": str(output.relative_to(project_dir)),
