@@ -52,7 +52,7 @@ class CodexKeyframeBatchTests(unittest.TestCase):
             with patch.object(batch, "codex_executable", return_value="/usr/local/bin/codex"):
                 with self.assertRaisesRegex(batch.CodexKeyframeBatchError, "套餐用量"):
                     batch.start(project, confirm_codex_usage=False, confirm_reference_upload=True)
-                with self.assertRaisesRegex(batch.CodexKeyframeBatchError, "参考图"):
+                with self.assertRaisesRegex(batch.CodexKeyframeBatchError, "允许将人物"):
                     batch.start(project, confirm_codex_usage=True, confirm_reference_upload=False)
 
     def test_eligible_frames_runs_resets_before_continuity_dependency(self):
@@ -92,6 +92,7 @@ class CodexKeyframeBatchTests(unittest.TestCase):
             cancel = threading.Event()
             run = {"processes": {}}
             with patch.object(batch, "codex_executable", return_value="/usr/local/bin/codex"), \
+                 patch.object(batch.p35, "load_graybox_spec", return_value={"id": "GB-SHOT-001"}), \
                  patch.object(batch.subprocess, "Popen", side_effect=fake_popen), \
                  patch.object(batch.p35, "upload_generated_frame", return_value=fake_result):
                 index, ok, _ = batch._run_one_frame(project, "GB-SHOT-001", 1, cancel, run)
@@ -114,7 +115,8 @@ class CodexKeyframeBatchTests(unittest.TestCase):
             root = project / "graybox" / "gpt-keyframes" / "GB-SHOT-001"
             (root / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
             batch._atomic_json(root / batch.STATUS_NAME, {"status": "RUNNING", "active_indices": [1]})
-            with patch.object(batch, "codex_executable", return_value="/usr/local/bin/codex"):
+            with patch.object(batch, "codex_executable", return_value="/usr/local/bin/codex"), \
+                 patch.object(batch.p35, "load_graybox_spec", return_value={"id": "GB-SHOT-001"}):
                 result = batch.status(project)
             self.assertEqual(result["status"], "INTERRUPTED")
             self.assertEqual(result["completed_count"], 1)
