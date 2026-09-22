@@ -581,6 +581,30 @@ async function reviewGraybox(status) {
   } catch (error) { log(error.message, true); }
 }
 
+async function installGrayboxSmokePack() {
+  const projectId = resolveActiveNovelProject(state.grayboxProjectId || state.imageStudioProjectId);
+  if (!projectId) { log('没有可用的国漫项目', true); return; }
+  const button = $('#grayboxInstallSmokePack');
+  button.disabled = true;
+  button.textContent = '安装并绑定中…';
+  try {
+    state.graybox = await api(`/api/novel-anime/projects/${encodeURIComponent(projectId)}/graybox/references/install-smoke-pack`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+    renderGraybox();
+    $('#grayboxLogLine').textContent = '内置 P32 Smoke 人物 + 古宅参考已安装并自动绑定，可直接用于 Gemini / MiniMax 首轮验证。';
+    log('P32 Smoke reference pack 已安装并绑定。');
+  } catch (error) {
+    $('#grayboxLogLine').textContent = error.message;
+    log(error.message, true);
+  } finally {
+    button.textContent = '使用内置 Smoke 人物 + 古宅参考';
+    renderGraybox();
+  }
+}
+
 async function bindGrayboxReference(kind) {
   const projectId = resolveActiveNovelProject(state.grayboxProjectId || state.imageStudioProjectId);
   if (!projectId) return;
@@ -2656,6 +2680,7 @@ $('#grayboxRefreshButton').addEventListener('click', () => loadGraybox().catch((
 $('#grayboxAdjustButton').addEventListener('click', adjustGrayboxShot);
 $('#grayboxApproveButton').addEventListener('click', () => reviewGraybox('APPROVED'));
 $('#grayboxRequestChangesButton').addEventListener('click', () => reviewGraybox('CHANGES_REQUESTED'));
+$('#grayboxInstallSmokePack').addEventListener('click', installGrayboxSmokePack);
 $('#grayboxBindCharacterReference').addEventListener('click', () => bindGrayboxReference('character'));
 $('#grayboxBindSceneReference').addEventListener('click', () => bindGrayboxReference('scene'));
 $('#grayboxUploadSceneReference').addEventListener('click', uploadGrayboxSceneReference);
