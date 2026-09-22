@@ -20,7 +20,7 @@ from typing import Any
 from adapters.tts.macos_say import MacOSSayTTS
 from adapters.tts.base import TTSProviderError
 from scripts.novel_episode_script import load_script_package
-from scripts.novel_shot_breakdown import load_shot_breakdown
+from scripts.novel_shot_breakdown import NovelShotBreakdownError, load_shot_breakdown
 from scripts.novel_voice_profiles import load_voice_profiles
 
 
@@ -81,7 +81,10 @@ def _script_indexes(project: Path) -> tuple[dict[str, dict[str, Any]], dict[str,
 
 
 def _scene_shots(project: Path) -> dict[str, str]:
-    package = load_shot_breakdown(project)
+    try:
+        package = load_shot_breakdown(project)
+    except (NovelShotBreakdownError, ValueError, OSError):
+        return {}
     result: dict[str, str] = {}
     for scene in package["scene_breakdowns"]:
         shots = scene.get("shots") or []
@@ -179,7 +182,7 @@ def build_timeline(project: Path) -> dict[str, Any]:
             "text": str(assignment["text"]),
             "emotion": str(assignment.get("emotion") or ""),
             "scene_id": scene_id,
-            "shot_id": scene_shot.get(scene_id, ""),
+            "shot_id": scene_shot.get(scene_id, f"SHOT-{scene_id}-001" if scene_id else ""),
             "estimated_duration_seconds": round(max(0.35, float(unit.get("estimated_duration_seconds") or 1.0)), 3),
             "audio_path": str(old.get("audio_path") or ""),
             "audio_duration_seconds": float(old.get("audio_duration_seconds") or 0.0),
