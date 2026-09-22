@@ -12,6 +12,8 @@ from typing import Any
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
 MAX_SCENE_REFERENCE_BYTES = 12 * 1024 * 1024
 DEFAULT_SPEC_ID = "GB-SHOT-001"
+ROOT = Path(__file__).resolve().parents[1]
+SMOKE_REFERENCE_BOARD = ROOT / "assets" / "p32" / DEFAULT_SPEC_ID / "reference-board.webp"
 
 
 class GrayboxReferenceError(RuntimeError):
@@ -222,6 +224,86 @@ def upload_scene_reference(project_dir: Path, *, filename: str, content: bytes) 
         "path": _relative(project, target),
         "bytes": target.stat().st_size,
         "filename": target.name,
+    }
+
+
+def install_smoke_reference_pack(project_dir: Path) -> dict[str, Any]:
+    """Install the repo-packaged P32 smoke board as project-local char/scene refs.
+
+    This is intentionally a Web-friendly fixture path: the checked-in reference
+    board is split into two project-local images, registered as normal inventory
+    assets, and bound to GB-SHOT-001. It never touches another project.
+    """
+    project = Path(project_dir).resolve()
+    board = SMOKE_REFERENCE_BOARD.resolve()
+    if not board.is_file():
+        raise GrayboxReferenceError("packaged P32 smoke reference board is missing")
+    try:
+        from PIL import Image
+    except ImportError as error:
+        raise GrayboxReferenceError("Pillow is required to install the P32 smoke reference pack") from error
+
+    character_dir = project / "lookdev" / "image-studio" / "p32-smoke"
+    scene_dir = project / "graybox" / "references" / "scenes"
+    character_dir.mkdir(parents=True, exist_ok=True)
+    scene_dir.mkdir(parents=True, exist_ok=True)
+    character_path = character_dir / f"{DEFAULT_SPEC_ID}-character.webp"
+    scene_path = scene_dir / f"{DEFAULT_SPEC_ID}-scene.webp"
+
+    try:
+        with Image.open(board) as source:
+            source = source.convert("RGB")
+            width, height = source.size
+            if width < 8 or height < 8:
+                raise GrayboxReferenceError("packaged P32 smoke reference board is too small")
+            split = max(1, min(width - 1, int(round(width * 0.50))))
+            # The left board contains the hero plus small callouts. Crop the far
+            # left notes while keeping the full-body silhouette; the right half
+            # remains the complete ancient-gate scene.
+            character_left = max(0, int(round(split * 0.13)))
+            character = source.crop((character_left, 0, split, height))
+            scene = source.crop((split, 0, width, height))
+            character.thumbnail((768, 1365), Image.Resampling.LANCZOS)
+            scene.thumbnail((768, 1365), Image.Resampling.LANCZOS)
+            character.save(character_path, "WEBP", quality=90, method=6)
+            scene.save(scene_path, "WEBP", quality=90, method=6)
+    except GrayboxReferenceError:
+        raise
+    except Exception as error:
+        raise GrayboxReferenceError(f"failed to prepare P32 smoke references: {error}") from error
+
+    if not _image_valid(character_path) or not _image_valid(scene_path):
+        character_path.unlink(missing_ok=True)
+        scene_path.unlink(missing_ok=True)
+        raise GrayboxReferenceError("packaged P32 smoke references are invalid after extraction")
+
+    character_relative = _relative(project, character_path)
+    scene_relative = _relative(project, scene_path)
+    metadata = {
+        "schema_version": 1,
+        "artifact_type": "character_bible",
+        "output": character_relative,
+        "character_id": f"{DEFAULT_SPEC_ID}-SMOKE-HERO",
+        "review_status": "PENDING",
+        "style_label": "P32 Smoke · cinematic 3D donghua",
+        "source": "repo_packaged_smoke_reference",
+        "source_board": "assets/p32/GB-SHOT-001/reference-board.webp",
+        "created_at": _utc_timestamp(),
+    }
+    character_path.with_suffix(".json").write_text(
+        json.dumps(metadata, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    bind_reference(project, kind="character", relative_path=character_relative)
+    binding = bind_reference(project, kind="scene", relative_path=scene_relative)
+    return {
+        "status": "INSTALLED_AND_BOUND",
+        "shot_spec_id": DEFAULT_SPEC_ID,
+        "character_reference": character_relative,
+        "scene_reference": scene_relative,
+        "source_board": "assets/p32/GB-SHOT-001/reference-board.webp",
+        "binding": binding,
     }
 
 
