@@ -173,9 +173,13 @@ def _linear(obj) -> None:
         print(f"[graybox] WARN: failed to force LINEAR interpolation for {obj.name}: {error}")
 
 
-def _build_environment(white, gray):
+def _build_environment(white, gray, dark):
     _box("Ground", (0, 0, -0.15), (7.0, 10.0, 0.15), gray)
-    _box("BackWall", (0, 3.5, 2.1), (5.3, 0.22, 2.1), white)
+
+    # Build a real gate opening. The old smoke used one solid BackWall, so the
+    # character could never actually pass through the doorway.
+    _box("BackWallLeft", (-3.75, 3.5, 2.1), (1.55, 0.22, 2.1), white)
+    _box("BackWallRight", (3.75, 3.5, 2.1), (1.55, 0.22, 2.1), white)
     _box("GateLeft", (-2.35, 2.2, 2.2), (0.42, 0.42, 2.2), white)
     _box("GateRight", (2.35, 2.2, 2.2), (0.42, 0.42, 2.2), white)
     _box("GateLintel", (0, 2.2, 4.15), (2.8, 0.48, 0.34), white)
@@ -184,6 +188,11 @@ def _build_environment(white, gray):
         _box(f"SideWall{index}", (x, 1.0, 1.35), (1.25, 3.0, 1.35), white)
     for index in range(3):
         _box(f"Step{index}", (0, 1.45 + index * 0.32, 0.06 + index * 0.08), (2.9 - index * 0.22, 0.48, 0.08), gray)
+
+    # A visible target for the "look up at the lamp" beat.
+    _cylinder("LanternBody", (0, 2.05, 3.35), 0.22, 0.48, white)
+    _cylinder("LanternTop", (0, 2.05, 3.66), 0.13, 0.14, dark)
+    _box("LanternStem", (0, 2.05, 3.98), (0.035, 0.035, 0.24), dark)
 
 
 def _joint_limb(name: str, joint_location, radius: float, length: float, material, parent):
@@ -202,20 +211,29 @@ def _build_actor(white, dark):
     root = bpy.data.objects.new("ActorRoot", None)
     bpy.context.collection.objects.link(root)
 
-    torso = _cylinder("Torso", (0, 0, 1.66), 0.32, 1.02, white, root)
+    # BodyRoot carries a subtle vertical walk bob without changing the world-space
+    # trajectory stored on ActorRoot.
+    body = bpy.data.objects.new("BodyRoot", None)
+    bpy.context.collection.objects.link(body)
+    body.parent = root
+
+    torso = _cylinder("Torso", (0, 0, 1.66), 0.32, 1.02, white, body)
     torso.scale.x = 0.80
     torso.scale.y = 0.56
-    _sphere("Head", (0, -0.01, 2.42), (0.27, 0.25, 0.31), white, root)
-    _cylinder("Neck", (0, 0, 2.08), 0.105, 0.24, white, root)
+    _cylinder("Neck", (0, 0, 2.08), 0.105, 0.24, white, body)
 
-    # Compact hair silhouette: keep a readable head-direction cue without turning
-    # the character into the elongated "egg head" seen in the first real smoke.
-    hair = _sphere("HairMass", (0, 0.035, 2.48), (0.30, 0.285, 0.32), dark, root)
+    head_pivot = bpy.data.objects.new("HeadPivot", None)
+    bpy.context.collection.objects.link(head_pivot)
+    head_pivot.parent = body
+    head_pivot.location = (0, 0, 2.28)
+    _sphere("Head", (0, -0.01, 0.14), (0.27, 0.25, 0.31), white, head_pivot)
+
+    hair = _sphere("HairMass", (0, 0.035, 0.20), (0.30, 0.285, 0.32), dark, head_pivot)
     hair.scale.z *= 1.05
-    face_marker = _sphere("FaceDirection", (0, -0.265, 2.41), (0.075, 0.035, 0.055), dark, root)
+    _sphere("FaceDirection", (0, -0.265, 0.13), (0.075, 0.035, 0.055), dark, head_pivot)
 
-    left_arm, _ = _joint_limb("Arm.L", (-0.43, 0, 1.94), 0.095, 0.86, white, root)
-    right_arm, _ = _joint_limb("Arm.R", (0.43, 0, 1.94), 0.095, 0.86, white, root)
+    left_arm, _ = _joint_limb("Arm.L", (-0.43, 0, 1.94), 0.095, 0.86, white, body)
+    right_arm, _ = _joint_limb("Arm.R", (0.43, 0, 1.94), 0.095, 0.86, white, body)
     left_arm.rotation_euler.y = 0.08
     right_arm.rotation_euler.y = -0.08
 
@@ -230,15 +248,16 @@ def _build_actor(white, dark):
     robe = bpy.context.object
     robe.name = "Robe"
     robe.data.materials.append(white)
-    robe.parent = root
+    robe.parent = body
 
-    return root, left_arm, right_arm, left_leg, right_leg, hair
+    return root, body, head_pivot, left_arm, right_arm, left_leg, right_leg
 
 
-def _animate_actor(spec, root, left_arm, right_arm, left_leg, right_leg, hair):
+def _animate_actor(spec, root, body, head_pivot, left_arm, right_arm, left_leg, right_leg):
     fps = int(spec["fps"])
     actor = spec["actor"]
     frame_end = int(round(float(spec["duration_seconds"]) * fps))
+    walk_start_frame = max(1, int(round(float(actor.get("walk_start_time") or 0) * fps)))
     stop_frame = int(round(float(actor["stop_time"]) * fps))
     look_frame = int(round(float(actor["look_up_time"]) * fps))
     hold_frame = int(round(float(actor["hold_time"]) * fps))
@@ -246,13 +265,17 @@ def _animate_actor(spec, root, left_arm, right_arm, left_leg, right_leg, hair):
     start = Vector(actor["start"])
     stop = Vector(actor["stop"])
     _keyframe(root, 1, location=start)
+    _keyframe(root, walk_start_frame, location=start)
     _keyframe(root, stop_frame, location=stop)
     _keyframe(root, frame_end, location=stop)
     _linear(root)
 
-    # Readable walk cycle while the root advances.
+    # Readable walk cycle while the root advances. A small BodyRoot bob helps the
+    # reference video read as a walk instead of a rigid root translation.
     stride = max(8, round(fps * 0.45))
-    frame = 1
+    _keyframe(body, 1, location=(0, 0, 0))
+    _keyframe(body, walk_start_frame, location=(0, 0, 0))
+    frame = walk_start_frame
     phase = 0
     while frame <= stop_frame:
         angle = 0.40 if phase % 2 == 0 else -0.40
@@ -260,18 +283,23 @@ def _animate_actor(spec, root, left_arm, right_arm, left_leg, right_leg, hair):
         _keyframe(right_leg, frame, rotation=(-angle, 0, 0))
         _keyframe(left_arm, frame, rotation=(-angle * 0.45, 0.08, 0))
         _keyframe(right_arm, frame, rotation=(angle * 0.45, -0.08, 0))
+        bob = 0.035 if phase % 2 == 0 else 0.0
+        _keyframe(body, frame, location=(0, 0, bob))
         frame += stride
         phase += 1
     for obj in (left_leg, right_leg, left_arm, right_arm):
         _keyframe(obj, stop_frame, rotation=(0, obj.rotation_euler.y, 0))
+    _keyframe(body, stop_frame, location=(0, 0, 0))
+    _keyframe(body, frame_end, location=(0, 0, 0))
 
-    # Stop, subtle right-hand cue, then look upward.
+    # Stop, subtle right-hand cue, then rotate the complete head/face assembly
+    # toward the visible lantern target.
     _keyframe(right_arm, stop_frame, rotation=(0, -0.08, 0))
     _keyframe(right_arm, look_frame, rotation=(-0.62, -0.10, -0.08))
     _keyframe(right_arm, hold_frame, rotation=(-0.62, -0.10, -0.08))
-    _keyframe(hair, stop_frame, rotation=(0, 0, 0))
-    _keyframe(hair, look_frame, rotation=(0.18, 0, 0))
-    _keyframe(hair, hold_frame, rotation=(0.18, 0, 0))
+    _keyframe(head_pivot, stop_frame, rotation=(0, 0, 0))
+    _keyframe(head_pivot, look_frame, rotation=(-0.22, 0, 0))
+    _keyframe(head_pivot, hold_frame, rotation=(-0.22, 0, 0))
 
 
 def _build_camera(spec):
@@ -368,9 +396,9 @@ def main() -> int:
     white = _material("GrayboxWhite", (0.82, 0.84, 0.86, 1.0))
     gray = _material("GrayboxGround", (0.32, 0.34, 0.38, 1.0))
     dark = _material("GrayboxDirection", (0.16, 0.17, 0.19, 1.0))
-    _build_environment(white, gray)
-    root, left_arm, right_arm, left_leg, right_leg, hair = _build_actor(white, dark)
-    _animate_actor(spec, root, left_arm, right_arm, left_leg, right_leg, hair)
+    _build_environment(white, gray, dark)
+    root, body, head_pivot, left_arm, right_arm, left_leg, right_leg = _build_actor(white, dark)
+    _animate_actor(spec, root, body, head_pivot, left_arm, right_arm, left_leg, right_leg)
     _build_camera(spec)
     _configure_scene(spec, output)
     _install_progress_handlers(progress_path, total_frames)
