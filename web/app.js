@@ -1,4 +1,4 @@
-const state = { projects: [], animeProjects: [], project: null, providers: [], integrations: [], studio: null, readiness: null, backups: null, activeNovelProjectId: null, studioProjectId: null, imageStudio: null, imageStudioProjectId: null, imageStudioSelected: null, imageStudioProviderPreference: 'AUTO', imageStudioStylePreset: 'CINEMATIC_3D_DONGHUA', graybox: null, grayboxProjectId: null, pipeline: null, pipelineProjectId: null, novelImportResult: null, selectedProvider: 'local_ken_burns', selectedImage: null, currentView: 'workspace', currentWorkspace: 'overview' };
+const state = { projects: [], animeProjects: [], project: null, providers: [], integrations: [], studio: null, readiness: null, backups: null, activeNovelProjectId: null, studioProjectId: null, imageStudio: null, imageStudioProjectId: null, imageStudioSelected: null, imageStudioProviderPreference: 'AUTO', imageStudioStylePreset: 'CINEMATIC_3D_DONGHUA', graybox: null, grayboxProjectId: null, grayboxPollTimer: null, pipeline: null, pipelineProjectId: null, novelImportResult: null, selectedProvider: 'local_ken_burns', selectedImage: null, currentView: 'workspace', currentWorkspace: 'overview' };
 const ACTIVE_NOVEL_PROJECT_KEY = 'videocreator.activeNovelProjectId.v1';
 const IMAGE_STYLE_PROJECT_KEY_PREFIX = 'videocreator.imageStylePreset.v2.';
 
@@ -225,6 +225,33 @@ async function approvePipeline() {
   }
 }
 
+function formatGrayboxSeconds(value) {
+  const seconds = Number(value);
+  if (!Number.isFinite(seconds) || seconds < 0) return '—';
+  if (seconds < 60) return `${Math.round(seconds)} 秒`;
+  const minutes = Math.floor(seconds / 60);
+  const rest = Math.round(seconds % 60);
+  return `${minutes} 分 ${rest} 秒`;
+}
+
+function syncGrayboxPolling() {
+  const running = state.graybox?.render?.status === 'RUNNING';
+  if (running && !state.grayboxPollTimer && state.grayboxProjectId) {
+    state.grayboxPollTimer = window.setInterval(async () => {
+      try {
+        const current = await api(`/api/novel-anime/projects/${encodeURIComponent(state.grayboxProjectId)}/graybox`);
+        state.graybox = current;
+        renderGraybox();
+      } catch (error) {
+        $('#grayboxLiveSummary').textContent = `状态刷新失败：${error.message}`;
+      }
+    }, 2000);
+  } else if (!running && state.grayboxPollTimer) {
+    window.clearInterval(state.grayboxPollTimer);
+    state.grayboxPollTimer = null;
+  }
+}
+
 function renderGraybox() {
   const data = state.graybox || {};
   const render = data.render || {};
@@ -242,6 +269,38 @@ function renderGraybox() {
   $('#grayboxRenderStatus').textContent = render.render_stale ? 'STALE · NEED RERENDER' : (render.status || (render.output_ready ? 'PASS' : 'NOT STARTED'));
   $('#grayboxMiniMaxStatus').textContent = `MiniMax H3 · ${minimax.configured ? 'READY' : 'NOT CONFIGURED'}`;
   $('#grayboxReviewStatus').textContent = review.status || 'PENDING';
+
+  const currentFrame = Number(render.current_frame || 0);
+  const totalFrames = Number(render.total_frames || 0);
+  const percent = Math.max(0, Math.min(100, Number(render.progress_percent || 0)));
+  const heartbeatAge = render.heartbeat_seconds_ago;
+  const logAge = render.log_updated_seconds_ago;
+  const processAlive = Boolean(render.process_alive);
+  $('#grayboxProgressBar').style.width = `${percent}%`;
+  $('#grayboxFrameProgress').textContent = totalFrames
+    ? `${currentFrame} / ${totalFrames} 帧 · ${percent.toFixed(1)}%`
+    : '等待帧进度';
+  $('#grayboxHeartbeat').textContent = heartbeatAge == null
+    ? '暂无渲染心跳'
+    : `${formatGrayboxSeconds(heartbeatAge)}前有渲染活动`;
+  $('#grayboxElapsed').textContent = render.elapsed_seconds == null
+    ? '运行时长：—'
+    : `已运行 ${formatGrayboxSeconds(render.elapsed_seconds)}`;
+  $('#grayboxProcessStatus').textContent = render.status === 'RUNNING'
+    ? (processAlive ? 'PROCESS ALIVE' : 'PROCESS CHECKING')
+    : (render.status || 'IDLE');
+  $('#grayboxProcessStatus').classList.toggle('off', render.status !== 'RUNNING' || !processAlive);
+  $('#grayboxLiveSummary').textContent = render.status === 'RUNNING'
+    ? (processAlive
+      ? `Blender 进程存活 · ${render.progress_source === 'heartbeat' ? '逐帧心跳' : render.progress_source === 'blender_log' ? '从 Blender 日志解析帧数' : '等待首个帧心跳'}`
+      : 'Blender 状态仍为 RUNNING，正在确认进程状态…')
+    : render.status === 'PASS'
+      ? 'Blender 白模渲染完成'
+      : render.status === 'FAIL'
+        ? `渲染失败：${render.detail || 'Blender 进程已退出'}`
+        : '等待渲染';
+  $('#grayboxLogAge').textContent = logAge == null ? '暂无日志时间' : `最后更新：${formatGrayboxSeconds(logAge)}前`;
+  $('#grayboxLiveLog').textContent = render.log_tail || '暂无 Blender 日志。';
 
   if (spec.duration_seconds) {
     $('#grayboxShotTitle').textContent = `${Number(spec.duration_seconds).toFixed(1)} 秒 · 古宅入场镜头`;
@@ -298,6 +357,7 @@ function renderGraybox() {
   $('#grayboxHint').textContent = review.status === 'APPROVED'
     ? '白模已人工通过。确认付费与上传授权后，可进入 MiniMax H3 最终成片。'
     : '先检查白模镜头、走位、动作和遮挡；白模通过后才允许调用付费 AI 视频 Provider。';
+  syncGrayboxPolling();
 }
 
 async function loadGraybox(projectId = resolveActiveNovelProject(state.grayboxProjectId || state.imageStudioProjectId)) {
