@@ -30,6 +30,7 @@ if str(ROOT) not in sys.path:
 
 from adapters.video_generation import (  # noqa: E402
     LocalKenBurnsVideo,
+    MiniMaxH3Video,
     OpenAISoraVideo,
     RunwayImageToVideo,
     VideoGenerationError,
@@ -83,15 +84,19 @@ from scripts.comfyui_service_manager import ComfyUIServiceError, service_status 
 from scripts.comfyui_installer import ComfyUIInstallError, start_background_install as start_comfyui_install, status as comfyui_install_status  # noqa: E402
 from scripts.comfyui_model_manager import ComfyUIModelError, start_background_install as start_comfyui_model_install, status as comfyui_model_status  # noqa: E402
 from scripts.comfyui_lora_manager import ComfyUILoraError, lora_descriptor as comfyui_lora_descriptor, start_background_install as start_comfyui_lora_install, status as comfyui_lora_status  # noqa: E402
+from scripts.graybox_shot_spec import GrayboxShotSpecError, ensure_default_spec as ensure_graybox_spec, load_spec as load_graybox_spec  # noqa: E402
+from scripts.graybox_manager import GrayboxRenderError, start_render as start_graybox_render, status as graybox_render_status  # noqa: E402
 
 
 PROVIDER_TYPES = {
     "local_ken_burns": LocalKenBurnsVideo,
+    "minimax_h3": MiniMaxH3Video,
     "openai_sora": OpenAISoraVideo,
     "runway": RunwayImageToVideo,
     "wan": WanImageToVideo,
 }
 KEY_ENV = {
+    "minimax_h3": "MINIMAX_API_KEY",
     "openai_sora": "OPENAI_API_KEY",
     "openai_image": "OPENAI_API_KEY",
     "runway": "RUNWAY_API_KEY",
