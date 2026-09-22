@@ -470,6 +470,26 @@ class WebServerTests(unittest.TestCase):
                     "upload_authorized": True,
                 })
 
+    def test_http_byte_range_parser_supports_video_streaming_ranges(self):
+        self.assertEqual(web_server._parse_http_byte_range("bytes=0-99", 1000), (0, 99))
+        self.assertEqual(web_server._parse_http_byte_range("bytes=100-", 1000), (100, 999))
+        self.assertEqual(web_server._parse_http_byte_range("bytes=-500", 1000), (500, 999))
+        self.assertEqual(web_server._parse_http_byte_range("", 1000), None)
+        with self.assertRaises(ValueError):
+            web_server._parse_http_byte_range("bytes=1000-", 1000)
+        with self.assertRaises(ValueError):
+            web_server._parse_http_byte_range("items=0-10", 1000)
+
+    def test_p32_video_preview_does_not_reset_same_src_during_state_refresh(self):
+        app = (web_server.WEB_ROOT / "app.js").read_text(encoding="utf-8")
+        server = Path(web_server.__file__).read_text(encoding="utf-8")
+        self.assertIn("Accept-Ranges", server)
+        self.assertIn("Content-Range", server)
+        self.assertIn("HTTPStatus.PARTIAL_CONTENT", server)
+        self.assertIn("HTTPStatus.REQUESTED_RANGE_NOT_SATISFIABLE", server)
+        self.assertIn("currentSrc !== nextSrc", app)
+        self.assertIn("finalPreview.getAttribute('src')", app)
+
     def test_web_exposes_managed_comfyui_controls(self):
         index = (web_server.WEB_ROOT / "index.html").read_text(encoding="utf-8")
         app = (web_server.WEB_ROOT / "app.js").read_text(encoding="utf-8")
