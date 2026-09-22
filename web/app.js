@@ -1,4 +1,4 @@
-const state = { projects: [], animeProjects: [], project: null, providers: [], integrations: [], studio: null, readiness: null, backups: null, activeNovelProjectId: null, studioProjectId: null, imageStudio: null, imageStudioProjectId: null, imageStudioSelected: null, imageStudioProviderPreference: 'AUTO', imageStudioStylePreset: 'CINEMATIC_3D_DONGHUA', graybox: null, grayboxProjectId: null, grayboxPollTimer: null, gptKeyframes: null, gptKeyframePollTimer: null, pipeline: null, pipelineProjectId: null, voiceTimeline: null, voiceTimelineProjectId: null, finalAudio: null, finalAudioProjectId: null, novelImportResult: null, selectedProvider: 'local_ken_burns', selectedImage: null, currentView: 'workspace', currentWorkspace: 'overview' };
+const state = { projects: [], animeProjects: [], project: null, providers: [], integrations: [], studio: null, readiness: null, backups: null, activeNovelProjectId: null, studioProjectId: null, imageStudio: null, imageStudioProjectId: null, imageStudioSelected: null, imageStudioProviderPreference: 'AUTO', imageStudioStylePreset: 'CINEMATIC_3D_DONGHUA', graybox: null, grayboxProjectId: null, grayboxPollTimer: null, gptKeyframes: null, gptKeyframePollTimer: null, gptCodexLogs: null, gptCodexLogsLoading: false, pipeline: null, pipelineProjectId: null, voiceTimeline: null, voiceTimelineProjectId: null, finalAudio: null, finalAudioProjectId: null, novelImportResult: null, selectedProvider: 'local_ken_burns', selectedImage: null, currentView: 'workspace', currentWorkspace: 'overview' };
 const ACTIVE_NOVEL_PROJECT_KEY = 'videocreator.activeNovelProjectId.v1';
 const IMAGE_STYLE_PROJECT_KEY_PREFIX = 'videocreator.imageStylePreset.v2.';
 
@@ -34,6 +34,8 @@ function clearActiveNovelProject() {
   state.imageStudioProjectId = null;
   state.imageStudio = null;
   state.gptKeyframes = null;
+  state.gptCodexLogs = null;
+  state.gptCodexLogsLoading = false;
   state.studio = null;
   state.pipeline = null;
   state.voiceTimeline = null;
@@ -327,6 +329,63 @@ function syncCodexKeyframePolling() {
   }
 }
 
+function renderCodexBatchLogs() {
+  const panel = $('#gptCodexLogsPanel');
+  const summary = $('#gptCodexLogsSummary');
+  const list = $('#gptCodexLogsList');
+  if (!panel || !summary || !list) return;
+  const data = state.gptCodexLogs;
+  if (!data) {
+    panel.classList.add('hidden');
+    summary.textContent = '尚未读取日志。';
+    list.innerHTML = '';
+    return;
+  }
+  const entries = data.entries || [];
+  panel.classList.remove('hidden');
+  summary.textContent = data.summary || (entries.length ? 'Codex 日志已载入。' : '当前没有 Codex 日志。');
+  if (!entries.length) {
+    list.innerHTML = '<div class="empty-state">当前没有可显示的 Codex 帧日志。</div>';
+    return;
+  }
+  list.innerHTML = entries.map((entry) => {
+    const failed = entry.status === 'FAILED';
+    const title = escapeHtml(entry.id || ('GPT-KF-' + String(entry.index).padStart(3, '0')));
+    const error = entry.error ? '<div class="codex-log-error">' + escapeHtml(entry.error) + '</div>' : '';
+    const tail = escapeHtml(entry.tail || '日志文件存在，但尾部为空。');
+    return '<details class="codex-log-entry" ' + (failed ? 'open' : '') + '>' +
+      '<summary><strong>' + title + '</strong><span class="pipeline-stage-status ' + (failed ? 'fail' : entry.status === 'READY' ? 'pass' : 'pending') + '">' + escapeHtml(entry.status || 'UNKNOWN') + '</span><small>attempt ' + Number(entry.attempts || 0) + '</small></summary>' +
+      error +
+      '<pre>' + tail + '</pre>' +
+      '<small class="codex-log-path">' + escapeHtml(entry.log_path || '') + '</small>' +
+    '</details>';
+  }).join('');
+}
+
+async function loadCodexBatchLogs({ forceOpen = true } = {}) {
+  const projectId = state.grayboxProjectId;
+  if (!projectId || state.gptCodexLogsLoading) return;
+  state.gptCodexLogsLoading = true;
+  const button = $('#gptCodexLogsRefresh');
+  if (button) {
+    button.disabled = true;
+    button.textContent = '正在读取日志…';
+  }
+  try {
+    state.gptCodexLogs = await api('/api/novel-anime/projects/' + encodeURIComponent(projectId) + '/graybox/gpt-keyframes/codex-batch/logs');
+    renderCodexBatchLogs();
+    if (forceOpen) $('#gptCodexLogsPanel')?.classList.remove('hidden');
+  } catch (error) {
+    log('读取 Codex 日志失败：' + error.message, true);
+  } finally {
+    state.gptCodexLogsLoading = false;
+    if (button) {
+      button.disabled = false;
+      button.textContent = '查看 / 刷新 Codex 日志';
+    }
+  }
+}
+
 function renderGptKeyframes() {
   const data = state.gptKeyframes || {};
   const frames = data.frames || [];
@@ -442,6 +501,11 @@ function renderGptKeyframes() {
   if ($('#gptCodexConcurrency')) $('#gptCodexConcurrency').disabled = codexRunning;
   if ($('#gptCodexUsageConfirm')) $('#gptCodexUsageConfirm').disabled = codexRunning;
   if ($('#gptCodexUploadConfirm')) $('#gptCodexUploadConfirm').disabled = codexRunning;
+
+  if (codexFailed > 0 && !codexRunning && !state.gptCodexLogs && !state.gptCodexLogsLoading) {
+    window.setTimeout(() => loadCodexBatchLogs({ forceOpen: true }), 0);
+  }
+  renderCodexBatchLogs();
 
   const readyForVideo = frames.length > 1 && Number(data.generated_count || 0) === Number(data.keyframe_count || 0);
   $('#gptKeyframeInterpolate').disabled = !readyForVideo;
@@ -581,6 +645,8 @@ async function startCodexKeyframeBatch() {
   button.disabled = true;
   button.textContent = '正在启动 Codex…';
   try {
+    state.gptCodexLogs = null;
+    renderCodexBatchLogs();
     state.gptKeyframes = await api('/api/novel-anime/projects/' + encodeURIComponent(projectId) + '/graybox/gpt-keyframes/codex-batch/start', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -3387,6 +3453,7 @@ $('#grayboxSaveSmokeReview').addEventListener('click', saveGrayboxSmokeReview);
 $('#gptKeyframePrepare').addEventListener('click', prepareGptKeyframes);
 $('#gptCodexBatchStart').addEventListener('click', startCodexKeyframeBatch);
 $('#gptCodexBatchStop').addEventListener('click', stopCodexKeyframeBatch);
+$('#gptCodexLogsRefresh').addEventListener('click', () => loadCodexBatchLogs({ forceOpen: true }));
 $('#gptCodexUsageConfirm').addEventListener('change', renderGptKeyframes);
 $('#gptCodexUploadConfirm').addEventListener('change', renderGptKeyframes);
 $('#gptKeyframeInterpolate').addEventListener('click', interpolateGptKeyframes);
