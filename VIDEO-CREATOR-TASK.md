@@ -4648,6 +4648,7 @@ Status: CODE PASS / CI PASS / LOCAL VISUAL SMOKE PENDING
   - Web 必须暴露 P35 controls / ChatGPT Web bridge / upload / interpolate；
   - P31 workflow 已纳入 `scripts/gpt_keyframe_pipeline.py` 与 `tests/test_gpt_keyframe_pipeline.py`。
   - P31 workflow 已纳入 `scripts/codex_keyframe_batch.py`、`tests/test_codex_keyframe_batch.py` 与 P35 Codex Web regression；
+  - GitHub Actions P31 Novel Import Regression run `35743955519` = SUCCESS（Codex batch runner + Web + Node syntax + existing P35 regression 全绿）；
   - 回归验证 Codex usage/upload 双确认、Reset/Continuity 依赖调度、真实 `--image` 附件、服务重启 INTERRUPTED 恢复语义。
 - GitHub Actions P31 Novel Import Regression run `35733041001` = SUCCESS，覆盖 P35 core + Web + Node syntax check。
 
@@ -4681,6 +4682,7 @@ Status: CODE PASS / CI PASS / LOCAL VISUAL SMOKE PENDING
 - `4d76d005` Codex-first P35 Web regression
 - `39d363a6` Codex batch Web styles
 - `3cd1ab4f` CI gate for Codex batch
+- `32d9c2c6` self-contained Codex batch regression fix
 
 当前 Web smoke 路径：
 
