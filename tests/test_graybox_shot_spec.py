@@ -31,6 +31,16 @@ BASE_SPEC = {
 }
 
 
+class GrayboxDefaultBlockingTests(unittest.TestCase):
+    def test_default_smoke_starts_at_gate_and_walks_inward(self):
+        config = graybox._load_json(graybox.CONFIG_PATH)
+        shot = config["default_shot"]
+        self.assertGreaterEqual(int(shot["blocking_revision"]), 2)
+        self.assertGreater(shot["actor"]["start"][1], shot["actor"]["stop"][1])
+        self.assertTrue(shot["camera_path"]["follow_actor"])
+        self.assertGreater(float(shot["camera_path"]["target_height"]), 1.0)
+
+
 class GrayboxShotSpecAdjustmentTests(unittest.TestCase):
     def _apply(self, instruction):
         captured = {}
