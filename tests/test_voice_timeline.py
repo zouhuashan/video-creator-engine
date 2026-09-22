@@ -75,6 +75,66 @@ class VoiceTimelineTests(unittest.TestCase):
             self.assertEqual(result["shot_timing"][0]["recommended_duration_seconds"], 3.8)
             self.assertEqual(result["shot_timing"][0]["timing_source"], "SCRIPT_ESTIMATE")
 
+    def test_apply_actual_tts_timing_updates_matching_shot_only(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            timeline_path = project / voice_timeline.OUTPUT
+            timeline_path.parent.mkdir(parents=True, exist_ok=True)
+            timeline_path.write_text(json.dumps({
+                "episodes": [{
+                    "episode_id": "S01E001",
+                    "status": "READY",
+                    "lines": [{"unit_id": "UNIT-001"}],
+                }],
+                "shot_timing": [{
+                    "episode_id": "S01E001",
+                    "shot_id": "SHOT-SC-S01E001-001-001",
+                    "timing_source": "ACTUAL_TTS",
+                    "recommended_duration_seconds": 4.6,
+                }],
+            }), encoding="utf-8")
+            package = {
+                "revision": 3,
+                "updated_at": "old",
+                "scene_breakdowns": [{
+                    "episode_id": "S01E001",
+                    "shots": [{
+                        "id": "SHOT-SC-S01E001-001-001",
+                        "sequence": 1,
+                        "shot_type": "WIDE",
+                        "framing": "竖屏全景",
+                        "angle": "平视",
+                        "movement": "静态",
+                        "lens": "35mm",
+                        "duration_seconds": 8.0,
+                        "start_state": {},
+                        "end_state": {},
+                        "reference_ids": [],
+                        "continuity_signature": "old",
+                    }],
+                }],
+            }
+            written = {}
+
+            def fake_write(_project, payload, overwrite=False):
+                written["payload"] = payload
+                written["overwrite"] = overwrite
+                return project / "storyboard" / "shot-breakdown.json"
+
+            with patch.object(voice_timeline, "load_shot_breakdown", return_value=package), \
+                 patch.object(voice_timeline, "write_shot_breakdown", side_effect=fake_write), \
+                 patch.object(voice_timeline, "shot_signature", return_value="new-signature"):
+                result = voice_timeline.apply_to_shot_breakdown(project, "S01E001")
+
+            self.assertEqual(result["status"], "PASS")
+            self.assertEqual(result["updated_shot_count"], 1)
+            self.assertEqual(result["updated"][0]["before_seconds"], 8.0)
+            self.assertEqual(result["updated"][0]["after_seconds"], 4.6)
+            self.assertEqual(written["payload"]["revision"], 4)
+            self.assertEqual(written["payload"]["scene_breakdowns"][0]["shots"][0]["duration_seconds"], 4.6)
+            self.assertEqual(written["payload"]["scene_breakdowns"][0]["shots"][0]["continuity_signature"], "new-signature")
+            self.assertTrue(written["overwrite"])
+
     def test_existing_local_timing_audio_changes_source_to_actual_tts(self):
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory)
