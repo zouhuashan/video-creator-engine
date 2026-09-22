@@ -5,6 +5,7 @@ import tempfile
 import threading
 import urllib.request
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import scripts.web_server as web_server
@@ -432,6 +433,15 @@ class WebServerTests(unittest.TestCase):
         self.assertIn('id="grayboxAdjustInput"', index)
         self.assertIn('id="grayboxGenerateFinalButton"', index)
         self.assertIn('id="grayboxStepHint"', index)
+        self.assertIn('id="grayboxReferenceBinding"', index)
+        self.assertIn('id="grayboxCharacterReferenceSelect"', index)
+        self.assertIn('id="grayboxSceneReferenceSelect"', index)
+        self.assertIn('id="grayboxSceneReferenceFile"', index)
+        self.assertIn('id="grayboxReferenceStatus"', index)
+        self.assertIn("/graybox/references/bind", app)
+        self.assertIn("/graybox/references/scene-upload", app)
+        self.assertIn("bindGrayboxReference", app)
+        self.assertIn("uploadGrayboxSceneReference", app)
         self.assertIn('id="grayboxLiveMonitor"', index)
         self.assertIn('id="grayboxProgressBar"', index)
         self.assertIn('id="grayboxLiveLog"', index)
@@ -449,6 +459,69 @@ class WebServerTests(unittest.TestCase):
         self.assertIn("/graybox/final", app)
         self.assertIn("waitForGrayboxRender", app)
         self.assertIn("MiniMax H3", index)
+
+    def test_graybox_final_passes_character_and_scene_images_to_minimax(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            video = project / "graybox" / "renders" / "GB-SHOT-001.mp4"
+            video.parent.mkdir(parents=True)
+            video.write_bytes(b"v" * 2048)
+            character = project / "lookdev" / "character.png"
+            character.parent.mkdir(parents=True)
+            character.write_bytes(b"c" * 2048)
+            scene = project / "graybox" / "references" / "scenes" / "gate.png"
+            scene.parent.mkdir(parents=True)
+            scene.write_bytes(b"s" * 2048)
+            captured = {}
+
+            def fake_generate(_provider, request):
+                captured["request"] = request
+                request.output_path.parent.mkdir(parents=True, exist_ok=True)
+                request.output_path.write_bytes(b"o" * 2048)
+                return SimpleNamespace(
+                    output_path=request.output_path,
+                    provider="minimax_h3",
+                    duration_seconds=8.0,
+                    task_id="task-ref-001",
+                )
+
+            with patch.object(web_server, "graybox_render_status", return_value={
+                "output_ready": True,
+                "output_path": "graybox/renders/GB-SHOT-001.mp4",
+            }), patch.object(web_server, "load_graybox_spec", return_value={
+                "id": "GB-SHOT-001",
+                "duration_seconds": 8,
+                "fps": 24,
+                "width": 720,
+                "height": 1280,
+                "review": {"status": "APPROVED"},
+                "ai_video": {"prompt": "follow graybox motion"},
+            }), patch.object(web_server, "resolve_graybox_reference_paths", return_value=(
+                character,
+                scene,
+                {
+                    "character_reference": {"path": "lookdev/character.png"},
+                    "scene_reference": {"path": "graybox/references/scenes/gate.png"},
+                },
+            )), patch.object(web_server.MiniMaxH3Video, "generate", side_effect=fake_generate), patch.dict(
+                web_server.RUNTIME_KEYS,
+                {"minimax_h3": "test-secret-key"},
+                clear=False,
+            ):
+                result = web_server._generate_graybox_final(project, {
+                    "confirm_billable": True,
+                    "upload_authorized": True,
+                    "resolution": "768P",
+                })
+
+            request = captured["request"]
+            self.assertEqual(request.reference_video_paths, (video.resolve(),))
+            self.assertEqual(request.image_paths, (character.resolve(), scene.resolve()))
+            self.assertIn("Reference image 1 is the CHARACTER identity reference", request.prompt_text)
+            self.assertIn("Reference image 2 is the SCENE reference", request.prompt_text)
+            self.assertEqual(result["reference_image_count"], 2)
+            self.assertEqual(result["character_reference"], "lookdev/character.png")
+            self.assertEqual(result["scene_reference"], "graybox/references/scenes/gate.png")
 
     def test_graybox_final_requires_human_approved_blockout(self):
         project = Path("/tmp/graybox-test")
