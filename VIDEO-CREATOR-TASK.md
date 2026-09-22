@@ -4511,3 +4511,135 @@ Final Mix：
 - H3 仍只在故事、Timing、Blender、正式声音都确定后执行最终昂贵视觉生成。
 
 NEXT：在本机 Web 对当前项目选择一条旁白或主角台词，配置 Fish Audio voice_id 后只生成 **1 句 Final Voice smoke**。确认音色、中文发音、情绪与 P33 时长对齐都正常，再批量生成整集；之后进入 Final Video Assembly：H3 视频 + Final Mix + ASS 字幕 → FFmpeg 母版。
+---
+
+### P35 GPT Keyframe → Local Video：Blender 控制帧 + ChatGPT 关键帧 + 本地 24fps
+Status: CODE PASS / CI RUNNING / LOCAL VISUAL SMOKE PENDING
+
+目标：
+
+- 新增一条不依赖 H3 整段视频生成的 Final Visual 路线；
+- Blender 继续唯一控制 Camera / Blocking / Actor Path / Pose / Timing / Occlusion；
+- ChatGPT / GPT Image 只负责把少量白模控制帧重绘为最终人物 + 场景 + 材质 + 灯光；
+- 本地 FFmpeg 将少量 AI Keyframes 插值为 24fps 视频；
+- 首轮优先验证人物/服装/古宅一致性和本地插帧可用性，再决定是否接 OpenAI Image API 自动化。
+
+执行记录（2026-09-22）：
+
+- 新增 `scripts/gpt_keyframe_pipeline.py`：
+  - 路线 ID = `CHATGPT_WEB_KEYFRAMES`；
+  - 首版 automation = `MANUAL_WEB_BRIDGE`，不自动登录/操控 ChatGPT 网页会话；
+  - 不调用任何远程图片 API，因此准备控制帧和本地插帧阶段无远程生成费用。
+- P35 Prepare Gate：
+  - 当前 Blender 白模必须 output READY；
+  - 白模不得 STALE；
+  - Shot Spec 必须人工 `APPROVED`；
+  - 人物参考 + 场景参考必须完整绑定；
+  - FFmpeg 必须可用。
+- 控制帧抽取：
+  - Web 可选 9 张或 17 张；
+  - 首轮默认 9 张；
+  - 8 秒镜头时 9 张对应约 `0/1/2/3/4/5/6/7/8s`；
+  - 最后一张使用接近结尾的有效视频帧，避免精确 seek 到 duration 之外；
+  - 文件保存到 `graybox/gpt-keyframes/<SHOT>/control/KF-xxx.png`。
+- 每张控制帧自动生成独立 Prompt：
+  - Reference 1 = Character identity；
+  - Reference 2 = Scene identity；
+  - Reference 3 = 当前 Blender control frame；
+  - 非重置帧额外使用上一张已接受 final keyframe 做 temporal continuity；
+  - Blender control frame 是 camera / pose / screen position / gaze / occlusion / layout 的唯一动态权威；
+  - 强制要求主体保持在中央 84% 宽度内，为 GPT 常见 2:3 图片安全中心裁切到 9:16 留余量。
+- 累积漂移控制：
+  - 每约 2 秒自动标记一次 `CANONICAL_RESET`；
+  - Reset 帧重新以人物参考 + 场景参考 + 当前 Blender 帧为准，不继承之前 AI 帧的视觉漂移；
+  - 其余帧使用 `PREVIOUS_CONTINUITY`，可带上一张最终帧维持连续性。
+- Web P32 区下方新增 **P35 / GPT KEYFRAME → LOCAL VIDEO**：
+  - ① 抽取 Blender 控制帧；
+  - ② 直接打开 ChatGPT 网页版；
+  - 每张卡片展示 Blender 控制帧；
+  - 一键复制该帧 Prompt；
+  - 显示 Canonical Reset / Previous Continuity；
+  - Web 直接上传 ChatGPT 生成的对应最终帧；
+  - 每帧可替换重做，不需要整段重来；
+  - 显示已回传 `N / total`。
+- AI 图片回传：
+  - 支持 PNG / JPEG / WebP；
+  - 单张最大 16 MB；
+  - 校验真实图片 magic/header；
+  - 上传原图保存在 `generated/`；
+  - FFmpeg 自动按 `force_original_aspect_ratio=increase + center crop` 规范化到当前 Shot 的 9:16 分辨率；
+  - 规范化文件保存到 `normalized/KF-xxx.png`。
+- 本地流畅视频：
+  - 所有关键帧 READY 后才开放 “④ 本地插帧 → 24fps”；
+  - 首版 backend = `FFMPEG_MINTERPOLATE`；
+  - 使用 bidirectional motion estimation + AOBMC / VSBMC；
+  - 根据关键帧数量与 Shot Duration 自动计算 source keyframe rate；
+  - 再插到 Shot Spec 的目标 fps（当前 24fps）；
+  - 最终 trim 回原 Shot Duration；
+  - H.264 / CRF 18 / faststart / yuv420p；
+  - 输出 `graybox/gpt-keyframes/<SHOT>/output/<SHOT>-9kf-24fps.mp4` 或 17kf 对应版本；
+  - Web 直接播放本地插帧结果。
+- 新增 Web API：
+  - `GET .../graybox/gpt-keyframes`；
+  - `POST .../graybox/gpt-keyframes/prepare`；
+  - `POST .../graybox/gpt-keyframes/upload`；
+  - `POST .../graybox/gpt-keyframes/interpolate`。
+- 回归覆盖：
+  - 9 张控制帧均匀时间点；
+  - canonical reset / continuity 标记；
+  - ChatGPT 回传图的安全校验与 9:16 规范化；
+  - 未上传全部关键帧时禁止插帧；
+  - 最终 FFmpeg filter 必须包含 `minterpolate=fps=24` 和 Shot Duration trim；
+  - Web 必须暴露 P35 controls / ChatGPT Web bridge / upload / interpolate；
+  - P31 workflow 已纳入 `scripts/gpt_keyframe_pipeline.py` 与 `tests/test_gpt_keyframe_pipeline.py`。
+
+关键提交：
+- `afdaf55e` GPT Keyframe pipeline core
+- `9b377131` P35 Web API
+- `695d62b5` P35 Web workspace
+- `c6d6c866` Web state
+- `9edc2d88` Web workflow actions
+- `cf931b1c` P35 styles
+- `dfb3c24c` extraction / upload / interpolate tests
+- `34aeec39` P35 Web regression
+- `6639812b` CI gate
+
+当前 Web smoke 路径：
+
+```text
+更新 main + 重启 VideoCreator Web
+→ AI 生图 / P32 区
+→ 确认 Blender 白模已通过
+→ 确认人物参考 + 场景参考 READY
+
+P35 / GPT KEYFRAME → LOCAL VIDEO
+→ 控制帧数量选 9
+→ ① 抽取 Blender 控制帧
+
+按 KF-000 → KF-008 顺序：
+→ 打开当前 Blender 控制帧
+→ 点击“复制 Prompt”
+→ 打开 ChatGPT 网页版
+→ 上传：人物参考 + 场景参考 + 当前控制帧
+→ 若卡片提示 PREVIOUS_CONTINUITY，再上传上一张已接受最终帧
+→ 生成一张最终国漫帧
+→ 下载后回到 VideoCreator
+→ “上传 ChatGPT 最终帧”
+
+全部 9/9 READY：
+→ ④ 本地插帧 → 24fps
+→ Web 直接播放结果
+→ 检查：脸/发型/服装漂移、建筑跳变、手脚形变、插帧拖影/融化
+```
+
+验收策略：
+
+- 先只做 `GB-SHOT-001` 9 张 smoke；
+- 如果 9 张的人物/场景一致，但中间动作插帧伪影明显，再升级为 17 张（约每 0.5 秒一张）；
+- 如果关键帧自身就频繁换脸/换衣/改建筑，则先修 Prompt / canonical reset，不应盲目增加关键帧数量；
+- 高速打斗、大幅遮挡、360° 转身仍保留 H3 等原生 Video Provider；
+- 对话、慢走、停步、抬头、轻推镜优先考虑 P35 低成本路线。
+
+当前边界：首版是 **ChatGPT Web 手工桥接**，不是浏览器自动化。这样先验证视觉路线本身，避免在效果未证明前先投入不稳定的网页登录自动化。若 P35 smoke PASS，再评估第二阶段 `OPENAI_IMAGE_API` 自动逐帧生成或 Work/Browser 自动化。
+
+NEXT：本机用 `GB-SHOT-001` 做 9 张真实视觉 smoke。若关键帧稳定，生成第一版 `9 keyframes → FFmpeg minterpolate → 24fps` 视频并和 H3 112 贝壳版本并排比较；若动作伪影过多，再切 17 张。
