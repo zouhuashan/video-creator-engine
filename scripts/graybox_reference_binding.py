@@ -22,8 +22,11 @@ def _utc_timestamp() -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
 
-def binding_path(project_dir: Path) -> Path:
-    return Path(project_dir).resolve() / "graybox" / "reference-binding.json"
+def binding_path(project_dir: Path, spec_id: str = DEFAULT_SPEC_ID) -> Path:
+    clean_id = str(spec_id or DEFAULT_SPEC_ID).strip()
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,120}", clean_id):
+        raise GrayboxReferenceError("invalid graybox shot spec id")
+    return Path(project_dir).resolve() / "graybox" / "reference-bindings" / f"{clean_id}.json"
 
 
 def _image_valid(path: Path) -> bool:
