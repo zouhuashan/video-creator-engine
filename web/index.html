@@ -392,6 +392,53 @@
               </div>
             </div>
 
+            <div class="graybox-reference-card" id="grayboxReferenceBinding">
+              <div class="graybox-card-head">
+                <div>
+                  <span class="section-kicker">REFERENCE BINDING</span>
+                  <strong>人物 + 场景参考绑定</strong>
+                  <small>白模只锁动态骨架；人物图锁脸/发型/服装，场景图锁建筑/材质/色彩。</small>
+                </div>
+                <span class="status-dot off" id="grayboxReferenceStatus">NOT READY</span>
+              </div>
+
+              <div class="graybox-reference-grid">
+                <div class="graybox-reference-slot">
+                  <div class="graybox-reference-preview">
+                    <img class="hidden" id="grayboxCharacterReferencePreview" alt="人物参考预览" />
+                    <div id="grayboxCharacterReferenceEmpty">尚未绑定人物参考</div>
+                  </div>
+                  <div class="graybox-reference-body">
+                    <strong>人物参考</strong>
+                    <small id="grayboxCharacterReferenceMeta">从当前项目 Image Studio 的角色定妆 / LookDev 中选择。</small>
+                    <select id="grayboxCharacterReferenceSelect" class="select-field"></select>
+                    <button class="secondary-button small-button" id="grayboxBindCharacterReference">绑定人物参考</button>
+                  </div>
+                </div>
+
+                <div class="graybox-reference-slot">
+                  <div class="graybox-reference-preview">
+                    <img class="hidden" id="grayboxSceneReferencePreview" alt="场景参考预览" />
+                    <div id="grayboxSceneReferenceEmpty">尚未绑定场景参考</div>
+                  </div>
+                  <div class="graybox-reference-body">
+                    <strong>场景参考</strong>
+                    <small id="grayboxSceneReferenceMeta">可选择已有关键帧，或直接上传古宅 / 门楼场景参考图。</small>
+                    <select id="grayboxSceneReferenceSelect" class="select-field"></select>
+                    <button class="secondary-button small-button" id="grayboxBindSceneReference">绑定已有场景图</button>
+                    <div class="graybox-scene-upload">
+                      <input id="grayboxSceneReferenceFile" type="file" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" />
+                      <button class="secondary-button small-button" id="grayboxUploadSceneReference">上传并绑定场景图</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="graybox-reference-package" id="grayboxReferencePackageStatus">
+                最终输入包：等待人物参考 + 场景参考。
+              </div>
+            </div>
+
             <div class="graybox-final-controls">
               <div class="graybox-key-row">
                 <div>
@@ -418,7 +465,7 @@
                 </label>
                 <label class="confirm-row compact-confirm">
                   <input type="checkbox" id="grayboxUploadConfirm" />
-                  <span>我允许把当前白模 MP4 上传给 MiniMax H3 作为参考视频。</span>
+                  <span>我允许把当前白模 MP4 + 已绑定人物参考图 + 场景参考图上传给 MiniMax H3。</span>
                 </label>
               </div>
               <button class="primary-button graybox-final-button" id="grayboxGenerateFinalButton">③ 白模 → MiniMax H3 成片</button>
