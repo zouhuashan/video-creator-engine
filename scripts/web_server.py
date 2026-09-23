@@ -68,7 +68,7 @@ from scripts.novel_visual_bible import NovelVisualBibleError, load_visual_bible,
 from scripts.novel_character_designs import NovelCharacterDesignError, load_character_designs, summary as character_design_summary  # noqa: E402
 from scripts.novel_environment_assets import NovelEnvironmentAssetError, load_environment_assets, summary as environment_asset_summary  # noqa: E402
 from scripts.novel_asset_review import NovelAssetReviewError, load_asset_review, summary as asset_review_summary  # noqa: E402
-from scripts.novel_shot_breakdown import NovelShotBreakdownError, load_shot_breakdown, summary as shot_breakdown_summary  # noqa: E402
+from scripts.novel_shot_breakdown import NovelShotBreakdownError, build_shot_breakdown, load_shot_breakdown, summary as shot_breakdown_summary, write_shot_breakdown  # noqa: E402
 from scripts.novel_storyboard import NovelStoryboardError, load_storyboard, summary as storyboard_summary  # noqa: E402
 from scripts.novel_animatic import NovelAnimaticError, load_animatic, summary as animatic_summary  # noqa: E402
 from scripts.novel_animatic_review import NovelAnimaticReviewError, load_review as load_animatic_review, summary as animatic_review_summary  # noqa: E402
@@ -2725,7 +2725,21 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
         if match:
             try:
                 project = _safe_project(match.group(1))
-                return self._json(save_cost_first_plan(project), HTTPStatus.CREATED)
+                auto_rebuilt_shot_breakdown = False
+                try:
+                    current_shots = load_shot_breakdown(project)
+                    current_count = sum(len(item.get("shots") or []) for item in current_shots.get("scene_breakdowns", []))
+                except NovelShotBreakdownError:
+                    current_count = 0
+                if current_count == 0:
+                    rebuilt = build_shot_breakdown(project)
+                    rebuilt_count = sum(len(item.get("shots") or []) for item in rebuilt.get("scene_breakdowns", []))
+                    if rebuilt_count > 0:
+                        write_shot_breakdown(project, rebuilt, overwrite=True)
+                        auto_rebuilt_shot_breakdown = True
+                result = save_cost_first_plan(project)
+                result["auto_rebuilt_shot_breakdown"] = auto_rebuilt_shot_breakdown
+                return self._json(result, HTTPStatus.CREATED)
             except (ValueError, CostFirstRoutingError, NovelShotBreakdownError, NovelEpisodeScriptError, OSError, json.JSONDecodeError) as error:
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
 
