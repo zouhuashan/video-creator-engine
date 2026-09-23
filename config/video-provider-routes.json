@@ -8,6 +8,28 @@
   },
   "providers": [
     {
+      "id": "LOCAL_TWO_CUT",
+      "adapter": "local_two_cut",
+      "role": "FREE_LOCAL_HARD_CUT",
+      "remote": false,
+      "status": "ACTIVE",
+      "capabilities": [
+        "image_to_video",
+        "two_still_hard_cut"
+      ]
+    },
+    {
+      "id": "LOCAL_SCENE_PLATE",
+      "adapter": "local_scene_plate",
+      "role": "FREE_LOCAL_SCENE_PLATE",
+      "remote": false,
+      "status": "ACTIVE",
+      "capabilities": [
+        "image_to_video",
+        "scene_plate_motion"
+      ]
+    },
+    {
       "id": "LOCAL_MICRO_MOTION",
       "adapter": "local_micro_motion",
       "role": "FREE_LOCAL_DIALOGUE_MOTION",
