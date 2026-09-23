@@ -444,6 +444,33 @@
               </div>
             </div>
 
+            <div class="graybox-reference-card cost-first-panel" id="costFirstPanel">
+              <div class="graybox-card-head">
+                <div>
+                  <span class="section-kicker">P36 / COST-FIRST HYBRID RENDERER</span>
+                  <strong>能本地就本地，H3 只做真正连续动作</strong>
+                  <small>P35 多关键帧插帧已确认会产生 PPT 感，不再用于真实动作。P36 按剧本动作复杂度、镜头时长和素材复用机会自动选择最低成本路线。</small>
+                </div>
+                <span class="status-dot off" id="costFirstStatus">CHECKING</span>
+              </div>
+
+              <div class="cost-first-summary" id="costFirstSummary">
+                <div><span>如果全部 H3</span><strong>-- 贝壳</strong></div>
+                <div><span>混合路线 H3</span><strong>-- 贝壳</strong></div>
+                <div><span>预计节省</span><strong>--</strong></div>
+                <div><span>需新生成静帧</span><strong>--</strong></div>
+              </div>
+
+              <div class="cost-first-actions">
+                <button class="secondary-button" id="costFirstRebuild">重新分析全部镜头</button>
+                <span id="costFirstPolicyHint">H3 = 默认锁定；只有被判定为高动态且人工确认后才能升级。</span>
+              </div>
+
+              <div class="cost-first-routes" id="costFirstRoutes">
+                <div class="empty-state">正在读取成本优先渲染计划…</div>
+              </div>
+            </div>
+
             <div class="graybox-reference-card gpt-keyframe-panel" id="grayboxGptKeyframes">
               <div class="graybox-card-head">
                 <div>
