@@ -293,9 +293,16 @@ def build_plan(project: Path) -> dict[str, Any]:
     savings = round(max(0.0, all_h3_shells - hybrid_h3_shells), 1)
     savings_percent = round((savings / all_h3_shells * 100.0) if all_h3_shells else 100.0, 1)
 
+    status = "PLANNED" if routes else "BLOCKED_NO_SHOTS"
+    blockers = [] if routes else [
+        "当前项目没有可供 P36 路由的 Shot；请先生成/重建 Episode Script 与 Shot Breakdown。"
+    ]
+
     return {
         "schema_version": 1,
         "project_id": project.name,
+        "status": status,
+        "blockers": blockers,
         "policy": {
             "name": config["policy"]["name"],
             "remote_video_last_resort": True,
