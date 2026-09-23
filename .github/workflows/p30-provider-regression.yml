@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "support/providers/**"
+      - "adapters/video_generation/__init__.py"
       - "adapters/video_generation/local_micro_motion.py"
       - "adapters/video_generation/local_scene_plate.py"
       - "adapters/video_generation/local_two_cut.py"
