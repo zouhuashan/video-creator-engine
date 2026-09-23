@@ -397,6 +397,111 @@ function costFirstRouteLabel(route) {
   })[route] || route || 'UNKNOWN';
 }
 
+function renderCostFirstDiagnostics(
+  diagnostics = state.costFirstPlan?.diagnostics || null,
+  rebuildSteps = state.costFirstPlan?.rebuild_steps || [],
+  blockers = state.costFirstPlan?.blockers || []
+) {
+  const panel = $('#costFirstDiagnosticsPanel');
+  const status = $('#costFirstDiagnosticsStatus');
+  const output = $('#costFirstDiagnosticsLog');
+  if (!panel || !status || !output) return;
+
+  if (!diagnostics) {
+    status.textContent = 'NOT READ';
+    output.textContent = '尚未读取 P36 诊断。点击“查看 / 刷新 P36 诊断”。';
+    return;
+  }
+
+  const script = diagnostics.episode_script || {};
+  const shots = diagnostics.shot_breakdown || {};
+  const timing = diagnostics.voice_timing || {};
+  const plan = diagnostics.plan || {};
+  const lines = [
+    '[P36 DIAGNOSTICS]',
+    'checked_at: ' + (diagnostics.checked_at || '—'),
+    'project: ' + (diagnostics.project_id || '—'),
+    '',
+    '[Episode Script]',
+    'path: ' + (script.path || 'writing-room/episodes'),
+    'exists: ' + Boolean(script.exists),
+    'json files: ' + Number(script.json_file_count || 0),
+    'revision: ' + (script.revision ?? '—'),
+    'episodes: ' + Number(script.episode_count || 0),
+    'scenes: ' + Number(script.scene_count || 0),
+    'units: ' + Number(script.unit_count || 0),
+    ...(script.error ? ['ERROR: ' + script.error] : []),
+    '',
+    '[Shot Breakdown]',
+    'path: ' + (shots.path || 'storyboard/shot-breakdown.json'),
+    'exists: ' + Boolean(shots.exists),
+    'revision: ' + (shots.revision ?? '—'),
+    'scenes: ' + Number(shots.scene_count || 0),
+    'shots: ' + Number(shots.shot_count || 0),
+    ...(shots.error ? ['ERROR: ' + shots.error] : []),
+    '',
+    '[Voice Timeline]',
+    'path: ' + (timing.path || 'audio/shot-timing.json'),
+    'exists: ' + Boolean(timing.exists),
+    'ACTUAL_TTS shots: ' + Number(timing.actual_tts_count || 0),
+    ...(timing.error ? ['ERROR: ' + timing.error] : []),
+    '',
+    '[Saved P36 Plan]',
+    'path: ' + (plan.path || 'rendering/cost-first-plan.json'),
+    'exists: ' + Boolean(plan.exists),
+    'saved status: ' + (plan.status || '—'),
+    'saved routes: ' + Number(plan.route_count || 0),
+    ...(plan.error ? ['ERROR: ' + plan.error] : []),
+  ];
+
+  const allBlockers = [...(diagnostics.blockers || []), ...(blockers || [])]
+    .filter((item, index, values) => item && values.indexOf(item) === index);
+  if (allBlockers.length) {
+    lines.push('', '[BLOCKERS]');
+    allBlockers.forEach((item) => lines.push('- ' + item));
+  }
+  if ((rebuildSteps || []).length) {
+    lines.push('', '[LAST REBUILD]');
+    rebuildSteps.forEach((step) => {
+      lines.push((step.status || 'UNKNOWN') + ' · ' + (step.stage || 'STEP') + ' · ' + (step.detail || ''));
+    });
+  }
+
+  status.textContent = diagnostics.status || (allBlockers.length ? 'BLOCKED' : 'READY');
+  output.textContent = lines.join('\n');
+  if (
+    diagnostics.status === 'BLOCKED' ||
+    allBlockers.length ||
+    (rebuildSteps || []).some((step) => ['FAIL', 'EMPTY', 'MISSING_OR_INVALID'].includes(step.status))
+  ) panel.open = true;
+}
+
+async function loadCostFirstDiagnostics({ forceOpen = true } = {}) {
+  const projectId = state.grayboxProjectId || state.costFirstProjectId;
+  const panel = $('#costFirstDiagnosticsPanel');
+  const status = $('#costFirstDiagnosticsStatus');
+  const output = $('#costFirstDiagnosticsLog');
+  if (!projectId) {
+    if (status) status.textContent = 'NO PROJECT';
+    if (output) output.textContent = '当前没有选中国漫项目。';
+    if (panel && forceOpen) panel.open = true;
+    return;
+  }
+  if (status) status.textContent = 'READING';
+  if (output) output.textContent = '正在读取 P36 上游诊断…';
+  if (panel && forceOpen) panel.open = true;
+  try {
+    const diagnostics = await api('/api/novel-anime/projects/' + encodeURIComponent(projectId) + '/cost-first-routing/diagnostics');
+    state.costFirstPlan = { ...(state.costFirstPlan || {}), diagnostics };
+    renderCostFirstDiagnostics(diagnostics, state.costFirstPlan.rebuild_steps || [], state.costFirstPlan.blockers || []);
+  } catch (error) {
+    if (status) status.textContent = 'ERROR';
+    if (output) output.textContent = '读取 P36 诊断失败：' + error.message;
+    log('读取 P36 诊断失败：' + error.message, true);
+  }
+}
+
+
 function renderCostFirstPlan() {
   const data = state.costFirstPlan;
   const status = $('#costFirstStatus');
@@ -407,17 +512,20 @@ function renderCostFirstPlan() {
     status.textContent = 'NOT READY';
     status.classList.add('off');
     routes.innerHTML = '<div class="empty-state">当前项目还没有可分析的 Shot Breakdown / Script。</div>';
+    renderCostFirstDiagnostics(null, [], []);
     return;
   }
 
   status.textContent = data.status || 'PLANNED';
-  status.classList.toggle('off', String(data.status || '').startsWith('BLOCKED'));
+  status.classList.toggle('off', String(data.status || '').startsWith('BLOCKED') || data.status === 'ERROR');
   const s = data.summary || {};
+  const hasShots = Number(s.shot_count || 0) > 0;
   summary.innerHTML =
     '<div><span>如果全部 H3</span><strong>' + Number(s.all_h3_estimated_shells || 0).toFixed(1) + ' 贝壳</strong></div>' +
     '<div><span>混合路线 H3</span><strong>' + Number(s.hybrid_h3_estimated_shells || 0).toFixed(1) + ' 贝壳</strong></div>' +
-    '<div><span>预计节省</span><strong>' + Number(s.estimated_shell_savings_percent || 0).toFixed(1) + '% · ' + Number(s.estimated_shells_saved || 0).toFixed(1) + ' 贝壳</strong></div>' +
-    '<div><span>需新生成静帧</span><strong>' + Number(s.estimated_new_still_generations_after_reuse || 0) + ' 张</strong></div>';
+    '<div><span>预计节省</span><strong>' + (hasShots ? Number(s.estimated_shell_savings_percent || 0).toFixed(1) + '% · ' + Number(s.estimated_shells_saved || 0).toFixed(1) + ' 贝壳' : '--') + '</strong></div>' +
+    '<div><span>需新生成静帧</span><strong>' + (hasShots ? Number(s.estimated_new_still_generations_after_reuse || 0) + ' 张' : '--') + '</strong></div>';
+  renderCostFirstDiagnostics(data.diagnostics || null, data.rebuild_steps || [], data.blockers || []);
 
   const groups = {
     LOCAL_SCENE_PLATE: [],
@@ -432,7 +540,10 @@ function renderCostFirstPlan() {
     const blockers = (data.blockers || []).map((item) => '<li>' + escapeHtml(item) + '</li>').join('');
     routes.innerHTML = '<div class="empty-state"><strong>当前没有可路由 Shot</strong>' +
       (blockers ? '<ul>' + blockers + '</ul>' : '<p>请先完成 Episode Script / Shot Breakdown。</p>') +
+      '<p>下面的“P36 诊断 / 日志”会直接告诉你卡在哪一层。</p>' +
       '</div>';
+    const panel = $('#costFirstDiagnosticsPanel');
+    if (panel) panel.open = true;
     return;
   }
 
@@ -536,6 +647,12 @@ async function rebuildCostFirstPlan() {
   status.textContent = 'ANALYZING';
   status.classList.remove('off');
   routes.innerHTML = '<div class="empty-state">正在读取 Episode Script / Shot Breakdown，并计算最低成本路线…</div>';
+  const diagnosticPanel = $('#costFirstDiagnosticsPanel');
+  const diagnosticStatus = $('#costFirstDiagnosticsStatus');
+  const diagnosticLog = $('#costFirstDiagnosticsLog');
+  if (diagnosticPanel) diagnosticPanel.open = true;
+  if (diagnosticStatus) diagnosticStatus.textContent = 'RUNNING';
+  if (diagnosticLog) diagnosticLog.textContent = '[P36 REBUILD]\nRUNNING · PROJECT · ' + projectId + '\nRUNNING · SHOT_BREAKDOWN · 检查现有镜头…';
   try {
     state.costFirstPlan = await api('/api/novel-anime/projects/' + encodeURIComponent(projectId) + '/cost-first-routing/rebuild', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
@@ -553,6 +670,9 @@ async function rebuildCostFirstPlan() {
     status.textContent = 'ERROR';
     status.classList.add('off');
     routes.innerHTML = '<div class="empty-state"><strong>P36 分析失败</strong><p>' + escapeHtml(error.message) + '</p></div>';
+    if (diagnosticPanel) diagnosticPanel.open = true;
+    if (diagnosticStatus) diagnosticStatus.textContent = 'ERROR';
+    if (diagnosticLog) diagnosticLog.textContent = '[P36 REBUILD]\nFAIL · ' + error.message;
     log('P36 重建失败：' + error.message, true);
   } finally {
     button.disabled = false;
@@ -3690,6 +3810,7 @@ $('#grayboxSaveMiniMaxKey').addEventListener('click', saveMiniMaxKey);
 $('#grayboxGenerateFinalButton').addEventListener('click', generateGrayboxFinal);
 $('#grayboxSaveSmokeReview').addEventListener('click', saveGrayboxSmokeReview);
 $('#costFirstRebuild').addEventListener('click', rebuildCostFirstPlan);
+$('#costFirstDiagnosticsRefresh').addEventListener('click', () => loadCostFirstDiagnostics({ forceOpen: true }));
 $('#gptKeyframePrepare').addEventListener('click', prepareGptKeyframes);
 $('#gptCodexBatchStart').addEventListener('click', startCodexKeyframeBatch);
 $('#gptCodexBatchStop').addEventListener('click', stopCodexKeyframeBatch);
