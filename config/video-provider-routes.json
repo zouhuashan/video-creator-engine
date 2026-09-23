@@ -8,6 +8,17 @@
   },
   "providers": [
     {
+      "id": "LOCAL_MICRO_MOTION",
+      "adapter": "local_micro_motion",
+      "role": "FREE_LOCAL_DIALOGUE_MOTION",
+      "remote": false,
+      "status": "ACTIVE",
+      "capabilities": [
+        "image_to_video",
+        "still_micro_motion"
+      ]
+    },
+    {
       "id": "LOCAL_KEN_BURNS",
       "adapter": "local_ken_burns",
       "role": "FREE_LOCAL_FALLBACK",
