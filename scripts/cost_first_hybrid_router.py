@@ -276,6 +276,8 @@ def build_plan(project: Path) -> dict[str, Any]:
                 "motion": motion,
                 "visual_reuse_key": reuse_key,
                 "h3_full_cost_shells": h3_estimate,
+                "hybrid_cost_shells": h3_estimate if selected["route"] == "H3_CANDIDATE" else 0.0,
+                "estimated_shells_saved": 0.0 if selected["route"] == "H3_CANDIDATE" else h3_estimate,
                 "h3_escalation": {
                     "status": selected["h3_escalation_status"],
                     "approved": False,
