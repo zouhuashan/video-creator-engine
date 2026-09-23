@@ -4749,7 +4749,7 @@ NEXT：本机更新 main、重启 Web；旧的 5 FAILED 可直接再次点“②
 ---
 
 ### P36 Cost-First Hybrid Renderer：本地优先，H3 最后兜底
-Status: CODE PASS / CI RUNNING / LOCAL ROUTING SMOKE PENDING
+Status: CODE PASS / CI PASS / LOCAL ROUTING SMOKE PENDING
 
 核心原则（2026-09-23 固化）：
 
@@ -4901,6 +4901,7 @@ P36 四级渲染路线：
 - `066668e5` P36 Web regression
 - `f17ac6ab` P31 CI gate
 - `739bed8b` P30 provider gate
+- GitHub Actions P31 run `35804871899` = SUCCESS；P30 provider regression run `35804879242` = SUCCESS。
 
 NEXT：先在本机 Web 打开 P36，读取当前项目真实 Shot Breakdown 的成本报告。不要先生成 H3。优先挑一个 `LOCAL_MICRO_MOTION` 对白/旁白镜头，用 1 张最终图做本地预览；再挑一个 `LOCAL_TWO_CUT` 中等动作镜头验证“动作前 / 动作后切镜”是否能接受。只有这两种都无法表达的镜头才人工解锁 H3。
 
