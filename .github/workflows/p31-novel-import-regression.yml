@@ -17,6 +17,7 @@ on:
       - "scripts/gpt_keyframe_pipeline.py"
       - "scripts/codex_keyframe_batch.py"
       - "scripts/cost_first_hybrid_router.py"
+      - "adapters/video_generation/__init__.py"
       - "adapters/video_generation/local_micro_motion.py"
       - "adapters/video_generation/local_scene_plate.py"
       - "adapters/video_generation/local_two_cut.py"
