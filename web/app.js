@@ -1,4 +1,4 @@
-const state = { projects: [], animeProjects: [], project: null, providers: [], integrations: [], studio: null, readiness: null, backups: null, activeNovelProjectId: null, studioProjectId: null, imageStudio: null, imageStudioProjectId: null, imageStudioSelected: null, imageStudioProviderPreference: 'AUTO', imageStudioStylePreset: 'CINEMATIC_3D_DONGHUA', graybox: null, grayboxProjectId: null, grayboxPollTimer: null, gptKeyframes: null, gptKeyframePollTimer: null, gptCodexLogs: null, gptCodexLogsLoading: false, pipeline: null, pipelineProjectId: null, voiceTimeline: null, voiceTimelineProjectId: null, finalAudio: null, finalAudioProjectId: null, novelImportResult: null, selectedProvider: 'local_ken_burns', selectedImage: null, currentView: 'workspace', currentWorkspace: 'overview' };
+const state = { projects: [], animeProjects: [], project: null, providers: [], integrations: [], studio: null, readiness: null, backups: null, activeNovelProjectId: null, studioProjectId: null, imageStudio: null, imageStudioProjectId: null, imageStudioSelected: null, imageStudioProviderPreference: 'AUTO', imageStudioStylePreset: 'CINEMATIC_3D_DONGHUA', graybox: null, grayboxProjectId: null, grayboxPollTimer: null, gptKeyframes: null, gptKeyframePollTimer: null, gptCodexLogs: null, gptCodexLogsLoading: false, costFirstPlan: null, costFirstProjectId: null, pipeline: null, pipelineProjectId: null, voiceTimeline: null, voiceTimelineProjectId: null, finalAudio: null, finalAudioProjectId: null, novelImportResult: null, selectedProvider: 'local_ken_burns', selectedImage: null, currentView: 'workspace', currentWorkspace: 'overview' };
 const ACTIVE_NOVEL_PROJECT_KEY = 'videocreator.activeNovelProjectId.v1';
 const IMAGE_STYLE_PROJECT_KEY_PREFIX = 'videocreator.imageStylePreset.v2.';
 
@@ -36,6 +36,8 @@ function clearActiveNovelProject() {
   state.gptKeyframes = null;
   state.gptCodexLogs = null;
   state.gptCodexLogsLoading = false;
+  state.costFirstPlan = null;
+  state.costFirstProjectId = null;
   state.studio = null;
   state.pipeline = null;
   state.voiceTimeline = null;
@@ -384,6 +386,134 @@ async function loadCodexBatchLogs({ forceOpen = true } = {}) {
       button.textContent = '查看 / 刷新 Codex 日志';
     }
   }
+}
+
+function costFirstRouteLabel(route) {
+  return ({
+    LOCAL_SCENE_PLATE: 'FREE · 场景图 + 本地镜头',
+    LOCAL_MICRO_MOTION: 'FREE VIDEO · 单图本地微动',
+    LOCAL_TWO_CUT: 'LOW COST · 两张图本地切镜',
+    H3_CANDIDATE: 'PAID LAST RESORT · H3 候选',
+  })[route] || route || 'UNKNOWN';
+}
+
+function renderCostFirstPlan() {
+  const data = state.costFirstPlan;
+  const status = $('#costFirstStatus');
+  const summary = $('#costFirstSummary');
+  const routes = $('#costFirstRoutes');
+  if (!status || !summary || !routes) return;
+  if (!data) {
+    status.textContent = 'NOT READY';
+    status.classList.add('off');
+    routes.innerHTML = '<div class="empty-state">当前项目还没有可分析的 Shot Breakdown / Script。</div>';
+    return;
+  }
+
+  status.textContent = data.status || 'PLANNED';
+  status.classList.toggle('off', false);
+  const s = data.summary || {};
+  summary.innerHTML =
+    '<div><span>如果全部 H3</span><strong>' + Number(s.all_h3_estimated_shells || 0).toFixed(1) + ' 贝壳</strong></div>' +
+    '<div><span>混合路线 H3</span><strong>' + Number(s.hybrid_h3_estimated_shells || 0).toFixed(1) + ' 贝壳</strong></div>' +
+    '<div><span>预计节省</span><strong>' + Number(s.estimated_shell_savings_percent || 0).toFixed(1) + '% · ' + Number(s.estimated_shells_saved || 0).toFixed(1) + ' 贝壳</strong></div>' +
+    '<div><span>需新生成静帧</span><strong>' + Number(s.estimated_new_still_generations_after_reuse || 0) + ' 张</strong></div>';
+
+  const groups = {
+    LOCAL_SCENE_PLATE: [],
+    LOCAL_MICRO_MOTION: [],
+    LOCAL_TWO_CUT: [],
+    H3_CANDIDATE: [],
+  };
+  (data.routes || []).forEach((item) => (groups[item.route] || (groups[item.route] = [])).push(item));
+  const order = ['LOCAL_SCENE_PLATE', 'LOCAL_MICRO_MOTION', 'LOCAL_TWO_CUT', 'H3_CANDIDATE'];
+
+  routes.innerHTML = order.map((routeName) => {
+    const items = groups[routeName] || [];
+    if (!items.length) return '';
+    const cards = items.map((item) => {
+      const escalation = item.h3_escalation || {};
+      const approved = Boolean(escalation.approved);
+      const reasons = (item.reasons || []).map((reason) => '<li>' + escapeHtml(reason) + '</li>').join('');
+      const keywords = [...(item.motion?.high_keywords || []), ...(item.motion?.medium_keywords || []), ...(item.motion?.subtle_keywords || [])].slice(0, 8);
+      const h3Action = item.route === 'H3_CANDIDATE'
+        ? '<div class="cost-first-h3-lock">' +
+            '<span class="' + (approved ? 'status-dot' : 'status-dot off') + '">' + (approved ? 'H3 APPROVED' : 'H3 LOCKED') + '</span>' +
+            '<button class="' + (approved ? 'secondary-button' : 'danger-button') + ' small-button" data-cost-h3="' + escapeHtml(item.shot_id) + '" data-approved="' + (approved ? '1' : '0') + '">' + (approved ? '重新锁定 H3' : '人工允许 H3') + '</button>' +
+            (approved && escalation.reason ? '<small>原因：' + escapeHtml(escalation.reason) + '</small>' : '<small>默认不允许付费视频生成。</small>') +
+          '</div>'
+        : '';
+      return '<article class="cost-first-route-card ' + (item.route === 'H3_CANDIDATE' ? 'h3-candidate' : '') + '">' +
+        '<div class="cost-first-route-head"><div><strong>' + escapeHtml(item.shot_id) + '</strong><small>' + escapeHtml(item.episode_id) + ' · ' + Number(item.duration_seconds || 0).toFixed(2) + 's · motion score ' + Number(item.motion?.score || 0).toFixed(2) + '</small></div><span class="cost-route-badge">' + escapeHtml(costFirstRouteLabel(item.route)) + '</span></div>' +
+        '<ul>' + reasons + '</ul>' +
+        '<div class="cost-first-route-meta"><span>新静帧 ' + Number(item.required_new_stills || 0) + '</span><span>全 H3 该镜头≈' + Number(item.h3_full_cost_shells || 0).toFixed(1) + ' 贝壳</span>' + (keywords.length ? '<span>动作词：' + escapeHtml(keywords.join('、')) + '</span>' : '') + '</div>' +
+        h3Action +
+      '</article>';
+    }).join('');
+    return '<section class="cost-first-group"><div class="cost-first-group-head"><strong>' + escapeHtml(costFirstRouteLabel(routeName)) + '</strong><span>' + items.length + ' 镜头</span></div><div class="cost-first-grid">' + cards + '</div></section>';
+  }).join('') || '<div class="empty-state">暂无镜头路由。</div>';
+
+  routes.querySelectorAll('[data-cost-h3]').forEach((button) => button.addEventListener('click', () => toggleCostFirstH3(button)));
+}
+
+async function loadCostFirstPlan(projectId = state.grayboxProjectId || state.costFirstProjectId) {
+  if (!projectId) return;
+  state.costFirstProjectId = projectId;
+  try {
+    state.costFirstPlan = await api('/api/novel-anime/projects/' + encodeURIComponent(projectId) + '/cost-first-routing');
+  } catch (error) {
+    state.costFirstPlan = null;
+    log('P36 成本路线暂不可用：' + error.message, true);
+  }
+  renderCostFirstPlan();
+}
+
+async function rebuildCostFirstPlan() {
+  const projectId = state.grayboxProjectId || state.costFirstProjectId;
+  if (!projectId) return;
+  const button = $('#costFirstRebuild');
+  button.disabled = true;
+  button.textContent = '分析中…';
+  try {
+    state.costFirstPlan = await api('/api/novel-anime/projects/' + encodeURIComponent(projectId) + '/cost-first-routing/rebuild', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+    });
+    renderCostFirstPlan();
+    const s = state.costFirstPlan.summary || {};
+    log('P36 成本路线已重建：预计节省 ' + Number(s.estimated_shell_savings_percent || 0).toFixed(1) + '% H3 贝壳。');
+  } catch (error) { log(error.message, true); }
+  finally { button.disabled = false; button.textContent = '重新分析全部镜头'; }
+}
+
+async function toggleCostFirstH3(button) {
+  const projectId = state.grayboxProjectId || state.costFirstProjectId;
+  const shotId = button.dataset.costH3;
+  const approved = button.dataset.approved === '1';
+  if (!projectId || !shotId) return;
+
+  if (approved) {
+    if (!window.confirm('重新锁定这个镜头的 H3？锁定后不会进入付费视频生成。')) return;
+    try {
+      state.costFirstPlan = await api('/api/novel-anime/projects/' + encodeURIComponent(projectId) + '/cost-first-routing/h3-escalation', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shot_id: shotId, approved: false }),
+      });
+      renderCostFirstPlan();
+      log(shotId + ' 已重新锁定 H3。');
+    } catch (error) { log(error.message, true); }
+    return;
+  }
+
+  const reason = window.prompt('H3 是最后兜底。请写明为什么这个镜头不能使用本地单图微动 / 两段切镜（至少 6 个字）：', '');
+  if (!reason) return;
+  try {
+    state.costFirstPlan = await api('/api/novel-anime/projects/' + encodeURIComponent(projectId) + '/cost-first-routing/h3-escalation', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ shot_id: shotId, approved: true, reason: reason }),
+    });
+    renderCostFirstPlan();
+    log(shotId + ' 已人工允许 H3；真正发起 H3 时仍需独立付费确认。');
+  } catch (error) { log(error.message, true); }
 }
 
 function renderGptKeyframes() {
@@ -894,7 +1024,14 @@ async function loadGraybox(projectId = resolveActiveNovelProject(state.grayboxPr
   } catch (_) {
     state.gptKeyframes = null;
   }
+  try {
+    state.costFirstPlan = await api(`/api/novel-anime/projects/${encodeURIComponent(projectId)}/cost-first-routing`);
+    state.costFirstProjectId = projectId;
+  } catch (_) {
+    state.costFirstPlan = null;
+  }
   renderGraybox();
+  renderCostFirstPlan();
 }
 
 async function ensureGrayboxShotSpec() {
@@ -3450,6 +3587,7 @@ $('#grayboxUploadSceneReference').addEventListener('click', uploadGrayboxSceneRe
 $('#grayboxSaveMiniMaxKey').addEventListener('click', saveMiniMaxKey);
 $('#grayboxGenerateFinalButton').addEventListener('click', generateGrayboxFinal);
 $('#grayboxSaveSmokeReview').addEventListener('click', saveGrayboxSmokeReview);
+$('#costFirstRebuild').addEventListener('click', rebuildCostFirstPlan);
 $('#gptKeyframePrepare').addEventListener('click', prepareGptKeyframes);
 $('#gptCodexBatchStart').addEventListener('click', startCodexKeyframeBatch);
 $('#gptCodexBatchStop').addEventListener('click', stopCodexKeyframeBatch);
