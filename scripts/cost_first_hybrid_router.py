@@ -216,6 +216,7 @@ def diagnostics(project: Path) -> dict[str, Any]:
     shot_path = project / "storyboard" / "shot-breakdown.json"
     timing_path = project / SHOT_TIMING_OUTPUT
     plan_path = project / OUTPUT
+    scene_seed_path = project / "writing-room" / "scene-seeds.json"
 
     result: dict[str, Any] = {
         "checked_at": _now(),
@@ -236,6 +237,14 @@ def diagnostics(project: Path) -> dict[str, Any]:
             "revision": None,
             "scene_count": 0,
             "shot_count": 0,
+            "error": "",
+        },
+        "scene_seed": {
+            "path": "writing-room/scene-seeds.json",
+            "exists": scene_seed_path.is_file(),
+            "episode_count": 0,
+            "scene_count": 0,
+            "unit_count": 0,
             "error": "",
         },
         "voice_timing": {
@@ -269,6 +278,20 @@ def diagnostics(project: Path) -> dict[str, Any]:
     except Exception as error:
         result["episode_script"]["error"] = f"{type(error).__name__}: {error}"
 
+    if scene_seed_path.is_file():
+        try:
+            seed = json.loads(scene_seed_path.read_text(encoding="utf-8"))
+            episodes = list(seed.get("episodes") or []) if isinstance(seed, dict) else []
+            seed_scenes = [scene for episode in episodes for scene in (episode.get("scenes") or []) if isinstance(episode, dict)]
+            seed_units = [unit for scene in seed_scenes for unit in (scene.get("units") or []) if isinstance(scene, dict)]
+            result["scene_seed"].update({
+                "episode_count": len(episodes),
+                "scene_count": len(seed_scenes),
+                "unit_count": len(seed_units),
+            })
+        except (OSError, json.JSONDecodeError, TypeError) as error:
+            result["scene_seed"]["error"] = f"{type(error).__name__}: {error}"
+
     try:
         shots = load_shot_breakdown(project)
         scene_breakdowns = list(shots.get("scene_breakdowns") or [])
@@ -297,7 +320,10 @@ def diagnostics(project: Path) -> dict[str, Any]:
     if script_error:
         blockers.append("Episode Script 读取失败：" + script_error)
     elif int(result["episode_script"]["scene_count"]) == 0:
-        blockers.append("Episode Script 当前有 0 个 scene；P36 无法生成 Shot。")
+        if bool(result["scene_seed"]["exists"]) and not result["scene_seed"]["error"]:
+            blockers.append("Episode Script 当前有 0 个 scene，但本地 Scene Seed 可用于自动回填。")
+        else:
+            blockers.append("Episode Script 当前有 0 个 scene；这是旧导入项目，原 TXT 未持久化。请重新选择同一个 TXT 一次，系统会复用当前项目并只回填 scenes。")
     if shot_error:
         blockers.append("Shot Breakdown 读取失败：" + shot_error)
     elif int(result["shot_breakdown"]["shot_count"]) == 0:
