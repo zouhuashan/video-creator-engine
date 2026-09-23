@@ -4743,6 +4743,164 @@ P35 / GPT KEYFRAME → LOCAL VIDEO
 - 高速打斗、大幅遮挡、360° 转身仍保留 H3 等原生 Video Provider；
 - 对话、慢走、停步、抬头、轻推镜优先考虑 P35 低成本路线。
 
-当前边界：P35 已从 **MANUAL_WEB_BRIDGE** 升级为 **CODEX_IMAGEGEN_BATCH + ChatGPT Web 手工备用**。正式自动批量路线使用用户已有 Codex 登录与套餐额度，不使用 VideoCreator 内保存的 API Key。若后续整集/批量镜头的 Codex 套餐消耗过高，再切换为独立 `OPENAI_IMAGE_API` Provider 做可计费、可控并发的大批量生产。
+当前边界：P35 已从 **MANUAL_WEB_BRIDGE** 升级为 **CODEX_IMAGEGEN_BATCH + ChatGPT Web 手工备用**；但 2026-09-23 实测确认多关键帧本地插帧存在明显 PPT 感，因此 P35 不再承担真实动作 Final Video，只保留静态/参考实验。正式自动批量路线使用用户已有 Codex 登录与套餐额度，不使用 VideoCreator 内保存的 API Key。若后续整集/批量镜头的 Codex 套餐消耗过高，再切换为独立 `OPENAI_IMAGE_API` Provider 做可计费、可控并发的大批量生产。
 
 NEXT：本机更新 main、重启 Web；旧的 5 FAILED 可直接再次点“② Codex 重试失败 / 剩余 9 张”。新版本会使用 `codex exec + comma-separated --image + stdin prompt`。若仍失败，Web 会自动展开“Codex 日志”，直接把第一条 FAILED 的原始 CLI 输出用于下一轮修复；不要再盲目重复消耗额度。成功 9/9 READY 后再进入本地 24fps 插帧。
+---
+
+### P36 Cost-First Hybrid Renderer：本地优先，H3 最后兜底
+Status: CODE PASS / CI RUNNING / LOCAL ROUTING SMOKE PENDING
+
+核心原则（2026-09-23 固化）：
+
+- **不得默认使用 H3**；
+- 本地可以完成的镜头必须优先本地；
+- 1 张最终图可以完成的镜头，不生成 2 张，更不生成 AI Video；
+- 同一地点 / 时段 / 角色组合的静态视觉优先复用，不按 Shot 重复生图；
+- 中低动作优先通过“切镜”解决，不通过多关键帧插值伪造连续动作；
+- 只有动作本身必须连续可见、本地静态剪辑无法表达时，才进入 H3 候选；
+- 即使被判定为 H3 候选，默认仍为 **H3 LOCKED**，需要人工写明原因后才能解锁；
+- 真正调用 H3 时仍保留独立 billable confirmation。
+
+P35 实验结论：
+
+- `9 / 17 AI Keyframes → 本地插帧` 不再作为真实人物动作主路线；
+- 实测结果有明显“PPT / 静态画面之间滑动或融化”感；
+- 原因：FFmpeg minterpolate / RIFE 类插帧只能估计像素运动，不能理解人物迈腿、转身、手部、衣摆等语义动作；
+- 增加关键帧数量只能缓解跳变，不能解决根因，同时增加大量 ImageGen 用量；
+- P35 降级为：视觉参考、静态 Shot、实验工具；
+- **禁止为了真实动作继续从 9 张盲目升级 17 / 33 / 192 张。**
+
+成本基线：
+
+- 当前 Hailuo / MiniMax H3 真实 smoke：8 秒消耗 112 贝壳；
+- P36 将此作为当前账号的经验估值：`112 / 8 = 14 贝壳/秒`；
+- 该数值仅用于计划对比，不视为官方固定价格；可后续改配置；
+- 配置落库：`config/cost-first-rendering.json`。
+
+P36 四级渲染路线：
+
+1. `LOCAL_SCENE_PLATE`
+   - 无角色动作 / 环境 / 空镜 / 纯旁白场景；
+   - 1 张场景图；
+   - 本地镜头移动；
+   - AI Video 成本 = 0。
+2. `LOCAL_MICRO_MOTION`
+   - 对白、旁白、凝视、沉默、微笑、轻微表演；
+   - 1 张高质量最终人物画面；
+   - 新增 `adapters/video_generation/local_micro_motion.py`；
+   - FFmpeg 连续缓推 + 轻微横/纵漂移，避免完全冻结；
+   - 明确不伪造肢体动作；
+   - AI Video 成本 = 0。
+3. `LOCAL_TWO_CUT`
+   - 走入、转身、抬头、起身、开门等中低动作；
+   - 优先生成 2 张关键构图，直接作为两个正常剪辑 Shot / Cut；
+   - 不对两张独立 AI 图做“融化式插帧”；
+   - 用剪辑语言表达动作前/后状态；
+   - AI Video 成本 = 0。
+4. `H3_CANDIDATE`
+   - 打斗、跑跳、追逐、挥剑、翻滚、飞身、大幅交互等连续动作；
+   - 仅当动作连续性本身是叙事信息时进入；
+   - 默认 `H3 LOCKED`；
+   - 人工说明“为什么不能用 LOCAL_MICRO_MOTION / LOCAL_TWO_CUT”后才能 `H3 APPROVED`。
+
+自动 Motion Analyzer：
+
+- 新增 `scripts/cost_first_hybrid_router.py`；
+- 读取：
+  - `storyboard/shot-breakdown.json`；
+  - Episode Script 的 `ACTION / VISUAL / DIALOGUE / NARRATION / SFX`；
+  - scene character count；
+  - shot duration；
+  - 动作关键词；
+- high motion 词包含：打斗 / 交手 / 挥剑 / 拔剑 / 奔跑 / 冲刺 / 追逐 / 翻滚 / 跳跃 / 飞身 / 旋转 / 撞击 / 爆炸等；
+- medium motion 词包含：走入 / 行走 / 转身 / 抬头 / 起身 / 开门 / 伸手 / 拿起等；
+- subtle motion 词包含：凝视 / 微笑 / 皱眉 / 点头 / 眨眼 / 呼吸等；
+- 自动生成 motion score，但 route 是可解释规则，不是黑盒模型判断。
+
+静帧复用：
+
+- P36 为本地路线生成 `visual_reuse_key`；
+- 当前 key = `location + time_of_day + character set`；
+- 同一视觉签名如果多个 Shot 都只需要 1 张最终图，只计 **1 次**新静帧生成；
+- `LOCAL_TWO_CUT` 同一视觉签名按该组最大需求计 2 张，而不是每个 Shot 各生成 2 张；
+- 输出 `rendering/cost-first-plan.json`。
+
+成本报告：
+
+- Web 自动展示：
+  - 如果所有 Shot 全部 H3：预计贝壳；
+  - P36 混合路线：预计 H3 贝壳；
+  - 预计节省贝壳；
+  - 预计节省百分比；
+  - 复用后真正需要新生成的静帧数量；
+  - LOCAL / H3 候选 Shot 数量。
+- 经验成本公式：`shot_duration_seconds × 14 贝壳/秒`；
+- H3 候选之外的本地 Video cost = 0。
+
+新增 Web：
+
+- P32 / P35 上方新增 `P36 / COST-FIRST HYBRID RENDERER`；
+- “重新分析全部镜头”；
+- 按路线分组显示所有 Shot；
+- 每个 Shot 显示：
+  - duration；
+  - motion score；
+  - 命中动作词；
+  - 路由原因；
+  - 新静帧需求；
+  - 如果全 H3 该镜头约多少贝壳；
+- H3 候选显示 `H3 LOCKED`；
+- “人工允许 H3”要求填写具体原因；
+- 已允许的 H3 可以随时重新锁定。
+
+新增 Web API：
+
+- `GET .../cost-first-routing`；
+- `POST .../cost-first-routing/rebuild`；
+- `POST .../cost-first-routing/h3-escalation`。
+
+新增免费本地 Provider：
+
+- `LOCAL_MICRO_MOTION / local_micro_motion`；
+- 输入必须正好 1 张最终图；
+- 连续 3.5% 内的缓慢 push-in；
+- 轻微 sinusoidal x/y camera drift；
+- 不调用任何远程 Provider；
+- 不需要 credential；
+- 输出 H.264 / yuv420p / faststart。
+
+当前策略对小说动漫的实际意义：
+
+```text
+对白 / 旁白 / 特写 / 凝视 / 空镜
+→ 1 张图 + LOCAL_MICRO_MOTION
+
+中低动作
+→ 2 张图 + 正常剪辑切镜
+
+真实连续动作（动作过程不可省略）
+→ Blender 白模 + 人物/场景参考 + H3
+```
+
+这样 H3 从“每个镜头的默认渲染器”降为“少数连续动作镜头的昂贵特效镜头”。
+
+主要提交：
+- `494f0fe8` P36 cost-first policy
+- `9ba13d5e` cost-first shot router
+- `9656a45e` local micro-motion renderer
+- `9bfb1385` local micro-motion video provider route
+- `81b8f0ee` provider configuration
+- `f54f30c8` P36 Web API
+- `5d3d5b9a` export local micro-motion provider
+- `c730edf4` P36 Web panel
+- `ede49f20` P36 Web workflow
+- `d2375bd1` P36 Web styles
+- `58a36c23` P36 routing/reuse tests
+- `45e35f39` local micro-motion tests
+- `066668e5` P36 Web regression
+- `f17ac6ab` P31 CI gate
+- `739bed8b` P30 provider gate
+
+NEXT：先在本机 Web 打开 P36，读取当前项目真实 Shot Breakdown 的成本报告。不要先生成 H3。优先挑一个 `LOCAL_MICRO_MOTION` 对白/旁白镜头，用 1 张最终图做本地预览；再挑一个 `LOCAL_TWO_CUT` 中等动作镜头验证“动作前 / 动作后切镜”是否能接受。只有这两种都无法表达的镜头才人工解锁 H3。
+
