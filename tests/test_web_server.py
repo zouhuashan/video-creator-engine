@@ -35,6 +35,24 @@ from scripts.novel_qc import build_qc_report, write_qc_report
 
 
 class WebServerTests(unittest.TestCase):
+    def test_p36_cost_first_web_exposes_local_first_routes_and_h3_lock(self):
+        index = (web_server.WEB_ROOT / "index.html").read_text(encoding="utf-8")
+        app = (web_server.WEB_ROOT / "app.js").read_text(encoding="utf-8")
+        server = Path(web_server.__file__).read_text(encoding="utf-8")
+        self.assertIn("P36 / COST-FIRST HYBRID RENDERER", index)
+        self.assertIn("能本地就本地，H3 只做真正连续动作", index)
+        self.assertIn('id="costFirstRebuild"', index)
+        self.assertIn('id="costFirstRoutes"', index)
+        self.assertIn("LOCAL_MICRO_MOTION", app)
+        self.assertIn("LOCAL_TWO_CUT", app)
+        self.assertIn("H3_CANDIDATE", app)
+        self.assertIn("H3 LOCKED", app)
+        self.assertIn("/cost-first-routing", app)
+        self.assertIn("/cost-first-routing/rebuild", app)
+        self.assertIn("/cost-first-routing/h3-escalation", app)
+        self.assertIn("CostFirstRoutingError", server)
+        self.assertIn("local_micro_motion", server)
+
     def test_p35_gpt_keyframe_web_exposes_codex_batch_manual_fallback_and_local_interpolation(self):
         index = (web_server.WEB_ROOT / "index.html").read_text(encoding="utf-8")
         app = (web_server.WEB_ROOT / "app.js").read_text(encoding="utf-8")
