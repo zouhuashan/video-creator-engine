@@ -44,6 +44,7 @@ class CostFirstLocalRendererTests(unittest.TestCase):
             self.assertFalse(result["billable"])
             self.assertFalse(result["remote_generation"])
             self.assertEqual(result["image_count"], 2)
+            self.assertEqual(result["media_url"], f"/media/{project.name}/{result['output']}")
             self.assertTrue((project / result["output"]).is_file())
 
     def test_h3_candidate_cannot_use_local_renderer(self):
