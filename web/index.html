@@ -463,8 +463,14 @@
 
               <div class="cost-first-actions">
                 <button class="secondary-button" id="costFirstRebuild">重新分析全部镜头</button>
+                <button class="secondary-button" id="costFirstDiagnosticsRefresh">查看 / 刷新 P36 诊断</button>
                 <span id="costFirstPolicyHint">H3 = 默认锁定；只有被判定为高动态且人工确认后才能升级。</span>
               </div>
+
+              <details class="graybox-log-details" id="costFirstDiagnosticsPanel">
+                <summary>P36 诊断 / 日志 <span id="costFirstDiagnosticsStatus">未读取</span></summary>
+                <pre id="costFirstDiagnosticsLog">点击“查看 / 刷新 P36 诊断”，这里会直接显示 Episode Script、Shot Breakdown、Voice Timeline 和最近一次重建步骤。</pre>
+              </details>
 
               <div class="cost-first-routes" id="costFirstRoutes">
                 <div class="empty-state">正在读取成本优先渲染计划…</div>
