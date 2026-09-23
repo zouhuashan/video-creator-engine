@@ -7,6 +7,8 @@ on:
       - "scripts/novel_web_import.py"
       - "scripts/novel_source_catalog.py"
       - "scripts/novel_source_ingest.py"
+      - "scripts/novel_episode_script.py"
+      - "scripts/novel_scene_backfill.py"
       - "scripts/web_server.py"
       - "scripts/comfyui_lora_manager.py"
       - "scripts/graybox_shot_spec.py"
@@ -77,6 +79,8 @@ jobs:
             scripts/novel_web_import.py \
             scripts/novel_source_catalog.py \
             scripts/novel_source_ingest.py \
+            scripts/novel_episode_script.py \
+            scripts/novel_scene_backfill.py \
             scripts/comfyui_lora_manager.py \
             scripts/graybox_shot_spec.py \
             scripts/graybox_manager.py \
