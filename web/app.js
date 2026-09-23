@@ -454,7 +454,7 @@ function renderCostFirstPlan() {
       return '<article class="cost-first-route-card ' + (item.route === 'H3_CANDIDATE' ? 'h3-candidate' : '') + '">' +
         '<div class="cost-first-route-head"><div><strong>' + escapeHtml(item.shot_id) + '</strong><small>' + escapeHtml(item.episode_id) + ' · ' + Number(item.duration_seconds || 0).toFixed(2) + 's · motion score ' + Number(item.motion?.score || 0).toFixed(2) + '</small></div><span class="cost-route-badge">' + escapeHtml(costFirstRouteLabel(item.route)) + '</span></div>' +
         '<ul>' + reasons + '</ul>' +
-        '<div class="cost-first-route-meta"><span>新静帧 ' + Number(item.required_new_stills || 0) + '</span><span>时长来源 ' + escapeHtml(item.timing_source || 'SHOT_BREAKDOWN') + '</span><span>全 H3 该镜头≈' + Number(item.h3_full_cost_shells || 0).toFixed(1) + ' 贝壳</span>' + (keywords.length ? '<span>动作词：' + escapeHtml(keywords.join('、')) + '</span>' : '') + '</div>' +
+        '<div class="cost-first-route-meta"><span>新静帧 ' + Number(item.required_new_stills || 0) + '</span><span>时长来源 ' + escapeHtml(item.timing_source || 'SHOT_BREAKDOWN') + '</span><span>全 H3≈' + Number(item.h3_full_cost_shells || 0).toFixed(1) + ' 贝壳</span><span>本镜头预计省 ' + Number(item.estimated_shells_saved || 0).toFixed(1) + ' 贝壳</span>' + (keywords.length ? '<span>动作词：' + escapeHtml(keywords.join('、')) + '</span>' : '') + '</div>' +
         localAction + h3Action +
       '</article>';
     }).join('');
