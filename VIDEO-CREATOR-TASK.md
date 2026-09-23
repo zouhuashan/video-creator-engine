@@ -4959,6 +4959,45 @@ H3 硬门禁（2026-09-23 补齐）：
 - GitHub Actions P31 run `35810449151` = SUCCESS（包含 local renderer + media URL 回归）；
 - GitHub Actions P30 provider regression run `35810429745` = SUCCESS（最终相关 provider/Web 代码）。
 
+P36 内联诊断与 PLANNED 覆盖 bug 修复（2026-09-23）：
+
+- 实测继续出现：0 Shot，但右上角仍显示 `PLANNED`；
+- 根因已定位为确定代码 bug：`build_plan()` 返回 dict 中先写 `"status": status`，后面又再次写死 `"status": "PLANNED"`，Python 后值覆盖前值，导致 `BLOCKED_NO_SHOTS` 永远被覆盖；
+- 已删除重复固定 `PLANNED` 字段，并补旧计划自动迁移：
+  - 有 route → `PLANNED`
+  - 无 route → `BLOCKED_NO_SHOTS`
+  - 上游读取失败 → `BLOCKED_UPSTREAM`
+- 0 Shot 时预计节省率不再错误显示 `100%`，改为 `0%`；Web 直接显示 `--`；
+- P36 面板新增固定可见入口：`查看 / 刷新 P36 诊断`；
+- 面板内部新增 `P36 诊断 / 日志`，不再要求用户去找全局日志；
+- 诊断内容包括：
+  - 当前 project；
+  - `writing-room/episodes` 是否存在、JSON 数量、revision、episode/scene/unit 数；
+  - `storyboard/shot-breakdown.json` 是否存在、revision、scene/shot 数；
+  - `audio/shot-timing.json` 是否存在、ACTUAL_TTS Shot 数；
+  - `rendering/cost-first-plan.json` 是否存在、保存状态、route 数；
+  - blocker；
+  - 最近一次 rebuild 的逐步状态；
+- rebuild 现在会返回步骤日志：
+  - PROJECT
+  - SHOT_BREAKDOWN
+  - AUTO_REBUILD_SHOT_BREAKDOWN
+  - REBUILD
+- 上游失败不再只返回一个 400 丢进全局 log；P36 会返回 `BLOCKED_UPSTREAM` + blocker + diagnostics，并在本面板直接展开；
+- 新增 API：`GET .../cost-first-routing/diagnostics`；
+- 相关提交：
+  - `7fe0c579` 修复 status 覆盖 + 旧计划迁移 + diagnostics；
+  - `b1c0548a` diagnostics API + rebuild step 日志；
+  - `5b74ed75` P36 Web 诊断面板；
+  - `ac8bee66` Web 内联诊断渲染；
+  - `61808a34` Web diagnostics regression；
+  - `3b0d44cf` upstream diagnostics regression；
+- 已确认 CI：
+  - P31 run `35811848095` = SUCCESS（status 修复）；
+  - P31 run `35811871866` = SUCCESS（diagnostics API）；
+  - P31 run `35811883452` = SUCCESS（诊断面板）；
+  - P30 run `35811938759` = SUCCESS（最新 Web 诊断代码相关 provider gate）。
+
 P36 Web 0-Shot 修复（2026-09-23）：
 
 - 实测 Web 出现 `PLANNED / 0.0 贝壳 / 0 张 / 暂无镜头路由`，点击“重新分析全部镜头”视觉上无变化；
