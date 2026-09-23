@@ -26,6 +26,7 @@ from scripts.novel_story_bible import build_bible, bind_continuity_refs, load_bi
 from scripts.novel_series_plan import build_plan, write_plan
 from scripts.novel_episode_planning import build_episode_planning, write_episode_planning
 from scripts.novel_episode_script import build_script_package, write_script_package
+from scripts.novel_scene_backfill import NovelSceneBackfillError, backfill_episode_scenes
 from scripts.novel_story_review import audit_story, write_report
 from scripts.novel_visual_bible import build_visual_bible, write_visual_bible
 from scripts.novel_character_designs import build_character_designs, write_character_designs
@@ -462,8 +463,14 @@ def recover_project_characters(project_dir: Path) -> dict[str, Any]:
     }
 
 
-def _initialize_workspace(project_dir: Path, candidate_payload: dict[str, Any]) -> None:
-    """Create the production desk with extracted characters already connected."""
+def _initialize_workspace(
+    project_dir: Path,
+    candidate_payload: dict[str, Any],
+    *,
+    source_text: str,
+    source_sha256: str,
+) -> dict[str, Any]:
+    """Create the production desk with extracted characters and source scene seeds connected."""
     bible = build_bible(project_dir)
     characters = _candidate_story_characters(project_dir, candidate_payload)
     if not characters:
@@ -474,6 +481,7 @@ def _initialize_workspace(project_dir: Path, candidate_payload: dict[str, Any]) 
     write_plan(project_dir, build_plan(project_dir))
     write_episode_planning(project_dir, build_episode_planning(project_dir))
     write_script_package(project_dir, build_script_package(project_dir))
+    scene_backfill = backfill_episode_scenes(project_dir, source_text, source_sha256=source_sha256)
     write_report(project_dir, audit_story(project_dir))
     write_visual_bible(project_dir, build_visual_bible(project_dir))
     write_character_designs(project_dir, build_character_designs(project_dir))
@@ -489,6 +497,7 @@ def _initialize_workspace(project_dir: Path, candidate_payload: dict[str, Any]) 
     write_dynamic_shots(project_dir, build_dynamic_shots(project_dir))
     write_edit_timelines(project_dir, build_edit_timelines(project_dir))
     write_qc_report(project_dir, build_qc_report(project_dir))
+    return scene_backfill
 
 
 def _existing_import_result(
@@ -497,6 +506,7 @@ def _existing_import_result(
     import_payload: dict[str, Any],
     *,
     requested_rights_mode: str,
+    scene_backfill: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     project = load_project(project_dir / MANIFEST_NAME)
     try:
@@ -531,6 +541,7 @@ def _existing_import_result(
         "character_count": int(recovery.get("character_count") or 0),
         "characters": recovery.get("characters", []),
         "character_recovery": recovery,
+        "scene_backfill": scene_backfill or {"status": "NOT_RUN"},
         "full_text_stored": False,
         "next": "OPEN_STUDIO",
     }
@@ -572,11 +583,24 @@ def create_project_from_web_upload(
     # character chain from persisted extraction metadata when possible.
     existing = _matching_existing_project(projects_root, title, source_sha256)
     if existing is not None:
+        project_dir = existing[0]
+        try:
+            scene_backfill = backfill_episode_scenes(project_dir, source_text, source_sha256=source_sha256)
+            rebuilt_shots = build_shot_breakdown(project_dir)
+            write_shot_breakdown(project_dir, rebuilt_shots, overwrite=True)
+            scene_backfill = {
+                **scene_backfill,
+                "shot_count": sum(len(item.get("shots") or []) for item in rebuilt_shots.get("scene_breakdowns", [])),
+                "reused_existing_project": True,
+            }
+        except (NovelSceneBackfillError, ValueError, OSError, json.JSONDecodeError) as error:
+            raise NovelWebImportError(f"existing project scene backfill failed: {error}") from error
         return _existing_import_result(
-            existing[0],
+            project_dir,
             existing[1],
             existing[2],
             requested_rights_mode=rights_mode,
+            scene_backfill=scene_backfill,
         )
 
     project_id, ip_code = _identity(projects_root, title)
@@ -636,7 +660,12 @@ def create_project_from_web_upload(
             raise NovelWebImportError("novel import did not identify any stable character; project creation was rolled back")
         write_character_candidates(project_dir, candidate_payload)
 
-        _initialize_workspace(project_dir, candidate_payload)
+        scene_backfill = _initialize_workspace(
+            project_dir,
+            candidate_payload,
+            source_text=source_text,
+            source_sha256=source_sha256,
+        )
         story_characters = _candidate_story_characters(project_dir, candidate_payload)
         return {
             "status": "PASS",
@@ -652,6 +681,7 @@ def create_project_from_web_upload(
             "import": import_result,
             "character_count": len(story_characters),
             "characters": [{"id": item["id"], "name": item["name"], "role": item["role"]} for item in story_characters],
+            "scene_backfill": scene_backfill,
             "full_text_stored": False,
             "next": "OPEN_STUDIO",
         }
