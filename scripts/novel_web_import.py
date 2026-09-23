@@ -487,7 +487,12 @@ def _initialize_workspace(
     write_character_designs(project_dir, build_character_designs(project_dir))
     write_environment_assets(project_dir, build_environment_assets(project_dir))
     write_asset_review(project_dir, build_asset_review(project_dir))
-    write_shot_breakdown(project_dir, build_shot_breakdown(project_dir))
+    shot_breakdown = build_shot_breakdown(project_dir)
+    write_shot_breakdown(project_dir, shot_breakdown)
+    scene_backfill = {
+        **scene_backfill,
+        "shot_count": sum(len(item.get("shots") or []) for item in shot_breakdown.get("scene_breakdowns", [])),
+    }
     write_storyboard(project_dir, build_storyboard(project_dir))
     write_animatic(project_dir, build_animatic(project_dir))
     write_review(project_dir, build_review(project_dir))
