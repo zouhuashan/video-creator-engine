@@ -9,6 +9,7 @@ from scripts.novel_episode_script import load_script_package, write_script_packa
 from scripts.novel_shot_breakdown import load_shot_breakdown
 from scripts.novel_story_bible import load_bible
 from scripts.novel_source_catalog import load_catalog
+from scripts.novel_visual_bible import load_visual_bible, write_visual_bible
 from scripts.novel_web_import import create_project_from_web_upload, recover_project_characters
 
 
@@ -115,6 +116,10 @@ class NovelWebImportTests(unittest.TestCase):
             first = create_project_from_web_upload(root, **args)
             project = root / first["directory_id"]
 
+            visual = load_visual_bible(project)
+            visual["style"]["art_direction"] = "KEEP-EXISTING-VISUAL-WORK"
+            write_visual_bible(project, visual, overwrite=True)
+
             package = load_script_package(project)
             for script in package["episode_scripts"]:
                 script["scenes"] = []
@@ -126,6 +131,7 @@ class NovelWebImportTests(unittest.TestCase):
             repaired = create_project_from_web_upload(root, **args)
             scripts = load_script_package(project)
             shots = load_shot_breakdown(project)
+            repaired_visual = load_visual_bible(project)
 
             self.assertTrue(repaired["reused_existing"])
             self.assertEqual(repaired["directory_id"], first["directory_id"])
@@ -135,6 +141,7 @@ class NovelWebImportTests(unittest.TestCase):
             self.assertGreater(repaired["scene_backfill"]["shot_count"], 0)
             self.assertGreater(sum(len(item["scenes"]) for item in scripts["episode_scripts"]), 0)
             self.assertGreater(sum(len(item["shots"]) for item in shots["scene_breakdowns"]), 0)
+            self.assertEqual(repaired_visual["style"]["art_direction"], "KEEP-EXISTING-VISUAL-WORK")
             self.assertTrue((project / "writing-room" / "scene-seeds.json").is_file())
 
     def test_technical_test_upload_keeps_publication_locked_but_builds_project_characters(self):
