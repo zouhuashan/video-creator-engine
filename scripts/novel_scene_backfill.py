@@ -305,27 +305,40 @@ def apply_scene_seed(project_dir: Path, seed: dict[str, Any] | None = None) -> d
         if isinstance(item, dict)
     }
     changed = 0
+    matched = 0
     scene_count = 0
     unit_count = 0
     for script in package["episode_scripts"]:
         scenes = scenes_by_episode.get(str(script["episode_id"]), [])
         if not scenes:
             continue
+        matched += 1
+        scene_count += len(scenes)
+        unit_count += sum(len(scene.get("units") or []) for scene in scenes)
+        if script.get("scenes") == scenes:
+            continue
         script["scenes"] = scenes
         script["status"] = "DRAFT"
         script["human_review"] = _review()
         changed += 1
-        scene_count += len(scenes)
-        unit_count += sum(len(scene.get("units") or []) for scene in scenes)
-    if changed <= 0:
+    if matched <= 0:
         raise NovelSceneBackfillError("scene seed does not match project episodes")
+    if changed <= 0:
+        return {
+            "status": "UNCHANGED",
+            "episode_count": matched,
+            "scene_count": scene_count,
+            "unit_count": unit_count,
+            "script_revision": int(package.get("revision") or 1),
+            "seed_path": OUTPUT.as_posix(),
+        }
     package["revision"] = int(package.get("revision") or 1) + 1
     package["updated_at"] = utc_timestamp()
     package = validate_script_package(project, package)
     write_script_package(project, package, overwrite=True)
     return {
         "status": "READY",
-        "episode_count": changed,
+        "episode_count": matched,
         "scene_count": scene_count,
         "unit_count": unit_count,
         "script_revision": package["revision"],
