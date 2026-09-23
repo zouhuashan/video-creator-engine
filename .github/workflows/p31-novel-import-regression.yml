@@ -18,6 +18,10 @@ on:
       - "scripts/codex_keyframe_batch.py"
       - "scripts/cost_first_hybrid_router.py"
       - "adapters/video_generation/local_micro_motion.py"
+      - "adapters/video_generation/local_scene_plate.py"
+      - "adapters/video_generation/local_two_cut.py"
+      - "adapters/video_generation/router.py"
+      - "scripts/cost_first_local_renderer.py"
       - "config/cost-first-rendering.json"
       - "config/video-provider-routes.json"
       - "scripts/blender_graybox_scene.py"
@@ -81,6 +85,10 @@ jobs:
             scripts/codex_keyframe_batch.py \
             scripts/cost_first_hybrid_router.py \
             adapters/video_generation/local_micro_motion.py \
+            adapters/video_generation/local_scene_plate.py \
+            adapters/video_generation/local_two_cut.py \
+            adapters/video_generation/router.py \
+            scripts/cost_first_local_renderer.py \
             scripts/blender_graybox_scene.py \
             scripts/web_server.py \
             adapters/video_generation/minimax_h3.py \
@@ -120,7 +128,10 @@ jobs:
             tests.test_gpt_keyframe_pipeline \
             tests.test_codex_keyframe_batch \
             tests.test_cost_first_hybrid_router \
+            tests.test_cost_first_video_generation_router \
+            tests.test_local_scene_plate \
             tests.test_local_micro_motion \
+            tests.test_local_two_cut \
             tests.test_web_server.WebServerTests.test_graybox_final_passes_character_and_scene_images_to_minimax \
             tests.test_web_server.WebServerTests.test_graybox_smoke_review_tracks_exact_latest_final_and_three_axes \
             tests.test_comfyui_image_provider \
