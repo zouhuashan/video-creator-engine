@@ -173,5 +173,18 @@ class CostFirstHybridRouterTests(unittest.TestCase):
         self.assertEqual(result["summary"]["shot_count"], 0)
 
 
+    def test_diagnostics_explains_empty_upstream(self):
+        with tempfile.TemporaryDirectory() as directory, \
+             patch.object(router, "load_script_package", return_value={"revision": 1, "episode_scripts": []}), \
+             patch.object(router, "load_shot_breakdown", return_value={"revision": 1, "scene_breakdowns": []}):
+            result = router.diagnostics(Path(directory))
+
+        self.assertEqual(result["status"], "BLOCKED")
+        self.assertEqual(result["episode_script"]["scene_count"], 0)
+        self.assertEqual(result["shot_breakdown"]["shot_count"], 0)
+        self.assertTrue(any("0 个 scene" in item for item in result["blockers"]))
+        self.assertTrue(any("0 个 Shot" in item for item in result["blockers"]))
+
+
 if __name__ == "__main__":
     unittest.main()
