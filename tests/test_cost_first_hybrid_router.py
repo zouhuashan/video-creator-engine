@@ -159,5 +159,19 @@ class CostFirstHybridRouterTests(unittest.TestCase):
         self.assertEqual(route["duration_seconds"], 4.2)
 
 
+    def test_zero_shots_are_blocked_instead_of_misleading_planned_state(self):
+        empty_shots = {"revision": 1, "scene_breakdowns": []}
+        empty_scripts = {"revision": 1, "episode_scripts": []}
+        with tempfile.TemporaryDirectory() as directory, \
+             patch.object(router, "load_shot_breakdown", return_value=empty_shots), \
+             patch.object(router, "load_script_package", return_value=empty_scripts):
+            result = router.build_plan(Path(directory))
+
+        self.assertEqual(result["status"], "BLOCKED_NO_SHOTS")
+        self.assertEqual(result["routes"], [])
+        self.assertTrue(result["blockers"])
+        self.assertEqual(result["summary"]["shot_count"], 0)
+
+
 if __name__ == "__main__":
     unittest.main()
