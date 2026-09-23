@@ -88,6 +88,8 @@ class CostFirstHybridRouterTests(unittest.TestCase):
         self.assertEqual(summary["estimated_shells_saved"], 56.0)
         self.assertGreater(summary["estimated_shell_savings_percent"], 40)
         self.assertEqual(summary["estimated_new_still_generations_after_reuse"], 1)
+        self.assertEqual(result["routes"][0]["estimated_shells_saved"], 56.0)
+        self.assertEqual(result["routes"][1]["estimated_shells_saved"], 0.0)
 
     def test_same_visual_signature_reuses_still_instead_of_regenerating_per_shot(self):
         shots = self.fake_shots()
