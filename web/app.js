@@ -436,6 +436,14 @@ function renderCostFirstPlan() {
       const approved = Boolean(escalation.approved);
       const reasons = (item.reasons || []).map((reason) => '<li>' + escapeHtml(reason) + '</li>').join('');
       const keywords = [...(item.motion?.high_keywords || []), ...(item.motion?.medium_keywords || []), ...(item.motion?.subtle_keywords || [])].slice(0, 8);
+      const preview = item.local_preview || {};
+      const localAction = item.route !== 'H3_CANDIDATE'
+        ? '<div class="cost-first-local-preview">' +
+            '<input type="file" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" ' + (Number(item.required_new_stills || 0) === 2 ? 'multiple ' : '') + 'data-cost-local-files="' + escapeHtml(item.shot_id) + '">' +
+            '<button class="secondary-button small-button" data-cost-local="' + escapeHtml(item.shot_id) + '" data-required="' + Number(item.required_new_stills || 0) + '">本地生成预览</button>' +
+            (preview.media_url ? '<video controls playsinline preload="metadata" src="' + escapeHtml(preview.media_url) + '"></video><small>' + escapeHtml(preview.provider || '') + ' · ' + Number(preview.duration_seconds || 0).toFixed(2) + 's · 0 贝壳</small>' : '<small>上传 ' + Number(item.required_new_stills || 0) + ' 张最终图，仅在本机 FFmpeg 渲染。</small>') +
+          '</div>'
+        : '';
       const h3Action = item.route === 'H3_CANDIDATE'
         ? '<div class="cost-first-h3-lock">' +
             '<span class="' + (approved ? 'status-dot' : 'status-dot off') + '">' + (approved ? 'H3 APPROVED' : 'H3 LOCKED') + '</span>' +
@@ -446,14 +454,49 @@ function renderCostFirstPlan() {
       return '<article class="cost-first-route-card ' + (item.route === 'H3_CANDIDATE' ? 'h3-candidate' : '') + '">' +
         '<div class="cost-first-route-head"><div><strong>' + escapeHtml(item.shot_id) + '</strong><small>' + escapeHtml(item.episode_id) + ' · ' + Number(item.duration_seconds || 0).toFixed(2) + 's · motion score ' + Number(item.motion?.score || 0).toFixed(2) + '</small></div><span class="cost-route-badge">' + escapeHtml(costFirstRouteLabel(item.route)) + '</span></div>' +
         '<ul>' + reasons + '</ul>' +
-        '<div class="cost-first-route-meta"><span>新静帧 ' + Number(item.required_new_stills || 0) + '</span><span>全 H3 该镜头≈' + Number(item.h3_full_cost_shells || 0).toFixed(1) + ' 贝壳</span>' + (keywords.length ? '<span>动作词：' + escapeHtml(keywords.join('、')) + '</span>' : '') + '</div>' +
-        h3Action +
+        '<div class="cost-first-route-meta"><span>新静帧 ' + Number(item.required_new_stills || 0) + '</span><span>时长来源 ' + escapeHtml(item.timing_source || 'SHOT_BREAKDOWN') + '</span><span>全 H3 该镜头≈' + Number(item.h3_full_cost_shells || 0).toFixed(1) + ' 贝壳</span>' + (keywords.length ? '<span>动作词：' + escapeHtml(keywords.join('、')) + '</span>' : '') + '</div>' +
+        localAction + h3Action +
       '</article>';
     }).join('');
     return '<section class="cost-first-group"><div class="cost-first-group-head"><strong>' + escapeHtml(costFirstRouteLabel(routeName)) + '</strong><span>' + items.length + ' 镜头</span></div><div class="cost-first-grid">' + cards + '</div></section>';
   }).join('') || '<div class="empty-state">暂无镜头路由。</div>';
 
   routes.querySelectorAll('[data-cost-h3]').forEach((button) => button.addEventListener('click', () => toggleCostFirstH3(button)));
+  routes.querySelectorAll('[data-cost-local]').forEach((button) => button.addEventListener('click', () => renderCostFirstLocalPreview(button)));
+}
+
+async function renderCostFirstLocalPreview(button) {
+  const projectId = state.grayboxProjectId || state.costFirstProjectId;
+  const shotId = button.dataset.costLocal;
+  const expected = Number(button.dataset.required || 0);
+  if (!projectId || !shotId || !expected) return;
+  const input = Array.from(document.querySelectorAll('[data-cost-local-files]')).find((item) => item.dataset.costLocalFiles === shotId);
+  const files = Array.from(input?.files || []);
+  if (files.length !== expected) {
+    log(shotId + ' 需要恰好 ' + expected + ' 张最终图。', true);
+    return;
+  }
+  if (files.some((file) => file.size <= 0 || file.size > 12 * 1024 * 1024)) {
+    log('每张本地图必须在 1 byte 到 12 MB 之间。', true);
+    return;
+  }
+  button.disabled = true;
+  button.textContent = '本地渲染中…';
+  try {
+    const images = [];
+    for (const file of files) images.push({ filename: file.name, content_base64: await fileToBase64(file) });
+    const result = await api('/api/novel-anime/projects/' + encodeURIComponent(projectId) + '/cost-first-routing/local-preview', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ shot_id: shotId, images }),
+    });
+    state.costFirstPlan = result.plan;
+    renderCostFirstPlan();
+    log(shotId + ' 本地预览完成：' + result.preview.provider + ' · ' + Number(result.preview.duration_seconds || 0).toFixed(2) + 's · 0 贝壳。');
+  } catch (error) {
+    log(error.message, true);
+    button.disabled = false;
+    button.textContent = '本地生成预览';
+  }
 }
 
 async function loadCostFirstPlan(projectId = state.grayboxProjectId || state.costFirstProjectId) {
@@ -499,6 +542,7 @@ async function toggleCostFirstH3(button) {
         body: JSON.stringify({ shot_id: shotId, approved: false }),
       });
       renderCostFirstPlan();
+      renderGraybox();
       log(shotId + ' 已重新锁定 H3。');
     } catch (error) { log(error.message, true); }
     return;
@@ -512,6 +556,7 @@ async function toggleCostFirstH3(button) {
       body: JSON.stringify({ shot_id: shotId, approved: true, reason: reason }),
     });
     renderCostFirstPlan();
+    renderGraybox();
     log(shotId + ' 已人工允许 H3；真正发起 H3 时仍需独立付费确认。');
   } catch (error) { log(error.message, true); }
 }
@@ -1005,12 +1050,30 @@ function renderGraybox() {
   $('#grayboxAdjustButton').disabled = !data.spec_ready || render.status === 'RUNNING';
   $('#grayboxApproveButton').disabled = !render.output_ready || render.status === 'RUNNING';
   $('#grayboxRequestChangesButton').disabled = !data.spec_ready || render.status === 'RUNNING';
-  $('#grayboxGenerateFinalButton').disabled = !render.output_ready || !minimax.configured || review.status !== 'APPROVED' || !references.ready;
+  const h3Select = $('#grayboxH3ShotSelect');
+  const h3Candidates = (state.costFirstPlan?.routes || []).filter((item) => item.route === 'H3_CANDIDATE');
+  const previousH3 = h3Select?.value || '';
+  if (h3Select) {
+    h3Select.innerHTML = '<option value="">选择已批准的 P36 H3 候选…</option>' + h3Candidates.map((item) => {
+      const approved = Boolean(item.h3_escalation?.approved);
+      return '<option value="' + escapeHtml(item.shot_id) + '">' + escapeHtml(item.shot_id) + ' · ' + Number(item.duration_seconds || 0).toFixed(2) + 's · ' + (approved ? 'APPROVED' : 'LOCKED') + '</option>';
+    }).join('');
+    if (previousH3 && h3Candidates.some((item) => item.shot_id === previousH3)) h3Select.value = previousH3;
+    else {
+      const firstApproved = h3Candidates.find((item) => item.h3_escalation?.approved);
+      if (firstApproved) h3Select.value = firstApproved.shot_id;
+    }
+  }
+  const selectedH3 = h3Candidates.find((item) => item.shot_id === h3Select?.value);
+  const p36H3Approved = Boolean(selectedH3?.h3_escalation?.approved);
+  $('#grayboxGenerateFinalButton').disabled = !render.output_ready || !minimax.configured || review.status !== 'APPROVED' || !references.ready || !p36H3Approved;
   $('#grayboxHint').textContent = review.status !== 'APPROVED'
     ? '先检查白模镜头、走位、动作和遮挡；白模通过后才允许调用付费 AI 视频 Provider。'
     : !references.ready
       ? '白模已通过；继续绑定人物参考 + 场景参考，完成最终输入包后才能生成成片。'
-      : '白模 + 人物参考 + 场景参考均已就绪。确认付费与上传授权后，可进入 MiniMax H3 最终成片。';
+      : !p36H3Approved
+        ? 'H3 仍锁定：必须先在 P36 将确实无法本地解决的 H3 候选写明原因并人工批准。'
+        : 'P36 H3 已批准；本次时长使用该 Shot 的 Voice Timeline/Shot Breakdown 实际时长，仍需付费与上传二次确认。';
   renderGptKeyframes();
   syncGrayboxPolling();
 }
@@ -1234,6 +1297,12 @@ async function generateGrayboxFinal() {
     log('生成最终视频前必须先绑定人物参考图和场景参考图。', true);
     return;
   }
+  const h3ShotId = $('#grayboxH3ShotSelect')?.value || '';
+  const h3Route = (state.costFirstPlan?.routes || []).find((item) => item.shot_id === h3ShotId);
+  if (!h3ShotId || h3Route?.route !== 'H3_CANDIDATE' || !h3Route?.h3_escalation?.approved) {
+    log('必须先在 P36 选择并人工批准一个 H3_CANDIDATE 镜头。', true);
+    return;
+  }
   const confirmBillable = $('#grayboxBillableConfirm').checked;
   const uploadAuthorized = $('#grayboxUploadConfirm').checked;
   if (!confirmBillable || !uploadAuthorized) {
@@ -1250,6 +1319,7 @@ async function generateGrayboxFinal() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        shot_id: h3ShotId,
         prompt: $('#grayboxPrompt').value.trim(),
         resolution: $('#grayboxResolution').value,
         confirm_billable: true,
