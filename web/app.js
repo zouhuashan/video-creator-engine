@@ -414,6 +414,7 @@ function renderCostFirstDiagnostics(
   }
 
   const script = diagnostics.episode_script || {};
+  const seed = diagnostics.scene_seed || {};
   const shots = diagnostics.shot_breakdown || {};
   const timing = diagnostics.voice_timing || {};
   const plan = diagnostics.plan || {};
@@ -431,6 +432,14 @@ function renderCostFirstDiagnostics(
     'scenes: ' + Number(script.scene_count || 0),
     'units: ' + Number(script.unit_count || 0),
     ...(script.error ? ['ERROR: ' + script.error] : []),
+    '',
+    '[Scene Seed]',
+    'path: ' + (seed.path || 'writing-room/scene-seeds.json'),
+    'exists: ' + Boolean(seed.exists),
+    'episodes: ' + Number(seed.episode_count || 0),
+    'scenes: ' + Number(seed.scene_count || 0),
+    'units: ' + Number(seed.unit_count || 0),
+    ...(seed.error ? ['ERROR: ' + seed.error] : []),
     '',
     '[Shot Breakdown]',
     'path: ' + (shots.path || 'storyboard/shot-breakdown.json'),
@@ -472,7 +481,7 @@ function renderCostFirstDiagnostics(
   if (
     diagnostics.status === 'BLOCKED' ||
     allBlockers.length ||
-    (rebuildSteps || []).some((step) => ['FAIL', 'EMPTY', 'MISSING_OR_INVALID'].includes(step.status))
+    (rebuildSteps || []).some((step) => ['FAIL', 'EMPTY', 'MISSING_OR_INVALID', 'SOURCE_REIMPORT_REQUIRED'].includes(step.status))
   ) panel.open = true;
 }
 
@@ -659,11 +668,15 @@ async function rebuildCostFirstPlan() {
     });
     renderCostFirstPlan();
     const summary = state.costFirstPlan.summary || {};
+    const sceneBackfill = state.costFirstPlan.auto_backfilled_episode_scenes ? ' · 已自动回填 Episode Script scenes' : '';
     const rebuilt = state.costFirstPlan.auto_rebuilt_shot_breakdown ? ' · 已自动重建 Shot Breakdown' : '';
+    const reimportRequired = (state.costFirstPlan.rebuild_steps || []).some((step) => step.status === 'SOURCE_REIMPORT_REQUIRED');
     if ((state.costFirstPlan.routes || []).length) {
-      log('P36 成本路线已重建：' + (state.costFirstPlan.routes || []).length + ' 个 Shot · 预计节省 ' + Number(summary.estimated_shell_savings_percent || 0).toFixed(1) + '% H3 贝壳' + rebuilt + '。');
+      log('P36 成本路线已重建：' + (state.costFirstPlan.routes || []).length + ' 个 Shot · 预计节省 ' + Number(summary.estimated_shell_savings_percent || 0).toFixed(1) + '% H3 贝壳' + sceneBackfill + rebuilt + '。');
+    } else if (reimportRequired) {
+      log('P36：这是旧导入项目，原 TXT 没有保存在项目里。请回到“小说导入”，重新选择同一个 TXT 一次；系统会复用当前项目，只回填 scenes，不会创建重复项目。', true);
     } else {
-      log('P36 仍无可路由 Shot：请检查 Episode Script / Shot Breakdown。' + rebuilt, true);
+      log('P36 仍无可路由 Shot：请查看本面板 P36 诊断 / 日志。' + sceneBackfill + rebuilt, true);
     }
   } catch (error) {
     state.costFirstPlan = null;
@@ -2742,7 +2755,9 @@ async function importNovelProject() {
     $('#novelImportResultTitle').textContent = result.reused_existing
       ? `《${result.title}》已存在，已复用原项目`
       : `《${result.title}》已建立独立项目`;
-    $('#novelImportResultMeta').textContent = `${result.import?.chapter_count || 0} 章 · ${result.character_count || result.import?.character_candidates || 0} 个角色 · 首季 ${result.episode_count} 集 · ${result.script_adaptation_allowed ? '可进入本地改编' : '仅技术测试'} · 正文不落库`;
+    const backfill = result.scene_backfill || {};
+    const backfillMeta = backfill.scene_count ? ' · 已生成 ' + backfill.scene_count + ' 个 scene / ' + (backfill.shot_count || 0) + ' 个 Shot' : '';
+    $('#novelImportResultMeta').textContent = (result.import?.chapter_count || 0) + ' 章 · ' + (result.character_count || result.import?.character_candidates || 0) + ' 个角色 · 首季 ' + result.episode_count + ' 集 · ' + (result.script_adaptation_allowed ? '可进入本地改编' : '仅技术测试') + ' · 正文不落库' + backfillMeta;
     $('#novelImportResult').classList.remove('hidden');
     state.activeNovelProjectId = result.directory_id;
     state.studioProjectId = result.directory_id;
@@ -2751,7 +2766,7 @@ async function importNovelProject() {
     rememberActiveNovelProject(result.directory_id);
     await load(result.directory_id);
     setView('novelImport');
-    log(`${result.reused_existing ? '已识别重复导入并复用项目' : '小说导入完成'}：${result.title} · ${result.import?.chapter_count || 0} 章 · ${result.character_count || result.import?.character_candidates || 0} 个角色`);
+    log((result.reused_existing ? '已识别相同 TXT 并复用原项目' : '小说导入完成') + '：' + result.title + ' · ' + (result.import?.chapter_count || 0) + ' 章 · ' + (result.character_count || result.import?.character_candidates || 0) + ' 个角色' + (backfill.scene_count ? ' · scenes ' + backfill.scene_count + ' · Shots ' + (backfill.shot_count || 0) : ''));
   } catch (error) {
     $('#novelImportStatus').textContent = 'FAIL';
     log(error.message, true);
