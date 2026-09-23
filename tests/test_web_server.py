@@ -579,11 +579,17 @@ class WebServerTests(unittest.TestCase):
                 return SimpleNamespace(
                     output_path=request.output_path,
                     provider="minimax_h3",
-                    duration_seconds=8.0,
+                    duration_seconds=request.shot_duration_seconds,
                     task_id="task-ref-001",
                 )
 
-            with patch.object(web_server, "graybox_render_status", return_value={
+            with patch.object(web_server, "require_cost_first_h3", return_value={
+                "shot_id": "SHOT-H3-001",
+                "route": "H3_CANDIDATE",
+                "duration_seconds": 4.6,
+                "timing_source": "ACTUAL_TTS",
+                "h3_escalation": {"approved": True, "status": "APPROVED", "reason": "连续动作必须保持完整"},
+            }), patch.object(web_server, "graybox_render_status", return_value={
                 "output_ready": True,
                 "output_path": "graybox/renders/GB-SHOT-001.mp4",
             }), patch.object(web_server, "load_graybox_spec", return_value={
@@ -607,6 +613,7 @@ class WebServerTests(unittest.TestCase):
                 clear=False,
             ):
                 result = web_server._generate_graybox_final(project, {
+                    "shot_id": "SHOT-H3-001",
                     "confirm_billable": True,
                     "upload_authorized": True,
                     "resolution": "768P",
@@ -615,6 +622,8 @@ class WebServerTests(unittest.TestCase):
             request = captured["request"]
             self.assertEqual(request.reference_video_paths, (video.resolve(),))
             self.assertEqual(request.image_paths, (character.resolve(), scene.resolve()))
+            self.assertEqual(request.shot_duration_seconds, 4.6)
+            self.assertEqual(result["p36_timing_source"], "ACTUAL_TTS")
             self.assertIn("Reference image 1 is the CHARACTER identity reference", request.prompt_text)
             self.assertIn("Reference image 2 is the SCENE reference", request.prompt_text)
             self.assertEqual(result["reference_image_count"], 2)
@@ -660,7 +669,13 @@ class WebServerTests(unittest.TestCase):
 
     def test_graybox_final_requires_human_approved_blockout(self):
         project = Path("/tmp/graybox-test")
-        with patch.object(web_server, "graybox_render_status", return_value={
+        with patch.object(web_server, "require_cost_first_h3", return_value={
+            "shot_id": "SHOT-H3-001",
+            "route": "H3_CANDIDATE",
+            "duration_seconds": 4.6,
+            "timing_source": "ACTUAL_TTS",
+            "h3_escalation": {"approved": True, "status": "APPROVED", "reason": "连续动作必须保持完整"},
+        }), patch.object(web_server, "graybox_render_status", return_value={
             "output_ready": True,
             "output_path": "graybox/renders/GB-SHOT-001.mp4",
         }), patch.object(web_server, "load_graybox_spec", return_value={
@@ -674,6 +689,7 @@ class WebServerTests(unittest.TestCase):
         }), patch.object(Path, "is_file", return_value=True):
             with self.assertRaisesRegex(ValueError, "必须先人工审核通过"):
                 web_server._generate_graybox_final(project, {
+                    "shot_id": "SHOT-H3-001",
                     "confirm_billable": True,
                     "upload_authorized": True,
                 })
