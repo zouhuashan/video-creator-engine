@@ -578,6 +578,12 @@
                     <option value="2K">2K · 通过后再升清</option>
                   </select>
                 </label>
+                <label>
+                  <span>P36 H3 候选镜头</span>
+                  <select id="grayboxH3ShotSelect" class="select-field">
+                    <option value="">先在 P36 人工批准 H3 候选…</option>
+                  </select>
+                </label>
                 <label class="confirm-row compact-confirm">
                   <input type="checkbox" id="grayboxBillableConfirm" />
                   <span>我确认本次会调用付费 AI 视频 Provider。</span>
@@ -588,7 +594,7 @@
                 </label>
               </div>
               <button class="primary-button graybox-final-button" id="grayboxGenerateFinalButton">③ 白模 → MiniMax H3 成片</button>
-              <p class="helper-text" id="grayboxHint">第一阶段固定 8 秒、24fps、9:16。白模不满意时只重做该镜头，不重新生成整部小说。</p>
+              <p class="helper-text" id="grayboxHint">P36 禁止默认 8 秒：最终调用使用所选 Shot 的 P33 Voice Timeline 实际时长；只有本地路线无法表达且人工批准后才允许 H3。</p>
             </div>
 
             <div class="graybox-reference-card" id="grayboxSmokeReview">
