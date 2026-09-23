@@ -210,6 +210,103 @@ def _select_route(
     }
 
 
+def diagnostics(project: Path) -> dict[str, Any]:
+    project = Path(project).resolve()
+    script_root = project / "writing-room" / "episodes"
+    shot_path = project / "storyboard" / "shot-breakdown.json"
+    timing_path = project / SHOT_TIMING_OUTPUT
+    plan_path = project / OUTPUT
+
+    result: dict[str, Any] = {
+        "checked_at": _now(),
+        "project_id": project.name,
+        "episode_script": {
+            "path": "writing-room/episodes",
+            "exists": script_root.is_dir(),
+            "json_file_count": len(list(script_root.rglob("*.json"))) if script_root.is_dir() else 0,
+            "revision": None,
+            "episode_count": 0,
+            "scene_count": 0,
+            "unit_count": 0,
+            "error": "",
+        },
+        "shot_breakdown": {
+            "path": "storyboard/shot-breakdown.json",
+            "exists": shot_path.is_file(),
+            "revision": None,
+            "scene_count": 0,
+            "shot_count": 0,
+            "error": "",
+        },
+        "voice_timing": {
+            "path": SHOT_TIMING_OUTPUT.as_posix(),
+            "exists": timing_path.is_file(),
+            "actual_tts_count": len(_actual_tts_timings(project)),
+            "error": "",
+        },
+        "plan": {
+            "path": OUTPUT.as_posix(),
+            "exists": plan_path.is_file(),
+            "status": "",
+            "route_count": 0,
+            "error": "",
+        },
+        "blockers": [],
+        "status": "BLOCKED",
+    }
+
+    try:
+        scripts = load_script_package(project)
+        episode_scripts = list(scripts.get("episode_scripts") or [])
+        scenes = [scene for episode in episode_scripts for scene in (episode.get("scenes") or [])]
+        units = [unit for scene in scenes for unit in (scene.get("units") or [])]
+        result["episode_script"].update({
+            "revision": scripts.get("revision"),
+            "episode_count": len(episode_scripts),
+            "scene_count": len(scenes),
+            "unit_count": len(units),
+        })
+    except Exception as error:
+        result["episode_script"]["error"] = f"{type(error).__name__}: {error}"
+
+    try:
+        shots = load_shot_breakdown(project)
+        scene_breakdowns = list(shots.get("scene_breakdowns") or [])
+        shot_items = [shot for scene in scene_breakdowns for shot in (scene.get("shots") or [])]
+        result["shot_breakdown"].update({
+            "revision": shots.get("revision"),
+            "scene_count": len(scene_breakdowns),
+            "shot_count": len(shot_items),
+        })
+    except Exception as error:
+        result["shot_breakdown"]["error"] = f"{type(error).__name__}: {error}"
+
+    if plan_path.is_file():
+        try:
+            raw_plan = json.loads(plan_path.read_text(encoding="utf-8"))
+            result["plan"].update({
+                "status": str(raw_plan.get("status") or ""),
+                "route_count": len(raw_plan.get("routes") or []),
+            })
+        except (OSError, json.JSONDecodeError) as error:
+            result["plan"]["error"] = f"{type(error).__name__}: {error}"
+
+    blockers: list[str] = []
+    script_error = str(result["episode_script"]["error"] or "")
+    shot_error = str(result["shot_breakdown"]["error"] or "")
+    if script_error:
+        blockers.append("Episode Script 读取失败：" + script_error)
+    elif int(result["episode_script"]["scene_count"]) == 0:
+        blockers.append("Episode Script 当前有 0 个 scene；P36 无法生成 Shot。")
+    if shot_error:
+        blockers.append("Shot Breakdown 读取失败：" + shot_error)
+    elif int(result["shot_breakdown"]["shot_count"]) == 0:
+        blockers.append("Shot Breakdown 当前有 0 个 Shot。")
+    result["blockers"] = blockers
+    result["status"] = "READY" if not blockers else "BLOCKED"
+    return result
+
+
 def build_plan(project: Path) -> dict[str, Any]:
     project = Path(project).resolve()
     config = _load_config()
@@ -291,7 +388,7 @@ def build_plan(project: Path) -> dict[str, Any]:
     all_h3_shells = round(all_h3_shells, 1)
     hybrid_h3_shells = round(hybrid_h3_shells, 1)
     savings = round(max(0.0, all_h3_shells - hybrid_h3_shells), 1)
-    savings_percent = round((savings / all_h3_shells * 100.0) if all_h3_shells else 100.0, 1)
+    savings_percent = round((savings / all_h3_shells * 100.0) if all_h3_shells else 0.0, 1)
 
     status = "PLANNED" if routes else "BLOCKED_NO_SHOTS"
     blockers = [] if routes else [
@@ -312,7 +409,6 @@ def build_plan(project: Path) -> dict[str, Any]:
             "local_preview_width": int(config["policy"].get("local_preview_width") or 720),
             "local_preview_height": int(config["policy"].get("local_preview_height") or 1280),
         },
-        "status": "PLANNED",
         "shot_breakdown_revision": int(shots["revision"]),
         "script_revision": int(scripts["revision"]),
         "voice_timing_signature": voice_timing_signature,
@@ -353,9 +449,30 @@ def load_plan(project: Path, *, rebuild_if_stale: bool = True) -> dict[str, Any]
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return save_plan(project)
+
+    routes = list(payload.get("routes") or [])
+    expected_status = "PLANNED" if routes else "BLOCKED_NO_SHOTS"
+    migrated = str(payload.get("status") or "") != expected_status
+    payload["status"] = expected_status
+    if routes:
+        payload["blockers"] = []
+    elif not payload.get("blockers"):
+        payload["blockers"] = [
+            "当前项目没有可供 P36 路由的 Shot；请先生成/重建 Episode Script 与 Shot Breakdown。"
+        ]
+    if migrated:
+        payload["updated_at"] = _now()
+        _atomic_json(path, payload)
+
     if rebuild_if_stale:
-        shots = load_shot_breakdown(project)
-        scripts = load_script_package(project)
+        try:
+            shots = load_shot_breakdown(project)
+            scripts = load_script_package(project)
+        except (ValueError, OSError, json.JSONDecodeError) as error:
+            payload["status"] = "BLOCKED_UPSTREAM"
+            payload["blockers"] = [str(error)]
+            payload["diagnostics"] = diagnostics(project)
+            return payload
         if (
             int(payload.get("shot_breakdown_revision") or 0) != int(shots["revision"])
             or int(payload.get("script_revision") or 0) != int(scripts["revision"])
@@ -431,6 +548,7 @@ __all__ = [
     "approve_h3_escalation",
     "block_h3",
     "build_plan",
+    "diagnostics",
     "load_plan",
     "require_h3_approval",
     "save_plan",
