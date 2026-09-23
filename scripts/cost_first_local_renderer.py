@@ -111,6 +111,7 @@ def render_local_shot(
             for path in images
         ],
         "output": relative,
+        "media_url": f"/media/{project.name}/{relative}",
         "created_at": _now(),
     }
     _atomic_json(output.with_suffix(".json"), metadata)
