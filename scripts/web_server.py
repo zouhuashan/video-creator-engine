@@ -31,6 +31,7 @@ if str(ROOT) not in sys.path:
 
 from adapters.video_generation import (  # noqa: E402
     LocalKenBurnsVideo,
+    LocalMicroMotionVideo,
     MiniMaxH3Video,
     OpenAISoraVideo,
     RunwayImageToVideo,
@@ -92,9 +93,11 @@ from scripts.graybox_manager import GrayboxRenderError, adopt_existing_render as
 from scripts.graybox_reference_binding import GrayboxReferenceError, bind_reference as bind_graybox_reference, install_smoke_reference_pack as install_graybox_smoke_reference_pack, inventory as graybox_reference_inventory, resolve_bound_paths as resolve_graybox_reference_paths, upload_scene_reference as upload_graybox_scene_reference  # noqa: E402
 from scripts.gpt_keyframe_pipeline import GPTKeyframeError, interpolate as interpolate_gpt_keyframes, inventory as gpt_keyframe_inventory, prepare as prepare_gpt_keyframes, upload_generated_frame as upload_gpt_keyframe  # noqa: E402
 from scripts.codex_keyframe_batch import CodexKeyframeBatchError, logs as codex_keyframe_batch_logs, start as start_codex_keyframe_batch, status as codex_keyframe_batch_status, stop as stop_codex_keyframe_batch  # noqa: E402
+from scripts.cost_first_hybrid_router import CostFirstRoutingError, approve_h3_escalation as approve_cost_first_h3, block_h3 as block_cost_first_h3, load_plan as load_cost_first_plan, save_plan as save_cost_first_plan  # noqa: E402
 
 
 PROVIDER_TYPES = {
+    "local_micro_motion": LocalMicroMotionVideo,
     "local_ken_burns": LocalKenBurnsVideo,
     "minimax_h3": MiniMaxH3Video,
     "openai_sora": OpenAISoraVideo,
@@ -2271,6 +2274,14 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
             except (ValueError, NovelAudioAssetError) as error:
                 return self._error(HTTPStatus.NOT_FOUND, str(error))
             return self._json(result)
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/cost-first-routing", parsed.path)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                return self._json(load_cost_first_plan(project))
+            except (ValueError, CostFirstRoutingError, NovelShotBreakdownError, NovelEpisodeScriptError, OSError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+
         match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/graybox/gpt-keyframes/codex-batch/logs", parsed.path)
         if match:
             try:
@@ -2653,6 +2664,28 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
             except Exception as error:
                 return self._error(HTTPStatus.INTERNAL_SERVER_ERROR, f"GPT keyframe prepare failed: {error}")
+
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/cost-first-routing/rebuild", route)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                return self._json(save_cost_first_plan(project), HTTPStatus.CREATED)
+            except (ValueError, CostFirstRoutingError, NovelShotBreakdownError, NovelEpisodeScriptError, OSError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/cost-first-routing/h3-escalation", route)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                payload = self._read_json(max_bytes=64 * 1024)
+                shot_id = str(payload.get("shot_id") or "")
+                if payload.get("approved") is True:
+                    result = approve_cost_first_h3(project, shot_id, str(payload.get("reason") or ""))
+                else:
+                    result = block_cost_first_h3(project, shot_id)
+                return self._json(result, HTTPStatus.CREATED)
+            except (ValueError, CostFirstRoutingError, NovelShotBreakdownError, NovelEpisodeScriptError, OSError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
 
         match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/graybox/gpt-keyframes/codex-batch/start", route)
         if match:
