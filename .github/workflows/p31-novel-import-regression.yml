@@ -16,6 +16,10 @@ on:
       - "scripts/final_audio_pipeline.py"
       - "scripts/gpt_keyframe_pipeline.py"
       - "scripts/codex_keyframe_batch.py"
+      - "scripts/cost_first_hybrid_router.py"
+      - "adapters/video_generation/local_micro_motion.py"
+      - "config/cost-first-rendering.json"
+      - "config/video-provider-routes.json"
       - "scripts/blender_graybox_scene.py"
       - "config/graybox-to-video.json"
       - "adapters/video_generation/minimax_h3.py"
@@ -38,6 +42,8 @@ on:
       - "tests/test_final_audio_pipeline.py"
       - "tests/test_gpt_keyframe_pipeline.py"
       - "tests/test_codex_keyframe_batch.py"
+      - "tests/test_cost_first_hybrid_router.py"
+      - "tests/test_local_micro_motion.py"
       - ".agents/skills/p35-keyframe-render/**"
       - ".github/workflows/p31-novel-import-regression.yml"
   workflow_dispatch:
@@ -73,6 +79,8 @@ jobs:
             scripts/final_audio_pipeline.py \
             scripts/gpt_keyframe_pipeline.py \
             scripts/codex_keyframe_batch.py \
+            scripts/cost_first_hybrid_router.py \
+            adapters/video_generation/local_micro_motion.py \
             scripts/blender_graybox_scene.py \
             scripts/web_server.py \
             adapters/video_generation/minimax_h3.py \
@@ -99,6 +107,7 @@ jobs:
             tests.test_web_server.WebServerTests.test_web_exposes_p32_graybox_workflow_without_terminal_steps \
             tests.test_web_server.WebServerTests.test_p34_final_audio_web_exposes_voice_lock_billing_gate_and_mix_without_secret \
             tests.test_web_server.WebServerTests.test_p35_gpt_keyframe_web_exposes_codex_batch_manual_fallback_and_local_interpolation \
+            tests.test_web_server.WebServerTests.test_p36_cost_first_web_exposes_local_first_routes_and_h3_lock \
             tests.test_web_server.WebServerTests.test_http_byte_range_parser_supports_video_streaming_ranges \
             tests.test_web_server.WebServerTests.test_p32_video_preview_does_not_reset_same_src_during_state_refresh \
             tests.test_web_server.WebServerTests.test_graybox_final_requires_human_approved_blockout \
@@ -110,6 +119,8 @@ jobs:
             tests.test_final_audio_pipeline \
             tests.test_gpt_keyframe_pipeline \
             tests.test_codex_keyframe_batch \
+            tests.test_cost_first_hybrid_router \
+            tests.test_local_micro_motion \
             tests.test_web_server.WebServerTests.test_graybox_final_passes_character_and_scene_images_to_minimax \
             tests.test_web_server.WebServerTests.test_graybox_smoke_review_tracks_exact_latest_final_and_three_axes \
             tests.test_comfyui_image_provider \
