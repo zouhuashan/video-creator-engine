@@ -151,6 +151,35 @@ def load_visual_bible(project_dir: Path) -> dict[str, Any]:
     return validate_visual_bible(project_dir, visual)
 
 
+def rebind_script_revision(project_dir: Path, script_revision: int | None = None) -> dict[str, Any]:
+    """Preserve existing visual content while rebinding stale script metadata."""
+    project_dir = Path(project_dir).expanduser().resolve()
+    common_keys = ("schema_version", "project_id", "ip_id", "story_bible_revision", "script_package_revision", "revision", "created_at", "updated_at")
+    visual: dict[str, Any] = {}
+    for relative, field in FILES.items():
+        path = project_dir / VISUAL_ROOT / relative
+        try:
+            part = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as error:
+            raise NovelVisualBibleError(f"cannot read visual bible file {path}: {error}") from error
+        if not visual:
+            visual.update({key: part.get(key) for key in common_keys})
+        else:
+            for key in common_keys:
+                if key in {"script_package_revision", "updated_at"}:
+                    continue
+                if part.get(key) != visual.get(key):
+                    raise NovelVisualBibleError("visual bible files have inconsistent metadata")
+        visual[field] = part.get(field)
+
+    scripts = load_script_package(project_dir)
+    visual["script_package_revision"] = int(script_revision or scripts["revision"])
+    visual["updated_at"] = utc_timestamp()
+    visual = validate_visual_bible(project_dir, visual)
+    write_visual_bible(project_dir, visual, overwrite=True)
+    return visual
+
+
 def readiness(project_dir: Path) -> dict[str, Any]:
     visual = load_visual_bible(project_dir); blockers: list[str] = []
     try: review = load_story_review(project_dir)
