@@ -48,6 +48,7 @@ on:
       - "tests/test_gpt_keyframe_pipeline.py"
       - "tests/test_codex_keyframe_batch.py"
       - "tests/test_cost_first_hybrid_router.py"
+      - "tests/test_cost_first_local_renderer.py"
       - "tests/test_local_micro_motion.py"
       - ".agents/skills/p35-keyframe-render/**"
       - ".github/workflows/p31-novel-import-regression.yml"
@@ -130,6 +131,7 @@ jobs:
             tests.test_codex_keyframe_batch \
             tests.test_cost_first_hybrid_router \
             tests.test_cost_first_video_generation_router \
+            tests.test_cost_first_local_renderer \
             tests.test_local_scene_plate \
             tests.test_local_micro_motion \
             tests.test_local_two_cut \
