@@ -6,6 +6,10 @@ on:
     paths:
       - "support/providers/**"
       - "adapters/video_generation/local_micro_motion.py"
+      - "adapters/video_generation/local_scene_plate.py"
+      - "adapters/video_generation/local_two_cut.py"
+      - "adapters/video_generation/router.py"
+      - "scripts/cost_first_local_renderer.py"
       - "config/video-provider-routes.json"
       - "tests/test_local_micro_motion.py"
       - "config/providers/**"
@@ -45,6 +49,10 @@ jobs:
             support/providers/comfyui_image_provider.py \
             support/providers/image_provider_router.py \
             adapters/video_generation/local_micro_motion.py \
+            adapters/video_generation/local_scene_plate.py \
+            adapters/video_generation/local_two_cut.py \
+            adapters/video_generation/router.py \
+            scripts/cost_first_local_renderer.py \
             scripts/pipeline_orchestrator.py \
             scripts/pipeline_media_stages.py \
             scripts/web_server.py \
@@ -59,6 +67,9 @@ jobs:
             tests.test_comfyui_installer \
             tests.test_comfyui_model_manager \
             tests.test_image_provider_router \
+            tests.test_cost_first_video_generation_router \
+            tests.test_local_scene_plate \
             tests.test_local_micro_motion \
+            tests.test_local_two_cut \
             tests.test_pipeline_orchestrator \
             tests.test_pipeline_media_stages
