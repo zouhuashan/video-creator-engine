@@ -62,6 +62,12 @@ class WebServerTests(unittest.TestCase):
         self.assertIn("ANALYZING", app)
         self.assertIn("当前没有可路由 Shot", app)
         self.assertIn("P36 分析失败", app)
+        self.assertIn('id="costFirstDiagnosticsPanel"', index)
+        self.assertIn('id="costFirstDiagnosticsRefresh"', index)
+        self.assertIn("/cost-first-routing/diagnostics", app)
+        self.assertIn("[P36 DIAGNOSTICS]", app)
+        self.assertIn("cost_first_diagnostics", server)
+        self.assertIn("rebuild_steps", server)
         self.assertIn("P36 H3 is locked", Path(web_server.ROOT / "scripts" / "cost_first_hybrid_router.py").read_text(encoding="utf-8"))
 
     def test_p35_gpt_keyframe_web_exposes_codex_batch_manual_fallback_and_local_interpolation(self):
