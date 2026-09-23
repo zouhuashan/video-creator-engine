@@ -60,6 +60,11 @@ providers:
       voice: Tingting
   image: {}
   video:
+    local_micro_motion:
+      adapter: local_micro_motion
+      enabled: true
+      mode: local
+      credentials_required: false
     local_ken_burns:
       adapter: local_ken_burns
       enabled: true
