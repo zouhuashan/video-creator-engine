@@ -411,7 +411,7 @@ function renderCostFirstPlan() {
   }
 
   status.textContent = data.status || 'PLANNED';
-  status.classList.toggle('off', false);
+  status.classList.toggle('off', String(data.status || '').startsWith('BLOCKED'));
   const s = data.summary || {};
   summary.innerHTML =
     '<div><span>如果全部 H3</span><strong>' + Number(s.all_h3_estimated_shells || 0).toFixed(1) + ' 贝壳</strong></div>' +
@@ -427,6 +427,14 @@ function renderCostFirstPlan() {
   };
   (data.routes || []).forEach((item) => (groups[item.route] || (groups[item.route] = [])).push(item));
   const order = ['LOCAL_SCENE_PLATE', 'LOCAL_MICRO_MOTION', 'LOCAL_TWO_CUT', 'H3_CANDIDATE'];
+
+  if (!(data.routes || []).length) {
+    const blockers = (data.blockers || []).map((item) => '<li>' + escapeHtml(item) + '</li>').join('');
+    routes.innerHTML = '<div class="empty-state"><strong>当前没有可路由 Shot</strong>' +
+      (blockers ? '<ul>' + blockers + '</ul>' : '<p>请先完成 Episode Script / Shot Breakdown。</p>') +
+      '</div>';
+    return;
+  }
 
   routes.innerHTML = order.map((routeName) => {
     const items = groups[routeName] || [];
@@ -513,19 +521,43 @@ async function loadCostFirstPlan(projectId = state.grayboxProjectId || state.cos
 
 async function rebuildCostFirstPlan() {
   const projectId = state.grayboxProjectId || state.costFirstProjectId;
-  if (!projectId) return;
   const button = $('#costFirstRebuild');
+  const status = $('#costFirstStatus');
+  const routes = $('#costFirstRoutes');
+  if (!projectId) {
+    status.textContent = 'NO PROJECT';
+    status.classList.add('off');
+    routes.innerHTML = '<div class="empty-state">当前没有选中国漫项目，无法分析镜头。</div>';
+    log('P36 无法重建：当前没有选中国漫项目。', true);
+    return;
+  }
   button.disabled = true;
-  button.textContent = '分析中…';
+  button.textContent = '正在分析…';
+  status.textContent = 'ANALYZING';
+  status.classList.remove('off');
+  routes.innerHTML = '<div class="empty-state">正在读取 Episode Script / Shot Breakdown，并计算最低成本路线…</div>';
   try {
     state.costFirstPlan = await api('/api/novel-anime/projects/' + encodeURIComponent(projectId) + '/cost-first-routing/rebuild', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
     });
     renderCostFirstPlan();
-    const s = state.costFirstPlan.summary || {};
-    log('P36 成本路线已重建：预计节省 ' + Number(s.estimated_shell_savings_percent || 0).toFixed(1) + '% H3 贝壳。');
-  } catch (error) { log(error.message, true); }
-  finally { button.disabled = false; button.textContent = '重新分析全部镜头'; }
+    const summary = state.costFirstPlan.summary || {};
+    const rebuilt = state.costFirstPlan.auto_rebuilt_shot_breakdown ? ' · 已自动重建 Shot Breakdown' : '';
+    if ((state.costFirstPlan.routes || []).length) {
+      log('P36 成本路线已重建：' + (state.costFirstPlan.routes || []).length + ' 个 Shot · 预计节省 ' + Number(summary.estimated_shell_savings_percent || 0).toFixed(1) + '% H3 贝壳' + rebuilt + '。');
+    } else {
+      log('P36 仍无可路由 Shot：请检查 Episode Script / Shot Breakdown。' + rebuilt, true);
+    }
+  } catch (error) {
+    state.costFirstPlan = null;
+    status.textContent = 'ERROR';
+    status.classList.add('off');
+    routes.innerHTML = '<div class="empty-state"><strong>P36 分析失败</strong><p>' + escapeHtml(error.message) + '</p></div>';
+    log('P36 重建失败：' + error.message, true);
+  } finally {
+    button.disabled = false;
+    button.textContent = '重新分析全部镜头';
+  }
 }
 
 async function toggleCostFirstH3(button) {
