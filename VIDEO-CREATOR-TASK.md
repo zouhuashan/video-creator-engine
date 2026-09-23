@@ -4998,6 +4998,37 @@ P36 内联诊断与 PLANNED 覆盖 bug 修复（2026-09-23）：
   - P31 run `35811883452` = SUCCESS（诊断面板）；
   - P30 run `35811938759` = SUCCESS（最新 Web 诊断代码相关 provider gate）。
 
+P36 Episode Script Scene Backfill（2026-09-23，核查后修正）：
+
+- 重要纠正：旧版 Web 小说导入会持久化 chapter 索引、角色/地点/道具候选、event candidate，但不会持久化原始 TXT 正文；
+- persisted event candidate 只有 sentence_sha256 / entity_refs / action_markers / chapter+sentence index，没有原句正文；
+- 同时旧 build_script_package() 默认只创建每集 Script 空壳：scenes=[]；
+- 因此旧 0-scene 项目在上传临时 TXT 已删除后，不能仅凭 hash / entity_refs 可靠恢复对白、旁白和动作原句；
+- 正确边界：
+  - 新项目：导入时立即生成 Scene Seed + Episode Script scenes + Shot Breakdown；
+  - 旧 0-scene 项目：需要用户重新选择同一个 TXT 一次；
+  - 这不是重建项目：title + source SHA 会命中原项目并 reused_existing=true，只回填 scenes / Shot，不创建第二个项目；
+  - 原始 TXT 仍不落库，只持久化少量 Scene Seed / 改编 Script。
+- 新增 scripts/novel_scene_backfill.py：
+  - 完全本地、确定性，不调用 OpenAI / H3 / 远程模型；
+  - 从当前上传 TXT 解析 chapter / sentence；
+  - 结合已抽取角色名和动作词选择少量剧情句；
+  - 生成 writing-room/scene-seeds.json；
+  - 写入 DRAFT Episode Script scenes / ACTION / DIALOGUE / NARRATION units；
+  - 保持 source chapter provenance；
+  - scene seed apply 为幂等，相同 scenes 不重复增加 Script revision。
+- novel_episode_script._reference_sets() 已允许 sources/imports/*.json 的 chapter ID 作为 provenance。
+- P36 重新分析现在：
+  - scene>0：直接进入 Shot rebuild；
+  - scene=0 且 scene-seeds.json 存在：AUTO_BACKFILL_EPISODE_SCENES；
+  - scene=0 且 Scene Seed 不存在：SOURCE_REIMPORT_REQUIRED；
+  - Web 直接显示“去小说导入：选择同一个 TXT 回填”，并带上当前项目标题。
+- 视觉保护：
+  - 新增 novel_visual_bible.rebind_script_revision()；
+  - 旧 scenes 回填时只重绑定 Script revision，保留已有 Visual Bible 内容；
+  - 回归测试验证已有视觉设置在回填后仍保留。
+- 相关提交：3c91038e / 901de7aa / d4fb9193 / 83c89033 / 96c5a5bb / b6f39805 / 373a0ced / 24a4fbde / 0f4dc975 / 54a1ce2d / fbeb45b6 / 8ca4f48a / 5dc168f3 / af42a305。
+- 已确认 CI：P31 35812840847 = SUCCESS；P31 35812878250 = SUCCESS；P31 35812899206 = SUCCESS；P30 35813053546 = SUCCESS。
 P36 Web 0-Shot 修复（2026-09-23）：
 
 - 实测 Web 出现 `PLANNED / 0.0 贝壳 / 0 张 / 暂无镜头路由`，点击“重新分析全部镜头”视觉上无变化；
