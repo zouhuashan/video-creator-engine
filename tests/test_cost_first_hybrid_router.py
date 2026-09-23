@@ -107,5 +107,55 @@ class CostFirstHybridRouterTests(unittest.TestCase):
         self.assertEqual(len(result["reuse_requirements"]), 1)
 
 
+    def test_actual_tts_duration_overrides_stale_shot_breakdown_duration(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            timing = project / "audio" / "shot-timing.json"
+            timing.parent.mkdir(parents=True, exist_ok=True)
+            timing.write_text(__import__("json").dumps({
+                "source": "VOICE_TIMELINE",
+                "shots": [{
+                    "episode_id": "S01E001",
+                    "shot_id": "SHOT-S01E001-SC001-001",
+                    "timing_source": "ACTUAL_TTS",
+                    "recommended_duration_seconds": 2.5,
+                }],
+            }), encoding="utf-8")
+            with patch.object(router, "load_shot_breakdown", return_value=self.fake_shots()), \
+                 patch.object(router, "load_script_package", return_value=self.fake_scripts()):
+                result = router.build_plan(project)
+
+        first = result["routes"][0]
+        self.assertEqual(first["source_duration_seconds"], 4.0)
+        self.assertEqual(first["duration_seconds"], 2.5)
+        self.assertEqual(first["timing_source"], "ACTUAL_TTS")
+        self.assertEqual(first["h3_full_cost_shells"], 35.0)
+        self.assertEqual(result["summary"]["actual_tts_duration_count"], 1)
+
+    def test_h3_hard_gate_requires_approved_candidate_and_reason(self):
+        locked = {
+            "routes": [{
+                "shot_id": "SHOT-H3",
+                "route": "H3_CANDIDATE",
+                "h3_escalation": {"status": "REQUIRES_MANUAL_APPROVAL", "approved": False, "reason": ""},
+            }]
+        }
+        with patch.object(router, "load_plan", return_value=locked):
+            with self.assertRaisesRegex(router.CostFirstRoutingError, "locked"):
+                router.require_h3_approval(Path("/tmp/demo"), "SHOT-H3")
+
+        approved = {
+            "routes": [{
+                "shot_id": "SHOT-H3",
+                "route": "H3_CANDIDATE",
+                "duration_seconds": 4.2,
+                "h3_escalation": {"status": "APPROVED", "approved": True, "reason": "连续挥剑过程必须可见"},
+            }]
+        }
+        with patch.object(router, "load_plan", return_value=approved):
+            route = router.require_h3_approval(Path("/tmp/demo"), "SHOT-H3")
+        self.assertEqual(route["duration_seconds"], 4.2)
+
+
 if __name__ == "__main__":
     unittest.main()
