@@ -57,6 +57,11 @@ class WebServerTests(unittest.TestCase):
         self.assertIn("/cost-first-routing/local-preview", app)
         self.assertIn('id="grayboxH3ShotSelect"', index)
         self.assertIn("require_cost_first_h3", server)
+        self.assertIn("build_shot_breakdown(project)", server)
+        self.assertIn("auto_rebuilt_shot_breakdown", server)
+        self.assertIn("ANALYZING", app)
+        self.assertIn("当前没有可路由 Shot", app)
+        self.assertIn("P36 分析失败", app)
         self.assertIn("P36 H3 is locked", Path(web_server.ROOT / "scripts" / "cost_first_hybrid_router.py").read_text(encoding="utf-8"))
 
     def test_p35_gpt_keyframe_web_exposes_codex_batch_manual_fallback_and_local_interpolation(self):
