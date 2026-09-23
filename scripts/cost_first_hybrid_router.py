@@ -11,6 +11,7 @@ No remote provider is called from this module.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import time
@@ -24,6 +25,7 @@ from scripts.novel_shot_breakdown import load_shot_breakdown
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG = ROOT / "config" / "cost-first-rendering.json"
 OUTPUT = Path("rendering/cost-first-plan.json")
+SHOT_TIMING_OUTPUT = Path("audio/shot-timing.json")
 
 
 class CostFirstRoutingError(RuntimeError):
@@ -47,6 +49,40 @@ def _atomic_json(path: Path, payload: dict[str, Any]) -> None:
     tmp = path.with_suffix(path.suffix + ".tmp")
     tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     tmp.replace(path)
+
+
+def _voice_timing_signature(project: Path) -> str:
+    path = Path(project).resolve() / SHOT_TIMING_OUTPUT
+    if not path.is_file():
+        return ""
+    try:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+    except OSError:
+        return ""
+
+
+def _actual_tts_timings(project: Path) -> dict[str, dict[str, Any]]:
+    path = Path(project).resolve() / SHOT_TIMING_OUTPUT
+    if not path.is_file():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    if str(payload.get("source") or "").upper() != "VOICE_TIMELINE":
+        return {}
+    result: dict[str, dict[str, Any]] = {}
+    for item in payload.get("shots", []):
+        if not isinstance(item, dict) or str(item.get("timing_source") or "").upper() != "ACTUAL_TTS":
+            continue
+        shot_id = str(item.get("shot_id") or "").strip()
+        try:
+            duration = float(item.get("recommended_duration_seconds") or 0)
+        except (TypeError, ValueError):
+            continue
+        if shot_id and duration > 0:
+            result[shot_id] = {**item, "recommended_duration_seconds": duration}
+    return result
 
 
 def _scene_index(script_package: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -181,6 +217,8 @@ def build_plan(project: Path) -> dict[str, Any]:
     scripts = load_script_package(project)
     scenes = _scene_index(scripts)
     shell_rate = float(config["policy"]["h3_empirical_shell_per_second"])
+    actual_tts_timings = _actual_tts_timings(project)
+    voice_timing_signature = _voice_timing_signature(project)
 
     routes: list[dict[str, Any]] = []
     reuse_requirements: dict[str, dict[str, Any]] = {}
@@ -196,8 +234,17 @@ def build_plan(project: Path) -> dict[str, Any]:
         signature = _visual_signature(scene)
 
         for shot in scene_breakdown["shots"]:
-            duration = float(shot.get("duration_seconds") or 1.0)
-            selected = _select_route(shot=shot, scene=scene, motion=motion, config=config)
+            shot_id = str(shot["id"])
+            source_duration = float(shot.get("duration_seconds") or 1.0)
+            actual_timing = actual_tts_timings.get(shot_id)
+            if actual_timing:
+                duration = float(actual_timing["recommended_duration_seconds"])
+                timing_source = "ACTUAL_TTS"
+            else:
+                duration = source_duration
+                timing_source = "SHOT_BREAKDOWN"
+            effective_shot = {**shot, "duration_seconds": duration}
+            selected = _select_route(shot=effective_shot, scene=scene, motion=motion, config=config)
             h3_estimate = round(duration * shell_rate, 1)
             all_h3_shells += h3_estimate
             if selected["route"] == "H3_CANDIDATE":
@@ -220,8 +267,10 @@ def build_plan(project: Path) -> dict[str, Any]:
             routes.append({
                 "episode_id": str(scene["episode_id"]),
                 "scene_id": scene_id,
-                "shot_id": str(shot["id"]),
+                "shot_id": shot_id,
                 "duration_seconds": round(duration, 3),
+                "source_duration_seconds": round(source_duration, 3),
+                "timing_source": timing_source,
                 "shot_type": str(shot.get("shot_type") or ""),
                 "camera_movement": str(shot.get("movement") or ""),
                 "motion": motion,
@@ -250,12 +299,18 @@ def build_plan(project: Path) -> dict[str, Any]:
             "remote_video_last_resort": True,
             "h3_empirical_shell_per_second": shell_rate,
             "h3_requires_manual_escalation": True,
+            "default_local_fps": int(config["policy"].get("default_local_fps") or 24),
+            "local_preview_width": int(config["policy"].get("local_preview_width") or 720),
+            "local_preview_height": int(config["policy"].get("local_preview_height") or 1280),
         },
         "status": "PLANNED",
         "shot_breakdown_revision": int(shots["revision"]),
         "script_revision": int(scripts["revision"]),
+        "voice_timing_signature": voice_timing_signature,
         "summary": {
             "shot_count": len(routes),
+            "actual_tts_duration_count": sum(1 for item in routes if item["timing_source"] == "ACTUAL_TTS"),
+            "shot_breakdown_duration_count": sum(1 for item in routes if item["timing_source"] == "SHOT_BREAKDOWN"),
             "local_route_count": sum(1 for item in routes if item["route"] != "H3_CANDIDATE"),
             "h3_candidate_count": sum(1 for item in routes if item["route"] == "H3_CANDIDATE"),
             "local_single_still_count": sum(1 for item in routes if item["route"] in {"LOCAL_SCENE_PLATE", "LOCAL_MICRO_MOTION"}),
@@ -295,6 +350,7 @@ def load_plan(project: Path, *, rebuild_if_stale: bool = True) -> dict[str, Any]
         if (
             int(payload.get("shot_breakdown_revision") or 0) != int(shots["revision"])
             or int(payload.get("script_revision") or 0) != int(scripts["revision"])
+            or str(payload.get("voice_timing_signature") or "") != _voice_timing_signature(project)
         ):
             return save_plan(project)
     return payload
@@ -342,6 +398,24 @@ def block_h3(project: Path, shot_id: str) -> dict[str, Any]:
     return plan
 
 
+def require_h3_approval(project: Path, shot_id: str) -> dict[str, Any]:
+    project = Path(project).resolve()
+    shot_id = str(shot_id or "").strip()
+    if not shot_id:
+        raise CostFirstRoutingError("P36 H3 requires an explicit shot_id")
+    plan = load_plan(project)
+    route = next((item for item in plan.get("routes", []) if item.get("shot_id") == shot_id), None)
+    if route is None:
+        raise CostFirstRoutingError("P36 H3 shot is not present in the current routing plan")
+    if route.get("route") != "H3_CANDIDATE":
+        raise CostFirstRoutingError("P36 blocks H3 because this shot has a local route")
+    escalation = route.get("h3_escalation") if isinstance(route.get("h3_escalation"), dict) else {}
+    reason = str(escalation.get("reason") or "").strip()
+    if escalation.get("approved") is not True or str(escalation.get("status") or "") != "APPROVED" or len(reason) < 6:
+        raise CostFirstRoutingError("P36 H3 is locked; approve the H3 candidate with a concrete reason first")
+    return route
+
+
 __all__ = [
     "CostFirstRoutingError",
     "OUTPUT",
@@ -349,5 +423,6 @@ __all__ = [
     "block_h3",
     "build_plan",
     "load_plan",
+    "require_h3_approval",
     "save_plan",
 ]
