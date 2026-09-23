@@ -63,6 +63,7 @@ from scripts.novel_story_bible import NovelStoryBibleError, continuity_input, lo
 from scripts.novel_series_plan import NovelSeriesPlanError, load_plan as load_series_plan, summary as series_plan_summary  # noqa: E402
 from scripts.novel_episode_planning import NovelEpisodePlanningError, load_episode_planning, summary as episode_planning_summary  # noqa: E402
 from scripts.novel_episode_script import NovelEpisodeScriptError, load_script_package, summary as episode_script_summary  # noqa: E402
+from scripts.novel_scene_backfill import NovelSceneBackfillError, apply_scene_seed as apply_novel_scene_seed  # noqa: E402
 from scripts.novel_story_review import NovelStoryReviewError, load_report as load_story_review, summary as story_review_summary  # noqa: E402
 from scripts.novel_visual_bible import NovelVisualBibleError, load_visual_bible, summary as visual_bible_summary  # noqa: E402
 from scripts.novel_character_designs import NovelCharacterDesignError, load_character_designs, summary as character_design_summary  # noqa: E402
@@ -2735,10 +2736,41 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
         if match:
             project: Path | None = None
             steps: list[dict[str, object]] = []
+            auto_backfilled_scenes = False
             auto_rebuilt_shot_breakdown = False
             try:
                 project = _safe_project(match.group(1))
                 steps.append({"stage": "PROJECT", "status": "PASS", "detail": project.name})
+
+                scripts = load_script_package(project)
+                scene_count = sum(len(item.get("scenes") or []) for item in scripts.get("episode_scripts", []))
+                steps.append({
+                    "stage": "EPISODE_SCRIPT",
+                    "status": "PASS" if scene_count else "EMPTY",
+                    "detail": f"{scene_count} scene",
+                })
+                if scene_count == 0:
+                    seed_path = project / "writing-room" / "scene-seeds.json"
+                    if seed_path.is_file():
+                        steps.append({
+                            "stage": "AUTO_BACKFILL_EPISODE_SCENES",
+                            "status": "RUNNING",
+                            "detail": "从本地 Scene Seed 回填，不调用远程模型",
+                        })
+                        backfill = apply_novel_scene_seed(project)
+                        auto_backfilled_scenes = True
+                        scene_count = int(backfill.get("scene_count") or 0)
+                        steps[-1] = {
+                            "stage": "AUTO_BACKFILL_EPISODE_SCENES",
+                            "status": "PASS",
+                            "detail": f"回填 {scene_count} scene / {int(backfill.get('unit_count') or 0)} unit",
+                        }
+                    else:
+                        steps.append({
+                            "stage": "AUTO_BACKFILL_EPISODE_SCENES",
+                            "status": "SOURCE_REIMPORT_REQUIRED",
+                            "detail": "旧项目没有 Scene Seed；原 TXT 当时未持久化。请重新选择同一个 TXT 一次，系统会复用当前项目，只回填 scenes。",
+                        })
 
                 try:
                     current_shots = load_shot_breakdown(project)
@@ -2752,8 +2784,8 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                     current_count = 0
                     steps.append({"stage": "SHOT_BREAKDOWN", "status": "MISSING_OR_INVALID", "detail": str(error)})
 
-                if current_count == 0:
-                    steps.append({"stage": "AUTO_REBUILD_SHOT_BREAKDOWN", "status": "RUNNING", "detail": "根据现有 Episode Script 重建"})
+                if current_count == 0 and scene_count > 0:
+                    steps.append({"stage": "AUTO_REBUILD_SHOT_BREAKDOWN", "status": "RUNNING", "detail": "根据 Episode Script scenes 重建"})
                     rebuilt = build_shot_breakdown(project)
                     rebuilt_count = sum(len(item.get("shots") or []) for item in rebuilt.get("scene_breakdowns", []))
                     if rebuilt_count > 0:
@@ -2768,15 +2800,16 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                         steps[-1] = {
                             "stage": "AUTO_REBUILD_SHOT_BREAKDOWN",
                             "status": "EMPTY",
-                            "detail": "Episode Script 没有可转换为 Shot 的 scene",
+                            "detail": "Episode Script scenes 未产生 Shot",
                         }
 
                 result = save_cost_first_plan(project)
+                result["auto_backfilled_episode_scenes"] = auto_backfilled_scenes
                 result["auto_rebuilt_shot_breakdown"] = auto_rebuilt_shot_breakdown
                 result["rebuild_steps"] = steps
                 result["diagnostics"] = cost_first_diagnostics(project)
                 return self._json(result, HTTPStatus.CREATED)
-            except (ValueError, CostFirstRoutingError, NovelShotBreakdownError, NovelEpisodeScriptError, OSError, json.JSONDecodeError) as error:
+            except (ValueError, CostFirstRoutingError, NovelShotBreakdownError, NovelEpisodeScriptError, NovelSceneBackfillError, OSError, json.JSONDecodeError) as error:
                 if project is None:
                     return self._error(HTTPStatus.BAD_REQUEST, str(error))
                 steps.append({"stage": "REBUILD", "status": "FAIL", "detail": str(error)})
@@ -2804,6 +2837,7 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                         "estimated_shells_saved": 0.0,
                         "estimated_shell_savings_percent": 0.0,
                     },
+                    "auto_backfilled_episode_scenes": auto_backfilled_scenes,
                     "auto_rebuilt_shot_breakdown": auto_rebuilt_shot_breakdown,
                     "rebuild_steps": steps,
                     "diagnostics": diagnostics,
