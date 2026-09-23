@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "policy": {
+    "name": "COST_FIRST_HYBRID_RENDERER",
+    "remote_video_last_resort": true,
+    "h3_requires_manual_escalation": true,
+    "h3_empirical_shell_per_second": 14.0,
+    "max_local_single_still_seconds": 6.0,
+    "max_local_two_cut_seconds": 10.0,
+    "reuse_same_visual_signature": true,
+    "default_local_fps": 24
+  },
+  "motion_keywords": {
+    "high": ["打斗", "交手", "挥剑", "拔剑", "奔跑", "狂奔", "追逐", "冲刺", "翻滚", "翻身", "跃起", "跳跃", "飞身", "腾空", "旋转", "扑向", "撞击", "爆炸", "坠落", "骑马", "舞剑"],
+    "medium": ["走来", "走进", "走出", "行走", "进入", "离开", "转身", "回头", "抬头", "低头", "起身", "坐下", "开门", "关门", "伸手", "拿起", "放下", "拥抱", "推开", "拉开"],
+    "subtle": ["凝视", "望向", "看向", "微笑", "皱眉", "点头", "摇头", "眨眼", "呼吸", "沉默", "注视", "侧目"]
+  },
+  "route_thresholds": {
+    "local_single_still_max_score": 1.75,
+    "local_two_cut_max_score": 4.5,
+    "h3_candidate_min_score": 4.51
+  }
+}
