@@ -32,6 +32,8 @@ if str(ROOT) not in sys.path:
 from adapters.video_generation import (  # noqa: E402
     LocalKenBurnsVideo,
     LocalMicroMotionVideo,
+    LocalScenePlateVideo,
+    LocalTwoCutVideo,
     MiniMaxH3Video,
     OpenAISoraVideo,
     RunwayImageToVideo,
@@ -93,11 +95,14 @@ from scripts.graybox_manager import GrayboxRenderError, adopt_existing_render as
 from scripts.graybox_reference_binding import GrayboxReferenceError, bind_reference as bind_graybox_reference, install_smoke_reference_pack as install_graybox_smoke_reference_pack, inventory as graybox_reference_inventory, resolve_bound_paths as resolve_graybox_reference_paths, upload_scene_reference as upload_graybox_scene_reference  # noqa: E402
 from scripts.gpt_keyframe_pipeline import GPTKeyframeError, interpolate as interpolate_gpt_keyframes, inventory as gpt_keyframe_inventory, prepare as prepare_gpt_keyframes, upload_generated_frame as upload_gpt_keyframe  # noqa: E402
 from scripts.codex_keyframe_batch import CodexKeyframeBatchError, logs as codex_keyframe_batch_logs, start as start_codex_keyframe_batch, status as codex_keyframe_batch_status, stop as stop_codex_keyframe_batch  # noqa: E402
-from scripts.cost_first_hybrid_router import CostFirstRoutingError, approve_h3_escalation as approve_cost_first_h3, block_h3 as block_cost_first_h3, load_plan as load_cost_first_plan, save_plan as save_cost_first_plan  # noqa: E402
+from scripts.cost_first_hybrid_router import CostFirstRoutingError, approve_h3_escalation as approve_cost_first_h3, block_h3 as block_cost_first_h3, load_plan as load_cost_first_plan, require_h3_approval as require_cost_first_h3, save_plan as save_cost_first_plan  # noqa: E402
+from scripts.cost_first_local_renderer import CostFirstLocalRenderError, render_local_shot as render_cost_first_local_shot  # noqa: E402
 
 
 PROVIDER_TYPES = {
+    "local_scene_plate": LocalScenePlateVideo,
     "local_micro_motion": LocalMicroMotionVideo,
+    "local_two_cut": LocalTwoCutVideo,
     "local_ken_burns": LocalKenBurnsVideo,
     "minimax_h3": MiniMaxH3Video,
     "openai_sora": OpenAISoraVideo,
@@ -1271,7 +1276,12 @@ def _update_image_studio_review(project: Path, payload: dict[str, object]) -> di
 
 
 def _provider_status() -> list[dict[str, object]]:
-    status = [{"id": "local_ken_burns", "label": "本地动态分镜", "remote": False, "configured": True}]
+    status = [
+        {"id": "local_scene_plate", "label": "P36 本地场景微动", "remote": False, "configured": True},
+        {"id": "local_micro_motion", "label": "P36 单图人物微动", "remote": False, "configured": True},
+        {"id": "local_two_cut", "label": "P36 两图硬切", "remote": False, "configured": True},
+        {"id": "local_ken_burns", "label": "本地动态分镜", "remote": False, "configured": True},
+    ]
     for provider_id, label in (("minimax_h3", "MiniMax H3 · 白模转成片"), ("openai_sora", "OpenAI Sora"), ("runway", "Runway"), ("wan", "Wan 2.1")):
         env_name = KEY_ENV[provider_id]
         status.append({
@@ -1505,6 +1515,8 @@ def _generate_graybox_final(project: Path, payload: dict[str, object]) -> dict[s
         raise ValueError("MiniMax H3 远程生成需要 confirm_billable=true")
     if payload.get("upload_authorized") is not True:
         raise ValueError("上传白模参考视频前需要 upload_authorized=true")
+    p36_shot_id = str(payload.get("shot_id") or "").strip()
+    h3_route = require_cost_first_h3(project, p36_shot_id)
     state = graybox_render_status(project)
     if not state.get("output_ready"):
         raise ValueError("Blender 白模尚未生成完成")
@@ -1548,7 +1560,7 @@ def _generate_graybox_final(project: Path, payload: dict[str, object]) -> dict[s
         image_paths=(character_reference.resolve(), scene_reference.resolve()),
         reference_video_paths=(reference_video.resolve(),),
         output_path=output,
-        shot_duration_seconds=float(spec.get("duration_seconds") or 8),
+        shot_duration_seconds=float(h3_route["duration_seconds"]),
         fps=int(spec.get("fps") or 24),
         width=int(spec.get("width") or 720),
         height=int(spec.get("height") or 1280),
@@ -1564,6 +1576,9 @@ def _generate_graybox_final(project: Path, payload: dict[str, object]) -> dict[s
         "resolution": resolution,
         "task_id": result.task_id,
         "duration_seconds": result.duration_seconds,
+        "p36_shot_id": p36_shot_id,
+        "p36_timing_source": str(h3_route.get("timing_source") or "SHOT_BREAKDOWN"),
+        "p36_escalation_reason": str((h3_route.get("h3_escalation") or {}).get("reason") or ""),
         "shot_spec_id": str(spec.get("id") or ""),
         "reference_video": relative,
         "character_reference": str((reference_binding.get("character_reference") or {}).get("path") or ""),
@@ -2653,6 +2668,47 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                 return self._json({**_graybox_web_status(project), "uploaded_scene": uploaded}, HTTPStatus.CREATED)
             except (ValueError, GrayboxReferenceError, GrayboxShotSpecError, GrayboxRenderError, OSError, json.JSONDecodeError) as error:
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
+
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/cost-first-routing/local-preview", route)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                payload = self._read_json(max_bytes=32 * 1024 * 1024)
+                shot_id = str(payload.get("shot_id") or "").strip()
+                raw_images = payload.get("images")
+                if not isinstance(raw_images, list) or not raw_images or len(raw_images) > 2:
+                    raise ValueError("local preview requires one or two images")
+                safe_shot = re.sub(r"[^A-Za-z0-9._-]+", "-", shot_id).strip("-._") or "shot"
+                input_dir = project / "rendering" / "local-inputs" / safe_shot
+                input_dir.mkdir(parents=True, exist_ok=True)
+                image_paths: list[Path] = []
+                for index, item in enumerate(raw_images, start=1):
+                    if not isinstance(item, dict):
+                        raise ValueError("local preview image entry must be an object")
+                    filename = str(item.get("filename") or f"frame-{index}.png")
+                    extension = Path(filename).suffix.lower()
+                    if extension not in IMAGE_EXTENSIONS:
+                        raise ValueError("local preview images must be PNG, JPEG or WebP")
+                    encoded = str(item.get("content_base64") or "").strip()
+                    if not encoded:
+                        raise ValueError("local preview image content is required")
+                    try:
+                        content = base64.b64decode(encoded, validate=True)
+                    except Exception as error:
+                        raise ValueError("local preview image base64 is invalid") from error
+                    if len(content) <= 0 or len(content) > 12 * 1024 * 1024:
+                        raise ValueError("each local preview image must be between 1 byte and 12 MB")
+                    image_path = input_dir / f"frame-{index}{extension}"
+                    image_path.write_bytes(content)
+                    image_paths.append(image_path)
+                preview = render_cost_first_local_shot(project, shot_id, image_paths)
+                return self._json({
+                    "preview": {**preview, "media_url": _media_url(project, str(preview["output"]))},
+                    "plan": load_cost_first_plan(project, rebuild_if_stale=False),
+                }, HTTPStatus.CREATED)
+            except (ValueError, CostFirstRoutingError, CostFirstLocalRenderError, VideoGenerationError, OSError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+
         match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/graybox/gpt-keyframes/prepare", route)
         if match:
             try:
@@ -3265,18 +3321,24 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
         image_path = str(payload.get("image_path") or "")
         if provider_id not in PROVIDER_TYPES:
             raise ValueError("unsupported provider")
-        if provider_id != "local_ken_burns" and payload.get("confirm_billable") is not True:
+        provider_type = PROVIDER_TYPES[provider_id]
+        if provider_type.remote_generation and payload.get("confirm_billable") is not True:
             raise ValueError("remote generation requires confirm_billable=true")
         project = _safe_project(project_id)
-        image = _safe_project_file(project_id, image_path)
-        if image.suffix.lower() not in IMAGE_EXTENSIONS:
-            raise ValueError("image_path must point to an image")
+        raw_image_paths = payload.get("image_paths")
+        if raw_image_paths is None:
+            raw_image_paths = [image_path]
+        if not isinstance(raw_image_paths, list) or not raw_image_paths or any(not isinstance(item, str) for item in raw_image_paths):
+            raise ValueError("image_paths must be a non-empty string list")
+        images = tuple(_safe_project_file(project_id, item) for item in raw_image_paths)
+        if any(image.suffix.lower() not in IMAGE_EXTENSIONS for image in images):
+            raise ValueError("every image path must point to an image")
         output_dir = project / "generated"
         output_dir.mkdir(parents=True, exist_ok=True)
         stamp = time.strftime("%Y%m%d-%H%M%S")
         output = output_dir / f"{stamp}-{provider_id}.mp4"
         request = VideoGenerationRequest(
-            image_paths=normalize_image_paths((image,)),
+            image_paths=normalize_image_paths(images),
             output_path=output,
             shot_duration_seconds=float(payload.get("shot_duration") or 4),
             width=int(payload.get("width") or 1080),
@@ -3287,7 +3349,7 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
         provider_kwargs = {}
         if provider_id in KEY_ENV and RUNTIME_KEYS.get(provider_id):
             provider_kwargs["api_key"] = RUNTIME_KEYS[provider_id]
-        result = PROVIDER_TYPES[provider_id](**provider_kwargs).generate(request)
+        result = provider_type(**provider_kwargs).generate(request)
         return {"provider": result.provider, "task_id": result.task_id, "duration_seconds": result.duration_seconds, "output_path": _relative(project, result.output_path), "media_url": f"/media/{project.name}/{_relative(project, result.output_path)}"}
 
     def _save_key(self) -> None:
