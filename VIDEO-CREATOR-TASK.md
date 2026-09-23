@@ -4749,7 +4749,7 @@ NEXT：本机更新 main、重启 Web；旧的 5 FAILED 可直接再次点“②
 ---
 
 ### P36 Cost-First Hybrid Renderer：本地优先，H3 最后兜底
-Status: CODE PASS / CI PASS / LOCAL ROUTING SMOKE PENDING
+Status: CODE PASS / CI PASS / LOCAL EXECUTION READY / REAL PROJECT WEB SMOKE PENDING
 
 核心原则（2026-09-23 固化）：
 
@@ -4783,7 +4783,8 @@ P36 四级渲染路线：
 1. `LOCAL_SCENE_PLATE`
    - 无角色动作 / 环境 / 空镜 / 纯旁白场景；
    - 1 张场景图；
-   - 本地镜头移动；
+   - 新增 `adapters/video_generation/local_scene_plate.py`；
+   - FFmpeg restrained push / drift，仅做镜头微动，不伪造人物动作；
    - AI Video 成本 = 0。
 2. `LOCAL_MICRO_MOTION`
    - 对白、旁白、凝视、沉默、微笑、轻微表演；
@@ -4795,8 +4796,9 @@ P36 四级渲染路线：
 3. `LOCAL_TWO_CUT`
    - 走入、转身、抬头、起身、开门等中低动作；
    - 优先生成 2 张关键构图，直接作为两个正常剪辑 Shot / Cut；
-   - 不对两张独立 AI 图做“融化式插帧”；
-   - 用剪辑语言表达动作前/后状态；
+   - 新增 `adapters/video_generation/local_two_cut.py`；
+   - FFmpeg 使用真正 hard concat cut；**不使用 xfade / optical-flow / minterpolate**；
+   - 每一段只允许轻微镜头运动，用剪辑语言表达动作前/后状态；
    - AI Video 成本 = 0。
 4. `H3_CANDIDATE`
    - 打斗、跑跳、追逐、挥剑、翻滚、飞身、大幅交互等连续动作；
@@ -4812,11 +4814,16 @@ P36 四级渲染路线：
   - Episode Script 的 `ACTION / VISUAL / DIALOGUE / NARRATION / SFX`；
   - scene character count；
   - shot duration；
+  - P33 `audio/shot-timing.json` 的 `ACTUAL_TTS` 实际时长；
   - 动作关键词；
 - high motion 词包含：打斗 / 交手 / 挥剑 / 拔剑 / 奔跑 / 冲刺 / 追逐 / 翻滚 / 跳跃 / 飞身 / 旋转 / 撞击 / 爆炸等；
 - medium motion 词包含：走入 / 行走 / 转身 / 抬头 / 起身 / 开门 / 伸手 / 拿起等；
 - subtle motion 词包含：凝视 / 微笑 / 皱眉 / 点头 / 眨眼 / 呼吸等；
-- 自动生成 motion score，但 route 是可解释规则，不是黑盒模型判断。
+- 自动生成 motion score，但 route 是可解释规则，不是黑盒模型判断；
+- P36 每次优先读取 P33 `ACTUAL_TTS recommended_duration_seconds` 覆盖旧 Shot Breakdown 时长；
+- `audio/shot-timing.json` 内容 hash 进入 plan stale 检测，Timing Voice 改变后成本计划自动重建；
+- 每个 Shot 输出 `timing_source = ACTUAL_TTS | SHOT_BREAKDOWN`，Web 直接显示；
+- **禁止 P36 自己回退到默认 8 秒**；没有 ACTUAL_TTS 时只允许使用当前 Shot Breakdown 已记录的时长。
 
 静帧复用：
 
@@ -4850,25 +4857,45 @@ P36 四级渲染路线：
   - 路由原因；
   - 新静帧需求；
   - 如果全 H3 该镜头约多少贝壳；
+  - 本镜头 P36 预计节省多少贝壳；
+  - 时长来源是 `ACTUAL_TTS` 还是 `SHOT_BREAKDOWN`；
 - H3 候选显示 `H3 LOCKED`；
 - “人工允许 H3”要求填写具体原因；
-- 已允许的 H3 可以随时重新锁定。
+- 已允许的 H3 可以随时重新锁定；
+- LOCAL Shot 卡片现在可直接上传 1 / 2 张最终图并点击“本地生成预览”，Web 内直接播放 MP4；
+- 本地预览写入 `rendering/local-previews/`，输入写入 `rendering/local-inputs/`；
+- P32 MiniMax H3 成片区新增“P36 H3 候选镜头”选择器；只有已 APPROVED 的候选才会解锁按钮。
 
 新增 Web API：
 
 - `GET .../cost-first-routing`；
 - `POST .../cost-first-routing/rebuild`；
-- `POST .../cost-first-routing/h3-escalation`。
+- `POST .../cost-first-routing/h3-escalation`；
+- `POST .../cost-first-routing/local-preview`：接收 1 / 2 张图，只调用本机 FFmpeg Provider，不调用远程 API。
 
-新增免费本地 Provider：
+新增免费本地 Provider / Executor：
 
-- `LOCAL_MICRO_MOTION / local_micro_motion`；
-- 输入必须正好 1 张最终图；
-- 连续 3.5% 内的缓慢 push-in；
-- 轻微 sinusoidal x/y camera drift；
-- 不调用任何远程 Provider；
-- 不需要 credential；
-- 输出 H.264 / yuv420p / faststart。
+- `LOCAL_SCENE_PLATE / local_scene_plate`
+  - 1 张环境 / 场景最终图；
+  - restrained camera push / drift；
+  - 不生成语义人物动作。
+- `LOCAL_MICRO_MOTION / local_micro_motion`
+  - 输入必须正好 1 张最终人物图；
+  - 连续 3.5% 内的缓慢 push-in；
+  - 轻微 sinusoidal x/y camera drift；
+  - 不伪造肢体动作。
+- `LOCAL_TWO_CUT / local_two_cut`
+  - 输入必须正好 2 张最终图；
+  - 两段各自轻微微动；
+  - 中点使用真实 hard cut；
+  - 无 xfade / minterpolate。
+- `scripts/cost_first_local_renderer.py`
+  - 按 P36 route 自动选择上述 Provider；
+  - 时长直接使用 P36/P33 计划时长；
+  - 输出 H.264 / yuv420p / faststart；
+  - 元数据明确 `remote_generation=false`、`billable=false`；
+  - 结果写回 `cost-first-plan.json -> local_preview`，Web 可直接播放。
+- 三条本地路线都不需要 credential，不调用任何远程 Video Provider。
 
 当前策略对小说动漫的实际意义：
 
@@ -4884,6 +4911,20 @@ P36 四级渲染路线：
 ```
 
 这样 H3 从“每个镜头的默认渲染器”降为“少数连续动作镜头的昂贵特效镜头”。
+
+H3 硬门禁（2026-09-23 补齐）：
+
+- 新增 `require_h3_approval(project, shot_id)`；
+- 后端真正调用 MiniMax H3 前必须同时满足：
+  1. Shot 当前 route 必须是 `H3_CANDIDATE`；
+  2. `h3_escalation.status = APPROVED`；
+  3. `approved = true`；
+  4. 人工原因至少 6 个字符；
+  5. Web 仍需 `confirm_billable=true`；
+  6. Web 仍需素材上传授权；
+  7. Blender 白模仍需人工 APPROVED；
+- 即使有人绕过前端直接请求旧 `/graybox/final`，没有明确 `shot_id` 和 P36 APPROVED 状态也会被后端拒绝；
+- H3 request duration 改为所选 P36 Shot 的真实 route duration，不再读取 P32 默认 8 秒作为付费时长。
 
 主要提交：
 - `494f0fe8` P36 cost-first policy
@@ -4901,7 +4942,22 @@ P36 四级渲染路线：
 - `066668e5` P36 Web regression
 - `f17ac6ab` P31 CI gate
 - `739bed8b` P30 provider gate
-- GitHub Actions P31 run `35804871899` = SUCCESS；P30 provider regression run `35804879242` = SUCCESS。
+- `3a584c1e` LOCAL_SCENE_PLATE provider
+- `405eecd9` LOCAL_TWO_CUT hard-cut provider
+- `22bb5da3` P33 ACTUAL_TTS timing override + H3 hard approval gate
+- `8dd9ed3e` executable cost-first local renderer
+- `119614c3` Web local-preview API + backend H3 hard gate
+- `415ebdf6` P36 Web local-preview controls
+- `99444d72` P36 approved H3 shot selector
+- `46d99192` provider exports fix
+- `d8bf15d4` H3-gated graybox regression
+- `5205f4c7` / `2aed9051` P31/P30 executable local renderer CI
+- `0eaf0647` per-Shot shell savings
+- `84f8ff31` persist local preview media URL
+- `ffa137a1` Web per-Shot savings display
+- `351178f9` local preview media regression
+- GitHub Actions P31 run `35810449151` = SUCCESS（包含 local renderer + media URL 回归）；
+- GitHub Actions P30 provider regression run `35810429745` = SUCCESS（最终相关 provider/Web 代码）。
 
-NEXT：先在本机 Web 打开 P36，读取当前项目真实 Shot Breakdown 的成本报告。不要先生成 H3。优先挑一个 `LOCAL_MICRO_MOTION` 对白/旁白镜头，用 1 张最终图做本地预览；再挑一个 `LOCAL_TWO_CUT` 中等动作镜头验证“动作前 / 动作后切镜”是否能接受。只有这两种都无法表达的镜头才人工解锁 H3。
+NEXT：本机更新 `main`、重启 Web，直接打开 P36。先看真实整集 route + ACTUAL_TTS 时长 + 贝壳节省；挑 1 个 `LOCAL_SCENE_PLATE / LOCAL_MICRO_MOTION` 上传 1 张最终图点“本地生成预览”，再挑 1 个 `LOCAL_TWO_CUT` 上传 2 张动作前/后图验证 hard cut。**这两个本地 smoke 未证明不可用之前，不要解锁 H3。** 若确实有连续动作镜头必须 H3，则在 P36 写明原因并 APPROVE，再到 MiniMax 区选择同一个 H3 Shot；后端会再次校验 P36 门禁和付费确认。
 
