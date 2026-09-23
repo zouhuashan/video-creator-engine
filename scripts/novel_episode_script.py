@@ -81,10 +81,24 @@ def _unique(items: list[dict[str, Any]], field: str, pattern: str, label: str) -
 
 def _reference_sets(project_dir: Path, bible: dict[str, Any]) -> tuple[set[str], dict[str, set[str]]]:
     source_ids: set[str] = set()
-    path = Path(project_dir) / CATALOG_RELATIVE_PATH
+    project_dir = Path(project_dir)
+    path = project_dir / CATALOG_RELATIVE_PATH
     if path.is_file():
         catalog = load_catalog(path)
         source_ids = {item["id"] for item in catalog["chapters"]} | {item["id"] for item in catalog["locators"]}
+    imports_root = project_dir / "sources" / "imports"
+    if imports_root.is_dir():
+        for import_path in imports_root.glob("*.json"):
+            try:
+                payload = json.loads(import_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            if not isinstance(payload, dict):
+                continue
+            for chapter in payload.get("chapters", []):
+                chapter_id = str(chapter.get("chapter_id") or "") if isinstance(chapter, dict) else ""
+                if chapter_id:
+                    source_ids.add(chapter_id)
     story = {field: {item["id"] for item in bible[field]} for field in ("characters", "relationships", "locations", "props", "timeline", "foreshadowing")}
     story["all"] = {bible["world"]["id"]} | set().union(*(story[field] for field in story if field != "all"), {item["id"] for item in bible["rules"]})
     return source_ids, story
