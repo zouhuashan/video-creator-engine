@@ -69,6 +69,7 @@ jobs:
             tests.test_comfyui_model_manager \
             tests.test_image_provider_router \
             tests.test_cost_first_video_generation_router \
+            tests.test_cost_first_local_renderer \
             tests.test_local_scene_plate \
             tests.test_local_micro_motion \
             tests.test_local_two_cut \
