@@ -511,6 +511,16 @@ async function loadCostFirstDiagnostics({ forceOpen = true } = {}) {
 }
 
 
+function openCostFirstImportRepair() {
+  const projectId = state.grayboxProjectId || state.costFirstProjectId || state.activeNovelProjectId;
+  const project = (state.animeProjects || []).find((item) => item.directory_id === projectId);
+  if (project?.title && $('#novelImportTitle')) $('#novelImportTitle').value = project.title;
+  if (project?.episode_count && $('#novelImportEpisodes')) $('#novelImportEpisodes').value = String(project.episode_count);
+  setView('novelImport');
+  log('旧项目 Scene Seed 回填：请选择当初导入的同一个 TXT。系统按相同 SHA 复用原项目，不会新建重复项目。');
+}
+
+
 function renderCostFirstPlan() {
   const data = state.costFirstPlan;
   const status = $('#costFirstStatus');
@@ -546,11 +556,18 @@ function renderCostFirstPlan() {
   const order = ['LOCAL_SCENE_PLATE', 'LOCAL_MICRO_MOTION', 'LOCAL_TWO_CUT', 'H3_CANDIDATE'];
 
   if (!(data.routes || []).length) {
-    const blockers = (data.blockers || []).map((item) => '<li>' + escapeHtml(item) + '</li>').join('');
+    const blockerItems = data.blockers || [];
+    const blockers = blockerItems.map((item) => '<li>' + escapeHtml(item) + '</li>').join('');
+    const needsSourceRepair =
+      blockerItems.some((item) => String(item).includes('重新选择同一个 TXT')) ||
+      (data.rebuild_steps || []).some((step) => step.status === 'SOURCE_REIMPORT_REQUIRED');
     routes.innerHTML = '<div class="empty-state"><strong>当前没有可路由 Shot</strong>' +
       (blockers ? '<ul>' + blockers + '</ul>' : '<p>请先完成 Episode Script / Shot Breakdown。</p>') +
+      (needsSourceRepair ? '<button class="secondary-button" id="costFirstOpenImportRepair">去小说导入：选择同一个 TXT 回填</button>' : '') +
       '<p>下面的“P36 诊断 / 日志”会直接告诉你卡在哪一层。</p>' +
       '</div>';
+    const repairButton = $('#costFirstOpenImportRepair');
+    if (repairButton) repairButton.addEventListener('click', openCostFirstImportRepair);
     const panel = $('#costFirstDiagnosticsPanel');
     if (panel) panel.open = true;
     return;
@@ -2753,11 +2770,13 @@ async function importNovelProject() {
     state.novelImportResult = result;
     $('#novelImportStatus').textContent = 'PASS';
     $('#novelImportResultTitle').textContent = result.reused_existing
-      ? `《${result.title}》已存在，已复用原项目`
+      ? (result.scene_backfill?.status === 'READY'
+          ? `《${result.title}》已复用原项目，并完成 scenes 回填`
+          : `《${result.title}》已存在，已复用原项目`)
       : `《${result.title}》已建立独立项目`;
     const backfill = result.scene_backfill || {};
     const backfillMeta = backfill.scene_count ? ' · 已生成 ' + backfill.scene_count + ' 个 scene / ' + (backfill.shot_count || 0) + ' 个 Shot' : '';
-    $('#novelImportResultMeta').textContent = (result.import?.chapter_count || 0) + ' 章 · ' + (result.character_count || result.import?.character_candidates || 0) + ' 个角色 · 首季 ' + result.episode_count + ' 集 · ' + (result.script_adaptation_allowed ? '可进入本地改编' : '仅技术测试') + ' · 正文不落库' + backfillMeta;
+    $('#novelImportResultMeta').textContent = (result.import?.chapter_count || 0) + ' 章 · ' + (result.character_count || result.import?.character_candidates || 0) + ' 个角色 · 首季 ' + result.episode_count + ' 集 · ' + (result.script_adaptation_allowed ? '可进入本地改编' : '仅技术测试') + ' · 原始 TXT 不落库，仅保留 Scene Seed / 改编脚本' + backfillMeta;
     $('#novelImportResult').classList.remove('hidden');
     state.activeNovelProjectId = result.directory_id;
     state.studioProjectId = result.directory_id;
