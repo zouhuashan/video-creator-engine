@@ -4959,5 +4959,23 @@ H3 硬门禁（2026-09-23 补齐）：
 - GitHub Actions P31 run `35810449151` = SUCCESS（包含 local renderer + media URL 回归）；
 - GitHub Actions P30 provider regression run `35810429745` = SUCCESS（最终相关 provider/Web 代码）。
 
-NEXT：本机更新 `main`、重启 Web，直接打开 P36。先看真实整集 route + ACTUAL_TTS 时长 + 贝壳节省；挑 1 个 `LOCAL_SCENE_PLATE / LOCAL_MICRO_MOTION` 上传 1 张最终图点“本地生成预览”，再挑 1 个 `LOCAL_TWO_CUT` 上传 2 张动作前/后图验证 hard cut。**这两个本地 smoke 未证明不可用之前，不要解锁 H3。** 若确实有连续动作镜头必须 H3，则在 P36 写明原因并 APPROVE，再到 MiniMax 区选择同一个 H3 Shot；后端会再次校验 P36 门禁和付费确认。
+P36 Web 0-Shot 修复（2026-09-23）：
+
+- 实测 Web 出现 `PLANNED / 0.0 贝壳 / 0 张 / 暂无镜头路由`，点击“重新分析全部镜头”视觉上无变化；
+- 根因：按钮和 API 实际存在，但当前 P36 收到 0 个 Shot；后端继续返回空计划，前端又把空计划伪装成 `PLANNED`；
+- 修复后：
+  - 0 Shot 计划状态改为 `BLOCKED_NO_SHOTS`，不再显示误导性的 `PLANNED`；
+  - Web 点击重建立即显示 `ANALYZING` 和“正在读取 Episode Script / Shot Breakdown”；
+  - rebuild API 检测 Shot Breakdown 为空/不可读时，会先尝试 `build_shot_breakdown + write_shot_breakdown(overwrite=true)` 自动补齐；
+  - 如果上游仍无法生成 Shot，面板直接显示具体 blocker / ERROR，不再只写到下方日志；
+  - 没有当前项目时显示 `NO PROJECT`；
+  - 自动重建成功时 Web 日志明确显示“已自动重建 Shot Breakdown”。
+- 相关提交：
+  - `af194fd7` zero-shot plan blocker；
+  - `047d6b42` rebuild 自动补齐 Shot Breakdown；
+  - `0fe8ab64` Web ANALYZING / ERROR / BLOCKED 可见反馈；
+  - `54679c9b` zero-shot regression；
+  - `0d40d137` Web rebuild feedback regression。
+
+NEXT：本机更新 `main`、重启 Web，再点一次“重新分析全部镜头”。这次按钮必须先变成“正在分析…”，随后只能出现两种结果：① 自动补齐后出现真实 Shot 路由；② 明确显示 `BLOCKED_NO_SHOTS / ERROR` 和上游缺失原因。不要接受再次出现无反馈的 0.0 `PLANNED`。
 
