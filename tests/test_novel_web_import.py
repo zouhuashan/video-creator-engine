@@ -5,6 +5,8 @@ from pathlib import Path
 
 from scripts.novel_anime_project import load_project
 from scripts.novel_character_designs import load_character_designs
+from scripts.novel_episode_script import load_script_package, write_script_package
+from scripts.novel_shot_breakdown import load_shot_breakdown
 from scripts.novel_story_bible import load_bible
 from scripts.novel_source_catalog import load_catalog
 from scripts.novel_web_import import create_project_from_web_upload, recover_project_characters
@@ -40,6 +42,8 @@ class NovelWebImportTests(unittest.TestCase):
             manifest = load_project(project / "novel-anime-project.json")
             bible = load_bible(project)
             designs = load_character_designs(project)
+            scripts = load_script_package(project)
+            shots = load_shot_breakdown(project)
 
             self.assertEqual(result["status"], "PASS")
             self.assertFalse(result["reused_existing"])
@@ -61,6 +65,11 @@ class NovelWebImportTests(unittest.TestCase):
             self.assertTrue((project / "story-bible" / "world.json").is_file())
             self.assertTrue((project / "story-bible" / "image-studio-character-candidates.json").is_file())
             self.assertTrue((project / "writing-room" / "series-plan.json").is_file())
+            self.assertTrue((project / "writing-room" / "scene-seeds.json").is_file())
+            self.assertGreater(result["scene_backfill"]["scene_count"], 0)
+            self.assertGreater(result["scene_backfill"]["shot_count"], 0)
+            self.assertGreater(sum(len(item["scenes"]) for item in scripts["episode_scripts"]), 0)
+            self.assertGreater(sum(len(item["shots"]) for item in shots["scene_breakdowns"]), 0)
             self.assertFalse((project / ".videocreator" / "upload-tmp").exists())
 
             import_payload = json.loads((project / result["import"]["output"]).read_text(encoding="utf-8"))
@@ -88,6 +97,45 @@ class NovelWebImportTests(unittest.TestCase):
             self.assertEqual(second["directory_id"], first["directory_id"])
             self.assertEqual(len(list(root.glob("*/novel-anime-project.json"))), 1)
             self.assertGreaterEqual(second["character_count"], 2)
+            self.assertEqual(second["scene_backfill"]["status"], "UNCHANGED")
+            self.assertGreater(second["scene_backfill"]["shot_count"], 0)
+
+    def test_same_txt_repairs_legacy_zero_scene_project_without_creating_duplicate(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            args = dict(
+                title="旧项目回填",
+                author="测试作者",
+                episode_count=5,
+                rights_mode="OWNED_OR_LICENSED",
+                rights_confirmed=True,
+                source_name="旧项目回填.txt",
+                source_text=SOURCE,
+            )
+            first = create_project_from_web_upload(root, **args)
+            project = root / first["directory_id"]
+
+            package = load_script_package(project)
+            for script in package["episode_scripts"]:
+                script["scenes"] = []
+                script["status"] = "DRAFT"
+            package["revision"] += 1
+            write_script_package(project, package, overwrite=True)
+            (project / "writing-room" / "scene-seeds.json").unlink(missing_ok=True)
+
+            repaired = create_project_from_web_upload(root, **args)
+            scripts = load_script_package(project)
+            shots = load_shot_breakdown(project)
+
+            self.assertTrue(repaired["reused_existing"])
+            self.assertEqual(repaired["directory_id"], first["directory_id"])
+            self.assertEqual(len(list(root.glob("*/novel-anime-project.json"))), 1)
+            self.assertEqual(repaired["scene_backfill"]["status"], "READY")
+            self.assertGreater(repaired["scene_backfill"]["scene_count"], 0)
+            self.assertGreater(repaired["scene_backfill"]["shot_count"], 0)
+            self.assertGreater(sum(len(item["scenes"]) for item in scripts["episode_scripts"]), 0)
+            self.assertGreater(sum(len(item["shots"]) for item in shots["scene_breakdowns"]), 0)
+            self.assertTrue((project / "writing-room" / "scene-seeds.json").is_file())
 
     def test_technical_test_upload_keeps_publication_locked_but_builds_project_characters(self):
         with tempfile.TemporaryDirectory() as directory:
