@@ -95,7 +95,7 @@ from scripts.graybox_manager import GrayboxRenderError, adopt_existing_render as
 from scripts.graybox_reference_binding import GrayboxReferenceError, bind_reference as bind_graybox_reference, install_smoke_reference_pack as install_graybox_smoke_reference_pack, inventory as graybox_reference_inventory, resolve_bound_paths as resolve_graybox_reference_paths, upload_scene_reference as upload_graybox_scene_reference  # noqa: E402
 from scripts.gpt_keyframe_pipeline import GPTKeyframeError, interpolate as interpolate_gpt_keyframes, inventory as gpt_keyframe_inventory, prepare as prepare_gpt_keyframes, upload_generated_frame as upload_gpt_keyframe  # noqa: E402
 from scripts.codex_keyframe_batch import CodexKeyframeBatchError, logs as codex_keyframe_batch_logs, start as start_codex_keyframe_batch, status as codex_keyframe_batch_status, stop as stop_codex_keyframe_batch  # noqa: E402
-from scripts.cost_first_hybrid_router import CostFirstRoutingError, approve_h3_escalation as approve_cost_first_h3, block_h3 as block_cost_first_h3, load_plan as load_cost_first_plan, require_h3_approval as require_cost_first_h3, save_plan as save_cost_first_plan  # noqa: E402
+from scripts.cost_first_hybrid_router import CostFirstRoutingError, approve_h3_escalation as approve_cost_first_h3, block_h3 as block_cost_first_h3, diagnostics as cost_first_diagnostics, load_plan as load_cost_first_plan, require_h3_approval as require_cost_first_h3, save_plan as save_cost_first_plan  # noqa: E402
 from scripts.cost_first_local_renderer import CostFirstLocalRenderError, render_local_shot as render_cost_first_local_shot  # noqa: E402
 
 
@@ -2289,11 +2289,21 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
             except (ValueError, NovelAudioAssetError) as error:
                 return self._error(HTTPStatus.NOT_FOUND, str(error))
             return self._json(result)
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/cost-first-routing/diagnostics", parsed.path)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                return self._json(cost_first_diagnostics(project))
+            except (ValueError, OSError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+
         match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/cost-first-routing", parsed.path)
         if match:
             try:
                 project = _safe_project(match.group(1))
-                return self._json(load_cost_first_plan(project))
+                result = load_cost_first_plan(project)
+                result["diagnostics"] = cost_first_diagnostics(project)
+                return self._json(result)
             except (ValueError, CostFirstRoutingError, NovelShotBreakdownError, NovelEpisodeScriptError, OSError, json.JSONDecodeError) as error:
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
 
@@ -2723,25 +2733,81 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
 
         match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/cost-first-routing/rebuild", route)
         if match:
+            project: Path | None = None
+            steps: list[dict[str, object]] = []
+            auto_rebuilt_shot_breakdown = False
             try:
                 project = _safe_project(match.group(1))
-                auto_rebuilt_shot_breakdown = False
+                steps.append({"stage": "PROJECT", "status": "PASS", "detail": project.name})
+
                 try:
                     current_shots = load_shot_breakdown(project)
                     current_count = sum(len(item.get("shots") or []) for item in current_shots.get("scene_breakdowns", []))
-                except NovelShotBreakdownError:
+                    steps.append({
+                        "stage": "SHOT_BREAKDOWN",
+                        "status": "PASS" if current_count else "EMPTY",
+                        "detail": f"{current_count} Shot",
+                    })
+                except NovelShotBreakdownError as error:
                     current_count = 0
+                    steps.append({"stage": "SHOT_BREAKDOWN", "status": "MISSING_OR_INVALID", "detail": str(error)})
+
                 if current_count == 0:
+                    steps.append({"stage": "AUTO_REBUILD_SHOT_BREAKDOWN", "status": "RUNNING", "detail": "根据现有 Episode Script 重建"})
                     rebuilt = build_shot_breakdown(project)
                     rebuilt_count = sum(len(item.get("shots") or []) for item in rebuilt.get("scene_breakdowns", []))
                     if rebuilt_count > 0:
                         write_shot_breakdown(project, rebuilt, overwrite=True)
                         auto_rebuilt_shot_breakdown = True
+                        steps[-1] = {
+                            "stage": "AUTO_REBUILD_SHOT_BREAKDOWN",
+                            "status": "PASS",
+                            "detail": f"重建 {rebuilt_count} Shot",
+                        }
+                    else:
+                        steps[-1] = {
+                            "stage": "AUTO_REBUILD_SHOT_BREAKDOWN",
+                            "status": "EMPTY",
+                            "detail": "Episode Script 没有可转换为 Shot 的 scene",
+                        }
+
                 result = save_cost_first_plan(project)
                 result["auto_rebuilt_shot_breakdown"] = auto_rebuilt_shot_breakdown
+                result["rebuild_steps"] = steps
+                result["diagnostics"] = cost_first_diagnostics(project)
                 return self._json(result, HTTPStatus.CREATED)
             except (ValueError, CostFirstRoutingError, NovelShotBreakdownError, NovelEpisodeScriptError, OSError, json.JSONDecodeError) as error:
-                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+                if project is None:
+                    return self._error(HTTPStatus.BAD_REQUEST, str(error))
+                steps.append({"stage": "REBUILD", "status": "FAIL", "detail": str(error)})
+                diagnostics = cost_first_diagnostics(project)
+                blockers = list(diagnostics.get("blockers") or [])
+                if str(error) not in blockers:
+                    blockers.append(str(error))
+                return self._json({
+                    "schema_version": 1,
+                    "project_id": project.name,
+                    "status": "BLOCKED_UPSTREAM",
+                    "blockers": blockers,
+                    "routes": [],
+                    "summary": {
+                        "shot_count": 0,
+                        "actual_tts_duration_count": 0,
+                        "shot_breakdown_duration_count": 0,
+                        "local_route_count": 0,
+                        "h3_candidate_count": 0,
+                        "local_single_still_count": 0,
+                        "local_two_cut_count": 0,
+                        "estimated_new_still_generations_after_reuse": 0,
+                        "all_h3_estimated_shells": 0.0,
+                        "hybrid_h3_estimated_shells": 0.0,
+                        "estimated_shells_saved": 0.0,
+                        "estimated_shell_savings_percent": 0.0,
+                    },
+                    "auto_rebuilt_shot_breakdown": auto_rebuilt_shot_breakdown,
+                    "rebuild_steps": steps,
+                    "diagnostics": diagnostics,
+                }, HTTPStatus.OK)
 
         match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/cost-first-routing/h3-escalation", route)
         if match:
