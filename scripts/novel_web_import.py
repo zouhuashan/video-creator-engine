@@ -28,7 +28,7 @@ from scripts.novel_episode_planning import build_episode_planning, write_episode
 from scripts.novel_episode_script import build_script_package, write_script_package
 from scripts.novel_scene_backfill import NovelSceneBackfillError, backfill_episode_scenes
 from scripts.novel_story_review import audit_story, write_report
-from scripts.novel_visual_bible import NovelVisualBibleError, build_visual_bible, load_visual_bible, write_visual_bible
+from scripts.novel_visual_bible import NovelVisualBibleError, build_visual_bible, rebind_script_revision, write_visual_bible
 from scripts.novel_character_designs import build_character_designs, write_character_designs
 from scripts.novel_environment_assets import build_environment_assets, write_environment_assets
 from scripts.novel_asset_review import build_asset_review, write_asset_review
@@ -508,10 +508,7 @@ def _initialize_workspace(
 def _sync_scene_dependent_visual_revision(project_dir: Path, script_revision: int) -> None:
     """Keep existing visual work while acknowledging a repaired script revision."""
     try:
-        visual = load_visual_bible(project_dir)
-        visual["script_package_revision"] = int(script_revision)
-        visual["updated_at"] = utc_timestamp()
-        write_visual_bible(project_dir, visual, overwrite=True)
+        rebind_script_revision(project_dir, int(script_revision))
     except (NovelVisualBibleError, OSError, json.JSONDecodeError):
         write_visual_bible(project_dir, build_visual_bible(project_dir), overwrite=True)
 
