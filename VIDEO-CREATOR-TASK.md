@@ -5072,3 +5072,16 @@ Status: IMPLEMENTED / REAL CODEX + LOCAL VIDEO SMOKE PASS / HUMAN REVIEW PENDING
 - 代码检查通过：`scripts/check-env.sh`、修改 Python 文件 `py_compile`、Web JS `node --check`、`git diff --check`。未运行测试套件。
 - 输出：`projects/novel-0dbc8f5836/rendering/local-previews/SHOT-S01E001-SC001-001-local_scene_plate.mp4`；Web 页面可直接播放。
 - NEXT：人工播放该 Web 预览，确认特效强度与色彩；通过后再给后续本地 Shot 批量生成方案，不自动把同一套特效套给所有镜头。
+
+## 制作方向锁定：Codex 优先，H3 补齐缺口（2026-09-24）
+
+这是后续全项目的制作原则，优先级高于各 Provider 的默认路线：
+
+- Codex 是主创作与执行编排入口。凡是 Codex 能通过本机能力、图像生成能力、Blender/Python 脚本、程序化动画、资产整理、TTS/字幕、FFmpeg 合成和 QC 完成的工作，先交给 Codex 设计、生成、执行和检查；优先复用本地素材和可重复生成的资产。
+- 人物资产允许两条 Codex 优先路线并行探索：多角度角色卡 / 2.5D cutout，以及 Blender 3D 网格 / 骨骼 / 动作重定向。先用低成本短镜头比较制作成本、身份一致性、动作自然度与连续性，再确定每类 Shot 使用哪条路线；不预设所有镜头必须用同一种方法。
+- Blender 白模继续作为 camera、blocking、actor path、timing、pose 和 occlusion 的控制来源。角色卡或 3D 角色替换必须尽量继承这些控制信息；静态人物/背景参考不得覆盖镜头运动与动作时序。
+- Codex/本地能力完成后，只有 QC 或人工看片发现仍达不到目标的具体部分，才把该 Shot 的剩余缺口交给 H3 补齐。由 Codex 自动整理针对该缺口的 Prompt、人物/场景参考和白模控制素材；按镜头最小范围调用，不重做 Codex 已完成的部分。
+- H3 属于付费兜底。每次生成仍必须通过当前 H3 人工审批、费用确认和素材上传授权门禁；未经确认不调用、不上传。小说全文不作为 H3 输入，按 Shot 提供必要上下文。
+- 最终验收以连贯、好看、达到目标的视频效果为准，不以“全本地”或“全模型”作为目标。保留人工审看和局部重跑，确保问题镜头可单独修正。
+
+NEXT：P37 单镜头预览人审后，开始 P38 “Codex 多角度角色卡 + Blender 白模替换”短镜头验证；同一试点角色再建立 P39 3D 骨骼角色可行性验证。先比较结果，再按镜头复杂度把可完成部分留给 Codex/本地流程，剩余缺口由 Codex 准备 H3 补充包。
