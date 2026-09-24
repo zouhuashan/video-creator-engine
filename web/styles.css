@@ -438,6 +438,29 @@ body.rig-v2-open { overflow: hidden; }
   font-size: 12px;
 }
 
+.cost-first-local-preview input[type="text"] {
+  width: 100%;
+  min-width: 0;
+}
+
+.cost-first-vfx-confirm {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.cost-first-vfx-confirm input {
+  margin-top: 2px;
+  flex: 0 0 auto;
+}
+
+.cost-first-vfx-recipe {
+  color: #d8c8a5;
+}
+
 .cost-first-local-preview video {
   width: 100%;
   max-height: 360px;

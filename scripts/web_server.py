@@ -98,6 +98,7 @@ from scripts.gpt_keyframe_pipeline import GPTKeyframeError, interpolate as inter
 from scripts.codex_keyframe_batch import CodexKeyframeBatchError, logs as codex_keyframe_batch_logs, start as start_codex_keyframe_batch, status as codex_keyframe_batch_status, stop as stop_codex_keyframe_batch  # noqa: E402
 from scripts.cost_first_hybrid_router import CostFirstRoutingError, approve_h3_escalation as approve_cost_first_h3, block_h3 as block_cost_first_h3, diagnostics as cost_first_diagnostics, load_plan as load_cost_first_plan, require_h3_approval as require_cost_first_h3, save_plan as save_cost_first_plan  # noqa: E402
 from scripts.cost_first_local_renderer import CostFirstLocalRenderError, render_local_shot as render_cost_first_local_shot  # noqa: E402
+from scripts.codex_vfx_planner import CodexVFXPlannerError, generate_recipe as generate_codex_vfx_recipe  # noqa: E402
 
 
 PROVIDER_TYPES = {
@@ -2731,6 +2732,23 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
             except Exception as error:
                 return self._error(HTTPStatus.INTERNAL_SERVER_ERROR, f"GPT keyframe prepare failed: {error}")
+
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/cost-first-routing/vfx-recipe", route)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                payload = self._read_json(max_bytes=16 * 1024)
+                result = generate_codex_vfx_recipe(
+                    project,
+                    str(payload.get("shot_id") or ""),
+                    str(payload.get("effect_brief") or ""),
+                    confirm_codex_usage=payload.get("confirm_codex_usage") is True,
+                )
+                return self._json(result, HTTPStatus.CREATED)
+            except (ValueError, CostFirstRoutingError, CodexVFXPlannerError, OSError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+            except Exception as error:
+                return self._error(HTTPStatus.INTERNAL_SERVER_ERROR, f"Codex VFX planning failed: {error}")
 
         match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/cost-first-routing/rebuild", route)
         if match:

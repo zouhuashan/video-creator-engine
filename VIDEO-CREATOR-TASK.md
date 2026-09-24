@@ -4749,7 +4749,7 @@ NEXT：本机更新 main、重启 Web；旧的 5 FAILED 可直接再次点“②
 ---
 
 ### P36 Cost-First Hybrid Renderer：本地优先，H3 最后兜底
-Status: CODE PASS / CI PASS / LOCAL EXECUTION READY / REAL PROJECT WEB SMOKE PENDING
+Status: CODE PASS / CI PASS / LOCAL EXECUTION READY / REAL PROJECT WEB SMOKE PASS
 
 核心原则（2026-09-23 固化）：
 
@@ -5049,3 +5049,26 @@ P36 Web 0-Shot 修复（2026-09-23）：
 
 NEXT：本机更新 `main`、重启 Web，再点一次“重新分析全部镜头”。这次按钮必须先变成“正在分析…”，随后只能出现两种结果：① 自动补齐后出现真实 Shot 路由；② 明确显示 `BLOCKED_NO_SHOTS / ERROR` 和上游缺失原因。不要接受再次出现无反馈的 0.0 `PLANNED`。
 
+P36 本机真实项目 Web smoke（2026-09-24）：
+
+- 启动当前 `main` Web 并读取《照骨灯》当前项目 `novel-0dbc8f5836` 的 P36 诊断；Episode Script 为 5 集 / 15 场 / 55 个单元，Shot Breakdown 为 15 镜头，无 blocker，诊断状态 `READY`。
+- 从 Web API 重建成本计划成功，状态 `PLANNED`，15 个 Shot 均有路由；6 个本地镜头、9 个 `H3_CANDIDATE` 保持锁定；本轮未触发图像上传、付费视频调用或任何 H3 生成。
+- 当前《照骨灯》是工作区唯一实际存在的小说项目；若恢复《镜花缘》为正式试点，需要在后续明确恢复该项目，不应将两个项目内容混用。
+- P36 实机诊断与重建步骤均已验证；下一项按用户要求进入 Codex 特效接入。
+
+## P37 Codex 特效方案 + 本地合成
+Status: IMPLEMENTED / REAL CODEX + LOCAL VIDEO SMOKE PASS / HUMAN REVIEW PENDING
+
+目标：让本机 Codex 根据人工提供的短效果描述，输出受 JSON Schema 和白名单限制的国风特效方案；使用本地 Pillow + FFmpeg 生成透明特效层并合成到 P36 本地预览。Codex 只处理镜头规格与效果描述，不接收用户图片、原文全文或视频。
+
+- 特效白名单：雪、雾、花瓣、火星、光晕、水墨、电光、涟漪；Schema 与本地合成器都硬限制最多 3 层，强度不超过 0.65。
+- 特效方案只写入当前项目 `rendering/vfx-recipes/`，带 Codex 用量确认、图片未上传和远程视频未生成标记。
+- Web 每个本地渲染镜头新增特效描述、Codex 用量确认和“Codex 设计特效方案”入口；未确认 Codex 用量时后端拒绝调用。
+- 生成方案后仍由本地 FFmpeg 渲染；成片元数据保留效果层、方案摘要、费用边界和来源。H3 候选不允许绕过原有付费门禁。
+- 新增 `schemas/codex-vfx-recipe.schema.json`、`scripts/codex_vfx_planner.py`、`adapters/video_generation/local_vfx_compositor.py` 和 `/cost-first-routing/vfx-recipe` Web API。
+- P37 本机 smoke（2026-09-24）：Codex CLI 为 `SHOT-S01E001-SC001-001` 生成雪、薄雾、幽青微光三层方案；输出 Schema 初次调用暴露 `schema_version` 缺少 `type` 的兼容性错误，已修正为带类型的枚举后成功。图片没有发给 Codex。
+- 本地 FFmpeg 使用固定角色夜景 PNG 合成 10.1 秒、720×1280、24fps 的 H.264 预览；媒体信息及 `cost-first-plan.json` 均标记 `remote_generation=false`、`billable=false`、`images_uploaded=false`，视频通过本机 Web `/media/...` 可读取。Codex 用量需要用户在界面逐镜头勾选确认；未勾选请求返回 400 并拒绝调用。
+- 为手机竖屏压缩后仍能看到效果，雪粒密度、薄雾透明度与光晕强度已适度提升；成片肉眼可见微粒运动和环境氛围变化。当前仍是静帧加程序化叠加特效，没有人物肢体动作；真实连续动作仍走已锁定的 H3 人工审批路线。
+- 代码检查通过：`scripts/check-env.sh`、修改 Python 文件 `py_compile`、Web JS `node --check`、`git diff --check`。未运行测试套件。
+- 输出：`projects/novel-0dbc8f5836/rendering/local-previews/SHOT-S01E001-SC001-001-local_scene_plate.mp4`；Web 页面可直接播放。
+- NEXT：人工播放该 Web 预览，确认特效强度与色彩；通过后再给后续本地 Shot 批量生成方案，不自动把同一套特效套给所有镜头。

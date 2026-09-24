@@ -15,6 +15,7 @@ from adapters.video_generation import (
     LocalTwoCutVideo,
     VideoGenerationRequest,
 )
+from adapters.video_generation.local_vfx_compositor import apply_recipe
 from scripts.cost_first_hybrid_router import CostFirstRoutingError, load_plan
 
 
@@ -83,7 +84,7 @@ def render_local_shot(
     height = int((plan.get("policy") or {}).get("local_preview_height") or 1280)
     request = VideoGenerationRequest(
         image_paths=images,
-        output_path=output,
+        output_path=output.with_name(output.stem + "-base.mp4") if (route.get("vfx_recipe") or {}).get("recipe", {}).get("layers") else output,
         shot_duration_seconds=float(route["duration_seconds"]),
         fps=fps,
         width=width,
@@ -91,10 +92,24 @@ def render_local_shot(
     )
     try:
         result = provider_type(ffmpeg=ffmpeg).generate(request)
+        vfx_metadata = route.get("vfx_recipe") or None
+        if vfx_metadata and (vfx_metadata.get("recipe") or {}).get("layers"):
+            apply_recipe(
+                result.output_path,
+                output,
+                vfx_metadata["recipe"],
+                width=width,
+                height=height,
+                fps=fps,
+                duration_seconds=float(route["duration_seconds"]),
+                ffmpeg=ffmpeg,
+            )
+            result.output_path.unlink(missing_ok=True)
     except Exception as error:
+        request.output_path.unlink(missing_ok=True)
         raise CostFirstLocalRenderError(str(error)) from error
 
-    relative = result.output_path.relative_to(project).as_posix()
+    relative = output.relative_to(project).as_posix()
     metadata = {
         "schema_version": 1,
         "status": "READY",
@@ -113,6 +128,13 @@ def render_local_shot(
         "output": relative,
         "media_url": f"/media/{project.name}/{relative}",
         "created_at": _now(),
+        "vfx_recipe": {
+            "provider": vfx_metadata.get("provider"),
+            "summary": (vfx_metadata.get("recipe") or {}).get("summary"),
+            "layer_types": [layer.get("type") for layer in (vfx_metadata.get("recipe") or {}).get("layers", [])],
+            "codex_usage_confirmed": bool(vfx_metadata.get("codex_usage_confirmed")),
+            "images_uploaded": False,
+        } if vfx_metadata else None,
     }
     _atomic_json(output.with_suffix(".json"), metadata)
     route["local_preview"] = metadata

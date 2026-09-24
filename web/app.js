@@ -582,11 +582,16 @@ function renderCostFirstPlan() {
       const reasons = (item.reasons || []).map((reason) => '<li>' + escapeHtml(reason) + '</li>').join('');
       const keywords = [...(item.motion?.high_keywords || []), ...(item.motion?.medium_keywords || []), ...(item.motion?.subtle_keywords || [])].slice(0, 8);
       const preview = item.local_preview || {};
+      const vfx = item.vfx_recipe || {};
       const localAction = item.route !== 'H3_CANDIDATE'
         ? '<div class="cost-first-local-preview">' +
+            '<input type="text" maxlength="500" placeholder="特效描述：雪夜灯火、薄雾、花瓣或剑气" data-vfx-brief="' + escapeHtml(item.shot_id) + '">' +
+            '<label class="cost-first-vfx-confirm"><input type="checkbox" data-vfx-confirm="' + escapeHtml(item.shot_id) + '">确认使用本机 Codex 额度（只发送效果描述和镜头规格）</label>' +
+            '<button class="secondary-button small-button" data-codex-vfx="' + escapeHtml(item.shot_id) + '">Codex 设计特效方案</button>' +
+            (vfx.status === 'READY' ? '<small class="cost-first-vfx-recipe">Codex 方案：' + escapeHtml(vfx.recipe?.summary || '') + ' · ' + (vfx.recipe?.layers || []).map((layer) => escapeHtml(layer.type)).join('、') + ' · 图片未上传</small>' : '') +
             '<input type="file" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" ' + (Number(item.required_new_stills || 0) === 2 ? 'multiple ' : '') + 'data-cost-local-files="' + escapeHtml(item.shot_id) + '">' +
             '<button class="secondary-button small-button" data-cost-local="' + escapeHtml(item.shot_id) + '" data-required="' + Number(item.required_new_stills || 0) + '">本地生成预览</button>' +
-            (preview.media_url ? '<video controls playsinline preload="metadata" src="' + escapeHtml(preview.media_url) + '"></video><small>' + escapeHtml(preview.provider || '') + ' · ' + Number(preview.duration_seconds || 0).toFixed(2) + 's · 0 贝壳</small>' : '<small>上传 ' + Number(item.required_new_stills || 0) + ' 张最终图，仅在本机 FFmpeg 渲染。</small>') +
+            (preview.media_url ? '<video controls playsinline preload="metadata" src="' + escapeHtml(preview.media_url) + '"></video><small>' + escapeHtml(preview.provider || '') + ' · ' + Number(preview.duration_seconds || 0).toFixed(2) + 's · 视频生成 0 贝壳' + (preview.vfx_recipe ? ' · Codex 特效已合成' : '') + '</small>' : '<small>上传 ' + Number(item.required_new_stills || 0) + ' 张最终图，仅在本机 FFmpeg 渲染。</small>') +
           '</div>'
         : '';
       const h3Action = item.route === 'H3_CANDIDATE'
@@ -607,7 +612,39 @@ function renderCostFirstPlan() {
   }).join('') || '<div class="empty-state">暂无镜头路由。</div>';
 
   routes.querySelectorAll('[data-cost-h3]').forEach((button) => button.addEventListener('click', () => toggleCostFirstH3(button)));
+  routes.querySelectorAll('[data-codex-vfx]').forEach((button) => button.addEventListener('click', () => planCodexVFX(button)));
   routes.querySelectorAll('[data-cost-local]').forEach((button) => button.addEventListener('click', () => renderCostFirstLocalPreview(button)));
+}
+
+async function planCodexVFX(button) {
+  const projectId = state.grayboxProjectId || state.costFirstProjectId;
+  const shotId = button.dataset.codexVfx;
+  const briefInput = Array.from(document.querySelectorAll('[data-vfx-brief]')).find((item) => item.dataset.vfxBrief === shotId);
+  const consent = Array.from(document.querySelectorAll('[data-vfx-confirm]')).find((item) => item.dataset.vfxConfirm === shotId);
+  const effectBrief = String(briefInput?.value || '').trim();
+  if (!projectId || !shotId || effectBrief.length < 8) {
+    log('请填写至少 8 个字的特效描述。', true);
+    return;
+  }
+  if (!consent?.checked) {
+    log('请先确认本次会使用 Codex 套餐额度。只会发送效果描述和镜头规格，不上传图片。', true);
+    return;
+  }
+  button.disabled = true;
+  button.textContent = 'Codex 正在设计…';
+  try {
+    const result = await api('/api/novel-anime/projects/' + encodeURIComponent(projectId) + '/cost-first-routing/vfx-recipe', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ shot_id: shotId, effect_brief: effectBrief, confirm_codex_usage: true }),
+    });
+    state.costFirstPlan = result.plan;
+    renderCostFirstPlan();
+    log(shotId + ' Codex 特效方案已生成：' + (result.recipe.recipe.summary || '完成') + '。图片未上传；视频效果由本地 FFmpeg 合成。');
+  } catch (error) {
+    button.disabled = false;
+    button.textContent = 'Codex 设计特效方案';
+    log('Codex 特效方案失败：' + error.message, true);
+  }
 }
 
 async function renderCostFirstLocalPreview(button) {

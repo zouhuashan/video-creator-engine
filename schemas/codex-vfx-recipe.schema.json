@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Codex VFX Recipe",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "summary", "layers"],
+  "properties": {
+    "schema_version": {"type": "integer", "enum": [1]},
+    "summary": {"type": "string", "minLength": 1, "maxLength": 240},
+    "layers": {
+      "type": "array",
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["type", "intensity", "color", "direction", "anchor"],
+        "properties": {
+          "type": {"enum": ["snow", "mist", "petals", "embers", "glow", "ink_wash", "lightning", "ripple"]},
+          "intensity": {"type": "number", "minimum": 0.05, "maximum": 0.65},
+          "color": {"type": "string", "pattern": "^#[0-9A-Fa-f]{6}$"},
+          "direction": {"enum": ["down", "up", "left", "right", "orbit", "pulse", "still"]},
+          "anchor": {"enum": ["top", "center", "lower", "left", "right", "screen"]}
+        }
+      }
+    }
+  }
+}
