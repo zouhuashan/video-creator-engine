@@ -64,6 +64,13 @@ from scripts.novel_series_plan import NovelSeriesPlanError, load_plan as load_se
 from scripts.novel_episode_planning import NovelEpisodePlanningError, load_episode_planning, summary as episode_planning_summary  # noqa: E402
 from scripts.novel_episode_script import NovelEpisodeScriptError, load_script_package, summary as episode_script_summary  # noqa: E402
 from scripts.novel_scene_backfill import NovelSceneBackfillError, apply_scene_seed as apply_novel_scene_seed  # noqa: E402
+from scripts.repair_scene_dependencies import reconcile_after_scene_backfill  # noqa: E402
+from scripts.modern_asset_library import ModernAssetLibraryError, load_library as load_modern_asset_library, register_asset as register_modern_asset  # noqa: E402
+from scripts.render_screen_mg import ScreenMGError, render_screen_mg  # noqa: E402
+from scripts.render_stock_broll import StockBrollError, render_stock_broll  # noqa: E402
+from scripts.modern_editable_timeline import ModernTimelineError, load_timeline as load_modern_timeline, update_shot as update_modern_timeline_shot, rerender_shot as rerender_modern_timeline_shot  # noqa: E402
+from scripts.render_layered_25d import Layered25DError  # noqa: E402
+from scripts.modern_shot_breakdown import ModernShotBreakdownError, apply_modern_shot_breakdown  # noqa: E402
 from scripts.novel_story_review import NovelStoryReviewError, load_report as load_story_review, summary as story_review_summary  # noqa: E402
 from scripts.novel_visual_bible import NovelVisualBibleError, load_visual_bible, summary as visual_bible_summary  # noqa: E402
 from scripts.novel_character_designs import NovelCharacterDesignError, load_character_designs, summary as character_design_summary  # noqa: E402
@@ -93,10 +100,12 @@ from scripts.comfyui_model_manager import ComfyUIModelError, start_background_in
 from scripts.comfyui_lora_manager import ComfyUILoraError, lora_descriptor as comfyui_lora_descriptor, start_background_install as start_comfyui_lora_install, status as comfyui_lora_status  # noqa: E402
 from scripts.graybox_shot_spec import GrayboxShotSpecError, apply_natural_language_adjustment as adjust_graybox_spec, ensure_default_spec as ensure_graybox_spec, load_spec as load_graybox_spec, review_spec as review_graybox_spec  # noqa: E402
 from scripts.graybox_manager import GrayboxRenderError, adopt_existing_render as adopt_graybox_render, start_render as start_graybox_render, status as graybox_render_status  # noqa: E402
+from scripts.graybox_card_renderer import GrayboxCardRenderError, render_card_preview as render_graybox_card_preview  # noqa: E402
+from scripts.cinematic_recut_renderer import CinematicRecutError, render_cinematic_recut  # noqa: E402
 from scripts.graybox_reference_binding import GrayboxReferenceError, bind_reference as bind_graybox_reference, install_smoke_reference_pack as install_graybox_smoke_reference_pack, inventory as graybox_reference_inventory, resolve_bound_paths as resolve_graybox_reference_paths, upload_scene_reference as upload_graybox_scene_reference  # noqa: E402
 from scripts.gpt_keyframe_pipeline import GPTKeyframeError, interpolate as interpolate_gpt_keyframes, inventory as gpt_keyframe_inventory, prepare as prepare_gpt_keyframes, upload_generated_frame as upload_gpt_keyframe  # noqa: E402
 from scripts.codex_keyframe_batch import CodexKeyframeBatchError, logs as codex_keyframe_batch_logs, start as start_codex_keyframe_batch, status as codex_keyframe_batch_status, stop as stop_codex_keyframe_batch  # noqa: E402
-from scripts.cost_first_hybrid_router import CostFirstRoutingError, approve_h3_escalation as approve_cost_first_h3, block_h3 as block_cost_first_h3, diagnostics as cost_first_diagnostics, load_plan as load_cost_first_plan, require_h3_approval as require_cost_first_h3, save_plan as save_cost_first_plan  # noqa: E402
+from scripts.cost_first_hybrid_router import CostFirstRoutingError, approve_h3_escalation as approve_cost_first_h3, block_h3 as block_cost_first_h3, diagnostics as cost_first_diagnostics, load_plan as load_cost_first_plan, require_h3_approval as require_cost_first_h3, save_plan as save_cost_first_plan, set_render_profile  # noqa: E402
 from scripts.cost_first_local_renderer import CostFirstLocalRenderError, render_local_shot as render_cost_first_local_shot  # noqa: E402
 from scripts.codex_vfx_planner import CodexVFXPlannerError, generate_recipe as generate_codex_vfx_recipe  # noqa: E402
 
@@ -1438,6 +1447,114 @@ def _gpt_keyframe_web_status(project: Path) -> dict[str, object]:
     return payload
 
 
+def _production_pilot_web_status(project: Path) -> dict[str, object]:
+    """Return the fixed local production pilot as a review-safe Web payload.
+
+    The renderer owns creation of the media.  The Web console only reports the
+    expected P43 3D control output, so a page refresh is safe both before and after render.
+    """
+
+    project = Path(project).resolve()
+    pilot_root = project / "lookdev" / "3d-rigs" / "CHR-N0DBC8F583-AUTO-001" / "p43"
+    video_relative = "lookdev/3d-rigs/CHR-N0DBC8F583-AUTO-001/p43/p43-3d-character-v1.mp4"
+    poster_relative = "lookdev/3d-rigs/CHR-N0DBC8F583-AUTO-001/p43/p43-preview.png"
+    manifest_path = pilot_root / "manifest.json"
+    video_path = project / video_relative
+    poster_path = project / poster_relative
+    manifest: dict[str, object] = {}
+    if manifest_path.is_file():
+        try:
+            candidate = json.loads(manifest_path.read_text(encoding="utf-8"))
+            if isinstance(candidate, dict):
+                manifest = candidate
+        except (OSError, json.JSONDecodeError):
+            manifest = {}
+
+    def local_relative(value: object) -> str:
+        raw = str(value or "").strip()
+        if not raw:
+            return ""
+        candidate = Path(raw)
+        if not candidate.is_absolute():
+            candidate = project / candidate
+        try:
+            resolved = candidate.resolve()
+            if resolved == project or project not in resolved.parents:
+                return ""
+            return _relative(project, resolved) if resolved.is_file() else ""
+        except (OSError, ValueError):
+            return ""
+
+    sources = manifest.get("sources") if isinstance(manifest.get("sources"), dict) else {}
+    audio_relative = local_relative(sources.get("voice"))
+
+    voice = manifest.get("voice") if isinstance(manifest.get("voice"), dict) else {}
+    ready = video_path.is_file()
+    review_status = str(manifest.get("review_status") or "PENDING").upper()
+    status = str(manifest.get("status") or ("HUMAN_REVIEW_PENDING" if ready else "WAITING_FOR_RENDER")).upper()
+    return {
+        "version": "P43 CONTROL",
+        "ready": ready,
+        "status": status,
+        "review_status": review_status,
+        "expected_output": video_relative,
+        "media_url": _media_url(project, video_relative) if ready else "",
+        "media_version": video_path.stat().st_mtime_ns if ready else 0,
+        "poster_url": _media_url(project, poster_relative) if poster_path.is_file() else "",
+        "duration_seconds": float(manifest.get("duration_seconds") or 5.0),
+        "width": int((manifest.get("resolution") or [480, 854])[0]),
+        "height": int((manifest.get("resolution") or [480, 854])[1]),
+        "fps": int(manifest.get("fps") or 24),
+        "provider": str(manifest.get("provider") or "codex_local_production_pilot"),
+        "local_only": manifest.get("local_only") is not False,
+        "billable": manifest.get("billable") is True,
+        "audio_ready": bool(audio_relative),
+        "audio_url": _media_url(project, audio_relative) if audio_relative else "",
+        "voice_text": str(voice.get("text") or ""),
+    }
+
+
+def _h3_shot_package_web_status(project: Path) -> dict[str, object]:
+    """Return the newest P43 manual H3 package without invoking a provider."""
+
+    project = Path(project).resolve()
+    package_root = project / "rendering" / "h3-shot-packages"
+    manifests = sorted(package_root.glob("*-p43/manifest.json"), reverse=True) if package_root.is_dir() else []
+    if not manifests:
+        return {"ready": False, "status": "NOT_EXPORTED", "review_status": "PENDING"}
+    manifest_path = manifests[0]
+    try:
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {"ready": False, "status": "INVALID_MANIFEST", "review_status": "PENDING"}
+    if not isinstance(payload, dict):
+        return {"ready": False, "status": "INVALID_MANIFEST", "review_status": "PENDING"}
+
+    def media_field(key: str) -> str:
+        relative = str(payload.get(key) or "").strip()
+        return _media_url(project, relative) if relative and (project / relative).is_file() else ""
+
+    result_relative = str(payload.get("imported_result") or "").strip()
+    result_path = project / result_relative if result_relative else None
+    result_ready = bool(result_path and result_path.is_file())
+    return {
+        **payload,
+        "ready": bool(media_field("control") and media_field("archive")),
+        "manifest": _relative(project, manifest_path),
+        "control_url": media_field("control"),
+        "first_frame_url": media_field("first_frame"),
+        "last_frame_url": media_field("last_frame"),
+        "character_reference_url": media_field("character_reference"),
+        "scene_reference_url": media_field("scene_reference"),
+        "prompt_url": media_field("prompt"),
+        "negative_url": media_field("negative"),
+        "archive_url": media_field("archive"),
+        "result_ready": result_ready,
+        "result_url": _media_url(project, result_relative) if result_ready else "",
+        "comparison_ready": result_ready and bool(media_field("control")),
+    }
+
+
 def _graybox_web_status(project: Path) -> dict[str, object]:
     project = Path(project).resolve()
     # Keep the disposable smoke shot on the latest blocking revision as long as
@@ -1473,6 +1590,49 @@ def _graybox_web_status(project: Path) -> dict[str, object]:
                 "media_url": _media_url(project, relative),
                 "metadata": _relative(project, metadata_path),
             })
+    card_preview: dict[str, object] = {}
+    card_preview_dir = project / "graybox" / "card-renders"
+    if card_preview_dir.is_dir():
+        for metadata_path in sorted(card_preview_dir.glob("*.json"), reverse=True):
+            try:
+                metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            relative = str(metadata.get("output") or "") if isinstance(metadata, dict) else ""
+            if relative and (project / relative).is_file():
+                card_preview = {**metadata, "media_url": _media_url(project, relative)}
+                break
+    recut_preview: dict[str, object] = {}
+    recut_dir = project / "graybox" / "quality-recuts"
+    if recut_dir.is_dir():
+        for metadata_path in sorted(recut_dir.glob("*-cinematic-recut-v*.json"), reverse=True):
+            try:
+                metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            relative = str(metadata.get("output") or "") if isinstance(metadata, dict) else ""
+            if relative and (project / relative).is_file():
+                recut_preview = {**metadata, "media_url": _media_url(project, relative)}
+                pack_relative = "graybox/h3-test-packs/GB-SHOT-001-v1.zip"
+                if (project / pack_relative).is_file():
+                    recut_preview["fallback_pack_url"] = _media_url(project, pack_relative)
+                break
+    rig_preview: dict[str, object] = {}
+    rig_manifest = project / "lookdev" / "3d-rigs" / str(((spec or {}).get("character") or {}).get("id") or "") / "manifest.json"
+    if rig_manifest.is_file():
+        try:
+            manifest = json.loads(rig_manifest.read_text(encoding="utf-8"))
+            image_relative = str(manifest.get("preview") or "")
+            walk_relative = str(manifest.get("walk_preview") or "")
+            blend_relative = str(manifest.get("blend") or "")
+            rig_preview = {
+                **manifest,
+                "preview_url": _media_url(project, image_relative) if image_relative and (project / image_relative).is_file() else "",
+                "walk_preview_url": _media_url(project, walk_relative) if walk_relative and (project / walk_relative).is_file() else "",
+                "blend_url": _media_url(project, blend_relative) if blend_relative and (project / blend_relative).is_file() else "",
+            }
+        except (OSError, json.JSONDecodeError):
+            rig_preview = {}
     return {
         "project_id": project.name,
         "blender_installed": bool(render.get("blender_installed")),
@@ -1504,6 +1664,11 @@ def _graybox_web_status(project: Path) -> dict[str, object]:
         "references": references,
         "default_prompt": str(((spec or {}).get("ai_video") or {}).get("prompt") or ""),
         "final_items": final_items[:8],
+        "card_preview": card_preview,
+        "recut_preview": recut_preview,
+        "rig_preview": rig_preview,
+        "production_pilot": _production_pilot_web_status(project),
+        "h3_package": _h3_shot_package_web_status(project),
         "smoke_review": _load_graybox_smoke_review(
             project,
             str((spec or {}).get("id") or "GB-SHOT-001"),
@@ -2309,6 +2474,20 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
             except (ValueError, CostFirstRoutingError, NovelShotBreakdownError, NovelEpisodeScriptError, OSError, json.JSONDecodeError) as error:
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
 
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/modern-assets", parsed.path)
+        if match:
+            try:
+                return self._json(load_modern_asset_library(_safe_project(match.group(1))))
+            except (ValueError, ModernAssetLibraryError, OSError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/modern-timeline", parsed.path)
+        if match:
+            try:
+                return self._json(load_modern_timeline(_safe_project(match.group(1))))
+            except (ValueError, ModernTimelineError, OSError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+
         match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/graybox/gpt-keyframes/codex-batch/logs", parsed.path)
         if match:
             try:
@@ -2455,6 +2634,41 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802
         route = urlparse(self.path).path
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/graybox/h3-package/import", route)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                payload = self._read_json(max_bytes=80 * 1024 * 1024)
+                filename = str(payload.get("filename") or "h3-result.mp4").strip()
+                if Path(filename).suffix.lower() not in {".mp4", ".mov", ".webm"}:
+                    raise ValueError("H3 result must be MP4, MOV or WebM")
+                encoded = str(payload.get("content_base64") or "").strip()
+                if not encoded:
+                    raise ValueError("H3 result content is required")
+                try:
+                    content = base64.b64decode(encoded, validate=True)
+                except Exception as error:
+                    raise ValueError("H3 result base64 is invalid") from error
+                if len(content) < 1024 or len(content) > 60 * 1024 * 1024:
+                    raise ValueError("H3 result must be between 1 KB and 60 MB")
+                package = _h3_shot_package_web_status(project)
+                manifest_relative = str(package.get("manifest") or "")
+                if not manifest_relative:
+                    raise ValueError("export the P43 H3 package before importing a result")
+                manifest_path = project / manifest_relative
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                if not isinstance(manifest, dict):
+                    raise ValueError("P43 H3 package manifest is invalid")
+                output = manifest_path.parent / ("h3-result" + Path(filename).suffix.lower())
+                output.write_bytes(content)
+                manifest["imported_result"] = _relative(project, output)
+                manifest["status"] = "H3_RESULT_IMPORTED"
+                manifest["review_status"] = "PENDING"
+                manifest["imported_at"] = int(time.time())
+                manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+                return self._json(_graybox_web_status(project), HTTPStatus.CREATED)
+            except (ValueError, OSError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
         if route == "/api/novel-anime/import":
             try:
                 payload = self._read_json(max_bytes=MAX_WEB_UPLOAD_BYTES)
@@ -2688,6 +2902,19 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                 payload = self._read_json(max_bytes=32 * 1024 * 1024)
                 shot_id = str(payload.get("shot_id") or "").strip()
                 raw_images = payload.get("images")
+                asset_paths = payload.get("asset_paths")
+                if asset_paths is not None:
+                    if not isinstance(asset_paths, list) or not 1 <= len(asset_paths) <= 2 or raw_images:
+                        raise ValueError("choose one or two library assets, or upload images")
+                    registered = {item["path"]: item for item in load_modern_asset_library(project)["assets"] if item["kind"] in {"character", "scene"}}
+                    image_paths = []
+                    for relative in asset_paths:
+                        item = registered.get(str(relative))
+                        if item is None:
+                            raise ValueError("selected image is not registered in this project")
+                        image_paths.append(project / item["path"])
+                    preview = render_cost_first_local_shot(project, shot_id, image_paths)
+                    return self._json({"preview": {**preview, "media_url": _media_url(project, str(preview["output"]))}, "plan": load_cost_first_plan(project, rebuild_if_stale=False)}, HTTPStatus.CREATED)
                 if not isinstance(raw_images, list) or not raw_images or len(raw_images) > 2:
                     raise ValueError("local preview requires one or two images")
                 safe_shot = re.sub(r"[^A-Za-z0-9._-]+", "-", shot_id).strip("-._") or "shot"
@@ -2750,6 +2977,76 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
             except Exception as error:
                 return self._error(HTTPStatus.INTERNAL_SERVER_ERROR, f"Codex VFX planning failed: {error}")
 
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/modern-timeline/shots/([^/]+)/(edit|rerender)", route)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                shot_id = match.group(2)
+                if match.group(3) == "edit":
+                    payload = self._read_json(max_bytes=16 * 1024)
+                    shot = update_modern_timeline_shot(project, shot_id, payload)
+                else:
+                    shot = rerender_modern_timeline_shot(project, shot_id)
+                preview = shot.get("preview") or {}
+                if preview.get("output"):
+                    preview["media_url"] = _media_url(project, preview["output"])
+                return self._json({"shot": shot, "timeline": load_modern_timeline(project)}, HTTPStatus.CREATED)
+            except (ValueError, ModernTimelineError, ScreenMGError, StockBrollError, Layered25DError, VideoGenerationError, OSError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/modern-assets/register", route)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                payload = self._read_json(max_bytes=55 * 1024 * 1024)
+                content = base64.b64decode(str(payload.get("content_base64") or ""), validate=True)
+                item = register_modern_asset(project, kind=str(payload.get("kind") or ""), entity_id=str(payload.get("entity_id") or ""), variant=str(payload.get("variant") or ""), expression=str(payload.get("expression") or "neutral"), license_note=str(payload.get("license_note") or ""), extension=Path(str(payload.get("filename") or "")).suffix.lower(), content=content)
+                return self._json({"asset": item, "library": load_modern_asset_library(project)}, HTTPStatus.CREATED)
+            except (ValueError, ModernAssetLibraryError, OSError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/screen-mg/render", route)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                payload = self._read_json(max_bytes=16 * 1024)
+                result = render_screen_mg(project, shot_id=str(payload.get("shot_id") or ""), kind=str(payload.get("template") or ""), title=str(payload.get("title") or ""), lines=payload.get("lines"), duration_seconds=payload.get("duration_seconds") or 4)
+                result["media_url"] = _media_url(project, result["output"])
+                return self._json(result, HTTPStatus.CREATED)
+            except (ValueError, ScreenMGError, OSError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/stock-broll/render", route)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                payload = self._read_json(max_bytes=4096)
+                result = render_stock_broll(project, shot_id=str(payload.get("shot_id") or ""), asset_path=str(payload.get("asset_path") or ""), duration_seconds=payload.get("duration_seconds") or 4)
+                result["media_url"] = _media_url(project, result["output"])
+                return self._json(result, HTTPStatus.CREATED)
+            except (ValueError, StockBrollError, OSError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/cost-first-routing/modern-split", route)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                split = apply_modern_shot_breakdown(project)
+                plan = save_cost_first_plan(project)
+                return self._json({"split": split, "plan": plan}, HTTPStatus.CREATED)
+            except (ValueError, ModernShotBreakdownError, NovelShotBreakdownError, NovelEpisodeScriptError, CostFirstRoutingError, OSError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/cost-first-routing/profile", route)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                payload = self._read_json(max_bytes=2048)
+                set_render_profile(project, str(payload.get("render_profile") or ""))
+                return self._json(load_cost_first_plan(project), HTTPStatus.CREATED)
+            except (ValueError, CostFirstRoutingError, NovelShotBreakdownError, NovelEpisodeScriptError, OSError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+
         match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/cost-first-routing/rebuild", route)
         if match:
             project: Path | None = None
@@ -2776,6 +3073,7 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                             "detail": "从本地 Scene Seed 回填，不调用远程模型",
                         })
                         backfill = apply_novel_scene_seed(project)
+                        dependencies = reconcile_after_scene_backfill(project)
                         auto_backfilled_scenes = True
                         scene_count = int(backfill.get("scene_count") or 0)
                         steps[-1] = {
@@ -2783,11 +3081,12 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                             "status": "PASS",
                             "detail": f"回填 {scene_count} scene / {int(backfill.get('unit_count') or 0)} unit",
                         }
+                        steps.append({"stage": "DEPENDENCY_RECONCILE", "status": "PASS", "detail": f"视觉与场景版本已同步，{dependencies['environment_assignments']} 个场景分配"})
                     else:
                         steps.append({
                             "stage": "AUTO_BACKFILL_EPISODE_SCENES",
-                            "status": "SOURCE_REIMPORT_REQUIRED",
-                            "detail": "旧项目没有 Scene Seed；原 TXT 当时未持久化。请重新选择同一个 TXT 一次，系统会复用当前项目，只回填 scenes。",
+                            "status": "SOURCE_DATA_MISSING",
+                            "detail": "项目没有本地 Scene Seed，且未保存可用于还原剧情的原文；无法可靠补写场景。请先补充剧情大纲或原文片段。",
                         })
 
                 try:
@@ -2827,7 +3126,7 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                 result["rebuild_steps"] = steps
                 result["diagnostics"] = cost_first_diagnostics(project)
                 return self._json(result, HTTPStatus.CREATED)
-            except (ValueError, CostFirstRoutingError, NovelShotBreakdownError, NovelEpisodeScriptError, NovelSceneBackfillError, OSError, json.JSONDecodeError) as error:
+            except (ValueError, CostFirstRoutingError, NovelShotBreakdownError, NovelEpisodeScriptError, NovelSceneBackfillError, NovelVisualBibleError, NovelEnvironmentAssetError, NovelAssetReviewError, OSError, json.JSONDecodeError) as error:
                 if project is None:
                     return self._error(HTTPStatus.BAD_REQUEST, str(error))
                 steps.append({"stage": "REBUILD", "status": "FAIL", "detail": str(error)})
@@ -3062,6 +3361,27 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                 return self._json({**result, "project_id": project.name}, HTTPStatus.ACCEPTED)
             except (ValueError, GrayboxShotSpecError, GrayboxRenderError, OSError) as error:
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/graybox/card-preview", route)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                result = render_graybox_card_preview(project)
+                relative = str(result["output"])
+                return self._json({**result, "media_url": _media_url(project, relative)}, HTTPStatus.CREATED)
+            except (ValueError, GrayboxCardRenderError, OSError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+            except Exception as error:
+                return self._error(HTTPStatus.INTERNAL_SERVER_ERROR, f"graybox character-card preview failed: {error}")
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/graybox/cinematic-preview", route)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                result = render_cinematic_recut(project)
+                return self._json({**result, "media_url": _media_url(project, str(result["output"]))}, HTTPStatus.CREATED)
+            except (ValueError, CinematicRecutError, OSError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+            except Exception as error:
+                return self._error(HTTPStatus.INTERNAL_SERVER_ERROR, f"cinematic preview failed: {error}")
         match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/graybox/smoke-review", route)
         if match:
             try:

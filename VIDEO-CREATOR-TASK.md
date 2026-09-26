@@ -5085,3 +5085,190 @@ Status: IMPLEMENTED / REAL CODEX + LOCAL VIDEO SMOKE PASS / HUMAN REVIEW PENDING
 - 最终验收以连贯、好看、达到目标的视频效果为准，不以“全本地”或“全模型”作为目标。保留人工审看和局部重跑，确保问题镜头可单独修正。
 
 NEXT：P37 单镜头预览人审后，开始 P38 “Codex 多角度角色卡 + Blender 白模替换”短镜头验证；同一试点角色再建立 P39 3D 骨骼角色可行性验证。先比较结果，再按镜头复杂度把可完成部分留给 Codex/本地流程，剩余缺口由 Codex 准备 H3 补充包。
+
+## P38 / P39 Codex 本地角色路径验证（2026-09-24）
+
+状态：P38 本地动态漫预览已生成并接入 Web；P39 MPFB + Rigify 3D 骨骼技术样片已生成并接入 Web。两者均保留 `PENDING` 人工视觉/动作验收，未标记为正式角色资产通过。
+
+P38 多角度角色卡 + Blender 镜头替换：
+- 从 Codex 生成的透明 2×2 角色板裁切正面、3/4、侧面、背面四张角色卡；源图复制入项目，manifest 使用相对路径，记录角色 ID、分辨率、透明 bbox 和相机相对角度切换规则。
+- Codex 同时生成独立场景参考图；不发给 H3。Blender 保留原 Shot Spec 中的 8 秒 / 24fps / 9:16 时序，场景参考作为竖屏背景图板，角色卡位置和尺度按白模走位时间映射到画面空间。
+- 新增 `scripts/prepare_character_turnaround.py`、`scripts/blender_graybox_card_scene.py`、`scripts/graybox_card_renderer.py` 和 `POST /api/novel-anime/projects/<id>/graybox/card-preview`。生成结果保存在 `graybox/card-renders/`，包含 MP4、可复用 Blender 工程和本地渲染元数据。
+- Web 的“镜头与动画”页默认折叠 AI 生图、模型安装和 Provider 设置；主操作区显示白模、Codex 角色卡本地预览与 H3 补充预览，并明确区分本地免费能力和付费候选。增加 P39 3D Rig 样片预览及 Blender 工程下载。
+- 人工查看 v1–v5 暴露了 UV 缺失、角色脚底/场景地面不匹配、屏幕映射比例和卡片缩放错误；逐项修复后输出 `graybox/card-renders/GB-SHOT-001-codex-cards-v6.mp4`。最终抽帧确认了完整场景构图、角色落在石阶上，并从门内向镜头前方移动。仍是单张整身卡片平移/轻微缩放，不含真实肢体动画；多角度切换仅按相机相对角度，当前镜头角度变化有限。
+- 角色卡和背景图来源均标记为 Codex；本次 P38 未调用 OpenAI Image、H3 或视频 Provider，`local_only=true`、`billable=false`、`images_uploaded=false`；人工审核状态仍为 `PENDING`。
+
+P39 3D 骨骼角色可行性 smoke：
+- 新增 `support/blender/p39_mpfb_rig_smoke.py`：以本机 MPFB 按 male / young / asian phenotype 生成 19,158 顶点、约 1.629m 的连续人体基体；生成 Blender Rigify Human Metarig 控制骨架，自动权重绑定完整，产生 706 根 Rigify 骨骼。
+- P39 v6 用 Blender Python / Codex 生成靛蓝长袍、米白交领、腰带、发髻和简化五官；袖部直接着色到已绑定骨骼的人体网格，避免未绑定的袖筒漂浮。Rigify 足部 IK / 手臂 FK 及演员根节点关键帧输出 2 秒 / 24fps 本地运动样片。文件为 `lookdev/3d-rigs/CHR-N0DBC8F583-AUTO-001/p39-mpfb-rigify-smoke-v6.blend`、`p39-rig-preview-v6.png`、`p39-rig-motion-v6.mp4` 和 manifest，Web 从 manifest 读取最新预览。一次渲染问题曾让右眼球使用默认尺寸，现已加尺寸断言并修正；服装由初版大袖筒改为贴合白模的骨骼袖部材质。manifest 标记 19,158 个基体顶点均有关联权重组、技术 PASS、人工审查 PENDING、无计费、无图片上传。
+- Blender 首次自动权重报告个别骨骼 Heat Weight 警告；本次顶点检查确认全网格均有关联权重组，但这不等于肩、肘、膝的变形质量已通过，仍需在 Blender 中播放动作验收。
+- 该样片仅证明“Codex 可编排本地 3D 基体 + 程序化国风初版造型 + Rigify 骨架 + 肢体/根节点测试关键帧”技术链路可跑通。长袍外壳与发饰仍仅跟随演员根节点；整体比例、脸部、衣褶和正式表演需对齐角色卡并继续打磨。不得把该原型当作通过审核的角色定妆资产或五集成片角色。
+
+验证：`scripts/check-env.sh`、`./check-blender.command`、`./check-mpfb.command`；Python `py_compile`、`node --check web/app.js`、`git diff --check`；使用隔离端口启动本机 Web，确认 HTML 首页、`GET /graybox` 能返回 P38 视频和 P39 PNG / Blend 链接，并提交一次 P38 本地预览 API smoke。测试未调用付费 Provider。
+
+NEXT：在 Web 的“05 镜头与动画”页并排查看 P38 角色卡预览与 P39 v6 Rigify 样片，并确认角色外观、镜头连续性、肢体动作是否达到试点要求。当前两个结果都保留人工审核 PENDING；在 P39 袍身变形和角色卡一致性验收通过前，不进入五集批量渲染。只针对人工指出的明确画面缺口，由 Codex 准备最小 H3 补充包。
+
+## P38 / P39 视觉复核与返工（2026-09-24）
+
+用户实际审看后判定旧结果“完全没法用”。Codex 再次抽取 P38 首/中/末帧和 P39 动作帧，确认 P38 仅是整身卡片在固定背景前缩放，8 秒没有可信肢体表演；P39 虽然骨架和权重组能运行，但面部、圆筒袍身和动作质量远低于成片标准。两份 manifest 的 `review_status` 均改为 `REJECTED`，Web 将它们收进折叠的技术记录区；不得因技术 PASS 再将其展示为可用视频。
+
+为验证低成本动态漫剪辑的真实上限，本地新增 `scripts/cinematic_recut_renderer.py` 和可编辑的 `GB-SHOT-001-edit-plan.json`。使用现有同一角色的 KF-002、KF-005、KF-008，加一张由 Codex 依据 KF-008 编辑的“抬头看灯”终帧，按远景→停步→察觉→抬头硬切；各镜轻微推镜，叠加程序化雨丝，不再跨不同画面整图溶解。输出 `graybox/quality-recuts/GB-SHOT-001-cinematic-recut-v1.mp4`，Web 的“05 镜头与动画”页作为当前待审试片，可一键重生。它是 8 秒动态漫镜头试验，尚无连续人物/布料动作，也没有正式配音，因此 `VISUAL_REVIEW_PENDING`，不能称作成片。
+
+真实动作仍缺一段单镜测试：Codex 已准备 `graybox/h3-test-packs/GB-SHOT-001-v1.zip`，包含首/尾帧、约 5 秒动作提示词、反向约束与验收表；Web 提供下载。当前 H3 API 未配置，本次未上传素材、未发起计费。未来只对这一个镜头验证人脸、服装、脚底和背景稳定性，未通过不扩到整集。
+
+NEXT：先审看新 8 秒重剪试片是否满足“低成本动态漫”的最低观感。若要求人物真实连贯抬头、头发/衣摆动作，下一步使用已准备的单镜 H3 网页测试包验证，或继续制作独立分层角色资产和关节绑定；任何一路通过视觉验收后才进入更多镜头。不得恢复 P38/P39 旧样片为主预览。
+
+## P40 本地生产验收片重建（2026-09-25）
+
+状态：LOCAL PIPELINE PASS / HUMAN REVIEW PENDING
+
+本轮不再沿用已被用户否决的 P38 卡片平移、P39 低质 3D 人物或旧 8 秒静帧重剪作为主预览。目标缩小为一条可实际审看的 9.5 秒竖屏动态漫验收片，用它验证“固定高质量角色资产 + 本地 2.5D 表演 + 本地特效 + 本地配音 + 字幕 + 混音”的最低生产线。
+
+已完成：
+
+- 建立角色透明母图 `assets/characters/CHR-N0DBC8F583-AUTO-001/production/cutout-master-v1.png`；角色脸、发型、服装和配色统一，用于后续镜头复用；
+- 建立 `GODOT_UPPER_BODY_IK` Rig V2；修复 Rig layer 名称中的下划线不符合 Asset ID 规则的问题，并在写入前增加缺层预检；
+- Godot 2.5D 预览接入真实场景和 `UPPER_BODY / CLOSEUP` 构图，移除测试椭圆、夸张抬臂和明显分层缺口；仅保留呼吸、轻微抬头、发梢/袖缘微动和克制推镜；
+- 新增本地 Kokoro 82M + sherpa-onnx TTS Adapter；不需要 API Key，不产生单次生成费用，支持 103 个官方音色、中文标点规范化和角色音色映射；默认男声试音为 `zm_010 / sid 59`；
+- 新增 `scripts/render_production_pilot.py`，使用本地 Pillow + FFmpeg 输出 720×1280 / 24fps / 9.5 秒成片；五个硬切镜头依次为古宅空镜、角色中景、灯笼插入、影子消失、静默近景；对白期间不显示清晰嘴部，避免用假嘴型冒充同步；
+- “影子消失”镜头经过逐帧返工：地面灯光保持不变，真实角色轮廓投影在锁定机位中向脚底收缩并消失；字幕移开并使用半透明底，避免遮挡剧情动作；
+- 最终候选为 `lookdev/production-pilot/production-pilot-v7.mp4`，对应 manifest 为 `production-pilot-v7.json`；Web “05 镜头与动画”只把 V7 显示为当前生产验收片，旧技术样片继续折叠；
+- Web 同时提供 V7 播放、独立本地配音试听、9.5 秒 / 720×1280 / 本地零计费信息和“待人工验收”状态；缺少媒体时显示明确准备状态，不显示坏播放器；
+- 所有外部视频 Provider 仍在 Adapter 与人工付费门禁之后；本轮没有调用 H3、Runway、Wan 或其他付费视频 API，没有上传小说正文或项目图片。
+
+技术验收：
+
+- 输出 H.264 High / yuv420p / 720×1280 / 24fps / 228 帧；AAC-LC / 48kHz / 双声道；视频和音频均为 9.500 秒；
+- 完整解码通过；综合响度约 -15.2 LUFS，真峰值 -3.0 dBFS；未检测到黑帧或超过 0.5 秒的长静帧；
+- `test_character_rig_v2.py`、`test_godot_25d_preview.py`、`test_kokoro_sherpa_tts.py` 全部通过；
+- manifest 保持 `HUMAN_REVIEW_PENDING / PENDING`，技术通过不自动升级为可发布。
+
+边界：
+
+- 当前工作区实际项目为《照骨灯》，且项目标记 `publication_allowed=false`；本片只用于本地技术验证，不得直接发布，也不扩成五集；
+- 本地路线现在可承担空镜、对白切镜、凝视、悬疑揭示和低动作反应；走路、转身、打斗、复杂衣摆和连续手部动作仍不冒充本地完成；
+- 若人工只否决声音，先在 Web 对本地音色做小范围盲选并局部重混；若只否决一个连续动作，则由 Codex 输出提示词、首尾帧和验收约束，只购买该 3～5 秒 H3 镜头，不改整条主链路。
+
+NEXT：在 Web 的“05 镜头与动画”用手机宽度完整审看 `production-pilot-v7.mp4`，分别判断角色外观、影子剧情动作、本地男声和整体是否仍像 PPT/GIF。只有四项全部通过，才把同一结构扩成一条 25～35 秒单集试播；任一项未通过时只返工对应层，不批量扩集、不调用付费视频。
+
+## P41 本地有限动画动作版（2026-09-25）
+
+状态：LOCAL ACTION PIPELINE PASS / HUMAN REVIEW PENDING
+
+用户审看 P40 V7 后明确判定仍像 PPT。问题不是编码或清晰度，而是人物始终使用同一张立绘，主要运动仍由镜头推拉和环境特效承担。因此本轮不继续装饰 V7，改为让人物在镜头内真实更换连续动作姿态。
+
+已完成：
+
+- 基于已锁定角色母图生成并整理两套透明动作资产：四阶段抬手序列，以及后仰受惊、警觉回头等反应姿态；
+- 新增 `scripts/prepare_action_pose_sheet.py`，将动作表拆成独立透明 PNG，清理跨格残片，并生成可追溯 manifest；
+- 新增 `scripts/render_action_pilot.py`，输出 `lookdev/production-pilot/production-pilot-v8-action.mp4`；
+- V8 使用六张人物动作关键帧，完成“站定 → 四阶段抬手 → 灯笼插入 → 影子消散 → 后仰受惊 → 警觉回头”的镜头动作；动作转换加入运动残影、速度线、冲击闪光、阻尼回弹和相机反应；
+- 影子消散覆盖完整地面镜头，加入扩散光纹和移动残影；最终停帧检测未发现超过 0.5 秒的静止区；
+- 保留本地 Kokoro 男声、字幕和环境混音，Web“05 镜头与动画”默认只展示 `V8 ACTION`；P38/P39 和 V7 仍作为被否决或历史技术记录，不再作为当前结果；
+- 新增 `tests/test_action_pose_pipeline.py`，验证动作资产清理、影子变化和时长帧对齐。
+
+技术验收：
+
+- H.264 High / yuv420p / 720×1280 / 24fps / 210 帧；AAC-LC / 48kHz / 双声道；总长 8.750 秒；
+- 综合响度约 -15.2 LUFS，真峰值约 -2.9 dBFS；未检测到黑帧或超过 0.5 秒的长静帧；
+- `test_action_pose_pipeline.py`、`test_render_production_pilot.py`、`test_character_rig_v2.py`、`test_godot_25d_preview.py`、`test_kokoro_sherpa_tts.py` 通过；
+- Provider 仍为 `codex_local_limited_animation`，本轮零视频 API 费用、未向视频服务上传图片；状态保持 `HUMAN_REVIEW_PENDING`。
+
+边界：
+
+- V8 是由一致角色关键姿态构成的有限动画，已经有明确肢体动作，但仍不等于逐帧手绘动画或生成式连续视频；
+- 若 V8 仍被判断为“动作切图感明显”，本地 2D 路线的下一步只能进入分层关节骨骼和脸部单独驱动，或改用本地视频扩散模型；不再用整图缩放继续伪装升级；
+- 当前《照骨灯》项目 `publication_allowed=false`，只允许本地技术验收。
+
+NEXT：在 Web“05 镜头与动画”完整播放 `production-pilot-v8-action.mp4`，重点审看四阶段抬手、后仰受惊和警觉回头三处。如果人物动作已经达到低成本动态漫下限，再制作 25～35 秒单集；如果仍不能接受，下一任务改为 P42 分层角色关节动画 / 本地视频扩散单镜实验，不扩集、不调用付费接口。
+
+## P42 本地 3D 骨骼人物与连续动作（2026-09-25）
+
+状态：LOCAL 3D PIPELINE PASS / HUMAN REVIEW PENDING
+
+用户审看 P41 后明确要求真实 3D 人物和连续动作。本轮停止把 2D 姿态切换作为主预览，建立 Blender 原生蒙皮、IK 动作和透视镜头路线。
+
+已完成：
+
+- 复核旧 P39 MPFB 文件，发现原技术样片虽然包含 706 根 Rigify 骨骼，但人物 `DEF` 权重不完整；旧圆筒袍、球形头发和未绑定服装维持 `REJECTED`，不得恢复为主结果；
+- 新增 `support/blender/p42_donghua_3d_character.py`，可修复 MPFB 19,158 个顶点的主要骨骼权重，并生成连续骨骼动作，作为自有程序化 3D 回退；
+- 引入 CC0 基模 `Base Rigged Stylized Humanoid Character (young warrior)`，来源为 OpenGameArt，作者 Girush，许可为 CC0 / Public Domain；可修改并用于商业项目；
+- 新增 `support/blender/p42_cc0_young_warrior.py`：复用 CC0 动漫男性身体、脸、头发、手指和 65 根原生骨骼；由 Codex 生成国风贴身衣料、交领、腰封、前后袍片、木构场景和灯光；
+- 双臂由 two-bone IK 目标驱动，脊柱、头部、摄像机和袍片使用连续关键帧；动作顺序为双手垂放 → 抬手 → 胸前防御 → 分手转身 → 回落；
+- 输出 `lookdev/3d-rigs/CHR-N0DBC8F583-AUTO-001/p42-cc0/p42-cc0-3d-motion-v1.mp4`、可编辑 `.blend`、预览图、contact sheet 和 manifest；
+- Web“05 镜头与动画”主预览切换为 `P42 3D`，V8 与旧 P38/P39 继续留在历史技术记录区。
+
+技术验收：
+
+- 480×854 / 24fps / 96 帧 / 4.0 秒，H.264 + AAC；每帧由 Blender Eevee 渲染；
+- 人物使用原生蒙皮和骨骼变形，双臂、手掌、脊柱与头部属于同一 3D 角色；摄像机持续改变观察角度；
+- `freezedetect` 未检测到超过 0.25 秒停帧；没有通过静态图片插帧伪装连续动作；
+- 视频 Provider 为 `local_blender_cc0_young_warrior`，本轮无视频 API 费用、未向第三方上传项目图片；
+- 输出仍为 `HUMAN_REVIEW_PENDING`，技术通过不等于成片视觉通过。
+
+边界：
+
+- 当前是低分辨率 3D 动作技术验收片，人物外观属于可继续改造的低模动漫基模；服装、面部、头发和材质仍需要按正式角色设定深化；
+- 连续动作已验证，但打斗、布料模拟、口型与面部表情尚未进入本轮范围；
+- 当前《照骨灯》项目仍标记 `publication_allowed=false`，不得发布。
+
+NEXT：在 Web“05 镜头与动画”审看 `P42 3D` 的人体比例、抬手轨迹、手臂变形、转身空间感和国风造型。动作通过后进入 P43：正式角色 3D 外观包、表情/口型、布料与头发骨骼；若外观不通过，只替换可商用 3D 基模和服装，不退回 2D PPT 路线。
+
+## P42 人工结论与目标样片对照（2026-09-25）
+
+状态：LOCAL FINAL VISUAL REJECTED / 3D CONTROL LAYER RETAINED
+
+用户提供 8 秒、768×1344、24fps 的 MiniMax / Hailuo 目标样片并明确要求以该完成度为准。对照确认：P42 已经是真实 Blender 骨骼与连续动作，不是 PPT 或 2D 姿态切图；但低模人物、程序化服装、简化场景、手工 IK 和本地材质无法达到目标样片的角色细节、自然步态、衣发物理、面部微表情、雨夜反射和电影级灯光。
+
+本机为 Apple M5 / 16GB 统一内存。继续在本机用低模和程序化几何体追求目标样片视觉，时间成本会高于购买少量生成式视频镜头；本地运行大型视频扩散模型也无法在当前显存/内存约束下稳定产出同等级 8 秒竖屏视频。因此调整职责边界：
+
+- P42/P43 Blender 输出保留为控制视频，负责相机轨迹、构图、人物进入路径、步行节奏、停步、抬头、遮挡与时长；
+- Codex 继续在本地完成小说拆解、角色/场景设定、分镜、控制动画、首尾帧、提示词、TTS、字幕、BGM、合成与 QC；
+- 最终高质人物与场景运动由 Hailuo H3 之类的视频到视频 / 参考视频能力逐镜生成；仅把需要高质替换的 5～8 秒镜头送给付费服务；
+- 当前阶段使用网页版人工生成，系统只准备可直接上传的 Shot Package，不保存账号或自动消费额度；后期验证效果后再接 Provider/Adapter API；
+- 不再把程序化低模预览描述为生产成片，也不再沿 2D PPT 路线扩集。
+
+NEXT：P43 改为“本地 3D 控制镜头 + H3 手工生成包”。为一个正式 Shot 输出 `control.mp4`、角色参考、场景参考、首帧、尾帧、中文提示词、负面约束和 QC 清单，并在 Web 只保留“制作控制镜头 / 导出 H3 包 / 导入生成结果 / 对比验收”四步。H3 结果未经人工确认不得批量扩展。
+
+## P43 本地 3D 控制镜头 + 海螺 H3 手工生成包（2026-09-25）
+
+状态：CONTROL + PACKAGE READY / WAITING FOR MANUAL H3 RESULT
+
+已完成：
+
+- 新增 `support/blender/p43_production_character.py`，复用 CC0 65 骨骼人物，以本地 Blender 输出 5 秒、480×854、24fps 的竖屏控制镜头；
+- 控制动作改为“从门内向镜头连续走近 → 减速停步 → 最后抬头”，包含角色根节点前进、交替腿部步态、反向手臂摆动、重心起伏、头部延迟、眨眼、袍片跟随和连续透视镜头；
+- 控制视频保持无对白、无音乐；声音只在 H3 视觉通过后本地混合，避免把旧台词误带入远程生成素材；
+- 新增 `scripts/export_h3_shot_package.py`，不会访问网络，确定性导出 `control.mp4`、首帧、尾帧、人物参考、场景参考、中文提示词、负面约束、上传顺序、QC 清单、SHA-256 manifest 和 ZIP；
+- 首个正式生成包：`rendering/h3-shot-packages/SHOT-S01E001-SC001-001-p43-h3-package.zip`，约 3.6 MB；Provider 目标为 `hailuo_h3_manual_web`，manifest 明确记录 `billable_action_performed=false / uploaded=false`；
+- Web“05 镜头与动画”已收敛成四步：制作控制镜头、下载 H3 包、导入海螺结果、左右对比验收；旧白模、旧重剪和高级 Provider 入口默认折叠；
+- 新增本地结果导入接口，只接收 MP4/MOV/WebM 并写入当前 Shot Package；导入不触发远程请求，导入后 Web 自动显示控制镜头与 H3 结果对比；
+- P43 Web API 已返回 `P43 CONTROL / PACKAGE READY`，生成包、提示词、控制视频、参考图与首尾帧均可通过本地 `/media` 读取；
+- Python 编译、Web JavaScript 语法、`git diff --check` 与本地页面可视检查通过。
+
+边界：
+
+- P43 低模只承担动作、机位、构图和时序控制，不作为最终人物美术；
+- 当前没有向海螺上传任何文件，也没有消费额度；海螺网页版的登录、素材上传和生成由用户手工完成；
+- 用户导入 H3 结果后仍需进行角色身份、服装配饰、走路落脚、停步/抬头时点、手脸稳定、场景稳定和新增文字检查，未通过不得扩集。
+
+NEXT：用户在 Web 第 2 步下载 P43 H3 包，按包内 `UPLOAD-ORDER.txt` 在海螺 H3 生成 5 秒视频，再从第 3 步导入结果。系统随后执行媒体技术 QC 和人工对比；只有首镜视觉通过，才把相同结构扩到下一个正式 Shot。
+
+## P44 AI Drama Production Engine / Modern Low Cost（2026-09-26）
+
+方向调整：优先验证 2～3 分钟的现代低成本短剧生产线；保留 `ancient_cinematic` 及 P43 海螺手工包，不再把昂贵视频生成作为默认镜头路线。现有古风项目默认维持原模式，新项目可通过 Web 显式选择 `modern_low_cost`。声音仍先锁定，再确定 Shot 时长；发布必须人工确认。
+
+执行顺序（逐项验收后推进）：
+
+- P44-01 已完成：`scenes=0` 且本地 Scene Seed 存在时，从 Episode Script 回填 scenes，保留视觉资产与人工审核记录，同步版本及场景分配，再重建真实 Shot Breakdown；缺少可核对的本地剧情数据时明确阻塞，不虚构内容。
+- P44-02 已完成：成本优先路由新增六值 `motion_strategy`、`renderer`、`estimated_cost`、简短 `reason`，保留原 `route` 与 H3 人工批准门槛以兼容现有渲染器。
+- P44-03 已完成：持久化 `modern_low_cost` / `ancient_cinematic` Render Profile，Web 可切换并触发重算；既有项目默认保留古风模式。
+- P44-04 已完成基础实现：Web 内的现代角色/场景/B-roll 资产库支持角色角度与表情、场景变体、素材复用；B-roll 登记须声明使用权。屏幕动效模板支持聊天、来电、新闻、报告、转账，本地 FFmpeg 生成可预览 MP4；B-roll 可裁切，分层 2.5D 可用透明人物与背景制作视差镜头。所有输出仍需画面和权利验收。
+- P44-05 已完成镜头级 MVP：Web 独立现代短剧入口、10 轨时间线视图、逐 Shot 修改策略/时长/素材/屏幕文案，保存覆盖并仅重做当前 Shot；编辑状态持久化以便 Resume。实际配音锁定的 Shot 禁止直接改时长；AI_VIDEO 返工保持人工门槛。音频、字幕及 BGM/SFX 的逐轨编辑还未接入本时间线。
+- P44-06 NEXT：首个现代短剧 2～3 分钟试播、约 30～40 Shot、正式配音/字幕/BGM/SFX、逐轨绑定、成片合成、Web 预览、人审 QC 与发布包。当前仅有古风《照骨灯》试点，尚无现代剧本/人物/场景素材，不能标记现代试播片完成。
+
+本轮验证：清空项目副本中的 5 集 scenes 和 Shot Breakdown 后，本地恢复 15 scenes / 55 units / 15 Shots；定向单测通过；Web JavaScript/Python 语法检查通过。旧项目从未保存 Scene Seed 或剧情内容时，无法可靠恢复原文，必须由用户补充剧情材料。
+
+后续补充：现代短剧模式支持显式“按 2–5 秒节奏拆镜”，原 Shot Breakdown 自动备份，路由按 Shot 对应的剧本 unit 判动作，避免整场动作词把全部镜头判为 AI_VIDEO。古风试点副本拆分测试得到 53 个短 Shot（跨 5 集），最长 4.5 秒；这只是技术验证，不代表已有现代试播片。Web 以“现代短剧”作为首页入口，复杂路由详情折叠为高级项。使用说明见 `docs/MODERN-LOW-COST.md`。
+
+端到端 Web 回归：临时项目内清空 scenes 与 Shot Breakdown，经 HTTP 接口依次完成自动回填、重建 15 Shot、切换现代模式、短镜拆分、单 Shot 编辑和屏幕 MG 本地重渲染，全部返回 201，输出 MP4 存在；未触碰正式项目的剧情、素材或付费服务。

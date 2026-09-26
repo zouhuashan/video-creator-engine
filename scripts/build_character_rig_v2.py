@@ -100,6 +100,21 @@ def _validate_layers(project_dir: Path, spec: dict[str, Any]) -> tuple[list[dict
     if not isinstance(raw_layers, list):
         raise RigV2Error("layers must be a list")
 
+    # Validate the layer contract before touching files. This keeps schema
+    # errors actionable even when a draft template still has empty paths.
+    raw_names = [
+        str(layer.get("name") or "").strip()
+        for layer in raw_layers
+        if isinstance(layer, dict)
+    ]
+    if len(raw_names) != len(raw_layers):
+        raise RigV2Error("each layer must be an object")
+    if any(name not in PARENTS for name in raw_names) or len(set(raw_names)) != len(raw_names):
+        raise RigV2Error("layers contain invalid or duplicate names")
+    missing = [name for name in PROFILE_REQUIREMENTS[profile] if name not in set(raw_names)]
+    if missing:
+        raise RigV2Error(f"{profile} missing layers: {', '.join(missing)}")
+
     by_name: dict[str, dict[str, Any]] = {}
     expected_size: tuple[int, int] | None = None
     validated: list[dict[str, Any]] = []
@@ -140,9 +155,6 @@ def _validate_layers(project_dir: Path, spec: dict[str, Any]) -> tuple[list[dict
         by_name[name] = normalized
         validated.append(normalized)
 
-    missing = [name for name in PROFILE_REQUIREMENTS[profile] if name not in by_name]
-    if missing:
-        raise RigV2Error(f"{profile} missing layers: {', '.join(missing)}")
     return validated, expected_size or (0, 0)
 
 
@@ -160,7 +172,11 @@ def build_rig_v2(project_dir: Path, spec: dict[str, Any]) -> dict[str, Any]:
     registered_layers = []
     for layer in layers:
         name = layer["name"]
-        asset_id = f"AST-RIG2-{asset_prefix}-{name.upper()}"
+        # Asset IDs only allow ASCII letters, digits and hyphens. Rig layer
+        # names intentionally use snake_case, so normalize them at the
+        # repository boundary instead of leaking invalid IDs into SQLite.
+        asset_layer = name.upper().replace("_", "-")
+        asset_id = f"AST-RIG2-{asset_prefix}-{asset_layer}"
         registered = repository.register_asset(
             asset_id,
             "character",

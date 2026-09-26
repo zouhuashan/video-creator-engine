@@ -6,7 +6,7 @@ selection:
   llm: null
   search: null
   asr: null
-  tts: fish_audio
+  tts: kokoro_local
   image: null
   video: local_ken_burns
   video_generation: minimax_h3
@@ -15,7 +15,7 @@ selection:
 
 fallback:
   asr: [whisper_api, local_whisper, other]
-  tts: [elevenlabs, edge_tts, local]
+  tts: [fish_audio, elevenlabs, edge_tts, local]
   motion: static_infographic
   video_generation: [stock, screenshot, image_pan]
 
@@ -39,6 +39,17 @@ providers:
       adapter: other
       enabled: false
   tts:
+    kokoro_local:
+      adapter: kokoro_sherpa
+      enabled: true
+      mode: local
+      credentials_required: false
+      runtime_dir: .dependencies/kokoro-runtime
+      model_dir: .dependencies/models/kokoro-int8-multi-lang-v1_1
+      python_executable: .dependencies/python-bin/python3.13
+      voice: zm_010
+      sample_rate: 24000
+      num_threads: 2
     fish_audio:
       adapter: fish_audio
       enabled: true

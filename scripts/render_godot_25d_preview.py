@@ -12,6 +12,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+from PIL import Image
+
 ROOT = Path(__file__).resolve().parents[1]
 GODOT_PROJECT = ROOT / "support" / "godot" / "25d-preview"
 RIG_V2_MANIFEST = Path("visual-bible/character-rigs-v2.json")
@@ -27,14 +29,19 @@ DEPTH = {
     "hand_r": 0.14,
 }
 SECONDARY = {
-    "torso": 0.05,
-    "head": 0.10,
-    "upper_arm_l": 0.28,
-    "forearm_l": 0.42,
-    "hand_l": 0.55,
-    "upper_arm_r": 0.22,
-    "forearm_r": 0.36,
-    "hand_r": 0.50,
+    "torso": 0.02,
+    "head": 0.16,
+    "upper_arm_l": 0.14,
+    "forearm_l": 0.11,
+    "hand_l": 0.08,
+    "upper_arm_r": 0.14,
+    "forearm_r": 0.11,
+    "hand_r": 0.08,
+}
+
+FRAMING_PROFILES = {
+    "UPPER_BODY": {"zoom": 1.34, "bottom_overscan_px": 20.0},
+    "CLOSEUP": {"zoom": 1.52, "bottom_overscan_px": 20.0},
 }
 
 
@@ -72,7 +79,63 @@ def _load_rig(project_dir: Path, character_id: str) -> dict[str, Any]:
     raise Godot25DPreviewError(f"Rig V2 not found for {character_id}")
 
 
-def build_preview_config(project_dir: Path, character_id: str, duration_seconds: float = 4.0) -> dict[str, Any]:
+def _discover_background(project_dir: Path) -> Path | None:
+    bindings_dir = project_dir / "graybox" / "reference-bindings"
+    for binding_path in sorted(bindings_dir.glob("*.json")):
+        try:
+            payload = json.loads(binding_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        reference = payload.get("scene_reference")
+        if not isinstance(reference, dict):
+            continue
+        relative = str(reference.get("path") or "")
+        if not relative:
+            continue
+        bound = (project_dir / relative).resolve()
+        enhanced = bound.with_name(f"{bound.stem}-codex-v1.png")
+        if enhanced.is_file():
+            return enhanced
+        if bound.is_file():
+            return bound
+
+    scene_dir = project_dir / "graybox" / "references" / "scenes"
+    candidates = [
+        path for path in scene_dir.glob("*")
+        if path.is_file() and path.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"}
+    ]
+    return max(candidates, key=lambda path: path.stat().st_size) if candidates else None
+
+
+def _resolve_background(project_dir: Path, background_path: Path | None) -> Path | None:
+    if background_path is None:
+        return _discover_background(project_dir)
+    path = Path(background_path).expanduser()
+    if not path.is_absolute():
+        path = project_dir / path
+    path = path.resolve()
+    if not path.is_file():
+        raise Godot25DPreviewError(f"background image not found: {path}")
+    return path
+
+
+def _alpha_bounds(path: Path) -> tuple[int, int, int, int] | None:
+    try:
+        with Image.open(path) as image:
+            if "A" not in image.getbands():
+                return (0, 0, image.width, image.height)
+            return image.getchannel("A").getbbox()
+    except OSError as error:
+        raise Godot25DPreviewError(f"cannot inspect Rig V2 layer: {path}") from error
+
+
+def build_preview_config(
+    project_dir: Path,
+    character_id: str,
+    duration_seconds: float = 4.0,
+    background_path: Path | None = None,
+    framing: str = "UPPER_BODY",
+) -> dict[str, Any]:
     project_dir = Path(project_dir).expanduser().resolve()
     rig = _load_rig(project_dir, character_id)
     if str(rig.get("profile")) not in {"GODOT_UPPER_BODY_IK", "GODOT_FULL_BODY_IK"}:
@@ -83,8 +146,14 @@ def build_preview_config(project_dir: Path, character_id: str, duration_seconds:
     if width <= 0 or height <= 0:
         raise Godot25DPreviewError("Rig V2 canvas is invalid")
 
+    framing = str(framing).strip().upper()
+    if framing not in FRAMING_PROFILES:
+        raise Godot25DPreviewError(f"unsupported framing: {framing}")
+
     layers: list[dict[str, Any]] = []
     names = set()
+    content_bounds: list[int] | None = None
+    body_bottom: int | None = None
     for layer in rig.get("layers", []):
         if not isinstance(layer, dict):
             continue
@@ -96,6 +165,17 @@ def build_preview_config(project_dir: Path, character_id: str, duration_seconds:
         if not isinstance(pivot, dict):
             raise Godot25DPreviewError(f"missing pivot for {name}")
         names.add(name)
+        bounds = _alpha_bounds(path)
+        if bounds is not None:
+            if name == "torso":
+                body_bottom = bounds[3]
+            if content_bounds is None:
+                content_bounds = list(bounds)
+            else:
+                content_bounds[0] = min(content_bounds[0], bounds[0])
+                content_bounds[1] = min(content_bounds[1], bounds[1])
+                content_bounds[2] = max(content_bounds[2], bounds[2])
+                content_bounds[3] = max(content_bounds[3], bounds[3])
         layers.append(
             {
                 "name": name,
@@ -117,21 +197,50 @@ def build_preview_config(project_dir: Path, character_id: str, duration_seconds:
     if missing:
         raise Godot25DPreviewError(f"Rig V2 missing upper-body layers: {', '.join(missing)}")
 
+    if content_bounds is None:
+        content_bounds = [0, 0, width, height]
+    if body_bottom is None:
+        body_bottom = content_bounds[3]
+    torso = next(layer for layer in layers if layer["name"] == "torso")
+    focus_x = float(torso["pivot"]["x"])
+    background = _resolve_background(project_dir, background_path)
+    frame_profile = FRAMING_PROFILES[framing]
+
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "character_id": character_id,
         "rig_id": rig.get("id"),
+        "output": {"width": 720, "height": 1280},
         "canvas": {"width": width, "height": height},
         "duration_seconds": max(2.0, min(8.0, float(duration_seconds))),
+        "background": {
+            "path": str(background) if background else "",
+            "zoom": 1.018,
+            "dimming": 0.12,
+        },
+        "framing": {
+            "profile": framing,
+            "zoom": frame_profile["zoom"],
+            "bottom_overscan_px": frame_profile["bottom_overscan_px"],
+            "focus_x": focus_x,
+            "content_bounds": {
+                "left": content_bounds[0],
+                "top": content_bounds[1],
+                "right": content_bounds[2],
+                "bottom": content_bounds[3],
+                "body_bottom": body_bottom,
+            },
+        },
         "layers": layers,
         "visual_features": [
+            "real_scene_background" if background else "neutral_background",
+            f"{framing.lower()}_framing",
             "hierarchical_pivots",
-            "breathing",
-            "head_secondary_motion",
-            "arm_raise_hold_return",
-            "layer_parallax",
-            "secondary_squash",
-            "contact_shadow",
+            "restrained_breathing",
+            "head_and_hair_secondary_motion",
+            "sleeve_secondary_motion",
+            "subtle_layer_parallax",
+            "background_slow_push",
         ],
         "human_review": "PENDING",
     }
@@ -143,9 +252,17 @@ def render_preview(
     output: Path | None = None,
     duration_seconds: float = 4.0,
     fps: int = 24,
+    background_path: Path | None = None,
+    framing: str = "UPPER_BODY",
 ) -> dict[str, Any]:
     project_dir = Path(project_dir).expanduser().resolve()
-    config = build_preview_config(project_dir, character_id, duration_seconds)
+    config = build_preview_config(
+        project_dir,
+        character_id,
+        duration_seconds,
+        background_path=background_path,
+        framing=framing,
+    )
     fps = max(12, min(60, int(fps)))
     frames = int(round(float(config["duration_seconds"]) * fps))
 
@@ -192,10 +309,12 @@ def render_preview(
             "-i",
             str(avi),
             "-an",
+            "-vf",
+            "scale=in_range=full:out_range=tv,format=yuv420p",
             "-c:v",
             "libx264",
-            "-pix_fmt",
-            "yuv420p",
+            "-color_range",
+            "tv",
             "-movflags",
             "+faststart",
             str(output),
@@ -228,9 +347,19 @@ def main() -> int:
     parser.add_argument("--output", type=Path)
     parser.add_argument("--seconds", type=float, default=4.0)
     parser.add_argument("--fps", type=int, default=24)
+    parser.add_argument("--background", type=Path)
+    parser.add_argument("--framing", choices=("upper_body", "closeup"), default="upper_body")
     args = parser.parse_args()
     try:
-        result = render_preview(args.project_dir, args.character_id, args.output, args.seconds, args.fps)
+        result = render_preview(
+            args.project_dir,
+            args.character_id,
+            args.output,
+            args.seconds,
+            args.fps,
+            background_path=args.background,
+            framing=args.framing,
+        )
     except (Godot25DPreviewError, OSError, subprocess.SubprocessError) as error:
         print(json.dumps({"status": "FAIL", "error": str(error)}, ensure_ascii=False))
         return 1

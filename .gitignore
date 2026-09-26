@@ -10,6 +10,7 @@ __pycache__/
 venv/
 node_modules/
 .dependencies/
+.web-python/
 
 # Editor and OS files
 .DS_Store
@@ -25,6 +26,8 @@ node_modules/
 !/archive/.gitkeep
 /projects/*
 !/projects/.gitkeep
+/renders/
+/照骨灯_长篇完整版.txt
 
 # Temporary files
 *.tmp

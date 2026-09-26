@@ -26,6 +26,57 @@ ROOT = Path(__file__).resolve().parents[1]
 CONFIG = ROOT / "config" / "cost-first-rendering.json"
 OUTPUT = Path("rendering/cost-first-plan.json")
 SHOT_TIMING_OUTPUT = Path("audio/shot-timing.json")
+PROFILE_OUTPUT = Path("rendering/render-profile.json")
+RENDER_PROFILES = ("modern_low_cost", "ancient_cinematic")
+MOTION_STRATEGIES = ("STATIC", "LOCAL_MOTION", "SCREEN_MG", "STOCK_BROLL", "LAYERED_2_5D", "AI_VIDEO")
+
+
+def load_render_profile(project: Path) -> str:
+    path = Path(project).resolve() / PROFILE_OUTPUT
+    if not path.is_file():
+        return "ancient_cinematic"  # Preserve projects created before profiles existed.
+    try:
+        profile = json.loads(path.read_text(encoding="utf-8"))["render_profile"]
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        raise CostFirstRoutingError(f"invalid render profile: {error}") from error
+    if profile not in RENDER_PROFILES:
+        raise CostFirstRoutingError(f"unsupported render profile: {profile}")
+    return profile
+
+
+def set_render_profile(project: Path, profile: str) -> str:
+    if profile not in RENDER_PROFILES:
+        raise CostFirstRoutingError(f"unsupported render profile: {profile}")
+    _atomic_json(Path(project).resolve() / PROFILE_OUTPUT, {"schema_version": 1, "render_profile": profile, "updated_at": _now()})
+    return profile
+
+
+def _motion_strategy(scene: dict[str, Any], shot: dict[str, Any], motion: dict[str, Any], route: str, profile: str, shell_estimate: float) -> dict[str, Any]:
+    text = " ".join(str(unit.get("text") or "") for unit in scene.get("units") or [])
+    shot_type = str(shot.get("shot_type") or "").upper()
+    screen_terms = ("短信", "聊天", "来电", "转账", "邮件", "热搜", "新闻", "监控", "报告", "手机屏幕", "银行卡", "定位", "合同")
+    stock_terms = ("城市夜景", "车流", "办公楼", "街道", "医院走廊", "地铁", "电梯", "咖啡店", "街景")
+    if route == "H3_CANDIDATE":
+        strategy, reason = "AI_VIDEO", "复杂连续动作，需人工批准"
+    elif profile == "modern_low_cost" and (any(term in text for term in screen_terms) or shot_type in {"SCREEN", "UI"}):
+        strategy, reason = "SCREEN_MG", "屏幕信息可本地排版"
+    elif profile == "modern_low_cost" and not scene.get("character_ids") and any(term in text for term in stock_terms):
+        strategy, reason = "STOCK_BROLL", "优先复用实拍素材"
+    elif route == "LOCAL_SCENE_PLATE":
+        strategy, reason = "STATIC", "静态场景加镜头运动"
+    elif route == "LOCAL_MICRO_MOTION":
+        strategy, reason = "LOCAL_MOTION", "对白或微表情本地完成"
+    else:
+        strategy, reason = "LAYERED_2_5D", "分层视差与切镜"
+    renderers = {
+        "STATIC": "local_scene_plate", "LOCAL_MOTION": "local_micro_motion",
+        "SCREEN_MG": "local_screen_mg", "STOCK_BROLL": "stock_broll_library",
+        "LAYERED_2_5D": "local_layered_25d", "AI_VIDEO": "hailuo_h3_manual_web",
+    }
+    cost = {"amount": shell_estimate, "unit": "H3_SHELL_ESTIMATE"} if strategy == "AI_VIDEO" else {"amount": 0.0, "unit": "INCREMENTAL_PROVIDER_CHARGE"}
+    if strategy == "STOCK_BROLL":
+        cost = {"amount": None, "unit": "LICENSE_DEPENDENT"}
+    return {"motion_strategy": strategy, "renderer": renderers[strategy], "estimated_cost": cost, "reason": reason}
 
 
 class CostFirstRoutingError(RuntimeError):
@@ -94,6 +145,19 @@ def _scene_index(script_package: dict[str, Any]) -> dict[str, dict[str, Any]]:
                 "episode_id": str(episode["episode_id"]),
             }
     return result
+
+
+def _shot_units(project: Path, scripts_revision: int, shots_revision: int) -> dict[str, list[str]]:
+    path = Path(project).resolve() / "storyboard/modern-shot-units.json"
+    if not path.is_file():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    if payload.get("script_revision") != scripts_revision or payload.get("shot_breakdown_revision") != shots_revision:
+        return {}
+    return {shot_id: list(item.get("unit_ids") or []) for shot_id, item in (payload.get("shots") or {}).items() if isinstance(item, dict)}
 
 
 def _keyword_hits(text: str, values: list[str]) -> list[str]:
@@ -323,7 +387,7 @@ def diagnostics(project: Path) -> dict[str, Any]:
         if bool(result["scene_seed"]["exists"]) and not result["scene_seed"]["error"]:
             blockers.append("Episode Script 当前有 0 个 scene，但本地 Scene Seed 可用于自动回填。")
         else:
-            blockers.append("Episode Script 当前有 0 个 scene；这是旧导入项目，原 TXT 未持久化。请重新选择同一个 TXT 一次，系统会复用当前项目并只回填 scenes。")
+            blockers.append("Episode Script 当前有 0 个 scene，且没有本地 Scene Seed；请补充可核对的剧情大纲或原文片段后生成场景。")
     if shot_error:
         blockers.append("Shot Breakdown 读取失败：" + shot_error)
     elif int(result["shot_breakdown"]["shot_count"]) == 0:
@@ -336,9 +400,11 @@ def diagnostics(project: Path) -> dict[str, Any]:
 def build_plan(project: Path) -> dict[str, Any]:
     project = Path(project).resolve()
     config = _load_config()
+    render_profile = load_render_profile(project)
     shots = load_shot_breakdown(project)
     scripts = load_script_package(project)
     scenes = _scene_index(scripts)
+    shot_units = _shot_units(project, int(scripts["revision"]), int(shots["revision"]))
     shell_rate = float(config["policy"]["h3_empirical_shell_per_second"])
     actual_tts_timings = _actual_tts_timings(project)
     voice_timing_signature = _voice_timing_signature(project)
@@ -353,11 +419,13 @@ def build_plan(project: Path) -> dict[str, Any]:
         scene = scenes.get(scene_id)
         if scene is None:
             raise CostFirstRoutingError(f"script scene missing for shot routing: {scene_id}")
-        motion = _motion_analysis(scene, config)
         signature = _visual_signature(scene)
 
         for shot in scene_breakdown["shots"]:
             shot_id = str(shot["id"])
+            scoped_ids = set(shot_units.get(shot_id) or [])
+            shot_scene = {**scene, "units": [unit for unit in scene["units"] if unit["id"] in scoped_ids]} if scoped_ids else scene
+            motion = _motion_analysis(shot_scene, config)
             source_duration = float(shot.get("duration_seconds") or 1.0)
             actual_timing = actual_tts_timings.get(shot_id)
             if actual_timing:
@@ -367,8 +435,9 @@ def build_plan(project: Path) -> dict[str, Any]:
                 duration = source_duration
                 timing_source = "SHOT_BREAKDOWN"
             effective_shot = {**shot, "duration_seconds": duration}
-            selected = _select_route(shot=effective_shot, scene=scene, motion=motion, config=config)
+            selected = _select_route(shot=effective_shot, scene=shot_scene, motion=motion, config=config)
             h3_estimate = round(duration * shell_rate, 1)
+            strategy = _motion_strategy(shot_scene, effective_shot, motion, selected["route"], render_profile, h3_estimate)
             all_h3_shells += h3_estimate
             if selected["route"] == "H3_CANDIDATE":
                 hybrid_h3_shells += h3_estimate
@@ -397,6 +466,7 @@ def build_plan(project: Path) -> dict[str, Any]:
                 "shot_type": str(shot.get("shot_type") or ""),
                 "camera_movement": str(shot.get("movement") or ""),
                 "motion": motion,
+                **strategy,
                 "visual_reuse_key": reuse_key,
                 "h3_full_cost_shells": h3_estimate,
                 "hybrid_cost_shells": h3_estimate if selected["route"] == "H3_CANDIDATE" else 0.0,
@@ -424,6 +494,7 @@ def build_plan(project: Path) -> dict[str, Any]:
     return {
         "schema_version": 1,
         "project_id": project.name,
+        "render_profile": render_profile,
         "status": status,
         "blockers": blockers,
         "policy": {
@@ -503,6 +574,8 @@ def load_plan(project: Path, *, rebuild_if_stale: bool = True) -> dict[str, Any]
             int(payload.get("shot_breakdown_revision") or 0) != int(shots["revision"])
             or int(payload.get("script_revision") or 0) != int(scripts["revision"])
             or str(payload.get("voice_timing_signature") or "") != _voice_timing_signature(project)
+            or str(payload.get("render_profile") or "") != load_render_profile(project)
+            or any(item.get("motion_strategy") not in MOTION_STRATEGIES for item in routes)
         ):
             return save_plan(project)
     return payload
@@ -578,4 +651,8 @@ __all__ = [
     "load_plan",
     "require_h3_approval",
     "save_plan",
+    "load_render_profile",
+    "set_render_profile",
+    "RENDER_PROFILES",
+    "MOTION_STRATEGIES",
 ]

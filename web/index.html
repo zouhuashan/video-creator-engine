@@ -4,37 +4,44 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#0b0d12" />
-    <title>VideoCreator · 国风动漫工作台</title>
+    <title>VideoCreator · AI 短剧制作台</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
     <div class="app-shell">
       <aside class="sidebar">
-        <div class="brand-mark"><span class="brand-orb">V</span><div><strong>VideoCreator</strong><small>国风动漫工作台</small></div></div>
+        <div class="brand-mark"><span class="brand-orb">V</span><div><strong>VideoCreator</strong><small>AI 短剧制作台</small></div></div>
         <nav class="nav" aria-label="主导航">
-          <button class="nav-item active" data-view="workspace"><span>✦</span>创作工作台</button>
-          <button class="nav-item" data-view="novelImport"><span>＋</span>导入小说</button>
-          <button class="nav-item" data-view="anime"><span>卷</span>国漫项目</button>
-          <div class="nav-group-label">国漫制作台</div>
-          <button class="nav-item" data-view="studio" data-workspace="overview"><span>01</span>项目总览</button>
-          <button class="nav-item" data-view="studio" data-workspace="ip"><span>02</span>IP 与底本</button>
-          <button class="nav-item" data-view="studio" data-workspace="story"><span>03</span>故事圣经</button>
-          <button class="nav-item" data-view="studio" data-workspace="script"><span>04</span>编剧室</button>
-          <button class="nav-item" data-view="studio" data-workspace="assets"><span>05</span>角色美术</button>
-          <button class="nav-item" data-view="studio" data-workspace="storyboard"><span>06</span>分镜 Animatic</button>
-          <button class="nav-item" data-view="studio" data-workspace="audio"><span>07</span>音频制作</button>
-          <button class="nav-item" data-view="studio" data-workspace="render"><span>08</span>渲染队列</button>
-          <button class="nav-item" data-view="studio" data-workspace="review"><span>09</span>审片与问题单</button>
-          <button class="nav-item" data-view="studio" data-workspace="publish"><span>10</span>发布包</button>
-          <button class="nav-item" data-view="projects"><span>▦</span>项目资产</button>
-          <button class="nav-item" data-view="imageStudio"><span>图</span>AI 生图</button>
-          <button class="nav-item" data-view="providers"><span>◇</span>生成 Provider</button>
+          <div class="nav-group-label">制作流程</div>
+          <button class="nav-item" data-view="modern"><span>◈</span>现代短剧</button>
+          <button class="nav-item" data-view="anime"><span>01</span>小说项目</button>
+          <button class="nav-item" data-view="novelImport"><span>02</span>导入小说</button>
+          <button class="nav-item" data-view="studio" data-workspace="script"><span>03</span>剧情与分集</button>
+          <button class="nav-item" data-view="studio" data-workspace="assets"><span>04</span>角色与场景</button>
+          <button class="nav-item" data-view="imageStudio"><span>05</span>镜头与动画</button>
+          <button class="nav-item" data-view="studio" data-workspace="audio"><span>06</span>配音与字幕</button>
+          <button class="nav-item" data-view="studio" data-workspace="render"><span>07</span>成片与检查</button>
+          <details class="nav-advanced" id="advancedNavigation">
+            <summary>高级工具</summary>
+            <div class="nav-advanced-items">
+              <button class="nav-item" data-view="studio" data-workspace="overview"><span>总</span>项目总览</button>
+              <button class="nav-item" data-view="studio" data-workspace="ip"><span>本</span>IP 与底本</button>
+              <button class="nav-item" data-view="studio" data-workspace="story"><span>设</span>故事设定</button>
+              <button class="nav-item" data-view="studio" data-workspace="storyboard"><span>分</span>分镜数据</button>
+              <button class="nav-item" data-view="studio" data-workspace="review"><span>审</span>审片问题单</button>
+              <button class="nav-item" data-view="studio" data-workspace="publish"><span>发</span>发布包</button>
+              <button class="nav-item" data-view="projects"><span>▦</span>项目资产</button>
+              <button class="nav-item" data-view="imageStudio"><span>图</span>图像模型设置</button>
+              <button class="nav-item" data-view="providers"><span>◇</span>Provider 配置</button>
+              <button class="nav-item" data-view="workspace"><span>旧</span>旧版生成工作台</button>
+            </div>
+          </details>
         </nav>
         <div class="sidebar-foot"><span class="pulse"></span><span>本地服务已连接</span><span id="serverVersion">v1.0</span></div>
       </aside>
 
       <main class="main-content">
-        <header class="topbar"><div><p class="eyebrow">STORY → MOTION → REVIEW</p><h1>把故事变成连续的国风镜头</h1><p class="lede">从角色参考图开始，选择生成路线，先看效果，再决定长期 Provider。</p></div><div class="top-actions"><button class="ghost-button" id="refreshButton">↻ 刷新</button><span class="avatar">Z</span></div></header>
+        <header class="topbar"><div><p class="eyebrow">剧本 → 声音 → 镜头 → 可编辑成片</p><h1>低成本 AI 短剧制作台</h1><p class="lede">优先复用角色与场景、屏幕动效和本地剪辑；复杂连续动作再交给人工批准的视频服务。古风模式继续保留。</p></div><div class="top-actions"><button class="ghost-button" id="refreshButton">↻ 刷新</button><span class="avatar">Z</span></div></header>
 
         <section class="stats-grid" aria-label="工作台状态">
           <div class="stat-card"><span class="stat-label">当前项目</span><strong id="statProject">—</strong><small id="statProjectHint">等待载入</small></div>
@@ -147,7 +154,11 @@
         </section>
 
         <section class="page-view hidden" id="animeView">
-          <div class="panel"><div class="panel-heading"><div><span class="section-kicker">NOVEL ANIME SERIES</span><h2>小说 IP 国漫项目</h2><p class="panel-subtitle">IP → 剧集 → 季 → 集。当前页面直接读取 P18 核心项目数据。</p></div><span class="status-dot">P18</span></div><div class="anime-projects" id="animeProjects"><div class="empty-state">正在载入国漫项目…</div></div></div>
+          <div class="panel"><div class="panel-heading"><div><span class="section-kicker">小说动态漫</span><h2>当前项目</h2><p class="panel-subtitle">沿着 7 个步骤制作：导入底本 → 写剧本 → 角色场景 → 镜头动画 → 配音字幕 → 检查成片。</p></div><button class="primary-button anime-import-button" id="animeImportButton">＋ 导入小说</button></div><div class="anime-projects" id="animeProjects"><div class="empty-state">正在载入国漫项目…</div></div></div>
+        </section>
+
+        <section class="page-view hidden" id="modernView">
+          <div class="panel"><div class="panel-heading"><div><span class="section-kicker">MODERN LOW COST</span><h2>现代短剧镜头制作</h2><p class="panel-subtitle">先把剧本场景和 Shot 跑通，再逐镜选择低成本制作方式。每个镜头可以独立保存与返工。</p></div><select id="modernProjectSelect" class="select-field compact-select" aria-label="选择短剧项目"></select></div><p class="modern-profile-notice" id="modernProfileNotice"></p><div id="modernPanelHost"></div></div>
         </section>
 
         <section class="page-view hidden" id="studioView">
@@ -161,6 +172,8 @@
         </section>
 
         <section class="page-view hidden" id="imageStudioView">
+          <details class="optional-image-tools">
+            <summary>可选工具：AI 生图、模型安装与图像 Provider 设置</summary>
           <div class="image-studio-layout">
             <div class="panel image-studio-control">
               <div class="panel-heading">
@@ -308,16 +321,60 @@
               <div class="image-studio-gallery" id="imageStudioGallery"><div class="empty-state">还没有 AI 生图资产。</div></div>
             </div>
           </div>
+          </details>
 
           <div class="panel graybox-panel" id="grayboxPanel">
             <div class="panel-heading">
               <div>
-                <span class="section-kicker">P32 / GRAYBOX TO VIDEO</span>
-                <h2>Blender 白模 → AI 最终成片</h2>
-                <p class="panel-subtitle">先用 Blender 锁死空间、镜头、人物走位与动作时序，再把白模 MP4 作为参考视频交给 MiniMax H3。Blender 不负责最终画质。</p>
+                <span class="section-kicker">当前主线 / 本地动态漫</span>
+                <h2>控制镜头与 H3 验收</h2>
+                <p class="panel-subtitle">先锁定本地镜头与动作，再用海螺替换最终视觉；首镜通过后才扩展。</p>
               </div>
-              <span class="status-dot off" id="grayboxStatus">CHECKING</span>
+              <span class="status-dot hidden off" id="grayboxStatus">CHECKING</span>
             </div>
+
+            <div class="graybox-card-preview-panel production-pilot-panel">
+              <div class="graybox-card-preview-copy">
+                <span class="section-kicker">当前主线 / Codex 控制 + H3 最终视觉</span>
+                <strong>5 秒走近、停步、抬头控制镜头 · P43</strong>
+                <small>本地 3D 只锁定镜头、走位、步态和动作时点；角色外观与古宅夜景由海螺 H3 按参考图替换。</small>
+                <small id="productionPilotVoiceText">本镜头无对白；声音、字幕和混音在 H3 结果通过后本地合成。</small>
+              </div>
+              <div class="graybox-card-preview-actions">
+                <span class="status-dot off" id="productionPilotStatus">正在准备</span>
+                <span class="muted" id="productionPilotMeta">P43 CONTROL · 480 × 854 · 本地零费用</span>
+              </div>
+              <div class="graybox-card-preview-video">
+                <div class="graybox-video-empty" id="productionPilotEmpty">正在制作 P43 3D 控制镜头。</div>
+                <video class="hidden" id="productionPilotPreview" controls playsinline preload="metadata"></video>
+              </div>
+              <div class="h3-flow" id="h3Flow">
+                <article class="h3-flow-step">
+                  <span>1</span><div><strong>制作控制镜头</strong><small>检查走近、停步、抬头和全身构图。</small></div>
+                  <b id="h3ControlStatus">准备中</b>
+                </article>
+                <article class="h3-flow-step">
+                  <span>2</span><div><strong>导出 H3 包</strong><small>包含控制视频、角色/场景参考和完整提示词。</small></div>
+                  <div class="h3-step-actions"><a class="ghost-button small-button hidden" id="h3PackageDownload" href="#" download>下载生成包</a><a class="ghost-button small-button hidden" id="h3PromptDownload" href="#" download>查看提示词</a></div>
+                </article>
+                <article class="h3-flow-step">
+                  <span>3</span><div><strong>导入海螺结果</strong><small>网页版生成后把 MP4 拖回这里；系统不会自动消费额度。</small></div>
+                  <div class="h3-step-actions"><label class="ghost-button small-button" for="h3ResultInput">选择视频</label><input id="h3ResultInput" type="file" accept="video/mp4,video/quicktime,video/webm"><button class="primary-button small-button" id="h3ImportButton" disabled>导入结果</button></div>
+                </article>
+                <article class="h3-flow-step">
+                  <span>4</span><div><strong>对比验收</strong><small id="h3CompareStatus">等待导入结果。</small></div>
+                  <b id="h3PackageStatus">PACKAGE READY</b>
+                </article>
+              </div>
+              <div class="h3-compare hidden" id="h3Compare">
+                <div><strong>动作控制</strong><video id="h3CompareControl" controls playsinline preload="metadata"></video></div>
+                <div><strong>H3 最终视觉</strong><video id="h3CompareResult" controls playsinline preload="metadata"></video></div>
+              </div>
+              <div class="hidden"><small id="productionPilotAudioHint"></small><audio id="productionPilotAudio"></audio></div>
+            </div>
+
+            <details class="graybox-tech-archive graybox-legacy-workflow">
+              <summary>旧白模、旧重剪与技术调试（默认隐藏）</summary>
 
             <div class="graybox-status-grid">
               <div><small>Blender</small><strong id="grayboxBlender">检测中…</strong></div>
@@ -328,18 +385,38 @@
 
             <div class="graybox-shot-card">
               <div>
-                <span class="section-kicker">FIRST SMOKE SHOT</span>
-                <strong id="grayboxShotTitle">8 秒 · 古宅入场镜头</strong>
-                <small id="grayboxShotDetail">角色从古宅门口走入 → 停下 → 抬头看灯 → 镜头缓慢前推。白模只负责动态骨架。</small>
-                <small class="graybox-step-hint" id="grayboxStepHint">先生成镜头方案，再进入 Blender 白模。</small>
-              </div>
-              <div class="graybox-actions">
-                <button class="secondary-button small-button" id="grayboxEnsureSpecButton">① 生成镜头方案</button>
-                <button class="primary-button small-button" id="grayboxRenderButton">② 生成 Blender 白模</button>
-                <button class="ghost-button small-button" id="grayboxRefreshButton">↻ 刷新</button>
+                <span class="section-kicker">旧版白模镜头</span>
+                <strong id="grayboxShotTitle">9.5 秒 · 古宅异影镜头</strong>
+                <small id="grayboxShotDetail">古宅夜景 → 察觉灯火 → 影子消失 → 人物反应。</small>
+                <small class="graybox-step-hint" id="grayboxStepHint">角色卡平移和 3D 白模造型未通过视觉验收，仅保留为技术记录。</small>
               </div>
             </div>
 
+            <div class="graybox-card-preview-panel graybox-quality-recut-panel">
+              <div class="graybox-card-preview-copy">
+                <span class="section-kicker">旧版记录 / 本地重剪</span>
+                <strong>8 秒古宅镜头试片 · 未通过</strong>
+                <small>使用同一角色的连续镜头图，按远景、停步、察觉异样、抬头看灯剪辑。保留镜头切换和轻微运镜，避免整图溶解出现重影。</small>
+                <small>这是待审的动态漫剪辑，人物与衣服尚无连续动作；目前也没有正式配音。</small>
+                <a class="ghost-button small-button hidden" id="grayboxH3PackDownload" href="#" download>下载单镜头真实动作测试包</a>
+              </div>
+              <div class="graybox-card-preview-actions">
+                <button class="primary-button small-button" id="grayboxRecutButton">重新生成试片</button>
+                <span class="muted" id="grayboxRecutMeta">尚未生成</span>
+              </div>
+              <div class="graybox-card-preview-video">
+                <div class="graybox-video-empty" id="grayboxRecutEmpty">完成本地重剪后在这里审看。</div>
+                <video class="hidden" id="grayboxRecutPreview" controls playsinline></video>
+              </div>
+            </div>
+
+            <details class="graybox-tech-archive">
+              <summary>技术样片与高级试验（旧版视觉未通过）</summary>
+              <div class="graybox-actions">
+                <button class="secondary-button small-button" id="grayboxEnsureSpecButton">生成镜头方案</button>
+                <button class="secondary-button small-button" id="grayboxRenderButton">生成 Blender 白模</button>
+                <button class="ghost-button small-button" id="grayboxRefreshButton">↻ 刷新</button>
+              </div>
             <div class="graybox-preview-grid">
               <div class="graybox-video-card">
                 <div class="graybox-card-head"><strong>白模动态骨架</strong><span id="grayboxRenderMeta">等待生成</span></div>
@@ -347,11 +424,43 @@
                 <video class="hidden" id="grayboxPreview" controls playsinline></video>
               </div>
               <div class="graybox-video-card">
-                <div class="graybox-card-head"><strong>MiniMax H3 最终成片</strong><span id="grayboxFinalMeta">尚未生成</span></div>
-                <div class="graybox-video-empty" id="grayboxFinalEmpty">白模通过后，再让 AI 只负责角色、材质、光影和最终国漫画质。</div>
+                <div class="graybox-card-head"><strong>付费 H3 补充成片</strong><span id="grayboxFinalMeta">尚未生成</span></div>
+                <div class="graybox-video-empty" id="grayboxFinalEmpty">仅在本地预览确认存在具体缺口，并完成人工费用与素材授权确认后使用。</div>
                 <video class="hidden" id="grayboxFinalPreview" controls playsinline></video>
               </div>
             </div>
+
+            <div class="graybox-card-preview-panel">
+              <div class="graybox-card-preview-copy">
+                <span class="section-kicker">CODEX LOCAL LOOKDEV</span>
+                <strong>角色卡平移样片 · 未通过</strong>
+                <small>整张透明人物卡在背景前缩放，缺少表演动作；保留为技术记录，不作为成片候选。</small>
+              </div>
+              <div class="graybox-card-preview-actions">
+                <button class="secondary-button small-button" id="grayboxCardPreviewButton">③ 生成角色卡预览</button>
+                <span class="muted" id="grayboxCardPreviewMeta">尚未生成</span>
+              </div>
+              <div class="graybox-card-preview-video">
+                <div class="graybox-video-empty" id="grayboxCardPreviewEmpty">角色卡与场景参考准备完成后，可在此检查替换效果。</div>
+                <video class="hidden" id="grayboxCardPreview" controls playsinline></video>
+              </div>
+            </div>
+
+            <div class="graybox-card-preview-panel p39-rig-preview-panel">
+              <div class="graybox-card-preview-copy">
+                <span class="section-kicker">P39 / BLENDER 3D RIG</span>
+                <strong>3D 骨骼造型样片 · 未通过</strong>
+                <small>骨架技术能运行，但人物、服饰和动作的视觉质量未达到使用标准；保留 Blender 工程供后续重做。</small>
+                <small id="p39RigPreviewMeta">尚未生成</small>
+                <a class="ghost-button small-button hidden" id="p39RigBlendDownload" href="#" download>下载 Blender 工程</a>
+              </div>
+              <div class="graybox-card-preview-video p39-rig-image">
+                <div class="graybox-video-empty" id="p39RigPreviewEmpty">3D 骨骼角色样片生成后会显示在这里。</div>
+                <img class="hidden" id="p39RigPreviewImage" alt="P39 Blender 3D 骨骼角色测试样片" />
+                <video class="hidden" id="p39WalkPreview" controls playsinline></video>
+              </div>
+            </div>
+            </details>
 
             <div class="graybox-live-monitor" id="grayboxLiveMonitor">
               <div class="graybox-card-head">
@@ -391,7 +500,10 @@
                 <span class="muted" id="grayboxReviewStatus">PENDING</span>
               </div>
             </div>
+            </details>
 
+            <details class="optional-image-tools graybox-advanced-tools">
+              <summary>高级：人物 / 场景绑定、P35 插帧与付费 H3 补充</summary>
             <div class="graybox-reference-card" id="grayboxReferenceBinding">
               <div class="graybox-card-head">
                 <div>
@@ -447,9 +559,9 @@
             <div class="graybox-reference-card cost-first-panel" id="costFirstPanel">
               <div class="graybox-card-head">
                 <div>
-                  <span class="section-kicker">P36 / P37 · 本地优先渲染与 Codex 特效</span>
-                  <strong>能本地就本地，H3 只做真正连续动作</strong>
-                  <small>P35 多关键帧插帧已确认会产生 PPT 感，不再用于真实动作。P36 按剧本动作复杂度、镜头时长和素材复用机会自动选择最低成本路线。</small>
+                  <span class="section-kicker">镜头规划</span>
+                  <strong>逐镜选择最省钱的制作方式</strong>
+                  <small>先拆成短镜头，再复用角色、场景、屏幕动效和 B-roll。真实复杂动作才考虑付费视频。</small>
                 </div>
                 <span class="status-dot off" id="costFirstStatus">CHECKING</span>
               </div>
@@ -462,19 +574,40 @@
               </div>
 
               <div class="cost-first-actions">
+                <label>制作模式 <select id="costFirstRenderProfile"><option value="modern_low_cost">现代低成本短剧</option><option value="ancient_cinematic">古风电影镜头</option></select></label>
                 <button class="secondary-button" id="costFirstRebuild">重新分析全部镜头</button>
-                <button class="secondary-button" id="costFirstDiagnosticsRefresh">查看 / 刷新 P36 诊断</button>
-                <span id="costFirstPolicyHint">H3 = 默认锁定；只有被判定为高动态且人工确认后才能升级。</span>
+                <button class="secondary-button" id="modernSplitShots">按 2–5 秒节奏拆镜</button>
+                <button class="secondary-button" id="costFirstDiagnosticsRefresh">查看诊断</button>
+                <span id="costFirstPolicyHint">付费视频默认锁定，必须人工批准。</span>
               </div>
+
+              <details class="graybox-log-details" id="modernAssetPanel">
+                <summary>现代角色 / 场景 / B-roll 素材库 <span id="modernAssetCount">0 项</span></summary>
+                <div class="modern-asset-form">
+                  <select id="modernAssetKind"><option value="character">角色</option><option value="scene">场景</option><option value="stock">B-roll 视频</option></select>
+                  <input id="modernAssetEntity" placeholder="角色或场景 ID，例如 HERO" maxlength="64">
+                  <input id="modernAssetVariant" placeholder="角度或变体，例如 front / night" maxlength="40">
+                  <select id="modernAssetExpression"><option value="neutral">中性表情</option><option value="happy">开心</option><option value="sad">悲伤</option><option value="angry">愤怒</option><option value="shocked">震惊</option><option value="nervous">紧张</option><option value="crying">哭泣</option><option value="thinking">思考</option></select>
+                  <select id="modernAssetLicense"><option value="">B-roll 使用权限</option><option value="owned">本人拍摄/拥有</option><option value="CC0">CC0</option><option value="licensed">已取得授权</option></select>
+                  <input id="modernAssetFile" type="file" accept=".png,.jpg,.jpeg,.webp,.mp4,.mov,.webm">
+                  <button class="secondary-button" id="modernAssetRegister">登记复用素材</button>
+                </div>
+                <div id="modernAssetList" class="modern-asset-list">暂无素材。登记后可按角色 ID、角度和表情复用。</div>
+              </details>
+
+              <details class="graybox-log-details" id="modernTimelinePanel">
+                <summary>可编辑镜头时间线 <span id="modernTimelineCount">0 Shot</span></summary>
+                <div class="modern-timeline-toolbar"><label>集数 <select id="modernTimelineEpisode"></select></label><label>镜头 <select id="modernTimelineShot"></select></label><button class="secondary-button" id="modernTimelineRefresh">刷新时间线</button></div>
+                <div id="modernTimelineTracks" class="modern-timeline-tracks">尚未载入镜头时间线。</div>
+                <div id="modernTimelineEditor" class="modern-timeline-editor"></div>
+              </details>
 
               <details class="graybox-log-details" id="costFirstDiagnosticsPanel">
                 <summary>P36 诊断 / 日志 <span id="costFirstDiagnosticsStatus">未读取</span></summary>
                 <pre id="costFirstDiagnosticsLog">点击“查看 / 刷新 P36 诊断”，这里会直接显示 Episode Script、Shot Breakdown、Voice Timeline 和最近一次重建步骤。</pre>
               </details>
 
-              <div class="cost-first-routes" id="costFirstRoutes">
-                <div class="empty-state">正在读取成本优先渲染计划…</div>
-              </div>
+              <details class="graybox-log-details"><summary>自动路由详情（高级）</summary><div class="cost-first-routes" id="costFirstRoutes"><div class="empty-state">正在读取镜头制作建议…</div></div></details>
             </div>
 
             <div class="graybox-reference-card gpt-keyframe-panel" id="grayboxGptKeyframes">
@@ -643,6 +776,7 @@
               <button class="secondary-button" id="grayboxSaveSmokeReview">保存本次 smoke 验收</button>
               <p class="helper-text" id="grayboxSmokeHint">生成 MiniMax 最终成片后，在 Web 直接完成三项验收。</p>
             </div>
+            </details>
 
             <div class="graybox-log-line" id="grayboxLogLine">P32 等待开始。</div>
           </div>

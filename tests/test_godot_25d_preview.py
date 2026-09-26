@@ -5,7 +5,11 @@ from pathlib import Path
 
 from PIL import Image
 
-from scripts.render_godot_25d_preview import build_preview_config
+from scripts.render_godot_25d_preview import (
+    Godot25DPreviewError,
+    _resolve_background,
+    build_preview_config,
+)
 
 
 class Godot25DPreviewTests(unittest.TestCase):
@@ -60,11 +64,32 @@ class Godot25DPreviewTests(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            config = build_preview_config(project, "CHR-TEST", 4)
+            background = project / "scene.png"
+            Image.new("RGB", (720, 1280), (12, 24, 48)).save(background)
+
+            config = build_preview_config(
+                project,
+                "CHR-TEST",
+                4,
+                background_path=background,
+                framing="closeup",
+            )
             self.assertEqual(config["rig_id"], "RIG2-TEST")
             self.assertEqual(len(config["layers"]), 8)
-            self.assertIn("layer_parallax", config["visual_features"])
+            self.assertEqual(config["schema_version"], 2)
+            self.assertEqual(config["framing"]["profile"], "CLOSEUP")
+            self.assertEqual(config["background"]["path"], str(background.resolve()))
+            self.assertEqual(config["framing"]["content_bounds"]["body_bottom"], 160)
+            self.assertIn("real_scene_background", config["visual_features"])
+            self.assertIn("restrained_breathing", config["visual_features"])
+            self.assertNotIn("arm_raise_hold_return", config["visual_features"])
             self.assertGreater(config["layers"][4]["depth"], config["layers"][1]["depth"])
+
+    def test_preview_config_rejects_missing_explicit_background(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            with self.assertRaisesRegex(Godot25DPreviewError, "background image not found"):
+                _resolve_background(project, project / "missing.png")
 
 
 if __name__ == "__main__":

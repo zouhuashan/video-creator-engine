@@ -7,8 +7,12 @@ var layer_sprites: Dictionary = {}
 var base_node_positions: Dictionary = {}
 var base_sprite_positions: Dictionary = {}
 var base_root_position: Vector2
+var background_sprite: Sprite2D
+var base_background_position: Vector2
+var base_background_scale: Vector2
 var elapsed: float = 0.0
 var duration: float = 4.0
+var output_size: Vector2 = Vector2(720.0, 1280.0)
 
 
 func _ready() -> void:
@@ -31,34 +35,50 @@ func _ready() -> void:
         return
     config = parsed
     duration = float(config.get("duration_seconds", 4.0))
+    var output: Dictionary = config.get("output", {})
+    output_size = Vector2(
+        float(output.get("width", 720)),
+        float(output.get("height", 1280))
+    )
 
     _build_background()
     if not _build_character():
         get_tree().quit(5)
         return
-    _build_contact_shadow()
 
 
 func _build_background() -> void:
     var background: ColorRect = ColorRect.new()
     background.position = Vector2.ZERO
-    background.size = Vector2(720.0, 1280.0)
-    background.color = Color(0.035, 0.045, 0.070, 1.0)
+    background.size = output_size
+    background.color = Color(0.025, 0.034, 0.052, 1.0)
     background.z_index = -100
     add_child(background)
 
-    var glow: Polygon2D = Polygon2D.new()
-    var points: PackedVector2Array = PackedVector2Array()
-    var segments: int = 48
-    var center: Vector2 = Vector2(360.0, 520.0)
-    var radius: Vector2 = Vector2(285.0, 410.0)
-    for index in range(segments):
-        var angle: float = TAU * float(index) / float(segments)
-        points.append(center + Vector2(cos(angle) * radius.x, sin(angle) * radius.y))
-    glow.polygon = points
-    glow.color = Color(0.12, 0.16, 0.23, 0.34)
-    glow.z_index = -90
-    add_child(glow)
+    var background_data: Dictionary = config.get("background", {})
+    var path: String = str(background_data.get("path", ""))
+    if not path.is_empty():
+        var texture: Texture2D = _load_texture(path)
+        if texture != null:
+            background_sprite = Sprite2D.new()
+            background_sprite.texture = texture
+            background_sprite.centered = true
+            background_sprite.position = output_size * 0.5
+            var texture_size: Vector2 = texture.get_size()
+            var cover: float = maxf(output_size.x / texture_size.x, output_size.y / texture_size.y)
+            cover *= float(background_data.get("zoom", 1.018))
+            background_sprite.scale = Vector2(cover, cover)
+            background_sprite.z_index = -95
+            add_child(background_sprite)
+            base_background_position = background_sprite.position
+            base_background_scale = background_sprite.scale
+
+    var dimmer: ColorRect = ColorRect.new()
+    dimmer.position = Vector2.ZERO
+    dimmer.size = output_size
+    dimmer.color = Color(0.01, 0.018, 0.035, float(background_data.get("dimming", 0.12)))
+    dimmer.z_index = -90
+    add_child(dimmer)
 
 
 func _load_texture(path: String) -> Texture2D:
@@ -81,11 +101,17 @@ func _build_character() -> bool:
     character_root.name = "CharacterRoot"
     add_child(character_root)
 
-    var scale_value: float = minf(620.0 / canvas_size.x, 1120.0 / canvas_size.y)
+    var framing: Dictionary = config.get("framing", {})
+    var scale_value: float = (output_size.x / canvas_size.x) * float(framing.get("zoom", 1.34))
     character_root.scale = Vector2(scale_value, scale_value)
+    character_root.z_index = 10
+    var bounds: Dictionary = framing.get("content_bounds", {})
+    var content_bottom: float = float(bounds.get("body_bottom", bounds.get("bottom", canvas_size.y * 0.72)))
+    var bottom_overscan: float = float(framing.get("bottom_overscan_px", 20.0))
+    var focus_x: float = float(framing.get("focus_x", canvas_size.x * 0.5))
     base_root_position = Vector2(
-        (720.0 - canvas_size.x * scale_value) * 0.5,
-        (1280.0 - canvas_size.y * scale_value) * 0.5 - 12.0
+        output_size.x * 0.5 - focus_x * scale_value,
+        output_size.y + bottom_overscan - content_bottom * scale_value
     )
     character_root.position = base_root_position
 
@@ -157,41 +183,9 @@ func _layer_config(name: String) -> Dictionary:
     return {}
 
 
-func _build_contact_shadow() -> void:
-    if character_root == null:
-        return
-    var shadow: Polygon2D = Polygon2D.new()
-    var points := PackedVector2Array()
-    var segments: int = 40
-    var canvas: Dictionary = config.get("canvas", {})
-    var width: float = float(canvas.get("width", 1000))
-    var height: float = float(canvas.get("height", 1600))
-    var center: Vector2 = Vector2(width * 0.5, height * 0.88)
-    var radius: Vector2 = Vector2(width * 0.22, height * 0.025)
-    for index in range(segments):
-        var angle: float = TAU * float(index) / float(segments)
-        points.append(center + Vector2(cos(angle) * radius.x, sin(angle) * radius.y))
-    shadow.polygon = points
-    shadow.color = Color(0.0, 0.0, 0.0, 0.22)
-    shadow.z_index = -20
-    character_root.add_child(shadow)
-
-
 func _smoothstep(value: float) -> float:
     var x: float = clampf(value, 0.0, 1.0)
     return x * x * (3.0 - 2.0 * x)
-
-
-func _raise_curve(progress: float) -> float:
-    if progress < 0.18:
-        return 0.0
-    if progress < 0.44:
-        return _smoothstep((progress - 0.18) / 0.26)
-    if progress < 0.72:
-        return 1.0
-    if progress < 0.94:
-        return 1.0 - _smoothstep((progress - 0.72) / 0.22)
-    return 0.0
 
 
 func _process(delta: float) -> void:
@@ -199,43 +193,47 @@ func _process(delta: float) -> void:
     if duration <= 0.0 or character_root == null:
         return
 
-    var progress: float = fmod(elapsed, duration) / duration
+    var progress: float = clampf(elapsed / duration, 0.0, 1.0)
     var wave: float = sin(progress * TAU)
-    var breath: float = sin(progress * TAU * 2.0)
-    var raise_amount: float = _raise_curve(progress)
+    var breath: float = sin(progress * TAU)
 
-    character_root.position = base_root_position + Vector2(wave * 5.5, cos(progress * TAU * 0.5) * 2.5)
+    if background_sprite != null:
+        var push: float = _smoothstep(progress)
+        background_sprite.scale = base_background_scale * (1.0 + push * 0.008)
+        background_sprite.position = base_background_position + Vector2(-push * 1.8, push * 0.8)
+
+    character_root.position = base_root_position + Vector2(wave * 0.55, -breath * 0.9)
 
     if layer_nodes.has("torso"):
         var torso: Node2D = layer_nodes["torso"] as Node2D
-        torso.scale = Vector2(1.0 + breath * 0.004, 1.0 + breath * 0.009)
-        torso.rotation = deg_to_rad(wave * 0.45)
+        torso.scale = Vector2(1.0 + breath * 0.001, 1.0 + breath * 0.003)
+        torso.rotation = deg_to_rad(wave * 0.08)
 
     if layer_nodes.has("head"):
         var head: Node2D = layer_nodes["head"] as Node2D
-        head.rotation = deg_to_rad(wave * 1.2)
+        head.rotation = deg_to_rad(wave * 0.35)
         var head_base: Vector2 = base_node_positions["head"]
-        head.position = head_base + Vector2(wave * 1.5, -breath * 1.2)
+        head.position = head_base + Vector2(wave * 0.45, -breath * 0.55)
 
     if layer_nodes.has("upper_arm_l"):
         var upper_arm_l: Node2D = layer_nodes["upper_arm_l"] as Node2D
-        upper_arm_l.rotation = deg_to_rad(-18.0 * raise_amount + wave * 1.4)
+        upper_arm_l.rotation = deg_to_rad(wave * 0.18)
     if layer_nodes.has("forearm_l"):
         var forearm_l: Node2D = layer_nodes["forearm_l"] as Node2D
-        forearm_l.rotation = deg_to_rad(-24.0 * raise_amount + sin(progress * TAU - 0.45) * 1.8)
+        forearm_l.rotation = deg_to_rad(sin(progress * TAU - 0.25) * 0.16)
     if layer_nodes.has("hand_l"):
         var hand_l: Node2D = layer_nodes["hand_l"] as Node2D
-        hand_l.rotation = deg_to_rad(9.0 * raise_amount + sin(progress * TAU - 0.8) * 1.5)
+        hand_l.rotation = deg_to_rad(sin(progress * TAU - 0.4) * 0.12)
 
     if layer_nodes.has("upper_arm_r"):
         var upper_arm_r: Node2D = layer_nodes["upper_arm_r"] as Node2D
-        upper_arm_r.rotation = deg_to_rad(wave * -2.0)
+        upper_arm_r.rotation = deg_to_rad(wave * -0.16)
     if layer_nodes.has("forearm_r"):
         var forearm_r: Node2D = layer_nodes["forearm_r"] as Node2D
-        forearm_r.rotation = deg_to_rad(sin(progress * TAU - 0.35) * -2.6)
+        forearm_r.rotation = deg_to_rad(sin(progress * TAU - 0.25) * -0.14)
     if layer_nodes.has("hand_r"):
         var hand_r: Node2D = layer_nodes["hand_r"] as Node2D
-        hand_r.rotation = deg_to_rad(sin(progress * TAU - 0.6) * -1.8)
+        hand_r.rotation = deg_to_rad(sin(progress * TAU - 0.4) * -0.11)
 
     for name_variant in layer_sprites.keys():
         var name: String = str(name_variant)
@@ -245,8 +243,7 @@ func _process(delta: float) -> void:
         var secondary: float = float(item.get("secondary_motion", 0.0))
         var sprite_base: Vector2 = base_sprite_positions[name]
         sprite.position = sprite_base + Vector2(
-            wave * depth * 7.0 + sin(progress * TAU - secondary) * secondary * 1.8,
-            cos(progress * TAU) * depth * 2.5
+            wave * depth * 0.8 + sin(progress * TAU - secondary) * secondary * 0.55,
+            -breath * depth * 0.45
         )
-        var squash: float = sin(progress * TAU * 1.7 - secondary) * secondary * 0.004
-        sprite.scale = Vector2(1.0 + squash, 1.0 - squash * 0.7)
+        sprite.scale = Vector2.ONE

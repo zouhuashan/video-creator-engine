@@ -5,8 +5,8 @@ from __future__ import annotations
 from .base import TTSProviderError
 
 
-PRIMARY_PROVIDER = "fish_audio"
-FALLBACK_PROVIDERS = ("elevenlabs", "edge_tts", "local")
+PRIMARY_PROVIDER = "kokoro_local"
+FALLBACK_PROVIDERS = ("fish_audio", "elevenlabs", "edge_tts", "local")
 PROVIDER_PRIORITY = (PRIMARY_PROVIDER, *FALLBACK_PROVIDERS)
 
 
