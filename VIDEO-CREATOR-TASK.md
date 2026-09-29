@@ -5326,3 +5326,18 @@ Narrative
 
 P44-06 首个现代 2～3 分钟试播继续作为总 NEXT。先用 2～4 个固定角色、少量固定场景和约 30～40 个 2～5 秒 Shot 验证 Production Contract、角色一致性、分镜连续性、Voice-first Timeline、局部重做与最终合成；只有出现明确能力缺口时才接入新的 OPTIONAL Provider。
 
+### P44-06B Production Contract Review Gate
+Status: IN_PROGRESS
+
+把 P44-06A 的 Production Contract 从静态导出升级为可执行审核门：
+
+- 每个 Shot 增加稳定 `shot_fingerprint`；上游只修改一个 Shot 时，只让该 Shot 的审核失效，其他 Shot 已通过状态保留。
+- Storyboard / Keyframe / Video 分层审核；Storyboard 未通过时禁止 Keyframe，必要 Keyframe 未通过时禁止 Video。
+- `SCREEN_MG` / `STOCK_BROLL` 等无需关键帧的路线明确标记 Keyframe = NOT_REQUIRED，避免伪造审批。
+- Contract stale 时禁止继续审批，必须先按当前 Script / Shot Breakdown / Timeline rebuild。
+- Web 现代短剧页增加 Production Contract 状态、构建/刷新与逐 Shot 审核入口；不触发任何付费 Provider。
+- P44-06 正式试播必须以“已批准 Storyboard Contract”为视频生成前置条件；H3/Wan 等外部视频仍受各自原有人工付费/上传门禁。
+
+NEXT 仍为 P44-06 首个现代短剧试播；本任务只减少返工和工具间状态漂移，不新增第二套总编排器。
+
+
