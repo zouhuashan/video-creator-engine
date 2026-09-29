@@ -4,102 +4,275 @@
   "title": "Modern Drama Production Contract",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "project_id", "render_profile", "source_state", "source_fingerprint", "shots"],
+  "required": [
+    "schema_version",
+    "project_id",
+    "render_profile",
+    "source_state",
+    "source_fingerprint",
+    "shots",
+    "summary"
+  ],
   "properties": {
-    "schema_version": {"const": 1},
-    "project_id": {"type": "string", "minLength": 1},
-    "render_profile": {"const": "modern_low_cost"},
+    "schema_version": {
+      "const": 1
+    },
+    "project_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "render_profile": {
+      "const": "modern_low_cost"
+    },
     "source_state": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["script_revision", "shot_breakdown_revision", "timeline_revision", "route_updated_at"],
+      "required": [
+        "script_revision",
+        "shot_breakdown_revision",
+        "timeline_revision",
+        "route_updated_at"
+      ],
       "properties": {
-        "script_revision": {"type": "integer", "minimum": 0},
-        "shot_breakdown_revision": {"type": "integer", "minimum": 0},
-        "timeline_revision": {"type": "integer", "minimum": 0},
-        "route_updated_at": {"type": "string"}
+        "script_revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "shot_breakdown_revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "timeline_revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "route_updated_at": {
+          "type": "string"
+        }
       }
     },
-    "source_fingerprint": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "source_fingerprint": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
     "shots": {
       "type": "array",
-      "items": {"$ref": "#/$defs/shot"}
+      "items": {
+        "$ref": "#/$defs/shot"
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": true
     }
   },
   "$defs": {
     "approval": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["required", "status", "note"],
+      "required": [
+        "required",
+        "status",
+        "note"
+      ],
       "properties": {
-        "required": {"type": "boolean"},
-        "status": {"enum": ["PENDING", "APPROVED", "REJECTED"]},
-        "note": {"type": "string"}
+        "required": {
+          "type": "boolean"
+        },
+        "status": {
+          "enum": [
+            "PENDING",
+            "APPROVED",
+            "REJECTED",
+            "NOT_REQUIRED"
+          ]
+        },
+        "note": {
+          "type": "string"
+        }
       }
     },
     "shot": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["shot_id", "episode_id", "scene_id", "asset_refs", "narrative", "director_intent", "technical_execution", "approvals"],
+      "required": [
+        "shot_id",
+        "episode_id",
+        "scene_id",
+        "shot_fingerprint",
+        "asset_refs",
+        "narrative",
+        "director_intent",
+        "technical_execution",
+        "approvals"
+      ],
       "properties": {
-        "shot_id": {"type": "string", "minLength": 1},
-        "episode_id": {"type": "string", "minLength": 1},
-        "scene_id": {"type": "string", "minLength": 1},
+        "shot_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "episode_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scene_id": {
+          "type": "string",
+          "minLength": 1
+        },
         "asset_refs": {
           "type": "array",
           "uniqueItems": true,
-          "items": {"type": "string", "pattern": "^[CSP]:"}
+          "items": {
+            "type": "string",
+            "pattern": "^[CSP]:"
+          }
         },
         "narrative": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["source_text", "story_purpose", "beat"],
+          "required": [
+            "source_text",
+            "story_purpose",
+            "beat"
+          ],
           "properties": {
-            "source_text": {"type": "string"},
-            "story_purpose": {"type": "string"},
-            "beat": {"type": "string"}
+            "source_text": {
+              "type": "string"
+            },
+            "story_purpose": {
+              "type": "string"
+            },
+            "beat": {
+              "type": "string"
+            }
           }
         },
         "director_intent": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["shot_size", "camera_angle", "camera_movement", "blocking", "action", "expression", "continuity_from", "must_keep", "must_not"],
+          "required": [
+            "shot_size",
+            "camera_angle",
+            "camera_movement",
+            "blocking",
+            "action",
+            "expression",
+            "continuity_from",
+            "must_keep",
+            "must_not"
+          ],
           "properties": {
-            "shot_size": {"type": "string"},
-            "camera_angle": {"type": "string"},
-            "camera_movement": {"type": "string"},
-            "blocking": {"type": "string"},
-            "action": {"type": "string"},
-            "expression": {"type": "string"},
-            "continuity_from": {"type": ["string", "null"]},
-            "must_keep": {"type": "array", "items": {"type": "string"}},
-            "must_not": {"type": "array", "items": {"type": "string"}}
+            "shot_size": {
+              "type": "string"
+            },
+            "camera_angle": {
+              "type": "string"
+            },
+            "camera_movement": {
+              "type": "string"
+            },
+            "blocking": {
+              "type": "string"
+            },
+            "action": {
+              "type": "string"
+            },
+            "expression": {
+              "type": "string"
+            },
+            "continuity_from": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "must_keep": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "must_not": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         },
         "technical_execution": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["duration_seconds", "motion_strategy", "renderer", "asset_paths", "tracks", "estimated_cost", "actual_cost", "timing_source"],
+          "required": [
+            "duration_seconds",
+            "motion_strategy",
+            "renderer",
+            "asset_paths",
+            "tracks",
+            "estimated_cost",
+            "actual_cost",
+            "timing_source"
+          ],
           "properties": {
-            "duration_seconds": {"type": "number", "exclusiveMinimum": 0},
-            "motion_strategy": {"enum": ["STATIC", "LOCAL_MOTION", "SCREEN_MG", "STOCK_BROLL", "LAYERED_2_5D", "AI_VIDEO"]},
-            "renderer": {"type": "string"},
-            "asset_paths": {"type": "array", "items": {"type": "string"}},
-            "tracks": {"type": "array", "items": {"type": "string"}},
+            "duration_seconds": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "motion_strategy": {
+              "enum": [
+                "STATIC",
+                "LOCAL_MOTION",
+                "SCREEN_MG",
+                "STOCK_BROLL",
+                "LAYERED_2_5D",
+                "AI_VIDEO"
+              ]
+            },
+            "renderer": {
+              "type": "string"
+            },
+            "asset_paths": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "tracks": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
             "estimated_cost": {},
             "actual_cost": {},
-            "timing_source": {"type": "string"}
+            "timing_source": {
+              "type": "string"
+            }
           }
         },
         "approvals": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["storyboard", "keyframe", "video"],
+          "required": [
+            "storyboard",
+            "keyframe",
+            "video"
+          ],
           "properties": {
-            "storyboard": {"$ref": "#/$defs/approval"},
-            "keyframe": {"$ref": "#/$defs/approval"},
-            "video": {"$ref": "#/$defs/approval"}
+            "storyboard": {
+              "$ref": "#/$defs/approval"
+            },
+            "keyframe": {
+              "$ref": "#/$defs/approval"
+            },
+            "video": {
+              "$ref": "#/$defs/approval"
+            }
           }
+        },
+        "shot_fingerprint": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
         }
       }
     }
