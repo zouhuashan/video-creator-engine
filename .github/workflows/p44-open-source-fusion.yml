@@ -4,6 +4,11 @@ on:
   pull_request:
     paths:
       - "scripts/modern_drama_production_contract.py"
+      - "scripts/modern_editable_timeline.py"
+      - "scripts/web_server.py"
+      - "web/**"
+      - "tests/test_modern_editable_timeline.py"
+      - "tests/test_modern_contract_http_api.py"
       - "tests/test_modern_drama_production_contract.py"
       - "schemas/modern-drama-production-contract.schema.json"
       - "config/open-source-fusion.json"
@@ -24,11 +29,18 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.10"
+      - name: Install Web test dependencies
+        run: python -m pip install -r requirements-web.txt
       - name: Validate JSON
         run: |
           python -m json.tool config/open-source-fusion.json >/dev/null
           python -m json.tool schemas/modern-drama-production-contract.schema.json >/dev/null
-      - name: Compile contract
-        run: python -m py_compile scripts/modern_drama_production_contract.py
-      - name: Run contract tests
-        run: python -m unittest tests.test_modern_drama_production_contract
+      - name: Compile modern production path
+        run: |
+          python -m py_compile scripts/modern_drama_production_contract.py scripts/modern_editable_timeline.py scripts/web_server.py
+          node --check web/app.js
+      - name: Run modern production tests
+        run: |
+          python -m unittest \
+            tests.test_modern_drama_production_contract \
+            tests.test_modern_contract_http_api

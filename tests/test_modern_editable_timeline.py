@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 
 from scripts.modern_editable_timeline import load_timeline, rerender_shot, update_shot
+from scripts.modern_drama_production_contract import review_shot, write_contract
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -29,6 +30,10 @@ class ModernEditableTimelineTest(unittest.TestCase):
             self.assertEqual(edited["shots"][0]["status"], "DIRTY")
             self.assertEqual(edited["shots"][1]["shot_id"], second["shot_id"])
             self.assertEqual(edited["shots"][1]["motion_strategy"], second["motion_strategy"])
+            contract = write_contract(project)
+            selected = next(item for item in contract["shots"] if item["shot_id"] == shot_id)
+            self.assertEqual(selected["approvals"]["keyframe"]["status"], "NOT_REQUIRED")
+            review_shot(project, shot_id=shot_id, stage="storyboard", status="APPROVED", note="test")
             rendered = rerender_shot(project, shot_id)
             self.assertEqual(rendered["status"], "PREVIEW_READY")
             self.assertTrue((project / rendered["preview"]["output"]).is_file())

@@ -595,6 +595,15 @@
                 <div id="modernAssetList" class="modern-asset-list">暂无素材。登记后可按角色 ID、角度和表情复用。</div>
               </details>
 
+              <details class="graybox-log-details" id="modernContractPanel" open>
+                <summary>分镜生产合同 <span id="modernContractStatus">未构建</span></summary>
+                <div class="modern-contract-actions">
+                  <button class="secondary-button" id="modernContractBuild">构建 / 刷新合同</button>
+                  <span id="modernContractSummary">先锁定人物、场景与分镜，再进入镜头渲染。</span>
+                </div>
+                <div class="modern-contract-editor" id="modernContractEditor">当前项目还没有 Production Contract。</div>
+              </details>
+
               <details class="graybox-log-details" id="modernTimelinePanel">
                 <summary>可编辑镜头时间线 <span id="modernTimelineCount">0 Shot</span></summary>
                 <div class="modern-timeline-toolbar"><label>集数 <select id="modernTimelineEpisode"></select></label><label>镜头 <select id="modernTimelineShot"></select></label><button class="secondary-button" id="modernTimelineRefresh">刷新时间线</button></div>
