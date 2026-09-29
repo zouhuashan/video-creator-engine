@@ -12,7 +12,6 @@ from pathlib import Path
 from typing import Any
 
 from scripts.cost_first_hybrid_router import load_plan, load_render_profile
-from scripts.modern_editable_timeline import load_timeline
 from scripts.novel_episode_script import load_script_package
 from scripts.novel_shot_breakdown import load_shot_breakdown
 
@@ -22,6 +21,13 @@ SCHEMA_VERSION = 1
 
 class ModernDramaContractError(ValueError):
     pass
+
+
+def _load_timeline(project: Path) -> dict[str, Any]:
+    # Lazy import keeps contract primitives testable without loading render backends.
+    from scripts.modern_editable_timeline import load_timeline
+
+    return _load_timeline(project)
 
 
 def canonical_asset_ref(kind: str, value: str) -> str:
@@ -103,7 +109,7 @@ def _story_beat(scene: dict[str, Any], shot: dict[str, Any]) -> str:
 def _source_state(project: Path) -> dict[str, Any]:
     scripts = load_script_package(project)
     breakdown = load_shot_breakdown(project)
-    timeline = load_timeline(project)
+    timeline = _load_timeline(project)
     plan = load_plan(project)
     return {
         "script_revision": int(scripts.get("revision") or 0),
@@ -114,7 +120,7 @@ def _source_state(project: Path) -> dict[str, Any]:
 
 
 def _source_fingerprint(project: Path) -> str:
-    timeline = load_timeline(project)
+    timeline = _load_timeline(project)
     route_projection = [
         {
             "shot_id": shot.get("shot_id"),
@@ -136,7 +142,7 @@ def build_contract(project: Path) -> dict[str, Any]:
 
     scripts = load_script_package(project)
     breakdown = load_shot_breakdown(project)
-    timeline = load_timeline(project)
+    timeline = _load_timeline(project)
     scenes = _scene_index(scripts)
     raw_shots = _shot_index(breakdown)
 
