@@ -6,7 +6,7 @@ from .base import TTSProviderError
 
 
 PRIMARY_PROVIDER = "kokoro_local"
-FALLBACK_PROVIDERS = ("fish_audio", "elevenlabs", "edge_tts", "local")
+FALLBACK_PROVIDERS = ("gpt_sovits_local", "fish_audio", "elevenlabs", "edge_tts", "local")
 PROVIDER_PRIORITY = (PRIMARY_PROVIDER, *FALLBACK_PROVIDERS)
 
 
