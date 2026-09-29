@@ -151,7 +151,12 @@ def rerender_shot(project: Path, shot_id: str) -> dict[str, Any]:
     assets = {item["path"]: item for item in load_library(project)["assets"]}
     selected = shot["asset_paths"]
     if strategy == "AI_VIDEO":
-        raise ModernTimelineError("AI Video remains manual and requires human approval; no paid call was made")
+        from scripts.modern_drama_production_contract import ModernDramaContractError, require_ai_video_ready
+        try:
+            require_ai_video_ready(project, shot_id)
+        except ModernDramaContractError as error:
+            raise ModernTimelineError(f"AI Video production gate blocked: {error}") from error
+        raise ModernTimelineError("AI Video production gate passed, but paid generation remains manual; no paid call was made")
     if strategy == "SCREEN_MG":
         spec = shot["screen_mg"]
         result = render_screen_mg(project, shot_id=shot_id, kind=str(spec.get("template") or "chat"), title=str(spec.get("title") or ""), lines=spec.get("lines"), duration_seconds=shot["duration_seconds"])
