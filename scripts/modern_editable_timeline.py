@@ -95,6 +95,7 @@ def load_timeline(project: Path) -> dict[str, Any]:
             "motion_strategy": strategy, "renderer": RENDERER[strategy],
             "asset_paths": edit.get("asset_paths") or [], "screen_mg": edit.get("screen_mg") or {},
             "preview": edit.get("preview") or {}, "status": edit.get("status") or "PLANNED",
+            "human_review": edit.get("human_review") or {"status": "PENDING", "note": "", "reviewed_at": None},
             "estimated_cost": estimated_cost, "actual_cost": edit.get("actual_cost"),
             "reason": edit.get("reason") or ("人工调整镜头策略" if strategy != route.get("motion_strategy") else route.get("reason") or ""),
         }
@@ -136,7 +137,31 @@ def update_shot(project: Path, shot_id: str, changes: dict[str, Any]) -> dict[st
             raise ModernTimelineError("invalid screen MG specification")
     edits = _read(project)
     previous = edits["shots"].get(shot_id) or {}
-    edits["shots"][shot_id] = {**previous, **changes, "status": "DIRTY", "preview": {}}
+    edits["shots"][shot_id] = {**previous, **changes, "status": "DIRTY", "preview": {}, "human_review": {"status": "PENDING", "note": "", "reviewed_at": None}}
+    edits["revision"] += 1
+    _write(project, edits)
+    return next(item for item in load_timeline(project)["shots"] if item["shot_id"] == shot_id)
+
+
+def review_shot(project: Path, shot_id: str, status: str, note: str = "") -> dict[str, Any]:
+    project = Path(project).resolve()
+    status = str(status or "").strip().upper()
+    note = str(note or "").strip()
+    if status not in {"PENDING", "APPROVED", "CHANGES_REQUESTED"}:
+        raise ModernTimelineError("review status must be PENDING, APPROVED, or CHANGES_REQUESTED")
+    current = next((item for item in load_timeline(project)["shots"] if item["shot_id"] == shot_id), None)
+    if current is None:
+        raise ModernTimelineError("unknown shot_id")
+    edits = _read(project)
+    previous = edits["shots"].get(shot_id) or {}
+    reviewed_at = None
+    if status != "PENDING":
+        from scripts.novel_anime_project import utc_timestamp
+        reviewed_at = utc_timestamp()
+    edits["shots"][shot_id] = {
+        **previous,
+        "human_review": {"status": status, "note": note, "reviewed_at": reviewed_at},
+    }
     edits["revision"] += 1
     _write(project, edits)
     return next(item for item in load_timeline(project)["shots"] if item["shot_id"] == shot_id)
@@ -151,7 +176,12 @@ def rerender_shot(project: Path, shot_id: str) -> dict[str, Any]:
     assets = {item["path"]: item for item in load_library(project)["assets"]}
     selected = shot["asset_paths"]
     if strategy == "AI_VIDEO":
-        raise ModernTimelineError("AI Video remains manual and requires human approval; no paid call was made")
+        from scripts.drama_production_gate import require_shot_ready_for_video
+        try:
+            require_shot_ready_for_video(project, shot_id)
+        except ValueError as error:
+            raise ModernTimelineError(f"AI Video production gate blocked: {error}") from error
+        raise ModernTimelineError("AI Video gate passed, but paid generation remains manual; no paid call was made")
     if strategy == "SCREEN_MG":
         spec = shot["screen_mg"]
         result = render_screen_mg(project, shot_id=shot_id, kind=str(spec.get("template") or "chat"), title=str(spec.get("title") or ""), lines=spec.get("lines"), duration_seconds=shot["duration_seconds"])
