@@ -5272,3 +5272,57 @@ NEXT：用户在 Web 第 2 步下载 P43 H3 包，按包内 `UPLOAD-ORDER.txt` �
 后续补充：现代短剧模式支持显式“按 2–5 秒节奏拆镜”，原 Shot Breakdown 自动备份，路由按 Shot 对应的剧本 unit 判动作，避免整场动作词把全部镜头判为 AI_VIDEO。古风试点副本拆分测试得到 53 个短 Shot（跨 5 集），最长 4.5 秒；这只是技术验证，不代表已有现代试播片。Web 以“现代短剧”作为首页入口，复杂路由详情折叠为高级项。使用说明见 `docs/MODERN-LOW-COST.md`。
 
 端到端 Web 回归：临时项目内清空 scenes 与 Shot Breakdown，经 HTTP 接口依次完成自动回填、重建 15 Shot、切换现代模式、短镜拆分、单 Shot 编辑和屏幕 MG 本地重渲染，全部返回 201，输出 MP4 存在；未触碰正式项目的剧情、素材或付费服务。
+
+### P44-06A Best-of-Breed Open-Source Fusion Lock（2026-09-29）
+Status: IN_PROGRESS / CODE CONTRACT FIRST / LOCAL MODERN PILOT PENDING
+
+本轮用户确认：当前以本地使用和生产效率为优先，不因外部项目的商业双重许可讨论阻塞技术验证；但依赖版本、来源和许可证仍保留在元数据中，避免未来分发/商业化时丢失追溯信息。
+
+架构原则冻结为：
+
+```text
+VideoCreator Engine = 唯一总编排 / 唯一项目状态源
+外部项目 = 参考实现或可替换 Adapter
+一个能力只设一个 Primary Owner
+禁止把多个完整工具链首尾硬串，避免重复状态、重复素材搬运和重复审核
+```
+
+吸收范围：
+
+- `0xsline/short-drama`：吸收短剧编剧规则、开场 Hook、节奏、自检、合规与分集方法；不替换现有 Writing Room。
+- `Seedance2-Storyboard-Generator`：吸收 Character / Scene / Prop 稳定 ID 与结构化分镜表达；抽象成 Provider-neutral Shot Contract，不绑定 Seedance。
+- `short-drama-production`：吸收 Director Intent 与 Technical Execution 分层、审批边界、依赖指纹、stale 传播和局部返工思想；不引入第二套总状态机。
+- `Wan2.2`：登记为 OPTIONAL Video Provider；仅当本地/轻量路线不能满足真实连续动作时进入候选，不作为默认 Renderer。
+- `GPT-SoVITS`：登记为 OPTIONAL recurring-character voice clone；P33/P34 现有 Voice Timeline、Kokoro/Fish 路线继续为主，不重复建立音频状态源。
+- `VideoCaptioner`：仅用于导入的外部视频/未知音频做 ASR/字幕辅助；系统自产剧情继续直接从 Voice Timeline 生成 SRT/ASS，避免无意义 ASR round-trip。
+- `moyin-creator`：只吸收 Editable Project、任务队列、局部重试、Provider 可视化等产品交互思想；不替换当前 Web 制作台。
+- H3：继续作为 PREMIUM / MANUAL FALLBACK，保留现有人审、付费确认、素材上传授权与逐 Shot 最小调用边界。
+
+新增 Provider-neutral Production Contract，固定三层：
+
+```text
+Narrative
+→ Director Intent
+→ Technical Execution
+```
+
+每个 Shot 必须同时携带：
+- 稳定人物 / 场景 / 道具资产引用；
+- story purpose / beat；
+- 景别、机位、镜头运动、blocking、动作、表情；
+- continuity_from；
+- must_keep / must_not；
+- duration / motion_strategy / renderer / tracks / cost；
+- storyboard / keyframe / video 三层独立人工审核状态；
+- 上游 Script / Shot Breakdown / Timeline 指纹，用于判断 FRESH / STALE。
+
+本阶段禁止事项：
+- 不一次性安装七套完整系统；
+- 不因为发现新模型就替换已工作的 Provider；
+- 不绕过 Character Asset 与 Storyboard Approval 直接批量视频生成；
+- 不把 Wan/H3 设为全片默认；
+- 不重复生成已有 TTS/字幕/素材；
+- 不改变“最终发布必须人工确认”。
+
+P44-06 首个现代 2～3 分钟试播继续作为总 NEXT。先用 2～4 个固定角色、少量固定场景和约 30～40 个 2～5 秒 Shot 验证 Production Contract、角色一致性、分镜连续性、Voice-first Timeline、局部重做与最终合成；只有出现明确能力缺口时才接入新的 OPTIONAL Provider。
+

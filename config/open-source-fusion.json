@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "policy": {
+    "name": "best_of_breed_no_tool_hopping",
+    "orchestrator": "video_creator_native",
+    "one_primary_tool_per_capability": true,
+    "external_tools_are_adapters_or_references": true,
+    "local_first": true,
+    "paid_video_last_resort": true,
+    "human_final_publish_required": true
+  },
+  "capabilities": {
+    "writing": {
+      "primary_owner": "video_creator_writing_room",
+      "reference": "0xsline_short_drama"
+    },
+    "storyboard": {
+      "primary_owner": "video_creator_production_contract",
+      "reference": "seedance2_storyboard_generator"
+    },
+    "production_state": {
+      "primary_owner": "video_creator_repository",
+      "reference": "short_drama_production"
+    },
+    "video_generation": {
+      "primary_owner": "video_creator_provider_router",
+      "optional_providers": ["wan2_2", "hailuo_h3_manual"],
+      "default_paid_provider": null
+    },
+    "voice": {
+      "primary_owner": "video_creator_voice_timeline",
+      "timing_provider": "kokoro_or_local",
+      "optional_character_clone": "gpt_sovits"
+    },
+    "subtitle": {
+      "primary_owner": "video_creator_voice_timeline",
+      "external_media_helper": "video_captioner"
+    },
+    "editable_project": {
+      "primary_owner": "video_creator_modern_timeline",
+      "reference": "moyin_creator"
+    }
+  },
+  "references": {
+    "0xsline_short_drama": {
+      "repository": "https://github.com/0xsline/short-drama",
+      "commit": "8979a428c31a865421d661bdb606e24314b683a0",
+      "integration": "REFERENCE_RULES"
+    },
+    "seedance2_storyboard_generator": {
+      "repository": "https://github.com/liangdabiao/Seedance2-Storyboard-Generator",
+      "commit": "aceab4e277aa26cb33794fce6e17e5425ad721dd",
+      "integration": "REFERENCE_SCHEMA"
+    },
+    "short_drama_production": {
+      "repository": "https://github.com/suihe1/short-drama-production",
+      "commit": "dbd3310d92a68da532b432497a5b964d0383594f",
+      "integration": "REFERENCE_STATE_MODEL"
+    },
+    "wan2_2": {
+      "repository": "https://github.com/Wan-Video/Wan2.2",
+      "commit": "1ea34ff48f87168174e12956e200b1d908b1c5ff",
+      "integration": "OPTIONAL_VIDEO_PROVIDER"
+    },
+    "gpt_sovits": {
+      "repository": "https://github.com/RVC-Boss/GPT-SoVITS",
+      "commit": "48b1a0169a28582a8984402f82cf438d3bfa6aca",
+      "integration": "OPTIONAL_TTS_PROVIDER"
+    },
+    "video_captioner": {
+      "repository": "https://github.com/WEIFENG2333/VideoCaptioner",
+      "commit": "95842ecb5618c0b6a548a336bdfb0eb859bdb501",
+      "integration": "OPTIONAL_EXTERNAL_MEDIA_ASR"
+    },
+    "moyin_creator": {
+      "repository": "https://github.com/MemeCalculate/moyin-creator",
+      "commit": "7e5c5655de94d49885e13c369f0a71212893a0aa",
+      "integration": "REFERENCE_EDITABLE_PROJECT_UX"
+    }
+  },
+  "gates": {
+    "storyboard_approval_before_video": true,
+    "keyframe_approval_before_paid_video": true,
+    "h3_manual_approval_required": true,
+    "paid_call_confirmation_required": true,
+    "upload_authorization_required": true
+  }
+}

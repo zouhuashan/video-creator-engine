@@ -19,6 +19,10 @@ on:
       - "scripts/gpt_keyframe_pipeline.py"
       - "scripts/codex_keyframe_batch.py"
       - "scripts/cost_first_hybrid_router.py"
+      - "scripts/modern_drama_production_contract.py"
+      - "schemas/modern-drama-production-contract.schema.json"
+      - "config/open-source-fusion.json"
+      - "tests/test_modern_drama_production_contract.py"
       - "adapters/video_generation/__init__.py"
       - "adapters/video_generation/local_micro_motion.py"
       - "adapters/video_generation/local_scene_plate.py"
@@ -90,6 +94,7 @@ jobs:
             scripts/gpt_keyframe_pipeline.py \
             scripts/codex_keyframe_batch.py \
             scripts/cost_first_hybrid_router.py \
+            scripts/modern_drama_production_contract.py \
             adapters/video_generation/local_micro_motion.py \
             adapters/video_generation/local_scene_plate.py \
             adapters/video_generation/local_two_cut.py \
@@ -134,6 +139,7 @@ jobs:
             tests.test_gpt_keyframe_pipeline \
             tests.test_codex_keyframe_batch \
             tests.test_cost_first_hybrid_router \
+            tests.test_modern_drama_production_contract \
             tests.test_cost_first_video_generation_router \
             tests.test_cost_first_local_renderer \
             tests.test_local_scene_plate \
