@@ -397,6 +397,23 @@ def review_shot(
     return payload
 
 
+
+def require_render_gate(project: Path, shot_id: str) -> dict[str, Any]:
+    """Require current storyboard/keyframe approvals before any Shot renderer runs."""
+    payload = load_contract(project)
+    if payload.get("freshness") != "FRESH":
+        raise ModernDramaContractError("production contract is STALE; rebuild it before rendering")
+    shot = next((item for item in payload.get("shots", []) if item.get("shot_id") == str(shot_id)), None)
+    if shot is None:
+        raise ModernDramaContractError("unknown shot_id")
+    approvals = shot.get("approvals") or {}
+    if (approvals.get("storyboard") or {}).get("status") != "APPROVED":
+        raise ModernDramaContractError("storyboard approval is required before rendering")
+    keyframe = approvals.get("keyframe") or {}
+    if keyframe.get("required") is True and keyframe.get("status") != "APPROVED":
+        raise ModernDramaContractError("keyframe approval is required before rendering this Shot")
+    return shot
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("project_dir", type=Path)
