@@ -7,7 +7,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from scripts.modern_asset_library import ModernAssetLibraryError, load_library, register_asset
+from scripts.modern_asset_library import ModernAssetLibraryError, load_library, register_asset, review_asset
 from scripts.render_screen_mg import render_screen_mg
 from scripts.render_stock_broll import render_stock_broll
 from scripts.render_layered_25d import render_layered_25d
@@ -26,6 +26,27 @@ class ModernAssetAndScreenMGTest(unittest.TestCase):
             self.assertEqual(len(load_library(project)["assets"]), 1)
             with self.assertRaises(ModernAssetLibraryError):
                 register_asset(project, kind="character", entity_id="../bad", variant="front", extension=".png", content=output.getvalue())
+
+    def test_character_asset_requires_explicit_review(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            image = Image.new("RGB", (32, 32), "#334455")
+            output = io.BytesIO()
+            image.save(output, format="PNG")
+            item = register_asset(
+                project,
+                kind="character",
+                entity_id="CHAR-001",
+                variant="front",
+                expression="neutral",
+                extension=".png",
+                content=output.getvalue(),
+            )
+            self.assertEqual(item["review_status"], "PENDING")
+            approved = review_asset(project, item["path"], "APPROVED", "identity locked")
+            self.assertEqual(approved["review_status"], "APPROVED")
+            self.assertEqual(approved["review_note"], "identity locked")
+            self.assertEqual(load_library(project)["assets"][0]["review_status"], "APPROVED")
 
     @unittest.skipUnless(shutil.which("ffmpeg"), "FFmpeg required")
     def test_screen_mg_creates_local_video(self):
