@@ -638,6 +638,12 @@ def require_h3_approval(project: Path, shot_id: str) -> dict[str, Any]:
     reason = str(escalation.get("reason") or "").strip()
     if escalation.get("approved") is not True or str(escalation.get("status") or "") != "APPROVED" or len(reason) < 6:
         raise CostFirstRoutingError("P36 H3 is locked; approve the H3 candidate with a concrete reason first")
+    if load_render_profile(project) == "modern_low_cost":
+        from scripts.modern_drama_production_contract import ModernDramaContractError, require_ai_video_gate
+        try:
+            require_ai_video_gate(project, shot_id)
+        except ModernDramaContractError as error:
+            raise CostFirstRoutingError(f"modern AI video gate blocked H3: {error}") from error
     return route
 
 
