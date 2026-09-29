@@ -131,11 +131,18 @@ def _source_fingerprint(project: Path) -> str:
             "motion_strategy": shot.get("motion_strategy"),
             "renderer": shot.get("renderer"),
             "asset_paths": shot.get("asset_paths"),
+            "screen_mg": shot.get("screen_mg"),
             "timing_source": shot.get("timing_source"),
         }
         for shot in timeline.get("shots", [])
     ]
-    return _sha256({"state": _source_state(project), "routes": route_projection})
+    state = _source_state(project)
+    semantic_state = {
+        "script_revision": state["script_revision"],
+        "shot_breakdown_revision": state["shot_breakdown_revision"],
+        "route_updated_at": state["route_updated_at"],
+    }
+    return _sha256({"state": semantic_state, "routes": route_projection})
 
 
 def _shot_fingerprint(shot: dict[str, Any]) -> str:
