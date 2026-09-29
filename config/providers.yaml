@@ -15,7 +15,7 @@ selection:
 
 fallback:
   asr: [whisper_api, local_whisper, other]
-  tts: [fish_audio, elevenlabs, edge_tts, local]
+  tts: [gpt_sovits_local, fish_audio, elevenlabs, edge_tts, local]
   motion: static_infographic
   video_generation: [stock, screenshot, image_pan]
 
@@ -50,6 +50,13 @@ providers:
       voice: zm_010
       sample_rate: 24000
       num_threads: 2
+    gpt_sovits_local:
+      adapter: gpt_sovits_local
+      enabled: false
+      mode: local
+      credentials_required: false
+      endpoint: http://127.0.0.1:9880
+      voice_profiles_file: config/gpt-sovits-voices.json
     fish_audio:
       adapter: fish_audio
       enabled: true
