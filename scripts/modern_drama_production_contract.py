@@ -27,7 +27,7 @@ def _load_timeline(project: Path) -> dict[str, Any]:
     # Lazy import keeps contract primitives testable without loading render backends.
     from scripts.modern_editable_timeline import load_timeline
 
-    return _load_timeline(project)
+    return load_timeline(project)
 
 
 def canonical_asset_ref(kind: str, value: str) -> str:
