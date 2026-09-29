@@ -669,7 +669,41 @@ function routesField(key, shotId) { return [...document.querySelectorAll('[data-
 function renderModernAssets() {
   const assets = state.modernAssets?.assets || [];
   $('#modernAssetCount').textContent = assets.length + ' 项';
-  $('#modernAssetList').innerHTML = assets.length ? assets.map((item) => '<div>' + escapeHtml(item.kind) + ' · ' + escapeHtml(item.entity_id) + ' / ' + escapeHtml(item.variant) + (item.kind === 'character' ? ' / ' + escapeHtml(item.expression) : '') + '</div>').join('') : '暂无素材。登记后可按角色 ID、角度和表情复用。';
+  $('#modernAssetList').innerHTML = assets.length ? assets.map((item) => {
+    const status = item.review_status || 'PENDING';
+    const reviewButtons = item.kind === 'stock' ? '' :
+      '<span class="modern-asset-review-actions">' +
+      '<button class="secondary-button small-button" data-modern-asset-review="' + escapeHtml(item.path) + '" data-modern-asset-status="APPROVED">通过</button>' +
+      '<button class="ghost-button small-button" data-modern-asset-review="' + escapeHtml(item.path) + '" data-modern-asset-status="REJECTED">驳回</button></span>';
+    return '<div class="modern-asset-review-row"><span>' + escapeHtml(item.kind) + ' · ' + escapeHtml(item.entity_id) + ' / ' + escapeHtml(item.variant) +
+      (item.kind === 'character' ? ' / ' + escapeHtml(item.expression) : '') + '</span>' +
+      '<span class="pipeline-stage-status ' + (status === 'APPROVED' ? 'pass' : status === 'REJECTED' ? 'fail' : 'pending') + '">' + escapeHtml(status) + '</span>' +
+      reviewButtons + '</div>';
+  }).join('') : '暂无素材。登记后可按角色 ID、角度和表情复用。';
+  document.querySelectorAll('[data-modern-asset-review]').forEach((button) => button.addEventListener('click', () => reviewModernAsset(button)));
+}
+
+async function reviewModernAsset(button) {
+  const projectId = state.grayboxProjectId || state.costFirstProjectId;
+  const assetPath = button.dataset.modernAssetReview;
+  const reviewStatus = button.dataset.modernAssetStatus;
+  if (!projectId || !assetPath || !reviewStatus) return;
+  const note = window.prompt((reviewStatus === 'APPROVED' ? '通过' : '驳回') + '该素材的备注（可留空）：', '') ?? '';
+  button.disabled = true;
+  try {
+    const result = await api('/api/novel-anime/projects/' + encodeURIComponent(projectId) + '/modern-assets/review', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ asset_path: assetPath, status: reviewStatus, note }),
+    });
+    state.modernAssets = result.library;
+    renderModernAssets();
+    renderModernContract();
+    renderModernTimeline();
+    log('现代素材审核：' + assetPath + ' → ' + reviewStatus);
+  } catch (error) {
+    log('现代素材审核失败：' + error.message, true);
+    renderModernAssets();
+  }
 }
 
 async function loadModernAssets(projectId = state.grayboxProjectId || state.costFirstProjectId) {
