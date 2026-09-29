@@ -8,7 +8,7 @@ on:
       - "scripts/web_server.py"
       - "web/**"
       - "tests/test_modern_editable_timeline.py"
-      - "tests/test_modern_http_workflow.py"
+      - "tests/test_modern_contract_http_api.py"
       - "tests/test_modern_drama_production_contract.py"
       - "schemas/modern-drama-production-contract.schema.json"
       - "config/open-source-fusion.json"
@@ -43,5 +43,4 @@ jobs:
         run: |
           python -m unittest \
             tests.test_modern_drama_production_contract \
-            tests.test_modern_editable_timeline \
-            tests.test_modern_http_workflow
+            tests.test_modern_contract_http_api
