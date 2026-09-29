@@ -5326,3 +5326,29 @@ Narrative
 
 P44-06 首个现代 2～3 分钟试播继续作为总 NEXT。先用 2～4 个固定角色、少量固定场景和约 30～40 个 2～5 秒 Shot 验证 Production Contract、角色一致性、分镜连续性、Voice-first Timeline、局部重做与最终合成；只有出现明确能力缺口时才接入新的 OPTIONAL Provider。
 
+
+
+### P44-06B Character / Storyboard Hard Gate + GPT-SoVITS（2026-09-29）
+Status: IN_PROGRESS / BACKEND FIRST
+
+在 P44-06A 已锁定的 Best-of-Breed 架构上继续落地，不再增加第二套状态机。
+
+本增量目标：
+
+- Modern Asset Library 的角色/场景资产增加明确人工审核状态；新资产默认 `PENDING`，必须人工 `APPROVED` 才能用于昂贵 AI Video。
+- Provider-neutral Production Contract 的 `storyboard / keyframe / video` 审批从“只定义字段”升级为可持久化状态，并强制审批顺序：Storyboard → Keyframe → Video。
+- 上游 Script / Shot Breakdown / Timeline 变化导致 Contract `STALE` 时，旧审批不得继续放行。
+- `modern_low_cost` 的 H3 / AI_VIDEO 在原有 H3 人工升级、付费确认、上传授权之前，再增加 Character/Scene Asset + Storyboard + Keyframe 硬门；任何一项未通过都不得调用昂贵视频 Provider。
+- 接入 `GPT-SoVITS` 本地可选 TTS Adapter，只连接用户主动启动的 loopback API；不自动下载模型、不替换 Kokoro 默认 Timing/低成本配音。
+- GPT-SoVITS 只负责需要固定克隆声线的长期角色；更换 Final Voice 不允许静默改变已锁定 Shot Duration。
+- Wan 2.2 继续只登记为 OPTIONAL Provider；当前 Apple M5 / 16GB 不自动安装完整 Wan 2.2，本轮不把模型安装变成主任务。
+
+验收顺序：
+
+1. Contract approval 与 Asset approval 单测 PASS。
+2. H3/AI_VIDEO 在 modern_low_cost 下能被新门禁明确阻断/放行。
+3. GPT-SoVITS Adapter 仅 loopback、无计费、参考音频必须显式配置。
+4. 接入 Web：角色/场景资产“通过/驳回”；每 Shot “分镜通过 / 关键帧通过”；页面直接显示 AI Video blocker。
+5. 先做 30～45 秒现代样片：2 人、2 场景、8～12 Shot；角色身份、场景连续性、视线/blocking、剪辑节奏四项通过后，再扩 2～3 分钟。
+
+NEXT：先完成 P44-06B 后端门禁 + GPT-SoVITS Adapter + CI，再接 Web 审批按钮。
