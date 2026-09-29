@@ -3,6 +3,7 @@
 from .base import SynthesisResult, TTSProvider, TTSProviderError, validate_synthesis_request
 from .cache import CachedTTS, VoiceCacheError, voice_cache_key
 from .fish_audio import FishAudioTTS
+from .gpt_sovits_local import GPTSoVITSLocalTTS, load_voice_profiles
 from .kokoro_sherpa import (
     KOKORO_VOICE_TO_SID,
     KokoroSherpaTTS,
@@ -17,6 +18,7 @@ __all__ = [
     "FALLBACK_PROVIDERS",
     "PRIMARY_PROVIDER",
     "FishAudioTTS",
+    "GPTSoVITSLocalTTS",
     "KOKORO_VOICE_TO_SID",
     "KokoroSherpaTTS",
     "MacOSSayTTS",
@@ -33,4 +35,5 @@ __all__ = [
     "resolve_kokoro_voice",
     "validate_synthesis_request",
     "voice_cache_key",
+    "load_voice_profiles",
 ]
