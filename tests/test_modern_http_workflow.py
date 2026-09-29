@@ -55,6 +55,12 @@ class ModernHTTPWorkflowTest(unittest.TestCase):
                     shot_id = split["plan"]["routes"][0]["shot_id"]
                     edit = post(f"/modern-timeline/shots/{shot_id}/edit", {"motion_strategy": "SCREEN_MG", "screen_mg": {"template": "chat", "title": "消息", "lines": ["今晚见"]}})
                     self.assertEqual(edit["shot"]["status"], "DIRTY")
+                    contract = post("/modern-production-contract/build")
+                    selected = next(item for item in contract["shots"] if item["shot_id"] == shot_id)
+                    self.assertEqual(selected["approvals"]["keyframe"]["status"], "NOT_REQUIRED")
+                    approved = post("/modern-production-contract/review", {"shot_id": shot_id, "stage": "storyboard", "status": "APPROVED", "note": "http smoke"})
+                    selected = next(item for item in approved["shots"] if item["shot_id"] == shot_id)
+                    self.assertEqual(selected["approvals"]["storyboard"]["status"], "APPROVED")
                     rendered = post(f"/modern-timeline/shots/{shot_id}/rerender")
                     self.assertEqual(rendered["shot"]["status"], "PREVIEW_READY")
                     self.assertTrue((project / rendered["shot"]["preview"]["output"]).is_file())
