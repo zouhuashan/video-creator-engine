@@ -69,6 +69,7 @@ from scripts.modern_asset_library import ModernAssetLibraryError, load_library a
 from scripts.render_screen_mg import ScreenMGError, render_screen_mg  # noqa: E402
 from scripts.render_stock_broll import StockBrollError, render_stock_broll  # noqa: E402
 from scripts.modern_editable_timeline import ModernTimelineError, load_timeline as load_modern_timeline, update_shot as update_modern_timeline_shot, rerender_shot as rerender_modern_timeline_shot  # noqa: E402
+from scripts.modern_drama_production_contract import ModernDramaContractError, load_contract as load_modern_drama_contract, review_shot as review_modern_drama_shot, write_contract as write_modern_drama_contract  # noqa: E402
 from scripts.render_layered_25d import Layered25DError  # noqa: E402
 from scripts.modern_shot_breakdown import ModernShotBreakdownError, apply_modern_shot_breakdown  # noqa: E402
 from scripts.novel_story_review import NovelStoryReviewError, load_report as load_story_review, summary as story_review_summary  # noqa: E402
@@ -2488,6 +2489,13 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
             except (ValueError, ModernTimelineError, OSError) as error:
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
 
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/modern-production-contract", parsed.path)
+        if match:
+            try:
+                return self._json(load_modern_drama_contract(_safe_project(match.group(1))))
+            except (ValueError, ModernDramaContractError, OSError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.NOT_FOUND, str(error))
+
         match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/graybox/gpt-keyframes/codex-batch/logs", parsed.path)
         if match:
             try:
@@ -2976,6 +2984,26 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
             except Exception as error:
                 return self._error(HTTPStatus.INTERNAL_SERVER_ERROR, f"Codex VFX planning failed: {error}")
+
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/modern-production-contract/(build|review)", route)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                action = match.group(2)
+                if action == "build":
+                    result = write_modern_drama_contract(project)
+                else:
+                    payload = self._read_json(max_bytes=16 * 1024)
+                    result = review_modern_drama_shot(
+                        project,
+                        shot_id=str(payload.get("shot_id") or ""),
+                        stage=str(payload.get("stage") or ""),
+                        status=str(payload.get("status") or ""),
+                        note=str(payload.get("note") or ""),
+                    )
+                return self._json(result, HTTPStatus.CREATED)
+            except (ValueError, ModernDramaContractError, ModernTimelineError, OSError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
 
         match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/modern-timeline/shots/([^/]+)/(edit|rerender)", route)
         if match:
