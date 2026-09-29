@@ -65,6 +65,11 @@ def load_library(project: Path) -> dict[str, Any]:
         relative = Path(str(asset.get("path") or ""))
         if relative.is_absolute() or ".." in relative.parts or not str(relative).startswith(str(FILES) + "/"):
             raise ModernAssetLibraryError("asset path must stay inside project library")
+        review_status = str(asset.get("review_status") or "PENDING")
+        if review_status not in {"PENDING", "APPROVED", "REJECTED"}:
+            raise ModernAssetLibraryError("asset review_status is invalid")
+        asset.setdefault("review_status", review_status)
+        asset.setdefault("review_note", "")
     return payload
 
 
@@ -104,8 +109,27 @@ def register_asset(project: Path, *, kind: str, entity_id: str, variant: str, co
     library = load_library(project)
     key = (kind, entity_id, variant, expression)
     assets = [item for item in library["assets"] if (item["kind"], item["entity_id"], item["variant"], item["expression"]) != key]
-    item = {"kind": kind, "entity_id": entity_id, "variant": variant, "expression": expression, "path": relative.as_posix(), "sha256": digest, "bytes": len(content), "license_note": license_note if kind == "stock" else "", "created_at": utc_timestamp()}
+    item = {"kind": kind, "entity_id": entity_id, "variant": variant, "expression": expression, "path": relative.as_posix(), "sha256": digest, "bytes": len(content), "license_note": license_note if kind == "stock" else "", "created_at": utc_timestamp(), "review_status": "PENDING", "review_note": ""}
     assets.append(item)
     library.update({"assets": sorted(assets, key=lambda entry: (entry["kind"], entry["entity_id"], entry["variant"], entry["expression"])), "revision": int(library["revision"]) + 1, "updated_at": utc_timestamp()})
     _atomic(project / OUTPUT, library)
     return item
+
+
+def review_asset(project: Path, asset_path: str, status: str, note: str = "") -> dict[str, Any]:
+    project = Path(project).resolve()
+    status = str(status or "").strip().upper()
+    note = str(note or "").strip()
+    if status not in {"PENDING", "APPROVED", "REJECTED"}:
+        raise ModernAssetLibraryError("review status must be PENDING, APPROVED, or REJECTED")
+    library = load_library(project)
+    match = next((item for item in library["assets"] if item["path"] == asset_path), None)
+    if match is None:
+        raise ModernAssetLibraryError("unknown modern asset path")
+    match["review_status"] = status
+    match["review_note"] = note
+    match["reviewed_at"] = utc_timestamp() if status != "PENDING" else None
+    library["revision"] = int(library["revision"]) + 1
+    library["updated_at"] = utc_timestamp()
+    _atomic(project / OUTPUT, library)
+    return match
