@@ -1,4 +1,4 @@
-const state = { projects: [], animeProjects: [], project: null, providers: [], integrations: [], studio: null, readiness: null, backups: null, activeNovelProjectId: null, studioProjectId: null, imageStudio: null, imageStudioProjectId: null, imageStudioSelected: null, imageStudioProviderPreference: 'AUTO', imageStudioStylePreset: 'CINEMATIC_3D_DONGHUA', graybox: null, grayboxProjectId: null, grayboxPollTimer: null, gptKeyframes: null, gptKeyframePollTimer: null, gptCodexLogs: null, gptCodexLogsLoading: false, costFirstPlan: null, costFirstProjectId: null, modernAssets: null, modernTimeline: null, screenMGPreviews: {}, pipeline: null, pipelineProjectId: null, voiceTimeline: null, voiceTimelineProjectId: null, finalAudio: null, finalAudioProjectId: null, novelImportResult: null, selectedProvider: 'local_ken_burns', selectedImage: null, currentView: 'modern', currentWorkspace: 'overview' };
+const state = { projects: [], animeProjects: [], project: null, providers: [], integrations: [], studio: null, readiness: null, backups: null, activeNovelProjectId: null, studioProjectId: null, imageStudio: null, imageStudioProjectId: null, imageStudioSelected: null, imageStudioProviderPreference: 'AUTO', imageStudioStylePreset: 'CINEMATIC_3D_DONGHUA', graybox: null, grayboxProjectId: null, grayboxPollTimer: null, gptKeyframes: null, gptKeyframePollTimer: null, gptCodexLogs: null, gptCodexLogsLoading: false, costFirstPlan: null, costFirstProjectId: null, modernAssets: null, modernTimeline: null, modernContract: null, screenMGPreviews: {}, pipeline: null, pipelineProjectId: null, voiceTimeline: null, voiceTimelineProjectId: null, finalAudio: null, finalAudioProjectId: null, novelImportResult: null, selectedProvider: 'local_ken_burns', selectedImage: null, currentView: 'modern', currentWorkspace: 'overview' };
 const ACTIVE_NOVEL_PROJECT_KEY = 'videocreator.activeNovelProjectId.v1';
 const IMAGE_STYLE_PROJECT_KEY_PREFIX = 'videocreator.imageStylePreset.v2.';
 
@@ -38,6 +38,9 @@ function clearActiveNovelProject() {
   state.gptCodexLogsLoading = false;
   state.costFirstPlan = null;
   state.costFirstProjectId = null;
+  state.modernAssets = null;
+  state.modernTimeline = null;
+  state.modernContract = null;
   state.studio = null;
   state.pipeline = null;
   state.voiceTimeline = null;
@@ -675,6 +678,111 @@ async function loadModernAssets(projectId = state.grayboxProjectId || state.cost
   catch (error) { log('读取现代素材库失败：' + error.message, true); }
 }
 
+async function loadModernContract(projectId = state.grayboxProjectId || state.costFirstProjectId) {
+  if (!projectId) return;
+  try {
+    state.modernContract = await api('/api/novel-anime/projects/' + encodeURIComponent(projectId) + '/modern-production-contract');
+  } catch (_) {
+    state.modernContract = null;
+  }
+  renderModernContract();
+}
+
+function renderModernContract() {
+  const contract = state.modernContract;
+  const status = $('#modernContractStatus');
+  const summary = $('#modernContractSummary');
+  const editor = $('#modernContractEditor');
+  if (!status || !summary || !editor) return;
+  if (!contract) {
+    status.textContent = '未构建';
+    status.classList.add('off');
+    summary.textContent = '先构建 Production Contract；不会调用付费模型。';
+    editor.innerHTML = '<div class="empty-state">合同会把剧情意图、导演意图和技术执行拆开，并锁定逐镜审核状态。</div>';
+    return;
+  }
+  const fresh = contract.freshness || 'FRESH';
+  status.textContent = fresh;
+  status.classList.toggle('off', fresh !== 'FRESH');
+  const stages = contract.summary?.stages || {};
+  const stageText = (name, label) => {
+    const item = stages[name] || {};
+    return label + ' ' + Number(item.approved || 0) + '/' + Number(item.required || 0);
+  };
+  summary.textContent = Number(contract.summary?.shot_count || contract.shots?.length || 0) + ' Shot · ' +
+    stageText('storyboard', '分镜') + ' · ' + stageText('keyframe', '关键帧') + ' · ' + stageText('video', '视频') +
+    (fresh === 'STALE' ? ' · 上游已变化，请刷新合同' : '');
+
+  const selectedId = $('#modernTimelineShot')?.value || contract.shots?.[0]?.shot_id;
+  const shot = (contract.shots || []).find((item) => item.shot_id === selectedId);
+  if (!shot) {
+    editor.innerHTML = '<div class="empty-state">选择一个镜头查看 Production Contract。</div>';
+    return;
+  }
+  const approvalCard = (stage, label) => {
+    const item = shot.approvals?.[stage] || {};
+    if (item.required === false) return '<div class="modern-contract-stage"><strong>' + label + '</strong><span>NOT REQUIRED</span></div>';
+    const disabled = fresh !== 'FRESH' ? ' disabled' : '';
+    return '<div class="modern-contract-stage"><strong>' + label + '</strong><span>' + escapeHtml(item.status || 'PENDING') + '</span>' +
+      '<div><button class="secondary-button small-button" data-contract-review="' + stage + '" data-contract-status="APPROVED"' + disabled + '>通过</button>' +
+      '<button class="ghost-button small-button" data-contract-review="' + stage + '" data-contract-status="REJECTED"' + disabled + '>退回</button></div></div>';
+  };
+  const intent = shot.director_intent || {};
+  editor.innerHTML =
+    '<div class="modern-contract-shot-head"><strong>' + escapeHtml(shot.shot_id) + '</strong><span>' + escapeHtml((shot.shot_fingerprint || '').slice(0, 10)) + '</span></div>' +
+    '<p>' + escapeHtml(shot.narrative?.source_text || '') + '</p>' +
+    '<div class="modern-contract-intent"><span>目的：' + escapeHtml(shot.narrative?.story_purpose || '—') + '</span>' +
+    '<span>景别：' + escapeHtml(intent.shot_size || '—') + '</span><span>机位：' + escapeHtml(intent.camera_angle || '—') + '</span>' +
+    '<span>运镜：' + escapeHtml(intent.camera_movement || '—') + '</span><span>连续自：' + escapeHtml(intent.continuity_from || '首镜') + '</span>' +
+    '<span>路线：' + escapeHtml(shot.technical_execution?.motion_strategy || '—') + ' / ' + escapeHtml(shot.technical_execution?.renderer || '—') + '</span></div>' +
+    '<div class="modern-contract-assets">资产：' + escapeHtml((shot.asset_refs || []).join(' · ') || '暂无锁定资产') + '</div>' +
+    '<div class="modern-contract-stages">' + approvalCard('storyboard', 'Storyboard') + approvalCard('keyframe', 'Keyframe') + approvalCard('video', 'Video') + '</div>';
+  editor.querySelectorAll('[data-contract-review]').forEach((button) => button.addEventListener('click', () => reviewModernContract(button)));
+}
+
+async function buildModernContract() {
+  const projectId = state.grayboxProjectId || state.costFirstProjectId;
+  const button = $('#modernContractBuild');
+  if (!projectId) return;
+  button.disabled = true;
+  button.textContent = '正在构建…';
+  try {
+    state.modernContract = await api('/api/novel-anime/projects/' + encodeURIComponent(projectId) + '/modern-production-contract/build', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+    });
+    renderModernContract();
+    renderModernTimeline();
+    log('Production Contract 已按当前 Script / Shot / Timeline 刷新；未调用付费服务。');
+  } catch (error) {
+    log('Production Contract 构建失败：' + error.message, true);
+  } finally {
+    button.disabled = false;
+    button.textContent = '构建 / 刷新合同';
+  }
+}
+
+async function reviewModernContract(button) {
+  const projectId = state.grayboxProjectId || state.costFirstProjectId;
+  const shotId = $('#modernTimelineShot')?.value;
+  if (!projectId || !shotId) return;
+  const stage = button.dataset.contractReview;
+  const reviewStatus = button.dataset.contractStatus;
+  const note = window.prompt((reviewStatus === 'APPROVED' ? '通过' : '退回') + ' ' + stage + ' 备注（可留空）：', '') ?? '';
+  button.disabled = true;
+  try {
+    state.modernContract = await api('/api/novel-anime/projects/' + encodeURIComponent(projectId) + '/modern-production-contract/review', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ shot_id: shotId, stage, status: reviewStatus, note }),
+    });
+    renderModernContract();
+    renderModernTimeline();
+    log(shotId + ' · ' + stage + ' → ' + reviewStatus);
+  } catch (error) {
+    log('Production Contract 审核失败：' + error.message, true);
+    renderModernContract();
+  }
+}
+
 async function loadModernTimeline(projectId = state.grayboxProjectId || state.costFirstProjectId) {
   if (!projectId) return;
   try { state.modernTimeline = await api('/api/novel-anime/projects/' + encodeURIComponent(projectId) + '/modern-timeline'); renderModernTimeline(); }
@@ -717,7 +825,16 @@ function renderModernTimeline() {
     '<label>屏幕内容（一行一条）<textarea id="timelineScreenLines">' + escapeHtml((screen.lines || []).join('\n')) + '</textarea></label></div>' +
     '<div class="modern-timeline-buttons"><button class="secondary-button" id="timelineSaveShot">保存本镜头</button><button class="primary-button" id="timelineRerenderShot">仅重做本镜头</button></div>' + preview;
   $('#timelineSaveShot').addEventListener('click', saveModernTimelineShot);
-  $('#timelineRerenderShot').addEventListener('click', rerenderModernTimelineShot);
+  const contractShot = (state.modernContract?.shots || []).find((item) => item.shot_id === shot.shot_id);
+  const storyboardOk = contractShot?.approvals?.storyboard?.status === 'APPROVED';
+  const keyframe = contractShot?.approvals?.keyframe || {};
+  const keyframeOk = keyframe.required === false || keyframe.status === 'APPROVED';
+  const contractFresh = state.modernContract?.freshness === 'FRESH';
+  const rerenderButton = $('#timelineRerenderShot');
+  rerenderButton.disabled = !(contractFresh && storyboardOk && keyframeOk);
+  rerenderButton.title = rerenderButton.disabled ? '先刷新合同并通过 Storyboard / 必要 Keyframe 审核' : '只重做当前镜头';
+  rerenderButton.addEventListener('click', rerenderModernTimelineShot);
+  renderModernContract();
 }
 
 async function saveModernTimelineShot() {
@@ -727,7 +844,10 @@ async function saveModernTimelineShot() {
   const changes = { motion_strategy: $('#timelineStrategy').value, duration_seconds: Number($('#timelineDuration').value), asset_paths: selectedAssets, screen_mg: { template: $('#timelineScreenTemplate').value, title: $('#timelineScreenTitle').value.trim(), lines: $('#timelineScreenLines').value.split('\n').map((line) => line.trim()).filter(Boolean) } };
   try {
     const result = await api('/api/novel-anime/projects/' + encodeURIComponent(projectId) + '/modern-timeline/shots/' + encodeURIComponent(shotId) + '/edit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(changes) });
-    state.modernTimeline = result.timeline; renderModernTimeline(); log(shotId + ' 已保存；其他镜头没有重跑。');
+    state.modernTimeline = result.timeline;
+    await loadModernContract(projectId);
+    renderModernTimeline();
+    log(shotId + ' 已保存；Production Contract 会显示 STALE，刷新后只重置受影响镜头审核。');
   } catch (error) { log('保存镜头失败：' + error.message, true); }
 }
 
@@ -737,7 +857,10 @@ async function rerenderModernTimelineShot() {
   const button = $('#timelineRerenderShot'); button.disabled = true; button.textContent = '仅重做本镜头…';
   try {
     const result = await api('/api/novel-anime/projects/' + encodeURIComponent(projectId) + '/modern-timeline/shots/' + encodeURIComponent(shotId) + '/rerender', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-    state.modernTimeline = result.timeline; renderModernTimeline(); log(shotId + ' 本地预览已重做；其他镜头未变化。');
+    state.modernTimeline = result.timeline;
+    await loadModernContract(projectId);
+    renderModernTimeline();
+    log(shotId + ' 本地预览已重做；其他镜头未变化。');
   } catch (error) { log('镜头返工失败：' + error.message, true); button.disabled = false; button.textContent = '仅重做本镜头'; }
 }
 
@@ -836,6 +959,7 @@ async function loadCostFirstPlan(projectId = state.grayboxProjectId || state.cos
   renderCostFirstPlan();
   await loadModernAssets(projectId);
   await loadModernTimeline(projectId);
+  await loadModernContract(projectId);
 }
 
 async function rebuildCostFirstPlan() {
@@ -4247,6 +4371,7 @@ $('#costFirstRebuild').addEventListener('click', rebuildCostFirstPlan);
 $('#modernSplitShots').addEventListener('click', splitModernShots);
 $('#modernAssetRegister').addEventListener('click', registerModernAsset);
 $('#modernProjectSelect').addEventListener('change', (event) => { const projectId = setActiveNovelProject(event.target.value); if (projectId) loadCostFirstPlan(projectId); });
+$('#modernContractBuild').addEventListener('click', buildModernContract);
 $('#modernTimelineRefresh').addEventListener('click', () => loadModernTimeline());
 $('#modernTimelineEpisode').addEventListener('change', renderModernTimeline);
 $('#modernTimelineShot').addEventListener('change', renderModernTimeline);
