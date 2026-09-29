@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from scripts.cost_first_hybrid_router import load_plan, load_render_profile
+from scripts.modern_asset_library import approved_entities
 from scripts.novel_episode_script import load_script_package
 from scripts.novel_shot_breakdown import load_shot_breakdown
 
@@ -260,6 +261,103 @@ def load_contract(project: Path) -> dict[str, Any]:
     current = _source_fingerprint(project)
     payload["freshness"] = "FRESH" if saved == current else "STALE"
     return payload
+
+
+APPROVAL_STAGES = ("storyboard", "keyframe", "video")
+APPROVAL_STATUSES = ("PENDING", "APPROVED", "REJECTED")
+
+
+def _contract_shot(payload: dict[str, Any], shot_id: str) -> dict[str, Any]:
+    shot_id = str(shot_id or "").strip()
+    if not shot_id:
+        raise ModernDramaContractError("shot_id is required")
+    shot = next((item for item in payload.get("shots", []) if item.get("shot_id") == shot_id), None)
+    if shot is None:
+        raise ModernDramaContractError(f"unknown shot_id: {shot_id}")
+    return shot
+
+
+def set_shot_approval(
+    project: Path,
+    shot_id: str,
+    stage: str,
+    status: str,
+    note: str = "",
+) -> dict[str, Any]:
+    """Persist one approval decision while enforcing stage order."""
+    project = Path(project).expanduser().resolve()
+    stage = str(stage or "").strip().lower()
+    status = str(status or "").strip().upper()
+    note = str(note or "").strip()
+    if stage not in APPROVAL_STAGES:
+        raise ModernDramaContractError("approval stage must be storyboard, keyframe, or video")
+    if status not in APPROVAL_STATUSES:
+        raise ModernDramaContractError("approval status must be PENDING, APPROVED, or REJECTED")
+    payload = load_contract(project)
+    if payload.get("freshness") != "FRESH":
+        raise ModernDramaContractError("production contract is STALE; rebuild before approving")
+    payload.pop("freshness", None)
+    shot = _contract_shot(payload, shot_id)
+    approvals = shot["approvals"]
+    if status == "APPROVED" and stage == "keyframe" and approvals["storyboard"]["status"] != "APPROVED":
+        raise ModernDramaContractError("keyframe approval requires storyboard approval first")
+    if status == "APPROVED" and stage == "video" and approvals["keyframe"]["status"] != "APPROVED":
+        raise ModernDramaContractError("video approval requires keyframe approval first")
+    approvals[stage] = {"required": True, "status": status, "note": note}
+    if stage == "storyboard" and status != "APPROVED":
+        approvals["keyframe"] = _approval()
+        approvals["video"] = _approval()
+    elif stage == "keyframe" and status != "APPROVED":
+        approvals["video"] = _approval()
+    _atomic_json(project / OUTPUT, payload)
+    return shot
+
+
+def production_gate(project: Path, shot_id: str) -> dict[str, Any]:
+    """Evaluate the hard gate before any expensive modern AI video call."""
+    project = Path(project).expanduser().resolve()
+    payload = load_contract(project)
+    blockers: list[str] = []
+    if payload.get("freshness") != "FRESH":
+        blockers.append("production contract is STALE")
+    shot = _contract_shot(payload, shot_id)
+    approvals = shot.get("approvals") or {}
+    if (approvals.get("storyboard") or {}).get("status") != "APPROVED":
+        blockers.append("storyboard is not approved")
+    if (approvals.get("keyframe") or {}).get("status") != "APPROVED":
+        blockers.append("keyframe is not approved")
+
+    character_refs = {
+        ref[2:]
+        for ref in shot.get("asset_refs", [])
+        if isinstance(ref, str) and ref.startswith("C:")
+    }
+    scene_refs = {
+        ref[2:]
+        for ref in shot.get("asset_refs", [])
+        if isinstance(ref, str) and ref.startswith("S:")
+    }
+    approved_characters = approved_entities(project, "character")
+    approved_scenes = approved_entities(project, "scene")
+    for character_id in sorted(character_refs - approved_characters):
+        blockers.append(f"character asset not approved: {character_id}")
+    for scene_id in sorted(scene_refs - approved_scenes):
+        blockers.append(f"scene asset not approved: {scene_id}")
+    return {
+        "ready": not blockers,
+        "shot_id": shot_id,
+        "freshness": payload.get("freshness"),
+        "blockers": blockers,
+        "character_refs": sorted(character_refs),
+        "scene_refs": sorted(scene_refs),
+    }
+
+
+def require_ai_video_ready(project: Path, shot_id: str) -> dict[str, Any]:
+    result = production_gate(project, shot_id)
+    if not result["ready"]:
+        raise ModernDramaContractError("; ".join(result["blockers"]))
+    return result
 
 
 def main() -> int:
