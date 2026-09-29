@@ -12,6 +12,7 @@ from typing import Any
 
 from adapters.video_generation import LocalMicroMotionVideo, LocalScenePlateVideo, VideoGenerationRequest
 from scripts.cost_first_hybrid_router import MOTION_STRATEGIES, load_plan
+from scripts.modern_drama_production_contract import require_render_gate
 from scripts.modern_asset_library import load_library
 from scripts.novel_episode_script import load_script_package
 from scripts.render_screen_mg import render_screen_mg
@@ -144,6 +145,7 @@ def update_shot(project: Path, shot_id: str, changes: dict[str, Any]) -> dict[st
 
 def rerender_shot(project: Path, shot_id: str) -> dict[str, Any]:
     project = Path(project).resolve()
+    require_render_gate(project, shot_id)
     shot = next((item for item in load_timeline(project)["shots"] if item["shot_id"] == shot_id), None)
     if shot is None:
         raise ModernTimelineError("unknown shot_id")
