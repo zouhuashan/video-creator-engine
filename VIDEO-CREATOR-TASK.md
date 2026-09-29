@@ -5326,3 +5326,42 @@ Narrative
 
 P44-06 首个现代 2～3 分钟试播继续作为总 NEXT。先用 2～4 个固定角色、少量固定场景和约 30～40 个 2～5 秒 Shot 验证 Production Contract、角色一致性、分镜连续性、Voice-first Timeline、局部重做与最终合成；只有出现明确能力缺口时才接入新的 OPTIONAL Provider。
 
+
+
+---
+
+## P45 Open-Source Drama Fusion（2026-09-29）
+
+Status: IN_PROGRESS
+
+方向：不再把多个开源项目整包串联成“工具搬运链”。VideoCreator Engine 继续作为唯一总控，每个生产阶段只保留一个主实现；外部项目只吸收最成熟的规则、数据契约或作为可替换 Provider。
+
+本阶段融合来源与职责：
+
+- `0xsline/short-drama`：吸收短剧编剧、分集、Hook、自检方法，不替换现有 Writing Room / Episode Script。
+- `Seedance2-Storyboard-Generator`：吸收结构化分镜字段与镜头语言，不替换现有 Shot Breakdown / Storyboard。
+- `suihe1/short-drama-production`：吸收导演制状态机、样片审批、批量前人工门，不引入第二套总控。
+- `Wan-Video/Wan2.2`：登记为可选本地/独立 GPU 视频 Provider；当前 Apple M5 16GB 不作为默认生产路线。
+- `RVC-Boss/GPT-SoVITS`：接入本地可选 Voice Clone Provider；默认仍保持零成本 Kokoro Timing/普通配音路线。
+- `WEIFENG2333/VideoCaptioner`：只作为字幕/ASR 对齐与 QC 备选，不覆盖现有 Voice-First → SRT/ASS 主链。
+- `MemeCalculate/moyin-creator`：吸收 Editable Project / Multi-track Timeline / 局部返工思想，不替换现有 Modern Editable Timeline。
+
+强制规则：
+
+1. 角色资产未锁定/未人工通过，不允许进入昂贵 AI Video。
+2. Storyboard / Shot 未人工通过，不允许进入昂贵 AI Video。
+3. 一个阶段只允许一个默认主实现；其它工具只作为 Provider / QC / Reference。
+4. 所有外部依赖固定 commit；默认不自动安装大型模型或整套应用。
+5. Modern Low Cost 继续以本地/复用优先，Wan/H3 等视频模型只处理本地无法完成的连续动作。
+6. 最终发布继续人工确认。
+
+执行顺序：
+
+- P45-01：Open Source Fusion Registry + Shot Production Gate。
+- P45-02：GPT-SoVITS 本地 TTS Adapter（可选，不改变默认 Kokoro）。
+- P45-03：把 Character Lock + Storyboard Approval Gate 接入 Modern Web 的 AI_VIDEO/H3 入口。
+- P45-04：在具备独立高显存 GPU 的机器上再接 Wan 2.2 Local Provider；Apple M5 16GB 不自动安装。
+- P45-05：VideoCaptioner 只做字幕/ASR QC fallback；不做主字幕链。
+- P45-06：现代 30～45 秒、2 人/2 场景/8～12 Shot 样片先过身份一致性、场景连续性和镜头语言，再扩 2～3 分钟。
+
+NEXT：完成 P45-01/P45-02 的代码、测试和依赖固定；随后再接 Web 门禁，不批量扩集、不自动安装 Wan 2.2。
