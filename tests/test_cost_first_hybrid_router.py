@@ -172,7 +172,7 @@ class CostFirstHybridRouterTests(unittest.TestCase):
         with patch.object(router, "load_plan", return_value=approved), \
              patch.object(router, "load_render_profile", return_value="modern_low_cost"), \
              patch("scripts.modern_drama_production_contract.require_ai_video_gate", side_effect=ModernDramaContractError("character asset not approved")):
-            with self.assertRaisesRegex(router.CostFirstRoutingError, "production gate"):
+            with self.assertRaisesRegex(router.CostFirstRoutingError, "AI video gate"):
                 router.require_h3_approval(Path("/tmp/demo"), "SHOT-H3")
 
     def test_zero_shots_are_blocked_instead_of_misleading_planned_state(self):
