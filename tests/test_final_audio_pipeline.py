@@ -29,6 +29,21 @@ class FakeFish:
         return result
 
 
+class FakeGPT:
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+
+    def synthesize(self, text, voice, speed=1.0, emotion=None):
+        result = FakeSynthesis()
+        result.provider = "gpt_sovits_local"
+        result.audio_format = "wav"
+        result.billable_generation = False
+        result.voice = voice
+        result.speed = speed
+        result.emotion = emotion
+        return result
+
+
 class FinalAudioPipelineTests(unittest.TestCase):
     def voice_profiles(self):
         return {
@@ -155,6 +170,60 @@ class FinalAudioPipelineTests(unittest.TestCase):
             self.assertEqual(item["output_duration_seconds"], 1.5)
             self.assertEqual(item["voice_id"], "fish-narrator-1")
             self.assertEqual(item["provider"], "fish_audio")
+
+    def test_gpt_sovits_local_final_voice_needs_no_billable_or_upload_confirmation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            self.write_ready_timeline(project)
+            with patch.object(final_audio, "load_voice_profiles", return_value=self.voice_profiles()), \
+                 patch.object(final_audio, "load_bible", return_value=self.bible()):
+                final_audio.save_voice_lock(
+                    project,
+                    character_id="NARRATOR",
+                    voice_id="narrator-local",
+                    provider="gpt_sovits_local",
+                )
+
+                def fake_conform(source, output, target_seconds):
+                    output.parent.mkdir(parents=True, exist_ok=True)
+                    output.write_bytes(b"RIFF")
+                    return {
+                        "source_duration_seconds": 1.8,
+                        "target_duration_seconds": target_seconds,
+                        "speed_ratio": 1.2,
+                        "output_duration_seconds": target_seconds,
+                    }
+
+                with patch.object(final_audio, "_gpt_sovits_profiles", return_value={"narrator-local": {"ref_audio_path": "/tmp/ref.wav"}}), \
+                     patch.object(final_audio, "GPTSoVITSLocalTTS", FakeGPT), \
+                     patch.object(final_audio, "_conform_audio", side_effect=fake_conform):
+                    item = final_audio.generate_final_voice_line(
+                        project,
+                        "S01E001",
+                        "UNIT-001",
+                        api_key="",
+                        confirm_billable=False,
+                        text_upload_authorized=False,
+                    )
+
+            self.assertEqual(item["provider"], "gpt_sovits_local")
+            self.assertEqual(item["voice_id"], "narrator-local")
+            self.assertFalse(item["billable_generation"])
+            self.assertEqual(item["target_duration_seconds"], 1.5)
+
+    def test_voice_lock_accepts_gpt_sovits_profile_name(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            with patch.object(final_audio, "load_voice_profiles", return_value=self.voice_profiles()), \
+                 patch.object(final_audio, "load_bible", return_value=self.bible()):
+                locks = final_audio.save_voice_lock(
+                    project,
+                    character_id="CHR-001",
+                    voice_id="hero-v1",
+                    provider="gpt_sovits_local",
+                )
+            self.assertEqual(locks["characters"][0]["provider"], "gpt_sovits_local")
+            self.assertEqual(locks["characters"][0]["voice_id"], "hero-v1")
 
     def test_mix_graph_ducks_bgm_and_applies_loudness_target(self):
         lines = [
