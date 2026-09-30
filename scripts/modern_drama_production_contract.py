@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from scripts.cost_first_hybrid_router import load_plan, load_render_profile
+from scripts.modern_asset_library import approved_entities
 from scripts.novel_episode_script import load_script_package
 from scripts.novel_shot_breakdown import load_shot_breakdown
 
@@ -420,6 +421,32 @@ def require_render_gate(project: Path, shot_id: str) -> dict[str, Any]:
     if keyframe.get("required") is True and keyframe.get("status") != "APPROVED":
         raise ModernDramaContractError("keyframe approval is required before rendering this Shot")
     return shot
+
+
+def require_ai_video_gate(project: Path, shot_id: str) -> dict[str, Any]:
+    """Require approved identity/scene assets in addition to Shot review gates."""
+    project = Path(project).expanduser().resolve()
+    shot = require_render_gate(project, shot_id)
+    character_refs = {
+        str(ref)[2:]
+        for ref in shot.get("asset_refs", [])
+        if isinstance(ref, str) and ref.startswith("C:")
+    }
+    scene_refs = {
+        str(ref)[2:]
+        for ref in shot.get("asset_refs", [])
+        if isinstance(ref, str) and ref.startswith("S:")
+    }
+    approved_characters = approved_entities(project, "character")
+    approved_scenes = approved_entities(project, "scene")
+    blockers = [
+        *(f"character asset not approved: {item}" for item in sorted(character_refs - approved_characters)),
+        *(f"scene asset not approved: {item}" for item in sorted(scene_refs - approved_scenes)),
+    ]
+    if blockers:
+        raise ModernDramaContractError("; ".join(blockers))
+    return shot
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)

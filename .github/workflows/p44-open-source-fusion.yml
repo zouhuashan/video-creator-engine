@@ -4,12 +4,25 @@ on:
   pull_request:
     paths:
       - "scripts/modern_drama_production_contract.py"
+      - "scripts/modern_asset_library.py"
       - "scripts/modern_editable_timeline.py"
+      - "scripts/cost_first_hybrid_router.py"
+      - "scripts/final_audio_pipeline.py"
       - "scripts/web_server.py"
+      - "adapters/tts/gpt_sovits_local.py"
+      - "adapters/tts/__init__.py"
+      - "adapters/tts/router.py"
+      - "config/gpt-sovits-voices.json"
+      - "config/providers.yaml"
       - "web/**"
       - "tests/test_modern_editable_timeline.py"
       - "tests/test_modern_contract_http_api.py"
       - "tests/test_modern_drama_production_contract.py"
+      - "tests/test_modern_asset_review.py"
+      - "tests/test_cost_first_hybrid_router.py"
+      - "tests/test_gpt_sovits_local.py"
+      - "tests/test_final_audio_pipeline.py"
+      - "tests/test_tts_provider.py"
       - "schemas/modern-drama-production-contract.schema.json"
       - "config/open-source-fusion.json"
       - "docs/OPEN-SOURCE-FUSION.md"
@@ -23,7 +36,7 @@ permissions:
 jobs:
   contract-regression:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -34,13 +47,12 @@ jobs:
       - name: Validate JSON
         run: |
           python -m json.tool config/open-source-fusion.json >/dev/null
+          python -m json.tool config/gpt-sovits-voices.json >/dev/null
           python -m json.tool schemas/modern-drama-production-contract.schema.json >/dev/null
       - name: Compile modern production path
         run: |
-          python -m py_compile scripts/modern_drama_production_contract.py scripts/modern_editable_timeline.py scripts/web_server.py
+          python -m py_compile             scripts/modern_drama_production_contract.py             scripts/modern_asset_library.py             scripts/modern_editable_timeline.py             scripts/cost_first_hybrid_router.py             scripts/final_audio_pipeline.py             scripts/web_server.py             adapters/tts/gpt_sovits_local.py
           node --check web/app.js
-      - name: Run modern production tests
+      - name: Run focused regression
         run: |
-          python -m unittest \
-            tests.test_modern_drama_production_contract \
-            tests.test_modern_contract_http_api
+          python -m unittest             tests.test_modern_drama_production_contract             tests.test_modern_contract_http_api             tests.test_modern_asset_review             tests.test_cost_first_hybrid_router             tests.test_gpt_sovits_local             tests.test_final_audio_pipeline             tests.test_tts_provider

@@ -12,7 +12,7 @@ from typing import Any
 
 from adapters.video_generation import LocalMicroMotionVideo, LocalScenePlateVideo, VideoGenerationRequest
 from scripts.cost_first_hybrid_router import MOTION_STRATEGIES, load_plan
-from scripts.modern_drama_production_contract import require_render_gate
+from scripts.modern_drama_production_contract import require_ai_video_gate, require_render_gate
 from scripts.modern_asset_library import load_library
 from scripts.novel_episode_script import load_script_package
 from scripts.render_screen_mg import render_screen_mg
@@ -153,7 +153,11 @@ def rerender_shot(project: Path, shot_id: str) -> dict[str, Any]:
     assets = {item["path"]: item for item in load_library(project)["assets"]}
     selected = shot["asset_paths"]
     if strategy == "AI_VIDEO":
-        raise ModernTimelineError("AI Video remains manual and requires human approval; no paid call was made")
+        try:
+            require_ai_video_gate(project, shot_id)
+        except ValueError as error:
+            raise ModernTimelineError(f"AI Video production gate blocked: {error}") from error
+        raise ModernTimelineError("AI Video gate passed, but paid generation remains manual; no paid call was made")
     if strategy == "SCREEN_MG":
         spec = shot["screen_mg"]
         result = render_screen_mg(project, shot_id=shot_id, kind=str(spec.get("template") or "chat"), title=str(spec.get("title") or ""), lines=spec.get("lines"), duration_seconds=shot["duration_seconds"])

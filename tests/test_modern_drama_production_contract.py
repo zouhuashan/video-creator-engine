@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
+from unittest.mock import patch
 
 from scripts.modern_drama_production_contract import (
     ModernDramaContractError,
@@ -9,6 +11,7 @@ from scripts.modern_drama_production_contract import (
     _review_gate,
     _sha256,
     canonical_asset_ref,
+    require_ai_video_gate,
 )
 
 
@@ -51,6 +54,46 @@ class ModernDramaProductionContractTests(unittest.TestCase):
         approvals = _preserved_approvals(None, "x", keyframe_required=False)
         self.assertEqual(approvals["keyframe"]["status"], "NOT_REQUIRED")
         self.assertFalse(approvals["keyframe"]["required"])
+
+    def test_ai_video_gate_requires_approved_identity_and_scene_assets(self) -> None:
+        shot = {
+            "shot_id": "SHOT-001",
+            "asset_refs": ["C:CHAR-001", "S:SCENE-001"],
+            "approvals": {
+                "storyboard": {"required": True, "status": "APPROVED", "note": ""},
+                "keyframe": {"required": True, "status": "APPROVED", "note": ""},
+                "video": {"required": True, "status": "PENDING", "note": ""},
+            },
+        }
+        with patch(
+            "scripts.modern_drama_production_contract.require_render_gate",
+            return_value=shot,
+        ), patch(
+            "scripts.modern_drama_production_contract.approved_entities",
+            side_effect=lambda _project, kind: {"CHAR-001"} if kind == "character" else set(),
+        ):
+            with self.assertRaisesRegex(ModernDramaContractError, "scene asset not approved"):
+                require_ai_video_gate(Path("/tmp/demo"), "SHOT-001")
+
+    def test_ai_video_gate_passes_after_character_and_scene_assets_are_approved(self) -> None:
+        shot = {
+            "shot_id": "SHOT-001",
+            "asset_refs": ["C:CHAR-001", "S:SCENE-001"],
+            "approvals": {
+                "storyboard": {"required": True, "status": "APPROVED", "note": ""},
+                "keyframe": {"required": True, "status": "APPROVED", "note": ""},
+                "video": {"required": True, "status": "PENDING", "note": ""},
+            },
+        }
+        with patch(
+            "scripts.modern_drama_production_contract.require_render_gate",
+            return_value=shot,
+        ), patch(
+            "scripts.modern_drama_production_contract.approved_entities",
+            side_effect=lambda _project, kind: {"CHAR-001"} if kind == "character" else {"SCENE-001"},
+        ):
+            result = require_ai_video_gate(Path("/tmp/demo"), "SHOT-001")
+        self.assertEqual(result["shot_id"], "SHOT-001")
 
     def test_review_gate_enforces_stage_order(self) -> None:
         shot = {

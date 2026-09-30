@@ -4,6 +4,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import scripts.cost_first_hybrid_router as router
+from scripts.modern_drama_production_contract import ModernDramaContractError
 
 
 class CostFirstHybridRouterTests(unittest.TestCase):
@@ -158,6 +159,21 @@ class CostFirstHybridRouterTests(unittest.TestCase):
             route = router.require_h3_approval(Path("/tmp/demo"), "SHOT-H3")
         self.assertEqual(route["duration_seconds"], 4.2)
 
+
+    def test_h3_modern_low_cost_requires_ai_video_production_gate(self):
+        approved = {
+            "routes": [{
+                "shot_id": "SHOT-H3",
+                "route": "H3_CANDIDATE",
+                "duration_seconds": 4.2,
+                "h3_escalation": {"status": "APPROVED", "approved": True, "reason": "连续挥剑过程必须可见"},
+            }]
+        }
+        with patch.object(router, "load_plan", return_value=approved), \
+             patch.object(router, "load_render_profile", return_value="modern_low_cost"), \
+             patch("scripts.modern_drama_production_contract.require_ai_video_gate", side_effect=ModernDramaContractError("character asset not approved")):
+            with self.assertRaisesRegex(router.CostFirstRoutingError, "AI video gate"):
+                router.require_h3_approval(Path("/tmp/demo"), "SHOT-H3")
 
     def test_zero_shots_are_blocked_instead_of_misleading_planned_state(self):
         empty_shots = {"revision": 1, "scene_breakdowns": []}

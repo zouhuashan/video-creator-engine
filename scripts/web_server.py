@@ -65,7 +65,7 @@ from scripts.novel_episode_planning import NovelEpisodePlanningError, load_episo
 from scripts.novel_episode_script import NovelEpisodeScriptError, load_script_package, summary as episode_script_summary  # noqa: E402
 from scripts.novel_scene_backfill import NovelSceneBackfillError, apply_scene_seed as apply_novel_scene_seed  # noqa: E402
 from scripts.repair_scene_dependencies import reconcile_after_scene_backfill  # noqa: E402
-from scripts.modern_asset_library import ModernAssetLibraryError, load_library as load_modern_asset_library, register_asset as register_modern_asset  # noqa: E402
+from scripts.modern_asset_library import ModernAssetLibraryError, load_library as load_modern_asset_library, register_asset as register_modern_asset, review_asset as review_modern_asset  # noqa: E402
 from scripts.render_screen_mg import ScreenMGError, render_screen_mg  # noqa: E402
 from scripts.render_stock_broll import StockBrollError, render_stock_broll  # noqa: E402
 from scripts.modern_editable_timeline import ModernTimelineError, load_timeline as load_modern_timeline, update_shot as update_modern_timeline_shot, rerender_shot as rerender_modern_timeline_shot  # noqa: E402
@@ -1799,10 +1799,22 @@ def _final_audio_web_status(project: Path) -> dict[str, object]:
     runtime_key = RUNTIME_KEYS.get("fish_audio")
     env_key = os.environ.get(KEY_ENV["fish_audio"], "")
     provider = payload.get("provider") if isinstance(payload.get("provider"), dict) else {}
-    payload["provider"] = {
+    fish_status = {
         **provider,
         "configured": bool(runtime_key or env_key),
         "source": "session" if runtime_key else ("environment" if env_key else "none"),
+    }
+    payload["provider"] = fish_status
+    providers = payload.get("providers") if isinstance(payload.get("providers"), dict) else {}
+    gpt_status = providers.get("gpt_sovits_local") if isinstance(providers.get("gpt_sovits_local"), dict) else {}
+    payload["providers"] = {
+        **providers,
+        "fish_audio": {**(providers.get("fish_audio") if isinstance(providers.get("fish_audio"), dict) else {}), **fish_status},
+        "gpt_sovits_local": {
+            **gpt_status,
+            "configured": bool(gpt_status.get("voice_profiles")),
+            "source": "local_registry" if gpt_status.get("voice_profiles") else "none",
+        },
     }
     for episode in payload.get("episodes", []):
         if not isinstance(episode, dict):
@@ -3029,6 +3041,21 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                 payload = self._read_json(max_bytes=55 * 1024 * 1024)
                 content = base64.b64decode(str(payload.get("content_base64") or ""), validate=True)
                 item = register_modern_asset(project, kind=str(payload.get("kind") or ""), entity_id=str(payload.get("entity_id") or ""), variant=str(payload.get("variant") or ""), expression=str(payload.get("expression") or "neutral"), license_note=str(payload.get("license_note") or ""), extension=Path(str(payload.get("filename") or "")).suffix.lower(), content=content)
+                return self._json({"asset": item, "library": load_modern_asset_library(project)}, HTTPStatus.CREATED)
+            except (ValueError, ModernAssetLibraryError, OSError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/modern-assets/review", route)
+        if match:
+            try:
+                project = _safe_project(match.group(1))
+                payload = self._read_json(max_bytes=16 * 1024)
+                item = review_modern_asset(
+                    project,
+                    asset_path=str(payload.get("asset_path") or ""),
+                    status=str(payload.get("status") or ""),
+                    note=str(payload.get("note") or ""),
+                )
                 return self._json({"asset": item, "library": load_modern_asset_library(project)}, HTTPStatus.CREATED)
             except (ValueError, ModernAssetLibraryError, OSError, json.JSONDecodeError) as error:
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))

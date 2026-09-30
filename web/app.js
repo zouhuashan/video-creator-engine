@@ -669,7 +669,41 @@ function routesField(key, shotId) { return [...document.querySelectorAll('[data-
 function renderModernAssets() {
   const assets = state.modernAssets?.assets || [];
   $('#modernAssetCount').textContent = assets.length + ' 项';
-  $('#modernAssetList').innerHTML = assets.length ? assets.map((item) => '<div>' + escapeHtml(item.kind) + ' · ' + escapeHtml(item.entity_id) + ' / ' + escapeHtml(item.variant) + (item.kind === 'character' ? ' / ' + escapeHtml(item.expression) : '') + '</div>').join('') : '暂无素材。登记后可按角色 ID、角度和表情复用。';
+  $('#modernAssetList').innerHTML = assets.length ? assets.map((item) => {
+    const status = item.review_status || 'PENDING';
+    const reviewButtons = item.kind === 'stock' ? '' :
+      '<span class="modern-asset-review-actions">' +
+      '<button class="secondary-button small-button" data-modern-asset-review="' + escapeHtml(item.path) + '" data-modern-asset-status="APPROVED">通过</button>' +
+      '<button class="ghost-button small-button" data-modern-asset-review="' + escapeHtml(item.path) + '" data-modern-asset-status="REJECTED">驳回</button></span>';
+    return '<div class="modern-asset-review-row"><span>' + escapeHtml(item.kind) + ' · ' + escapeHtml(item.entity_id) + ' / ' + escapeHtml(item.variant) +
+      (item.kind === 'character' ? ' / ' + escapeHtml(item.expression) : '') + '</span>' +
+      '<span class="pipeline-stage-status ' + (status === 'APPROVED' ? 'pass' : status === 'REJECTED' ? 'fail' : 'pending') + '">' + escapeHtml(status) + '</span>' +
+      reviewButtons + '</div>';
+  }).join('') : '暂无素材。登记后可按角色 ID、角度和表情复用。';
+  document.querySelectorAll('[data-modern-asset-review]').forEach((button) => button.addEventListener('click', () => reviewModernAsset(button)));
+}
+
+async function reviewModernAsset(button) {
+  const projectId = state.grayboxProjectId || state.costFirstProjectId;
+  const assetPath = button.dataset.modernAssetReview;
+  const reviewStatus = button.dataset.modernAssetStatus;
+  if (!projectId || !assetPath || !reviewStatus) return;
+  const note = window.prompt((reviewStatus === 'APPROVED' ? '通过' : '驳回') + '该素材的备注（可留空）：', '') ?? '';
+  button.disabled = true;
+  try {
+    const result = await api('/api/novel-anime/projects/' + encodeURIComponent(projectId) + '/modern-assets/review', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ asset_path: assetPath, status: reviewStatus, note }),
+    });
+    state.modernAssets = result.library;
+    renderModernAssets();
+    renderModernContract();
+    renderModernTimeline();
+    log('现代素材审核：' + assetPath + ' → ' + reviewStatus);
+  } catch (error) {
+    log('现代素材审核失败：' + error.message, true);
+    renderModernAssets();
+  }
 }
 
 async function loadModernAssets(projectId = state.grayboxProjectId || state.costFirstProjectId) {
@@ -2821,15 +2855,38 @@ function finalAudioOptionList(items) {
 function renderFinalAudioSection(episodeId) {
   const data = state.finalAudio;
   if (!data) return '<div class="final-audio-section"><div class="empty-state">正在载入 Final Voice…</div></div>';
-  const provider = data.provider || {};
+  const legacyProvider = data.provider || {};
+  const providers = data.providers || { fish_audio: legacyProvider };
+  const fish = providers.fish_audio || legacyProvider;
+  const gpt = providers.gpt_sovits_local || {};
   const locks = [data.locks?.narrator].concat(data.locks?.characters || []).filter(Boolean);
   const episode = (data.episodes || []).find(function(item) { return item.episode_id === episodeId; }) || {};
   const candidates = data.audio_candidates || {};
+  const gptProfiles = gpt.voice_profiles || [];
+  const providerReady = function(lock) {
+    if (!lock || lock.status !== 'LOCKED' || !String(lock.voice_id || '').trim()) return false;
+    const meta = providers[lock.provider || 'fish_audio'] || {};
+    return meta.configured !== false;
+  };
+  const allLocksReady = locks.length > 0 && locks.every(providerReady);
+  const usesFish = locks.some(function(lock) { return (lock.provider || 'fish_audio') === 'fish_audio'; });
+  const providerOptions = function(selected) {
+    return [
+      '<option value="fish_audio"' + (selected === 'fish_audio' ? ' selected' : '') + '>Fish Audio（远程/计费）</option>',
+      '<option value="gpt_sovits_local"' + (selected === 'gpt_sovits_local' ? ' selected' : '') + '>GPT-SoVITS（本机/零 API 费）</option>',
+    ].join('');
+  };
   const lockCards = locks.map(function(lock) {
+    const selectedProvider = lock.provider || 'fish_audio';
+    const profileList = selectedProvider === 'gpt_sovits_local' ? ' list="gptSovitsProfiles"' : '';
+    const placeholder = selectedProvider === 'gpt_sovits_local' ? '本地 GPT-SoVITS profile 名称' : 'Fish Audio reference_id';
+    const meta = providers[selectedProvider] || {};
+    const readiness = meta.configured === false ? ' · PROVIDER NOT READY' : '';
     return '<article class="voice-lock-card" data-voice-lock-card="' + escapeHtml(lock.character_id) + '">' +
       '<div><strong>' + escapeHtml(lock.character_name || lock.character_id) + '</strong><small>' +
-      escapeHtml(lock.character_id) + ' · ' + escapeHtml(lock.status || 'UNLOCKED') + '</small></div>' +
-      '<label>Fish voice_id<input class="text-field" data-lock-voice-id value="' + escapeHtml(lock.voice_id || '') + '" placeholder="Fish Audio reference_id"></label>' +
+      escapeHtml(lock.character_id) + ' · ' + escapeHtml(lock.status || 'UNLOCKED') + readiness + '</small></div>' +
+      '<label>Provider<select class="select-field" data-lock-provider>' + providerOptions(selectedProvider) + '</select></label>' +
+      '<label>voice_id / profile<input class="text-field" data-lock-voice-id' + profileList + ' value="' + escapeHtml(lock.voice_id || '') + '" placeholder="' + escapeHtml(placeholder) + '"></label>' +
       '<label>语速<input class="text-field" data-lock-speed type="number" min="0.5" max="2" step="0.05" value="' + Number(lock.speed || 1).toFixed(2) + '"></label>' +
       '<label>默认情绪<input class="text-field" data-lock-emotion value="' + escapeHtml(lock.emotion_default || '') + '" placeholder="calm / sad / angry"></label>' +
       '<button class="secondary-button small-button" data-save-voice-lock="' + escapeHtml(lock.character_id) + '">锁定声线</button>' +
@@ -2841,27 +2898,39 @@ function renderFinalAudioSection(episodeId) {
     const sourceText = line.source_duration_seconds
       ? ' · 原始正式声 ' + Number(line.source_duration_seconds).toFixed(2) + 's → 已对齐 ' + Number(line.aligned_duration_seconds || 0).toFixed(2) + 's'
       : '';
+    const lineLock = line.kind === 'NARRATION'
+      ? data.locks?.narrator
+      : (data.locks?.characters || []).find(function(lock) { return lock.character_id === line.speaker_character_id; });
+    const lineReady = providerReady(lineLock) && episode.timing_status === 'READY';
     return '<article class="final-voice-line">' +
       '<div><span class="pipeline-stage-status ' + (line.final_status === 'READY' ? 'pass' : 'pending') + '">' + escapeHtml(line.final_status || 'NOT_RUN') + '</span>' +
       '<strong>' + escapeHtml(line.text || '') + '</strong>' +
-      '<small>' + escapeHtml(line.kind || '') + ' · ' + escapeHtml(line.speaker_character_id || 'NARRATOR') + ' · Timing ' + timingText + 's' + sourceText + '</small>' +
+      '<small>' + escapeHtml(line.kind || '') + ' · ' + escapeHtml(line.speaker_character_id || 'NARRATOR') + ' · Timing ' + timingText + 's' + sourceText +
+      (line.final_provider ? ' · ' + escapeHtml(line.final_provider) : '') + '</small>' +
       (line.final_audio_url ? '<audio controls preload="metadata" src="' + escapeHtml(line.final_audio_url) + '"></audio>' : '') +
       '</div><button class="secondary-button small-button" data-generate-final-line="' + escapeHtml(line.unit_id) + '" ' +
-      (provider.configured && episode.timing_status === 'READY' ? '' : 'disabled') + '>单句正式重生成</button></article>';
+      (lineReady ? '' : 'disabled') + '>单句正式重生成</button></article>';
   }).join('');
 
+  const fishStatus = fish.configured ? 'FISH READY' : 'FISH KEY MISSING';
+  const gptStatus = gpt.configured ? 'GPT-SoVITS PROFILE READY' : 'GPT-SoVITS PROFILE MISSING';
+  const gptProfileOptions = gptProfiles.map(function(item) { return '<option value="' + escapeHtml(item) + '"></option>'; }).join('');
+  const fishGate = usesFish
+    ? '<label><input type="checkbox" id="finalVoiceBillable"> 我确认 Fish Audio TTS 会产生费用</label>' +
+      '<label><input type="checkbox" id="finalVoiceUpload"> 我允许将使用 Fish Audio 的对白/旁白文本发送到远程服务</label>'
+    : '<span>当前全部声线使用 GPT-SoVITS Local：不产生 TTS API 费用，文本只发送到本机 loopback 服务。</span>';
   const mix = episode.final_mix || {};
   return '<section class="final-audio-section">' +
+    '<datalist id="gptSovitsProfiles">' + gptProfileOptions + '</datalist>' +
     '<div class="final-audio-head"><div><span class="section-kicker">P34 / FINAL VOICE + FINAL MIX</span>' +
     '<strong>正式角色配音 · 声线锁 · BGM 自动 Ducking</strong>' +
-    '<small>Fish Audio 仅在明确付费确认后调用。正式语音会自动压缩/拉伸到 P33 已锁定的 Timing Voice 时长，不允许换声线后重新打乱镜头。</small></div>' +
-    '<span class="status-dot ' + (provider.configured ? '' : 'off') + '">' + (provider.configured ? 'FISH READY' : 'FISH KEY MISSING') + '</span></div>' +
-    '<div class="final-audio-key-row"><input class="text-field" id="finalAudioKey" type="password" autocomplete="off" placeholder="Fish Audio API Key（仅当前 Web 进程）">' +
-    '<button class="secondary-button small-button" id="finalAudioSaveKey">保存 Fish Key</button><small>' + escapeHtml(provider.source || 'none') + ' · Key 不写盘</small></div>' +
+    '<small>Timing Voice 仍先锁定时长。正式声线可选 Fish Audio 或本机 GPT-SoVITS；换 Provider 后仍自动对齐 P33 时长，不重新打乱镜头。</small></div>' +
+    '<span class="status-dot ' + ((fish.configured || gpt.configured) ? '' : 'off') + '">' + escapeHtml(fishStatus + ' · ' + gptStatus) + '</span></div>' +
+    '<div class="final-audio-key-row"><input class="text-field" id="finalAudioKey" type="password" autocomplete="off" placeholder="Fish Audio API Key（仅 Fish 路线需要；仅当前 Web 进程）">' +
+    '<button class="secondary-button small-button" id="finalAudioSaveKey">保存 Fish Key</button><small>' + escapeHtml(fish.source || 'none') + ' · GPT-SoVITS endpoint ' + escapeHtml(gpt.endpoint || 'http://127.0.0.1:9880') + ' · Key 不写盘</small></div>' +
     '<div class="voice-lock-grid">' + (lockCards || '<div class="empty-state">当前没有需要锁定的角色声线。</div>') + '</div>' +
-    '<div class="final-voice-gate"><label><input type="checkbox" id="finalVoiceBillable"> 我确认正式 Fish Audio TTS 会产生费用</label>' +
-    '<label><input type="checkbox" id="finalVoiceUpload"> 我允许将本集对白/旁白文本发送给 Fish Audio</label>' +
-    '<button class="primary-button small-button" id="generateFinalVoiceEpisode" ' + (provider.configured && episode.timing_status === 'READY' ? '' : 'disabled') + '>生成本集正式配音</button>' +
+    '<div class="final-voice-gate">' + fishGate +
+    '<button class="primary-button small-button" id="generateFinalVoiceEpisode" ' + (allLocksReady && episode.timing_status === 'READY' ? '' : 'disabled') + '>生成本集正式配音</button>' +
     '<span>' + escapeHtml(episode.final_voice_status || 'NOT_RUN') + ' · ' + Number(episode.ready_line_count || 0) + '/' + Number(episode.line_count || 0) + ' 句</span></div>' +
     '<div class="final-voice-line-list">' + (finalLines || '<div class="empty-state">先完成本集 P33 Timing Voice。</div>') + '</div>' +
     '<div class="final-mix-card"><div><strong>Final Mix</strong><small>对白/旁白优先；有 BGM 时自动 sidechain ducking；最终 -16 LUFS / -1 dBTP。</small></div>' +
@@ -2918,7 +2987,7 @@ async function saveVoiceLock(characterId, button) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         character_id: characterId,
-        provider: 'fish_audio',
+        provider: card.querySelector('[data-lock-provider]').value,
         voice_id: card.querySelector('[data-lock-voice-id]').value.trim(),
         speed: Number(card.querySelector('[data-lock-speed]').value || 1),
         emotion_default: card.querySelector('[data-lock-emotion]').value.trim(),
