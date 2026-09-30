@@ -1799,10 +1799,22 @@ def _final_audio_web_status(project: Path) -> dict[str, object]:
     runtime_key = RUNTIME_KEYS.get("fish_audio")
     env_key = os.environ.get(KEY_ENV["fish_audio"], "")
     provider = payload.get("provider") if isinstance(payload.get("provider"), dict) else {}
-    payload["provider"] = {
+    fish_status = {
         **provider,
         "configured": bool(runtime_key or env_key),
         "source": "session" if runtime_key else ("environment" if env_key else "none"),
+    }
+    payload["provider"] = fish_status
+    providers = payload.get("providers") if isinstance(payload.get("providers"), dict) else {}
+    gpt_status = providers.get("gpt_sovits_local") if isinstance(providers.get("gpt_sovits_local"), dict) else {}
+    payload["providers"] = {
+        **providers,
+        "fish_audio": {**(providers.get("fish_audio") if isinstance(providers.get("fish_audio"), dict) else {}), **fish_status},
+        "gpt_sovits_local": {
+            **gpt_status,
+            "configured": bool(gpt_status.get("voice_profiles")),
+            "source": "local_registry" if gpt_status.get("voice_profiles") else "none",
+        },
     }
     for episode in payload.get("episodes", []):
         if not isinstance(episode, dict):
