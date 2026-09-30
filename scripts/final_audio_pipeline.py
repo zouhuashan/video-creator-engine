@@ -353,6 +353,14 @@ def generate_final_voice_line(
 
     locks = load_voice_locks(project)
     lock = _line_lock(locks, line)
+    provider_id = str(lock.get("provider") or "fish_audio").strip().lower()
+    if provider_id == "fish_audio":
+        if not confirm_billable:
+            raise FinalAudioError("正式 Fish Audio 配音是计费调用，必须勾选付费确认")
+        if not text_upload_authorized:
+            raise FinalAudioError("必须确认允许将本句文本发送给 Fish Audio")
+        if not str(api_key or "").strip():
+            raise FinalAudioError("Fish Audio API Key 尚未配置")
     voice_id = str(lock.get("voice_id") or "").strip()
     if not voice_id:
         raise FinalAudioError(f"{lock.get('character_name') or lock.get('character_id')} 尚未锁定 voice_id")
