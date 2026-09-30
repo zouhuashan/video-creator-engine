@@ -4,6 +4,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import scripts.cost_first_hybrid_router as router
+from scripts.modern_drama_production_contract import ModernDramaContractError
 
 
 class CostFirstHybridRouterTests(unittest.TestCase):
@@ -170,7 +171,7 @@ class CostFirstHybridRouterTests(unittest.TestCase):
         }
         with patch.object(router, "load_plan", return_value=approved), \
              patch.object(router, "load_render_profile", return_value="modern_low_cost"), \
-             patch("scripts.modern_drama_production_contract.require_ai_video_gate", side_effect=ValueError("character asset not approved")):
+             patch("scripts.modern_drama_production_contract.require_ai_video_gate", side_effect=ModernDramaContractError("character asset not approved")):
             with self.assertRaisesRegex(router.CostFirstRoutingError, "production gate"):
                 router.require_h3_approval(Path("/tmp/demo"), "SHOT-H3")
 
