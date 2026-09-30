@@ -98,7 +98,7 @@ def register_asset(project: Path, *, kind: str, entity_id: str, variant: str, co
     relative = FILES / f"{digest}{extension}"
     target = project / relative
     target.parent.mkdir(parents=True, exist_ok=True)
-    if not target.is_file():
+    if not target.is_file() or hashlib.sha256(target.read_bytes()).hexdigest() != digest:
         handle, temporary = tempfile.mkstemp(prefix=".asset-", suffix=".tmp", dir=target.parent)
         try:
             with os.fdopen(handle, "wb") as stream:

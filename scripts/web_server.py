@@ -12,6 +12,7 @@ import base64
 import json
 import mimetypes
 import os
+import subprocess
 import re
 import shutil
 import sys
@@ -1302,6 +1303,8 @@ def _provider_status() -> list[dict[str, object]]:
             "id": provider_id,
             "label": label,
             "remote": True,
+            "available": provider_id != "openai_sora",
+            "retired_on": "2026-09-24" if provider_id == "openai_sora" else None,
             "configured": bool(RUNTIME_KEYS.get(provider_id) or os.environ.get(env_name)),
             "env": env_name,
             "video_input_only": provider_id == "wavespeed_wan",
@@ -1705,6 +1708,7 @@ def _low_cost_context(project: Path) -> tuple[str, str]:
 def _episode_workbench_web_status(project: Path, episode: str) -> dict:
     from scripts.episode_workbench import inventory
     data = inventory(project, episode)
+    data['pilot_visual_finish'] = _pilot_finish_web_status(project)
     for line in data['audio'].get('lines', []):
         line['media_url'] = _media_url(project, line['path'])
     if data.get('visual_direction'):data['visual_direction']['media_url']=_media_url(project,data['visual_direction']['image'])
@@ -1722,6 +1726,20 @@ def _episode_workbench_web_status(project: Path, episode: str) -> dict:
         job['subtitles_url'] = _media_url(project, job['subtitles'])
         job['srt_url'] = _media_url(project, str(Path(job['subtitles']).with_suffix('.srt')))
         job['qc_url'] = _media_url(project, job['qc'])
+    return data
+
+
+def _pilot_finish_web_status(project: Path) -> dict:
+    from scripts.pilot_visual_finish import status
+    data = status(project)
+    for item in data['assets'].values():
+        item['media_url'] = _media_url(project, item['path'])
+    if data['control'].get('sha256'):
+        data['control']['media_url'] = _media_url(project, data['control']['path'])
+    for section, fields in (("package", ("path", "contract_path", "prompt_path")), ("result", ("path", "poster"))):
+        for field in fields:
+            if data[section].get(field):
+                data[section][field + '_url'] = _media_url(project, data[section][field])
     return data
 
 
@@ -2590,6 +2608,13 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
             except (ValueError, ModernAssetLibraryError, OSError) as error:
                 return self._error(HTTPStatus.BAD_REQUEST, str(error))
 
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/pilot-visual-finish", parsed.path)
+        if match:
+            try:
+                return self._json(_pilot_finish_web_status(_safe_project(match.group(1))))
+            except (ValueError, OSError, KeyError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+
         match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/modern-timeline", parsed.path)
         if match:
             try:
@@ -2750,6 +2775,19 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802
         route = urlparse(self.path).path
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/pilot-visual-finish/(upload|review-asset|accept-control|prepare|import-result|review-result)", route)
+        if match:
+            try:
+                from scripts import pilot_visual_finish as pilot
+                project = _safe_project(match.group(1))
+                payload = self._read_json(max_bytes=56 * 1024 * 1024)
+                operations = {"upload": pilot.upload_image, "review-asset": pilot.review_image,
+                              "accept-control": pilot.accept_control, "prepare": pilot.prepare_package,
+                              "import-result": pilot.import_result, "review-result": pilot.review_result}
+                operations[match.group(2)](project, payload)
+                return self._json(_pilot_finish_web_status(project), HTTPStatus.CREATED)
+            except (ValueError, OSError, KeyError, TypeError, subprocess.SubprocessError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
         match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/episode-workbench/(S\d{2}E\d{3})/(save|start|review|actions|adopt-director|character-sample|character-review)", route)
         if match:
             try:
@@ -3985,6 +4023,8 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
         image_path = str(payload.get("image_path") or "")
         if provider_id not in PROVIDER_TYPES:
             raise ValueError("unsupported provider")
+        if provider_id == "openai_sora":
+            raise ValueError("OpenAI Sora Videos API 已于 2026-09-24 关闭，请选择当前可用的视频服务")
         provider_type = PROVIDER_TYPES[provider_id]
         if provider_type.remote_generation and payload.get("confirm_billable") is not True:
             raise ValueError("remote generation requires confirm_billable=true")

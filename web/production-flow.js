@@ -302,7 +302,8 @@ function renderProductionWorkbench(data) {
   target.innerHTML=`<div data-workbench-ready class="production-script-summary"><strong>${escapeHtml(script.title)} · 台本 v${script.revision}</strong><label class="production-field">本集<select id="workbenchEpisode">${data.episodes.map(id=>`<option value="${id}" ${id===data.episode_id?'selected':''}>${episodeLabel(id)}</option>`).join('')}</select></label></div>
     <p class="production-attention">当前 ${script.shots.filter(s=>s.render_kind==='control').length}/${script.shots.length} 镜头使用人物或道具动作。${performance.ready?'6 秒自然人体单镜已生成；先审核这一镜，再决定是否恢复剧情制作。':'剧情制作保持锁定；请先制作自然人体单镜质量门。'} 费用 ¥0，无素材上传。配音默认为已安装的本地 Kokoro 中文音色，仍需你试听。</p>
     ${renderVisualDirection(data)}
-    ${!audioView?`<section class="production-character-sample"><h3>${escapeHtml(performance.title||'自然人体单镜质量门')}</h3>${performance.ready?`<div class="production-preview"><video controls preload="metadata" poster="${escapeHtml(performance.poster_url)}" src="${escapeHtml(performance.media_url)}" aria-label="自然人体单镜质量门"></video><div><p>${escapeHtml(performance.summary)}</p><p>${escapeHtml(performance.technical_summary||'本地人物、动作和道具绑定已经完成。')} 骨骼与道具绑定检查：${performance.technical_contact_pass?'通过':'待修复'}；人工画面审核：${escapeHtml(performance.human_review||'PENDING')}。</p><p class="helper-text">资源：${escapeHtml(performance.license)}。只有这一镜人工通过后才恢复剧情制作，不会未经审核替换整集。</p><a class="secondary-button" href="${escapeHtml(performance.media_url)}" download>下载样片</a> <a href="${escapeHtml(performance.report_url)}" target="_blank" rel="noopener">查看动作检查</a> · <a href="${escapeHtml(performance.asset_manifest_url)}" target="_blank" rel="noopener">查看资源与许可</a></div></div><div class="production-review"><h3>逐项画面审核</h3><p class="helper-text">请完整播放样片后逐项勾选。全部通过才会开放剧情扩展；退回会保留样片和修改意见。</p>${Object.entries(performanceCheckLabels).map(([key,label])=>`<label><input type="checkbox" data-character-review="${key}" ${performanceReview.checks?.[key]?'checked':''}>${label}</label>`).join('')}<label class="production-field">修改意见<textarea id="characterReviewNotes" rows="3" placeholder="退回时请写明最需要修改的问题">${escapeHtml(performanceReview.notes||'')}</textarea></label><div class="production-editor-actions"><button id="characterReviewPass" class="primary-button">确认单镜通过</button><button id="characterReviewReject" class="secondary-button">退回继续修改</button></div><p id="characterReviewNotice" class="helper-text">${performance.can_expand?'已通过，可以恢复剧情制作。':performance.human_review==='REJECTED'?'已退回，剧情制作仍锁定。':'尚未人工确认，剧情制作保持锁定。'}</p></div>`:'<p>还没有自然人体单镜样片。先生成 6 秒质量门，确认人物、动作和表情，再决定是否恢复剧情制作。</p>'}<button id="workbenchCharacterSample" class="secondary-button" ${job.active?'disabled':''}>${performance.ready?'重做 6 秒人物单镜':'制作 6 秒人物单镜（本地免费）'}</button><p id="characterSampleNotice" class="helper-text">全程本地 Blender；不调用付费接口，不上传素材。</p></section>`:''}
+    ${!audioView ? renderPilotVisualFinish(data.pilot_visual_finish) : ''}
+    ${!audioView?`<details class="production-audio-details"><summary>原始本地单镜 · 动作检查与重做</summary><section class="production-character-sample"><h3>${escapeHtml(performance.title||'自然人体单镜质量门')}</h3>${performance.ready?`<div class="production-preview"><video controls preload="metadata" poster="${escapeHtml(performance.poster_url)}" src="${escapeHtml(performance.media_url)}" aria-label="自然人体单镜质量门"></video><div><p>${escapeHtml(performance.summary)}</p><p>${escapeHtml(performance.technical_summary||'本地人物、动作和道具绑定已经完成。')} 骨骼与道具绑定检查：${performance.technical_contact_pass?'通过':'待修复'}；人工画面审核：${escapeHtml(performance.human_review||'PENDING')}。</p><p class="helper-text">资源：${escapeHtml(performance.license)}。只有这一镜人工通过后才恢复剧情制作，不会未经审核替换整集。</p><a class="secondary-button" href="${escapeHtml(performance.media_url)}" download>下载样片</a> <a href="${escapeHtml(performance.report_url)}" target="_blank" rel="noopener">查看动作检查</a> · <a href="${escapeHtml(performance.asset_manifest_url)}" target="_blank" rel="noopener">查看资源与许可</a></div></div><div class="production-review"><h3>逐项画面审核</h3><p class="helper-text">请完整播放样片后逐项勾选。全部通过才会开放剧情扩展；退回会保留样片和修改意见。</p>${Object.entries(performanceCheckLabels).map(([key,label])=>`<label><input type="checkbox" data-character-review="${key}" ${performanceReview.checks?.[key]?'checked':''}>${label}</label>`).join('')}<label class="production-field">修改意见<textarea id="characterReviewNotes" rows="3" placeholder="退回时请写明最需要修改的问题">${escapeHtml(performanceReview.notes||'')}</textarea></label><div class="production-editor-actions"><button id="characterReviewPass" class="primary-button">确认单镜通过</button><button id="characterReviewReject" class="secondary-button">退回继续修改</button></div><p id="characterReviewNotice" class="helper-text">${performance.can_expand?'已通过，可以恢复剧情制作。':performance.human_review==='REJECTED'?'已退回，剧情制作仍锁定。':'尚未人工确认，剧情制作保持锁定。'}</p></div>`:'<p>还没有自然人体单镜样片。先生成 6 秒质量门，确认人物、动作和表情，再决定是否恢复剧情制作。</p>'}<button id="workbenchCharacterSample" class="secondary-button" ${job.active?'disabled':''}>${performance.ready?'重做 6 秒人物单镜':'制作 6 秒人物单镜（本地免费）'}</button><p id="characterSampleNotice" class="helper-text">全程本地 Blender；不调用付费接口，不上传素材。</p></section></details>`:''}
     ${job.ready&&!audioView?`<div class="production-preview"><video controls preload="metadata" poster="${escapeHtml(job.poster_url||'')}" src="${escapeHtml(job.media_url)}" aria-label="${job.mode==='preview'?'本集剧情预演':'本集正式总装'}"></video><div><h3>${job.mode==='preview'?'剧情预演 · 待你审片':'正式镜头总装 · 待你审片'}</h3><p>技术检查通过；人工审片${job.human_review==='PASS'?'已确认剧情、配音和字幕':'待确认'}。不自动发布。</p><a class="secondary-button" href="${escapeHtml(job.media_url)}" download>下载视频</a> <a href="${escapeHtml(job.srt_url)}" download>下载字幕</a> · <a href="${escapeHtml(job.qc_url)}" target="_blank" rel="noopener">查看技术检查</a></div></div>`:''}
     <div class="production-editor-actions"><label class="production-field">本地配音<select id="workbenchProvider" ${job.active?'disabled':''}><option value="kokoro_local">Kokoro 中文（本地）</option><option value="macos_say" ${job.provider==='macos_say'?'selected':''}>系统语音（临时）</option></select></label><button id="workbenchPreview" class="primary-button" ${!data.can_generate||job.active?'disabled':''}>${audioView?'生成配音与剧情预演（免费）':'生成剧情预演（免费）'}</button>${failed?`<button id="workbenchResume" class="secondary-button">继续未完成的${job.mode==='final'?'总装':'预演'}</button>`:''}<button id="workbenchEdit" class="secondary-button">修改台本</button>${!audioView?`<button id="workbenchFinal" class="secondary-button" ${!data.can_assemble_final||job.active?'disabled':''}>总装已验收的正式镜头</button>`:''}</div>
     <p id="workbenchNotice" role="status" class="helper-text">${!data.can_generate?'先到“剧本与分镜”整理并保存台本。':escapeHtml(job.status==='STALE'?'台本已变化，请生成当前版本的预演。旧文件仍保留。':job.error||job.phase||'尚未生成')}</p>${!audioView&&data.final_block_reason?`<p class="helper-text">正式总装：${escapeHtml(data.final_block_reason)}</p>`:''}
@@ -310,6 +311,7 @@ function renderProductionWorkbench(data) {
     ${data.audio_ready?`<details class="production-audio-details" ${audioView?'open':''}><summary>声音与字幕时间轴 · ${Number(data.audio.duration).toFixed(2)} 秒 · 逐镜试听</summary><div class="production-voice-list">${data.audio.lines.map((line,i)=>`<article><div><strong>镜头 ${i+1} · ${escapeHtml(data.characters.find(c=>c.id===line.speaker_id)?.name||'旁白')}</strong><small>${Number(line.start).toFixed(2)}–${Number(line.end).toFixed(2)} 秒 · 镜头 ${Number(line.clip_duration).toFixed(2)} 秒</small><p>${escapeHtml(line.text)}</p></div><audio controls preload="none" src="${escapeHtml(line.media_url)}" aria-label="镜头 ${i+1} 配音"></audio></article>`).join('')}</div></details>`:'<div class="empty-state">还没有当前台本的配音。保存台本后，点击免费预演生成。</div>'}
     ${job.ready&&job.mode==='preview'&&!audioView?`<div class="production-review"><h3>观看后确认</h3><p class="helper-text">这里只确认剧情、声音和字幕；人物与场景画质另行验收。</p><label><input type="checkbox" id="workbenchStoryChecked">剧情与节奏可以</label><label><input type="checkbox" id="workbenchVoiceChecked">配音内容与音色可以</label><label><input type="checkbox" id="workbenchSubtitlesChecked">字幕内容与时间可以</label><button id="workbenchReview" class="secondary-button">保存我的审片确认</button></div>`:''}`;
   document.getElementById('workbenchEpisode').addEventListener('change',event=>{productionEpisodesByProject.set(data.project_id,event.target.value);productionEpisode=event.target.value;loadProductionWorkbench();});
+  if (!audioView) bindPilotVisualFinish(data.pilot_visual_finish);
   document.getElementById('workbenchEdit').addEventListener('click',()=>setView('story'));
   document.getElementById('workbenchCharacterSample')?.addEventListener('click',async event=>{
     event.target.disabled=true;document.getElementById('characterSampleNotice').textContent='正在本地渲染 6 秒人物单镜，通常需要约 2 分钟…';
@@ -337,6 +339,79 @@ function renderProductionWorkbench(data) {
     try{await api(workbenchEndpoint(data.project_id,data.episode_id)+'/review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({job_id:job.id,story_checked:document.getElementById('workbenchStoryChecked').checked,voice_checked:document.getElementById('workbenchVoiceChecked').checked,subtitles_checked:document.getElementById('workbenchSubtitlesChecked').checked})});loadProductionWorkbench();}
     catch(error){document.getElementById('workbenchNotice').textContent=error.message;}
   });
+}
+
+function renderPilotVisualFinish(pilot) {
+  if (!pilot) return '';
+  const labels={character:'角色定妆与多角度',scene:'场景参考',keyframe:'目标首帧',end_keyframe:'目标尾帧'};
+  const checks={identity:'人物身份和衣服一致',scene:'场景与光线符合设定',continuous_motion:'人物连续运动，整体不像静态推图',hand_contact:'手指、手机接触和遮挡可信',expression:'视线与表情自然',temporal_stability:'画面没有明显闪烁、变形或突然剪切'};
+  const result=pilot.result||{},review=result.review||{};
+  return `<section id="pilotVisualFinish" class="production-character-sample" data-pilot-revision="${pilot.revision}">
+    <h3>单镜画质升级 · 先定视觉，再验动作</h3>
+    <p>角色、场景和关键帧由 Codex 图像工具生成或从本地导入。参考图审核通过后，再使用连续动作控制视频准备生成包。</p>
+    <p class="helper-text">这些图片是静态美术参考；图像工具不会替你生成可编辑的 3D 骨骼。当前导出只在本地整理文件，远程视频生成仍需自行选择服务。</p>
+    <div class="pilot-reference-grid">${Object.entries(labels).map(([role,label])=>{
+      const asset=pilot.assets[role];
+      return `<article><h4>${label}</h4>${asset?`<a href="${escapeHtml(asset.media_url)}" target="_blank" rel="noopener"><img src="${escapeHtml(asset.media_url)}" alt="${label}" loading="lazy"></a><p>${asset.approved?'已通过':asset.fresh?'待审核或已退回':'资料变化，请重新导入'} · ${escapeHtml(asset.review_status)}</p><div class="production-editor-actions"><button type="button" data-pilot-review="${role}" data-decision="APPROVED">通过这张参考</button><button type="button" data-pilot-review="${role}" data-decision="REJECTED">退回这张参考</button></div>`:'<p>等待生成或导入参考图。</p>'}
+      ${role==='character'?`<label>对应人物<select id="pilotCharacter">${pilot.characters.map(c=>`<option value="${escapeHtml(c.id)}" ${asset?.entity_id===c.id?'selected':''}>${escapeHtml(c.name)}</option>`).join('')}</select></label>`:''}
+      <label class="pilot-upload">${asset?'替换参考图':'导入参考图'}<input type="file" accept="image/png,image/jpeg,image/webp" data-pilot-image="${role}"></label></article>`;
+    }).join('')}</div>
+    ${pilot.control.media_url?`<video controls preload="metadata" src="${escapeHtml(pilot.control.media_url)}" aria-label="仅作为动作参考的本地控制镜头" class="pilot-control-video"></video>`:'<p>尚无可用控制镜头，请先制作本地单镜。</p>'}
+    <div class="production-review"><h4>动作参考确认</h4><p>请先播放这里的本地控制镜头。确认的是动作、走位和时序；最终人物与场景画质由后续生成补齐。</p>
+    <label><input type="checkbox" id="pilotAcceptControl" ${pilot.control.accepted?'checked':''} ${!pilot.control.sha256?'disabled':''}>我接受当前视频仅作为控制镜头</label>
+    <button id="pilotSaveControl" type="button" ${!pilot.control.sha256?'disabled':''}>保存动作参考确认</button></div>
+    <div class="production-editor-actions"><button id="pilotPrepare" class="primary-button" ${!pilot.can_prepare?'disabled':''}>整理单镜生成包（本地）</button>
+      ${pilot.package.fresh?`<a class="secondary-button" href="${escapeHtml(pilot.package.path_url)}" download>下载生成包</a><a href="${escapeHtml(pilot.package.prompt_path_url)}" target="_blank" rel="noopener">查看提示词</a>`:''}</div>
+    <p class="helper-text">${pilot.blockers.map(escapeHtml).join('；')||'参考图与动作参考均已确认，可以整理生成包。'}${pilot.package.path&&!pilot.package.fresh?' 旧生成包已失效，请整理新版本。':''}</p>
+    <label class="pilot-upload">导入生成后的单镜 MP4（最多 40MB）<input id="pilotResultFile" type="file" accept="video/mp4" ${!pilot.package.fresh?'disabled':''}></label>
+    ${result.path?`<div class="pilot-video-comparison"><figure><figcaption>本地控制镜头</figcaption><video controls preload="metadata" src="${escapeHtml(pilot.control.media_url)}"></video></figure><figure><figcaption>导入后的视觉结果 · ${result.fresh?'当前版本':'已失效'}</figcaption><video controls preload="metadata" poster="${escapeHtml(result.poster_url)}" src="${escapeHtml(result.path_url)}"></video></figure></div>`:''}
+    ${result.fresh?`<div class="production-review"><h4>完整播放后验收最终视觉</h4>${Object.entries(checks).map(([key,label])=>`<label><input type="checkbox" data-pilot-result-check="${key}" ${review.checks?.[key]?'checked':''}>${label}</label>`).join('')}<label>修改意见<textarea id="pilotResultNotes" rows="3">${escapeHtml(review.notes||'')}</textarea></label><div class="production-editor-actions"><button id="pilotResultPass">确认这一镜通过</button><button id="pilotResultReject">退回继续修改</button></div><p>${pilot.can_expand?'单镜验收通过，可以按任务顺序准备后续镜头；本集仍需逐镜验收和总装。':'单镜尚未通过，剧情扩展保持锁定。'}</p></div>`:''}
+    <p id="pilotFinishNotice" class="helper-text" role="status"></p>
+  </section>`;
+}
+
+function bindPilotVisualFinish(pilot) {
+  const panel=document.getElementById('pilotVisualFinish');
+  if (!panel||!pilot) return;
+  const project=pilot.project_id,episode=productionEpisode;
+  let busy=false;
+  const stillCurrent=()=>resolveActiveNovelProject()===project&&productionEpisode===episode&&document.getElementById('pilotVisualFinish')===panel;
+  const operate=async(action,payload)=>{
+    if (busy||!stillCurrent()) return;
+    busy=true;
+    const disabledBefore=new Map();
+    panel.querySelectorAll('button,input[type=file]').forEach(node=>{disabledBefore.set(node,node.disabled);node.disabled=true;});
+    try {
+      await api(`/api/novel-anime/projects/${encodeURIComponent(project)}/pilot-visual-finish/${action}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,expected_revision:pilot.revision})});
+      if (stillCurrent()) await loadProductionWorkbench();
+    } catch(error) {
+      if (stillCurrent()) {document.getElementById('pilotFinishNotice').textContent=error.message;await loadProductionWorkbench();const notice=document.getElementById('pilotFinishNotice');if(resolveActiveNovelProject()===project&&notice)notice.textContent=error.message;}
+    } finally {busy=false;if(stillCurrent())disabledBefore.forEach((disabled,node)=>node.disabled=disabled);}
+  };
+  const readFile=async(file,limit)=>{
+    if (!file||file.size>limit*1024*1024) throw new Error(`请选择不超过 ${limit}MB 的文件`);
+    return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(',')[1]);reader.onerror=()=>reject(new Error('文件读取失败'));reader.readAsDataURL(file);});
+  };
+  panel.querySelectorAll('[data-pilot-review]').forEach(button=>button.addEventListener('click',()=>{
+    const role=button.dataset.pilotReview;
+    operate('review-asset',{role,sha256:pilot.assets[role].sha256,decision:button.dataset.decision});
+  }));
+  panel.querySelectorAll('[data-pilot-image]').forEach(input=>input.addEventListener('change',async()=>{
+    try {const characterId=document.getElementById('pilotCharacter')?.value||'';const content=await readFile(input.files[0],12);if(stillCurrent())await operate('upload',{role:input.dataset.pilotImage,character_id:characterId,content_base64:content});}
+    catch(error){if(stillCurrent())document.getElementById('pilotFinishNotice').textContent=error.message;}
+  }));
+  document.getElementById('pilotSaveControl')?.addEventListener('click',()=>operate('accept-control',{sha256:pilot.control.sha256,accept_as_control:document.getElementById('pilotAcceptControl').checked}));
+  document.getElementById('pilotPrepare')?.addEventListener('click',()=>operate('prepare',{}));
+  document.getElementById('pilotResultFile')?.addEventListener('change',async event=>{
+    try {const content=await readFile(event.target.files[0],40);if(stillCurrent())await operate('import-result',{content_base64:content,package_signature:pilot.signature});}
+    catch(error){if(stillCurrent())document.getElementById('pilotFinishNotice').textContent=error.message;}
+  });
+  const reviewResult=decision=>{
+    const checks={};panel.querySelectorAll('[data-pilot-result-check]').forEach(input=>checks[input.dataset.pilotResultCheck]=input.checked);
+    operate('review-result',{decision,checks,sha256:pilot.result.sha256,notes:document.getElementById('pilotResultNotes').value});
+  };
+  document.getElementById('pilotResultPass')?.addEventListener('click',()=>reviewResult('PASS'));
+  document.getElementById('pilotResultReject')?.addEventListener('click',()=>reviewResult('REJECTED'));
 }
 
 async function loadProductionSettings() {

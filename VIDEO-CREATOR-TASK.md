@@ -4,7 +4,7 @@
 > Purpose: Codex 驱动的半自动自媒体视频生产线（首发平台：微信视频号）  
 > Status: ACTIVE  
 > Version: V1.0  
-> Updated: 2026-09-15  
+> Updated: 2026-09-30
 > Execution model: Codex First / Human Final Publish  
 > Single Source of Truth: **本文件是项目唯一任务事实源**
 >
@@ -5455,3 +5455,38 @@ NEXT：P47-08 不再给 Quaternius 低模角色做表面小修。先审核项目
 质量结论：v8 已明显消除 P47-07 的球头、赤脚、贴皮锥裙、肩臂塌陷和手机悬空，但通用脸、面部反应与整体表演仍没有达到可发布角色质量。内部视觉状态为 `REJECTED`，Web 人工状态保持 `PENDING`，`can_expand=false`。技术可解码或骨骼更多都不能自动视为画面通过。
 
 NEXT：继续停留在 P47-08，不恢复剧情制作。下一步只允许两种推进：取得一个身份可改、面部/手部完备且许可清楚的生产级男性 Rig 后替换本单镜；或由用户明确接受 v8 作为纯控制镜头，再由 H3 只替换最终视觉。任一路线都先重做并审核同一 6 秒单镜，人工 `PASS` 前不得恢复三镜或整集。
+
+
+### P47-08A Codex 美术参考与单镜视觉回流（2026-09-30）
+
+状态：LOCAL IMPLEMENTATION COMPLETE / REFERENCE REVIEW PENDING / FINAL VIDEO NOT GENERATED
+
+在 P47-08 当前质量门内继续，沿用现有 Modern Asset Library、项目日志、Web 工作台和视频检查，不新建总编排器：
+
+- 已用 Codex 内置图像工具真实生成陈浩多角度定妆、雨夜餐厅场景、低头看手机首帧和抬眼反应尾帧，共四张 PNG；模型名称没有由工具暴露，不将其标为特定 API 模型。素材登记到 `projects/novel-0010a927d8` 的现有素材库，全部保持 `PENDING`，没有代替用户审批。
+- 本地留存目录为 `production/character-performance/p47-08-visual-finish/`，四张便览图分别为 `chenhao-reference-v1.png`、`dining-room-reference-v1.png`、`chenhao-opening-v1.png`、`chenhao-ending-v1.png`；登记后的文件与状态以该目录 `state.json` 为准。这些是静态参考，不是可编辑 3D 模型或已生成的动态视频。
+- 新增 `scripts/pilot_visual_finish.py`：四类参考的导入/替换/审核；控制镜头仅作动作参考的明确确认；本地生成包导出；外部生成结果导回；完整解码、时长/比例检查及六项人工视觉验收。
+- Web「06 成片与审片」新增「单镜画质升级」：展示四张参考及控制视频，可直接审核、替换、下载本地生成包、导入 MP4、并排播放与退回。不要求用户执行终端命令。台本编辑和配音页不插入该面板，原本地 Rig 检查折叠保留。
+- 生成包包含控制 MP4、实际控制首尾帧、四张美术参考、Scene JSON、提示词、限制与说明；提示词描述读取手机 → 抬眼反应，并明确各服务真实输入能力不同，不承诺任意平台严格锁定动作。
+- Resume 以控制视频和四张参考的 SHA 指纹复用本地生成包；换图、重新渲染控制镜头、撤销素材审批或篡改结果时，旧包/结果/验收失效。审核使用版本与 SHA 校验；历史文件与退回意见保留。
+- 导回结果不能是原控制视频；必须匹配单镜时长与竖屏比例、完整可解码，人工确认角色/场景/连续动作/手部/表情/稳定性六项后才返回 `can_expand=true`。此状态仅表示本单镜质量门通过，不自动绑定整集、不自动发布，不将原 MPFB 的视觉退回改写成通过。
+- 所有当前新增操作仅在本地运行；没有上传项目素材、启动付费视频 API、安装大模型或创建最终动态成片。图像工具不承诺无额度消耗；本地导包本身不产生 API 费用。
+
+### 当前能力与未完成事项校正
+
+| 项目 | 已完成 | 尚未完成 / 推进条件 |
+| --- | --- | --- |
+| P47-08 单镜质量 | MPFB 控制镜头、四张新的美术参考、Web 审核和视觉结果回流 | 用户审核参考与动作；实际生成最终视觉并验收同一 6 秒单镜。当前 `can_expand=false`。 |
+| GPT Image 2.5 | 可选 OpenAI 图像 Provider 默认模型更新为 `gpt-image-2.5-sunburst`；Codex 内置工具已实际产出参考图 | 未调用付费图像 API；需要用户自有 API 密钥及原有生成授权。不得把内置工具的调用冒充 API 实测。 |
+| OpenAI Sora | 按官方退役公告关闭生成、从可选服务隐藏；兼容旧 Provider ID | 官方 Videos API 于 2026-09-24 关闭，没有可接入的新视频替代接口。历史项目保留，不发请求。 |
+| ChatGPT 订阅登录 | 已核实官方预览范围 | 未实现应用 OAuth。官方 Sign in with ChatGPT 预览不含图像生成与音视频输入，不能替代付费视频 API。 |
+| P45-04 低价视频实测 | WaveSpeed Adapter、费用门、Web 与 Resume 可用 | 尚无密钥和 Web 上传/付费确认；需单镜质量路线确认后再实测，不自动消费。 |
+| 正式 TTS | Kokoro 本地、GPT-SoVITS Adapter 与锁定时间轴的换声能力可用 | GPT-SoVITS 声线 registry 仍为空；尚未安装权重或取得正式声线的人审通过。现有本地配音仍需要试听。 |
+| P46 / P44-06 试播闭环 | 台本编辑、剧情预演、声音字幕、逐镜契约、最终总装入口已实现 | 剧情/音色人审和人物最终画面未通过；三镜、30～45 秒试播与整集交付没有完成。 |
+| 发布包 | 原有 QC、打包与人工发布边界保留 | 不把未验收画面包成可发布成片，不自动发布。 |
+
+官方依据：[OpenAI API 更新](https://developers.openai.com/api/docs/changelog)、[Sora 退役公告](https://developers.openai.com/api/docs/deprecations)、[ChatGPT 登录预览限制](https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations)。
+
+验证：本次相关 Python 回归最初 102 项通过；收尾新增真实页面渲染与动作确认事件测试，发现并修复面板错放台本页的运行错误。收尾回归共 109 项通过（105 项链路回归 + 4 项素材库/屏幕动效检查）；Python/JavaScript 语法和 diff 检查通过。实际本地 HTTP 验证：工作台包含四张参考，图片均返回 200，控制视频 Range 返回 206，健康接口和首页返回 200；服务已恢复至 `http://127.0.0.1:8877/`。未直接调用浏览器。测试中的颜色视频只是测试夹具，不作为真实视觉结果登记。
+
+NEXT：仍为 P47-08。先在 Web 审核四张参考与当前控制动作，按用户确认的服务制作/导回同一 6 秒连续镜头。单镜最终视觉人工通过后，才按既有任务顺序恢复三镜、正式声线与 P44-06 试播；未完成的人审和真实生成不因代码测试通过而标记完成。

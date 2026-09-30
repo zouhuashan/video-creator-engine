@@ -2101,7 +2101,7 @@ function renderStats() {
 }
 
 function renderProviders() {
-  $('#providerGrid').innerHTML = state.providers.filter((provider) => !provider.video_input_only).map((provider) => {
+  $('#providerGrid').innerHTML = state.providers.filter((provider) => !provider.video_input_only && provider.available !== false).map((provider) => {
     const selected = provider.id === state.selectedProvider ? ' selected' : '';
     const status = provider.remote ? (provider.configured ? '已配置密钥' : `待配置 ${provider.env}`) : '无需密钥';
     return `<button class="provider-card${selected}" data-provider="${escapeHtml(provider.id)}"><strong>${escapeHtml(provider.label)}</strong><small>${provider.remote ? '远程图生视频' : '本地推镜与转场'}</small><span class="provider-status${provider.configured ? '' : ' off'}">● ${escapeHtml(status)}</span></button>`;
@@ -2118,7 +2118,7 @@ function renderProviders() {
 }
 
 function renderProviderSettings() {
-  const remoteProviders = state.providers.filter((provider) => provider.remote);
+  const remoteProviders = state.providers.filter((provider) => provider.remote && provider.available !== false);
   const providerCards = remoteProviders.map((provider) => {
     const ready = provider.configured;
     const status = ready ? (provider.source === 'session' ? '本次服务已配置' : '环境变量已配置') : '尚未配置';

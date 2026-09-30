@@ -115,7 +115,8 @@ providers:
       api_key_env: RUNWAY_API_KEY
     openai_sora:
       adapter: openai_sora
-      enabled: true
+      enabled: false
+      retired_on: 2026-09-24
       mode: remote
       credentials_required: true
       api_key_env: OPENAI_API_KEY
