@@ -469,19 +469,22 @@ def _initialize_workspace(
     *,
     source_text: str,
     source_sha256: str,
+    direct_script: dict | None = None,
 ) -> dict[str, Any]:
     """Create the production desk with extracted characters and source scene seeds connected."""
     bible = build_bible(project_dir)
     characters = _candidate_story_characters(project_dir, candidate_payload)
-    if not characters:
-        raise NovelWebImportError("novel import did not produce stable character candidates")
     bible["characters"] = characters
     write_bible(project_dir, bible)
     bind_continuity_refs(project_dir)
     write_plan(project_dir, build_plan(project_dir))
     write_episode_planning(project_dir, build_episode_planning(project_dir))
     write_script_package(project_dir, build_script_package(project_dir))
-    scene_backfill = backfill_episode_scenes(project_dir, source_text, source_sha256=source_sha256)
+    if direct_script is not None:
+        from scripts.script_direct_import import apply_direct_script
+        scene_backfill = apply_direct_script(project_dir, direct_script, source_sha256)
+    else:
+        scene_backfill = backfill_episode_scenes(project_dir, source_text, source_sha256=source_sha256)
     write_report(project_dir, audit_story(project_dir))
     write_visual_bible(project_dir, build_visual_bible(project_dir))
     write_character_designs(project_dir, build_character_designs(project_dir))
@@ -570,6 +573,7 @@ def create_project_from_web_upload(
     rights_confirmed: bool,
     source_name: str,
     source_text: str,
+    import_mode: str = 'NOVEL',
 ) -> dict[str, Any]:
     projects_root = Path(projects_root).resolve()
     title = str(title or "").strip()
@@ -590,6 +594,12 @@ def create_project_from_web_upload(
     if len(source_bytes) > MAX_SOURCE_BYTES:
         raise NovelWebImportError(f"novel TXT exceeds {MAX_SOURCE_BYTES // (1024 * 1024)} MB")
     source_sha256 = hashlib.sha256(source_bytes).hexdigest()
+    if import_mode not in ('NOVEL','SCRIPT'):raise NovelWebImportError('请选择小说或剧本导入模式')
+    parsed_script=None
+    if import_mode=='SCRIPT':
+        from scripts.script_direct_import import parse_script
+        parsed_script=parse_script(source_text)
+        episode_count=1
 
     # Browser retries/double-clicks and re-importing the same TXT must not
     # create a second project.  Reuse the existing project and repair its
@@ -597,6 +607,14 @@ def create_project_from_web_upload(
     existing = _matching_existing_project(projects_root, title, source_sha256)
     if existing is not None:
         project_dir = existing[0]
+        # A direct script retry must not enter novel sentence selection or
+        # overwrite the user's existing editor changes.
+        mode_file=project_dir/'sources/import-mode.json'
+        saved_mode=json.loads(mode_file.read_text()).get('mode','NOVEL') if mode_file.is_file() else 'NOVEL'
+        if saved_mode!=import_mode:raise NovelWebImportError('同名同文件已按另一模式导入，请使用不同项目名')
+        if import_mode=='SCRIPT':
+            return {**_existing_import_result(project_dir,existing[1],existing[2],requested_rights_mode=rights_mode),
+                    'import_mode':'SCRIPT','next':'OPEN_STORY'}
         try:
             scene_backfill = backfill_episode_scenes(project_dir, source_text, source_sha256=source_sha256)
             if scene_backfill.get("status") == "READY":
@@ -625,7 +643,15 @@ def create_project_from_web_upload(
         raise NovelWebImportError("project path escapes projects root")
 
     try:
-        write_project(project_dir, build_project(project_id, ip_code, title, episode_count=episode_count))
+        manifest=build_project(project_id, ip_code, title, episode_count=episode_count)
+        if parsed_script:
+            manifest['episodes'][0]['target_duration_seconds']=parsed_script['duration']
+            manifest['episodes'][0]['title']=parsed_script['episode_title']
+        write_project(project_dir,manifest)
+        # Extra import metadata is stored alongside the manifest, whose schema
+        # deliberately remains unchanged for existing projects.
+        mode_path=project_dir/'sources/import-mode.json';mode_path.parent.mkdir(parents=True,exist_ok=True)
+        mode_path.write_text(json.dumps({'mode':import_mode,'source_sha256':source_sha256}))
         NovelAnimeRepository(project_dir).initialize()
         NovelAnimeRuntime(project_dir).initialize()
 
@@ -665,15 +691,16 @@ def create_project_from_web_upload(
         import_payload = json.loads(import_payload_path.read_text(encoding="utf-8"))
         extraction = import_payload.get("extraction") if isinstance(import_payload, dict) else {}
         characters = extraction.get("characters") if isinstance(extraction, dict) else []
+        if parsed_script:
+            from scripts.script_direct_import import candidates
+            characters=candidates(parsed_script,ip_code)
         candidate_payload = build_character_candidates(
             project_dir,
             source_file_name=source_name,
             source_sha256=source_sha256,
-            provider=str(extraction.get("provider") or "local_lexicon"),
+            provider="script_direct_parser" if parsed_script else str(extraction.get("provider") or "local_lexicon"),
             characters=characters if isinstance(characters, list) else [],
         )
-        if not candidate_payload["characters"]:
-            raise NovelWebImportError("novel import did not identify any stable character; project creation was rolled back")
         write_character_candidates(project_dir, candidate_payload)
 
         scene_backfill = _initialize_workspace(
@@ -681,10 +708,26 @@ def create_project_from_web_upload(
             candidate_payload,
             source_text=source_text,
             source_sha256=source_sha256,
+            direct_script=parsed_script,
         )
+        if parsed_script:
+            from scripts.script_direct_import import create_workbench
+            create_workbench(project_dir,parsed_script)
+        log_dir=project_dir/'logs';log_dir.mkdir(exist_ok=True)
+        log_path=log_dir/'import.log'
+        log_path.write_text(f'{utc_timestamp()} mode={import_mode} source_sha256={source_sha256}\n'
+            f'characters={len(candidate_payload["characters"])} scenes={scene_backfill.get("scene_count",0)} shots={scene_backfill.get("shot_count",0)}\n'
+            f'pipeline={"SCRIPT_DIRECT_NO_REWRITE" if parsed_script else "NOVEL_SCENE_SEED"} human_review=PENDING\n',encoding='utf-8')
+        if parsed_script:
+            with log_path.open('a',encoding='utf-8') as log:
+                for scene in parsed_script['scenes']:
+                    kinds={kind:sum(u['kind']==kind for u in scene['units']) for kind in ('ACTION','VISUAL','DIALOGUE','NARRATION')}
+                    log.write(f'scene={scene["number"]} location={scene["location"]} time={scene["time"]} units={len(scene["units"])} kinds={json.dumps(kinds)}\n')
         story_characters = _candidate_story_characters(project_dir, candidate_payload)
         return {
             "status": "PASS",
+            "import_mode": import_mode,
+            "log_path": log_path.relative_to(project_dir).as_posix(),
             "reused_existing": False,
             "project_id": project_id,
             "directory_id": project_dir.name,
@@ -696,10 +739,12 @@ def create_project_from_web_upload(
             "script_adaptation_allowed": formal,
             "import": import_result,
             "character_count": len(story_characters),
+            "character_status": "READY" if story_characters else "NEEDS_REVIEW",
+            "notice": "" if story_characters else "小说已导入，但未识别出稳定角色。请先核对台本与人物；目前可制作旁白预演。",
             "characters": [{"id": item["id"], "name": item["name"], "role": item["role"]} for item in story_characters],
             "scene_backfill": scene_backfill,
             "full_text_stored": False,
-            "next": "OPEN_STUDIO",
+            "next": "OPEN_STORY" if parsed_script else "OPEN_STUDIO",
         }
     except Exception:
         if project_dir.is_dir():

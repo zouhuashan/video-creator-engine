@@ -19,11 +19,32 @@ def _state(scene: dict[str, Any]) -> dict[str, Any]:
     payload = {"location_id": scene["location_id"], "character_ids": scene["character_ids"], "prop_state_ids": [], "emotion": ""}
     return {**payload, "continuity_signature": signature(payload)}
 def build_shot_breakdown(project_dir: Path) -> dict[str, Any]:
-    project = load_project(Path(project_dir) / MANIFEST_NAME); scripts = load_script_package(project_dir); asset_review = load_asset_review(project_dir); now = utc_timestamp(); scenes = []
+    project = load_project(Path(project_dir) / MANIFEST_NAME)
+    scripts = load_script_package(project_dir); asset_review = load_asset_review(project_dir)
+    now = utc_timestamp(); scenes = []
+    mode_file=Path(project_dir)/'sources/import-mode.json'
+    direct=mode_file.is_file() and json.loads(mode_file.read_text()).get('mode')=='SCRIPT'
     for script in scripts["episode_scripts"]:
         for scene in script["scenes"]:
-            shot_id = f"SHOT-{scene['id']}-001"; state = _state(scene); shot_payload = {"id": shot_id, "sequence": 1, "shot_type": "WIDE", "framing": "竖屏全景", "angle": "平视", "movement": "静态", "lens": "35mm", "duration_seconds": max(1.0, sum(float(unit["estimated_duration_seconds"]) for unit in scene["units"])), "start_state": state, "end_state": state, "reference_ids": [], "human_review": _review()}; shot = {**shot_payload, "continuity_signature": signature({key: shot_payload[key] for key in ("id", "sequence", "shot_type", "framing", "angle", "movement", "lens", "duration_seconds", "start_state", "end_state", "reference_ids")})}; scenes.append({"scene_id": scene["id"], "episode_id": script["episode_id"], "location_id": scene["location_id"], "shot_ids": [shot_id], "shots": [shot], "human_review": _review()})
-    return validate_shot_breakdown(project_dir, {"schema_version": 1, "project_id": project["project_id"], "ip_id": project["ip"]["id"], "script_revision": scripts["revision"], "asset_review_revision": asset_review["revision"], "revision": 1, "created_at": now, "updated_at": now, "scene_breakdowns": scenes})
+            if direct:
+                from scripts.script_direct_import import scene_groups
+                groups=scene_groups(scene)
+            else:groups=[scene['units']]
+            shots=[]
+            for index,units in enumerate(groups,1):
+                state=_state(scene)
+                payload={"id":f"SHOT-{scene['id']}-{index:03d}","sequence":index,"shot_type":"WIDE",
+                    "framing":"竖屏全景","angle":"平视","movement":"静态","lens":"35mm",
+                    "duration_seconds":max(1.0,sum(float(u['estimated_duration_seconds']) for u in units)),
+                    "start_state":state,"end_state":state,"reference_ids":[],"human_review":_review()}
+                shots.append({**payload,"continuity_signature":signature({key:payload[key] for key in
+                    ("id","sequence","shot_type","framing","angle","movement","lens","duration_seconds","start_state","end_state","reference_ids")})})
+            scenes.append({"scene_id":scene['id'],"episode_id":script['episode_id'],"location_id":scene['location_id'],
+                "shot_ids":[shot['id'] for shot in shots],"shots":shots,"human_review":_review()})
+    return validate_shot_breakdown(project_dir,{"schema_version":1,"project_id":project['project_id'],"ip_id":project['ip']['id'],
+        "script_revision":scripts['revision'],"asset_review_revision":asset_review['revision'],"revision":1,
+        "created_at":now,"updated_at":now,"scene_breakdowns":scenes})
+
 def _schema(payload):
     try: import jsonschema
     except ImportError: return

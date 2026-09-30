@@ -4,49 +4,36 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#0b0d12" />
-    <title>VideoCreator · AI 短剧制作台</title>
+    <title>VideoCreator · 短视频制作台</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
     <div class="app-shell">
       <aside class="sidebar">
-        <div class="brand-mark"><span class="brand-orb">V</span><div><strong>VideoCreator</strong><small>AI 短剧制作台</small></div></div>
+        <div class="brand-mark"><span class="brand-orb">V</span><div><strong>VideoCreator</strong><small>短视频制作台</small></div></div>
         <nav class="nav" aria-label="主导航">
-          <div class="nav-group-label">制作流程</div>
-          <button class="nav-item" data-view="modern"><span>◈</span>现代短剧</button>
-          <button class="nav-item" data-view="anime"><span>01</span>小说项目</button>
-          <button class="nav-item" data-view="novelImport"><span>02</span>导入小说</button>
-          <button class="nav-item" data-view="studio" data-workspace="script"><span>03</span>剧情与分集</button>
-          <button class="nav-item" data-view="studio" data-workspace="assets"><span>04</span>角色与场景</button>
-          <button class="nav-item" data-view="imageStudio"><span>05</span>镜头与动画</button>
-          <button class="nav-item" data-view="studio" data-workspace="audio"><span>06</span>配音与字幕</button>
-          <button class="nav-item" data-view="studio" data-workspace="render"><span>07</span>成片与检查</button>
-          <details class="nav-advanced" id="advancedNavigation">
-            <summary>高级工具</summary>
-            <div class="nav-advanced-items">
-              <button class="nav-item" data-view="studio" data-workspace="overview"><span>总</span>项目总览</button>
-              <button class="nav-item" data-view="studio" data-workspace="ip"><span>本</span>IP 与底本</button>
-              <button class="nav-item" data-view="studio" data-workspace="story"><span>设</span>故事设定</button>
-              <button class="nav-item" data-view="studio" data-workspace="storyboard"><span>分</span>分镜数据</button>
-              <button class="nav-item" data-view="studio" data-workspace="review"><span>审</span>审片问题单</button>
-              <button class="nav-item" data-view="studio" data-workspace="publish"><span>发</span>发布包</button>
-              <button class="nav-item" data-view="projects"><span>▦</span>项目资产</button>
-              <button class="nav-item" data-view="imageStudio"><span>图</span>图像模型设置</button>
-              <button class="nav-item" data-view="providers"><span>◇</span>Provider 配置</button>
-              <button class="nav-item" data-view="workspace"><span>旧</span>旧版生成工作台</button>
-            </div>
-          </details>
+          <div class="nav-group-label">短视频制作</div>
+          <button class="nav-item" data-view="anime"><span>01</span>项目与小说</button>
+          <button class="nav-item" data-view="story"><span>02</span>剧本与分镜</button>
+          <button class="nav-item" data-view="characters"><span>03</span>角色与场景</button>
+          <button class="nav-item" data-view="studio" data-workspace="audio"><span>04</span>配音与字幕</button>
+          <button class="nav-item" data-view="shots"><span>05</span>镜头与视频</button>
+          <button class="nav-item" data-view="studio" data-workspace="render"><span>06</span>成片与审片</button>
+          <div class="nav-group-label">配置</div>
+          <button class="nav-item" data-view="settings"><span>⚙</span>服务设置</button>
         </nav>
         <div class="sidebar-foot"><span class="pulse"></span><span>本地服务已连接</span><span id="serverVersion">v1.0</span></div>
       </aside>
 
       <main class="main-content">
-        <header class="topbar"><div><p class="eyebrow">剧本 → 声音 → 镜头 → 可编辑成片</p><h1>低成本 AI 短剧制作台</h1><p class="lede">优先复用角色与场景、屏幕动效和本地剪辑；复杂连续动作再交给人工批准的视频服务。古风模式继续保留。</p></div><div class="top-actions"><button class="ghost-button" id="refreshButton">↻ 刷新</button><span class="avatar">Z</span></div></header>
+        <header class="topbar"><div><p class="eyebrow">小说 → 剧本 → 角色场景 → 配音 → 镜头 → 成片</p><h1>低成本短视频制作台</h1><p class="lede">先做好一条短视频。按步骤核对剧本、人物、声音和画面，审片通过后再扩展。</p></div><div class="top-actions"><button class="ghost-button" id="refreshButton">↻ 刷新</button><span class="avatar">Z</span></div></header>
 
+        <div class="production-project-bar"><label>当前项目<select id="productionProjectSelect" class="select-field"></select></label><span id="productionStepHint">从第一集、一个镜头开始</span></div>
+        <p id="workflowNotice" class="workflow-notice hidden" role="alert"></p>
         <section class="stats-grid" aria-label="工作台状态">
           <div class="stat-card"><span class="stat-label">当前项目</span><strong id="statProject">—</strong><small id="statProjectHint">等待载入</small></div>
           <div class="stat-card"><span class="stat-label">参考素材</span><strong id="statAssets">—</strong><small>可用于镜头生成</small></div>
-          <div class="stat-card"><span class="stat-label">可用路线</span><strong id="statProviders">—</strong><small>含本地零成本回退</small></div>
+          <div class="stat-card"><span class="stat-label">制作方式</span><strong id="statProviders">—</strong><small>先预演，再制作最终画面</small></div>
           <div class="stat-card accent"><span class="stat-label">人工确认</span><strong>开启</strong><small>远程生成需要明确确认</small></div>
         </section>
 
@@ -103,16 +90,17 @@
             <div class="panel-heading">
               <div>
                 <span class="section-kicker">P31 / NOVEL IMPORT</span>
-                <h2>新建小说国漫项目</h2>
-                <p class="panel-subtitle">选择 UTF-8 TXT 后，系统自动创建独立项目、切章、登记底本、初始化 Story Bible 与全部制作台骨架。原始正文只作为临时输入，导入完成后不在项目里复制整本 TXT。</p>
+                <h2 id="importModeHeading">导入小说，建立项目</h2>
+                <p class="panel-subtitle" id="importModeSubtitle">上传小说 TXT，填写名称和集数。导入会建立剧情草稿；下一步要核对剧本和分镜。</p>
               </div>
               <span class="status-dot" id="novelImportStatus">READY</span>
             </div>
 
             <div class="novel-import-grid">
+              <div><label class="field-label" for="novelImportMode">导入内容</label><select class="select-field" id="novelImportMode"><option value="NOVEL">小说 · 生成改编草稿</option><option value="SCRIPT">剧本 · 保留原对白，直接制作</option></select><p class="helper-text" id="importModeHint">小说会生成剧情草稿，请核对后制作。</p></div>
               <div>
-                <label class="field-label" for="novelImportTitle">小说名称</label>
-                <input class="text-field" id="novelImportTitle" maxlength="120" placeholder="例如：我的修仙小说" />
+                <label class="field-label" for="novelImportTitle" id="importTitleLabel">小说名称</label>
+                <input class="text-field" id="novelImportTitle" maxlength="120" placeholder="例如：暴雨封楼" />
               </div>
               <div>
                 <label class="field-label" for="novelImportAuthor">作者</label>
@@ -131,7 +119,7 @@
               </div>
             </div>
 
-            <label class="field-label" for="novelImportFile">小说 TXT</label>
+            <label class="field-label" for="novelImportFile" id="importFileLabel">小说 TXT</label>
             <label class="novel-file-drop" for="novelImportFile">
               <input id="novelImportFile" type="file" accept=".txt,text/plain" />
               <span class="empty-icon">文</span>
@@ -154,16 +142,27 @@
         </section>
 
         <section class="page-view hidden" id="animeView">
-          <div class="panel"><div class="panel-heading"><div><span class="section-kicker">小说动态漫</span><h2>当前项目</h2><p class="panel-subtitle">沿着 7 个步骤制作：导入底本 → 写剧本 → 角色场景 → 镜头动画 → 配音字幕 → 检查成片。</p></div><button class="primary-button anime-import-button" id="animeImportButton">＋ 导入小说</button></div><div class="anime-projects" id="animeProjects"><div class="empty-state">正在载入国漫项目…</div></div></div>
+          <div class="panel"><div class="panel-heading"><div><span class="section-kicker">01 / 项目与小说</span><h2>当前项目</h2><p class="panel-subtitle">选择一个项目，从第一集开始。先做一个镜头试片，确认效果后再扩展。</p></div><div class="production-project-actions"><button class="primary-button anime-import-button" id="animeImportButton">＋ 导入小说</button><button class="secondary-button" id="scriptImportButton">＋ 导入剧本</button></div></div><div class="anime-projects" id="animeProjects"><div class="empty-state">正在载入项目…</div></div></div>
         </section>
 
+        <section class="page-view hidden" id="storyView">
+          <div class="panel"><div class="panel-heading"><div><span class="section-kicker">02 / 剧本与分镜</span><h2>先核对这一集讲什么</h2><p class="panel-subtitle">导入内容是草稿。检查开头、对白、旁白和结尾，再逐镜准备角色与场景。</p></div></div><label class="production-field">集数<select id="productionEpisodeSelect" class="select-field"></select></label><div id="productionScriptContent" class="production-script-content"><div class="empty-state">正在载入剧本…</div></div></div>
+        </section>
+        <section class="page-view hidden" id="charactersView"><div id="productionCharactersHost"></div></section>
+        <section class="page-view hidden" id="shotsView">
+          <div class="panel production-video-guide"><span class="section-kicker">05 / 镜头与视频</span><h2>先检查动作，再制作最终画面</h2><p>角色与场景参考图用于确定外观；本地 3D 简模只控制走位和动作。先在第 04 步固定配音时长，再生成控制视频，避免重复付费。</p></div>
+          <div id="productionShotsHost"></div><div id="productionVideoHost"></div>
+        </section>
+        <section class="page-view hidden" id="settingsView">
+          <div class="panel"><div class="panel-heading"><div><span class="section-kicker">服务设置</span><h2>配置当前使用的服务</h2><p class="panel-subtitle">本地预演和剪辑无需密钥。这里只保留当前视频服务；正式配音的音色与密钥在第 04 步配置。</p></div></div><div id="productionVideoKeyHost" class="production-settings-form"></div><p id="productionKeyStatus" class="muted">正在检查配置…</p><p class="helper-text">密钥仅用于当前服务进程。保存密钥不会自动发起生成；每次付费仍需明确确认。</p></div>
+        </section>
         <section class="page-view hidden" id="modernView">
           <div class="panel"><div class="panel-heading"><div><span class="section-kicker">MODERN LOW COST</span><h2>现代短剧镜头制作</h2><p class="panel-subtitle">先把剧本场景和 Shot 跑通，再逐镜选择低成本制作方式。每个镜头可以独立保存与返工。</p></div><select id="modernProjectSelect" class="select-field compact-select" aria-label="选择短剧项目"></select></div><p class="modern-profile-notice" id="modernProfileNotice"></p><div id="modernPanelHost"></div></div>
         </section>
 
         <section class="page-view hidden" id="studioView">
           <div class="panel studio-panel">
-            <div class="panel-heading studio-heading"><div><span class="section-kicker">NOVEL ANIME STUDIO</span><h2 id="studioTitle">项目总览</h2><p class="panel-subtitle" id="studioSubtitle">所有工作区读取同一套国漫项目数据。</p></div><div class="studio-heading-actions"><select id="studioProjectSelect" class="select-field compact-select" aria-label="选择国漫项目"></select><button class="ghost-button small-button" id="studioRefreshButton">↻ 刷新</button><button class="secondary-button small-button" id="snapshotButton">保存快照</button></div></div>
+            <div class="panel-heading studio-heading"><div><span class="section-kicker">短视频制作</span><h2 id="studioTitle">项目总览</h2><p class="panel-subtitle" id="studioSubtitle">所有工作区读取同一套国漫项目数据。</p></div><div class="studio-heading-actions"><select id="studioProjectSelect" class="select-field compact-select" aria-label="选择国漫项目"></select><button class="ghost-button small-button" id="studioRefreshButton">↻ 刷新</button><button class="secondary-button small-button" id="snapshotButton">保存快照</button></div></div>
             <div class="studio-tabs" id="studioTabs"></div>
             <div class="readiness-panel" id="studioReadiness"></div>
             <div class="studio-content" id="studioContent"><div class="empty-state">正在载入制作台…</div></div>
@@ -323,22 +322,58 @@
           </div>
           </details>
 
+          <div class="panel" id="shotWorkflowPanel">
+            <div class="panel-heading"><div><span class="section-kicker">当前小说 → 首镜制作</span><h2 id="shotWorkflowHeading">确定角色与场景</h2><p class="panel-subtitle">固定人物外观和场景布局。保存后，用提示词准备参考图，再进入配音和镜头制作。</p></div></div>
+            <div class="shot-workflow-form">
+              <label class="workflow-local-project">当前小说<select id="shotWorkflowProject"></select></label>
+              <label>集数<select id="shotWorkflowEpisode"></select></label>
+              <label>分镜<select id="shotWorkflowShot"></select></label>
+              <p class="muted" id="shotWorkflowExcerpt"></p>
+              <div class="shot-definition-fields">
+              <label>出镜角色<select id="shotWorkflowCharacter"></select></label>
+              <label>角色外观与服装<textarea id="shotWorkflowCharacterDefinition" rows="3" placeholder="填写年龄感、脸型、发型、现代/古代服装和固定配色；自动提取的人名仍需核对"></textarea></label>
+              <label>场景名称<input id="shotWorkflowSceneName" placeholder="例如：公寓客厅"></label>
+              <label>场景设定<textarea id="shotWorkflowSceneDefinition" rows="3" placeholder="写明布局、门窗位置、时间、灯光和天气；缺失信息由你确认后再采用"></textarea></label>
+              </div>
+              <div class="shot-motion-fields">
+              <label>场景简模<select id="shotWorkflowEnvironment"><option value="modern_room">现代房间</option><option value="modern_corridor">现代走廊</option><option value="ancient_courtyard">古代院门</option></select></label>
+              <label>动作模板<select id="shotWorkflowAction"><option value="look_phone">抬手查看手机、低头</option><option value="walk_stop_look">走近、停步、抬头</option><option value="wake_up">惊醒、坐起</option><option value="child_question">女儿揉眼问话</option><option value="father_reassure">父亲俯身安抚</option><option value="father_realize">父亲反应特写</option><option value="whistle_drop">哨子落桌</option><option value="room_blackout">震动、停电</option><option value="leave_room">父女离开房间</option><option value="door_leak">消防门缝红液特写</option><option value="modern_office">办公室递通知、问答</option><option value="modern_stairs">楼梯坐下、低头反应</option><option value="modern_store">便利店隔架而坐</option><option value="modern_door">家门相遇、停步</option><option value="modern_dinner">餐桌夹菜、夫妻问答</option><option value="modern_system">手机震动、锁屏反应</option><option value="modern_kitchen">旧锅推进、神情变化</option></select></label>
+              <p class="muted">按台本选择对应动作；支持现代办公室、楼梯、便利店、家门、餐桌、手机反应与旧锅场景。这些仍是临时简模，正式人物外观与复杂表演需另行制作。</p>
+              </div>
+              <p id="shotWorkflowSavedSummary" class="muted hidden"></p>
+              <label><input type="checkbox" id="shotWorkflowConfirmed">我已核对这个角色、场景和动作设定</label>
+              <div class="h3-step-actions"><button id="shotWorkflowSave" class="secondary-button small-button">保存设定与提示词</button><button id="shotWorkflowRender" class="primary-button small-button">生成动作控制视频（本地）</button></div>
+              <div class="shot-reference-fields">
+              <div class="h3-step-actions"><label>人物参考图<input type="file" id="shotWorkflowCharacterFile" accept="image/png,image/jpeg,image/webp"></label><label>场景参考图<input type="file" id="shotWorkflowSceneFile" accept="image/png,image/jpeg,image/webp"></label></div>
+              <p class="muted">把确认过的定妆图和场景图上传到这里。可下载下面的提示词交给 Codex 制作；参考图用于固定外观，不会自动变成 3D 模型。</p>
+              <div class="shot-workflow-references"><img id="shotWorkflowCharacterImage" class="hidden" alt="当前镜头人物参考"><img id="shotWorkflowSceneImage" class="hidden" alt="当前镜头场景参考"></div>
+              <div class="h3-step-actions" id="shotWorkflowPromptLinks"></div>
+              </div>
+              <div class="shot-control-fields">
+              <label>已有控制视频（MP4，时长须与分镜一致）<input type="file" id="shotWorkflowControlFile" accept="video/mp4"></label>
+              <p id="shotWorkflowStatus" class="muted">请选择当前小说与镜头。</p>
+              <video id="shotWorkflowControlVideo" class="hidden" controls playsinline preload="metadata"></video>
+              <a id="shotWorkflowBlendDownload" class="hidden" download>下载本镜头 Blender 工程</a>
+              </div>
+            </div>
+          </div>
+
           <div class="panel graybox-panel" id="grayboxPanel">
             <div class="panel-heading">
               <div>
                 <span class="section-kicker">当前主线 / 本地动态漫</span>
-                <h2>控制镜头与 H3 验收</h2>
-                <p class="panel-subtitle">先锁定本地镜头与动作，再用海螺替换最终视觉；首镜通过后才扩展。</p>
+                <h2>控制镜头与云端视觉测试</h2>
+                <p class="panel-subtitle">先用本地视频控制动作，再低价测试 Wan；海螺 H3 保留为可选补充。</p>
               </div>
               <span class="status-dot hidden off" id="grayboxStatus">CHECKING</span>
             </div>
 
             <div class="graybox-card-preview-panel production-pilot-panel">
               <div class="graybox-card-preview-copy">
-                <span class="section-kicker">当前主线 / Codex 控制 + H3 最终视觉</span>
+                <span class="section-kicker">当前主线 / 本地控制 + 云端视觉</span>
                 <strong>5 秒走近、停步、抬头控制镜头 · P43</strong>
-                <small>本地 3D 只锁定镜头、走位、步态和动作时点；角色外观与古宅夜景由海螺 H3 按参考图替换。</small>
-                <small id="productionPilotVoiceText">本镜头无对白；声音、字幕和混音在 H3 结果通过后本地合成。</small>
+                <small>本地 3D 锁定镜头、走位和动作时点；先测试低价 Wan 的整段改画风，再验收角色与古宅夜景。</small>
+                <small id="productionPilotVoiceText">本镜头无对白；视觉验收通过后，声音、字幕和混音继续在本地合成。</small>
               </div>
               <div class="graybox-card-preview-actions">
                 <span class="status-dot off" id="productionPilotStatus">正在准备</span>
@@ -348,6 +383,7 @@
                 <div class="graybox-video-empty" id="productionPilotEmpty">正在制作 P43 3D 控制镜头。</div>
                 <video class="hidden" id="productionPilotPreview" controls playsinline preload="metadata"></video>
               </div>
+              <details class="graybox-tech-archive"><summary>可选：海螺 H3 网页生成与导入</summary>
               <div class="h3-flow" id="h3Flow">
                 <article class="h3-flow-step">
                   <span>1</span><div><strong>制作控制镜头</strong><small>检查走近、停步、抬头和全身构图。</small></div>
@@ -370,7 +406,31 @@
                 <div><strong>动作控制</strong><video id="h3CompareControl" controls playsinline preload="metadata"></video></div>
                 <div><strong>H3 最终视觉</strong><video id="h3CompareResult" controls playsinline preload="metadata"></video></div>
               </div>
+              </details>
               <div class="hidden"><small id="productionPilotAudioHint"></small><audio id="productionPilotAudio"></audio></div>
+            </div>
+
+            <div class="graybox-shot-card" id="lowCostVideoPanel">
+              <span class="section-kicker">最终画面 · Wan 2.2</span>
+              <strong>生成当前镜头的最终画面</strong>
+              <p class="muted">先测试一个镜头。480p 约 ¥0.27/秒，最少按 3 秒计费。网页会员额度与本接口分开。</p>
+              <div id="productionVideoKeyFields"><label>WaveSpeed API Key <input id="lowCostKey" type="password" autocomplete="off" placeholder="仅保存在本次服务进程"></label>
+              <button class="ghost-button small-button" id="lowCostSaveKey">保存密钥</button></div>
+              <label>生成方式 <select id="lowCostMode"><option value="replace">替换人物（保留原背景）</option><option value="animate">参考人物跟随动作</option><option value="video_edit" selected>整段视频改画风（仅提示词）</option></select></label>
+              <p class="muted" id="lowCostModeHint">仅上传控制视频并使用提示词，不上传人物或场景图；角色身份与场景一致性需要实测。</p>
+              <label>分辨率 <select id="lowCostResolution"><option value="480p">480p · 首测推荐</option><option value="720p">720p · 费用翻倍</option></select></label>
+              <label>单次预算上限（元）<input id="lowCostBudget" type="number" min="0.01" step="0.01" value="2"></label>
+              <label>提示词 <textarea id="lowCostPrompt" rows="3">请先保存当前项目的角色与场景设定，系统会为这个镜头填入提示词。</textarea></label>
+              <button class="ghost-button small-button" id="lowCostQuote">读取时长与费用</button>
+              <p id="lowCostQuoteText" class="muted">费用按实际输入视频时长向上取整估算，最终以服务商账单为准。</p>
+              <label><input id="lowCostReviewed" type="checkbox">我已看过上方控制视频并确认动作</label>
+              <label><input id="lowCostConsent" type="checkbox">允许上传本模式所需素材，并确认在预算内付费生成</label>
+              <label><input id="lowCostNewAttempt" type="checkbox">另开一次付费测试（不会覆盖旧结果）</label>
+              <div class="h3-step-actions"><button class="primary-button small-button" id="lowCostStart">生成当前镜头</button><button class="ghost-button small-button" id="lowCostResume">恢复已有任务</button></div>
+              <p class="muted" id="lowCostStatus">尚未测试</p>
+              <video class="hidden" id="lowCostResult" controls playsinline preload="metadata"></video>
+              <div class="hidden" id="lowCostReviewPanel"><label>视觉验收 <select id="lowCostReviewChoice"><option value="PASS">通过</option><option value="FAIL">需要返工</option></select></label><label>验收意见 <textarea id="lowCostReviewNote" rows="2" placeholder="角色是否一致、背景是否稳定、动作是否连续"></textarea></label><button class="ghost-button small-button" id="lowCostReviewSave">保存验收意见</button></div>
+              <p class="muted">生成后请对比角色、背景和动作；技术校验通过不代表画面验收通过。配音、字幕和最终合成继续在本地完成。</p>
             </div>
 
             <details class="graybox-tech-archive graybox-legacy-workflow">
@@ -806,8 +866,10 @@
         </section>
 
         <section class="panel log-panel" id="logPanel"><div class="panel-heading"><div><span class="section-kicker">ACTIVITY</span><h2>运行记录</h2></div><button class="text-button" id="clearLog">清空</button></div><div class="log-list" id="logList"><div class="log-entry"><span class="log-time">现在</span><span>工作台就绪，等待你的第一个镜头。</span></div></div></section>
+        <footer id="productionFlowFooter" class="production-flow-footer"><button id="productionPrevious" class="secondary-button">上一步</button><span id="productionFooterHint"></span><button id="productionNext" class="primary-button">下一步</button></footer>
       </main>
     </div>
+    <script src="/production-flow.js" defer></script>
     <script src="/app.js" defer></script>
   </body>
 </html>

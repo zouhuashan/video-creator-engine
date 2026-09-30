@@ -89,6 +89,18 @@
       "capabilities": [
         "image_to_video"
       ]
+    },
+    {
+      "id": "WAVESPEED_WAN",
+      "adapter": "wavespeed_wan",
+      "role": "BUDGET_REFERENCE_VIDEO",
+      "remote": true,
+      "status": "AVAILABLE_WHEN_CONFIGURED",
+      "capabilities": [
+        "reference_video_to_video",
+        "character_animation",
+        "video_edit"
+      ]
     }
   ]
 }

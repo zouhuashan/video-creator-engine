@@ -1,5 +1,6 @@
 """Provider-neutral video generation adapters."""
 
+from .wavespeed_wan import WaveSpeedWanVideo
 from .base import VideoGenerationError, VideoGenerationProvider, VideoGenerationRequest, VideoGenerationResult, normalize_image_paths
 from .local_ken_burns import LocalKenBurnsVideo
 from .local_micro_motion import LocalMicroMotionVideo
@@ -20,6 +21,7 @@ __all__ = [
     "OpenAISoraVideo",
     "RunwayImageToVideo",
     "WanImageToVideo",
+    "WaveSpeedWanVideo",
     "VIDEO_GENERATION_PROVIDER_PRIORITY",
     "VideoGenerationError",
     "VideoGenerationProvider",

@@ -434,7 +434,7 @@ body.rig-v2-open { overflow: hidden; }
   display: grid;
   gap: 8px;
   padding-top: 10px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--line);
 }
 
 .cost-first-local-preview input[type="file"] {
@@ -523,3 +523,148 @@ body.rig-v2-open { overflow: hidden; }
 .graybox-tech-archive{margin-top:16px;padding:14px;border:1px solid var(--border,#343844);border-radius:12px;background:rgba(19,22,30,.48)}
 .graybox-tech-archive>summary{cursor:pointer;color:var(--muted,#a3a9b8);font-weight:600}
 .graybox-tech-archive>.graybox-actions{margin-top:14px}
+
+#lowCostVideoPanel { display:flex; flex-direction:column; align-items:stretch; gap:12px; margin:20px 0; }
+#lowCostVideoPanel > * { min-width:0; max-width:100%; }
+#lowCostVideoPanel > button { align-self:flex-start; }
+#lowCostVideoPanel label { display:flex; gap:10px; align-items:center; flex-wrap:wrap; width:100%; box-sizing:border-box; font-size:13px; }
+#lowCostVideoPanel input:not([type="checkbox"]), #lowCostVideoPanel select, #lowCostVideoPanel textarea {
+  background:#0b0e13; color:var(--text); border:1px solid var(--line); border-radius:8px;
+  padding:10px 12px; font:inherit; min-width:0;
+}
+#lowCostVideoPanel input:not([type="checkbox"]), #lowCostVideoPanel select { flex:1; }
+#lowCostVideoPanel textarea { width:100%; min-height:110px; }
+#lowCostVideoPanel label:has(input[type="checkbox"]) { display:block; line-height:1.7; }
+#lowCostVideoPanel label input[type="checkbox"] { margin-right:8px; }
+#lowCostVideoPanel .h3-step-actions { flex-wrap:wrap; }
+#lowCostVideoPanel .muted { line-height:1.6; }
+#lowCostResult { width:100%; max-height:560px; background:#000; }
+
+.shot-workflow-form { display:flex; flex-direction:column; gap:14px; }
+.shot-workflow-form label { display:flex; flex-wrap:wrap; align-items:center; gap:10px; font-size:13px; }
+.shot-workflow-form input:not([type="checkbox"]), .shot-workflow-form select, .shot-workflow-form textarea { flex:1; min-width:0; background:#0b0e13; color:var(--text); border:1px solid var(--line); border-radius:8px; padding:10px; font:inherit; }
+.shot-workflow-form textarea { width:100%; flex-basis:100%; }
+.shot-workflow-form .muted { line-height:1.6; }
+.shot-workflow-references { display:flex; gap:12px; flex-wrap:wrap; }
+.shot-workflow-references img { max-width:220px; max-height:260px; object-fit:contain; }
+#shotWorkflowControlVideo { width:100%; max-height:520px; background:#000; }
+.production-pilot-panel.hidden { display:none; }
+.shot-workflow-form .h3-step-actions input[type="file"] { display:block; }
+
+/* The current production surface excludes retired workbenches. */
+.production-mode #workspaceView,
+.production-mode #modernView,
+.production-mode #imageStudioView,
+.production-mode #projectsView,
+.production-mode #providersView,
+.production-mode #outputPanel,
+.production-mode #logPanel,
+.production-mode #studioTabs,
+.production-mode #studioReadiness,
+.production-mode #snapshotButton,
+.production-mode #studioProjectSelect { display:none !important; }
+.production-mode .page-view.hidden,
+.production-mode .production-flow-footer.hidden { display:none !important; }
+.production-mode .stats-grid { display:none; }
+.production-project-bar { display:flex; align-items:center; justify-content:space-between; gap:18px; padding:15px 18px; margin:0 0 22px; border:1px solid var(--line); border-radius:12px; background:var(--surface); }
+.production-project-bar label { display:flex; align-items:center; gap:12px; min-width:0; font-size:13px; white-space:nowrap; }
+.production-project-bar select { width:240px; max-width:100%; }
+.production-project-bar>span { color:var(--muted); font-size:12px; line-height:1.6; }
+.production-project-card { display:flex; align-items:center; justify-content:space-between; gap:18px; padding:24px; border:1px solid var(--line); border-radius:14px; background:var(--surface-2); }
+.production-project-card.selected { border-color:var(--accent); }
+.production-project-actions { display:flex; gap:10px; flex-shrink:0; }
+.production-project-actions .project-delete-button { min-height:40px; }
+.production-delete-dialog { max-width:480px; padding:26px; background:var(--surface-2); color:var(--text); border:1px solid var(--line); border-radius:14px; }
+.production-delete-dialog::backdrop { background:rgba(0,0,0,.7); }
+.production-delete-dialog p { line-height:1.8; color:var(--muted); }
+.production-project-card h3 { margin:10px 0; font-size:22px; }
+.production-project-card p,.production-project-card small { color:var(--muted); line-height:1.7; font-size:13px; }
+.production-project-card button { white-space:nowrap; }
+.production-flow-footer { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-top:24px; padding:18px 0; border-top:1px solid var(--line); }
+.production-flow-footer span { color:var(--muted); font-size:12px; line-height:1.6; flex:1; text-align:center; }
+.production-flow-footer button { white-space:nowrap; }
+.production-field { display:flex; align-items:center; gap:14px; margin-bottom:16px; }
+.production-field select { max-width:260px; }
+.production-script-summary { display:flex; gap:15px; align-items:center; justify-content:space-between; padding:14px 0; color:var(--soft); }
+.production-script-summary span { font-size:12px; color:var(--muted); }
+.production-script-text,.production-audio-details { border:1px solid var(--line); border-radius:10px; padding:14px; margin:16px 0; }
+.production-script-text summary,.production-audio-details summary { cursor:pointer; color:var(--soft); font-size:13px; }
+.production-script-text pre { white-space:pre-wrap; overflow-wrap:anywhere; font:inherit; line-height:1.85; color:var(--soft); font-size:14px; }
+.production-shot-list { display:grid; gap:10px; }
+.production-shot-list article { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:16px; border:1px solid var(--line); border-radius:10px; }
+.production-shot-list article>div { min-width:0; }
+.production-shot-list small { font-size:11px; color:var(--muted); overflow-wrap:anywhere; }
+.production-shot-list p { font-size:14px; line-height:1.7; margin:8px 0 0; }
+.production-shot-list button { white-space:nowrap; }
+.workflow-notice,.production-attention { background:rgba(223,155,90,.08); border:1px solid rgba(223,155,90,.3); border-radius:10px; padding:14px 16px; color:#edc7a3; font-size:13px; line-height:1.75; }
+.workflow-notice.hidden { display:none; }
+.production-settings-form,#productionVideoKeyFields { display:flex; flex-direction:column; gap:14px; }
+.production-settings-form label { display:flex; flex-direction:column; gap:8px; font-size:13px; color:var(--soft); }
+.production-settings-form input { width:100%; min-height:42px; border:1px solid var(--line); border-radius:8px; padding:10px; font:inherit; background:var(--surface-2); color:var(--text); }
+.production-settings-form button { align-self:flex-start; }
+.shot-definition-fields,.shot-motion-fields,.shot-reference-fields,.shot-control-fields { display:flex; flex-direction:column; gap:14px; }
+.shot-workflow-form .h3-step-actions { justify-content:flex-start; }
+.production-video-guide { margin-bottom:18px; }
+.production-video-guide p { color:var(--muted); font-size:13px; line-height:1.8; }
+body[data-production-view="characters"] .shot-motion-fields,
+body[data-production-view="characters"] .shot-control-fields,
+body[data-production-view="characters"] #shotWorkflowRender { display:none; }
+body[data-production-view="shots"] .shot-definition-fields,
+body[data-production-view="shots"] .shot-reference-fields>.h3-step-actions,
+body[data-production-view="shots"] .shot-reference-fields>p { display:none; }
+#shotWorkflowSavedSummary { font-size:13px; padding:14px; border:1px solid var(--line); border-radius:10px; line-height:1.75; }
+.production-mode .voice-timeline-head strong { font-size:16px; }
+@media(max-width:760px) {
+  .production-project-bar,.production-project-card,.production-script-summary { flex-direction:column; align-items:stretch; }
+  .production-project-bar label { flex-wrap:wrap; }
+  .production-project-bar select { flex:1; min-width:0; }
+  .production-project-card button { align-self:flex-start; }
+  .production-shot-list article { flex-direction:column; align-items:stretch; }
+  .production-shot-list button { align-self:flex-start; }
+  .production-flow-footer { flex-wrap:wrap; }
+  .production-flow-footer span { order:-1; flex-basis:100%; text-align:left; }
+}
+.production-mode .workflow-local-project { display:none; }
+
+/* The episode editor and review room share the six-step production flow. */
+.production-editor { border:0; padding:0; margin:20px 0; min-width:0; }
+.production-script-row { border:1px solid var(--line); border-radius:14px; padding:18px; margin:16px 0; background:var(--bg); }
+.production-row-heading { display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin-bottom:14px; }
+.production-row-heading small { color:var(--muted); flex:1; }
+.production-row-heading button { background:transparent; color:var(--muted); border:1px solid var(--line); border-radius:6px; padding:5px 8px; margin-left:5px; cursor:pointer; }
+.production-row-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; }
+.production-field input, .production-field textarea, .production-field select { width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--text); font:inherit; box-sizing:border-box; }
+.production-field textarea { resize:vertical; line-height:1.65; }
+.production-script-row details { margin:12px 0 18px; padding:12px; background:var(--surface); border-radius:8px; }
+.production-script-row details summary { cursor:pointer; margin-bottom:12px; color:var(--muted); }
+.production-editor-actions { display:flex; align-items:center; flex-wrap:wrap; gap:12px; margin:20px 0; }
+.production-editor-actions .production-field { margin:0; }
+.production-preview { display:flex; flex-wrap:wrap; gap:24px; align-items:center; padding:24px 0; }
+.production-preview video { width:260px; max-width:100%; border-radius:12px; background:#000; }
+.production-voice-list article { display:flex; flex-wrap:wrap; align-items:center; gap:16px; padding:16px 0; border-bottom:1px solid var(--line); }
+.production-voice-list article > div { flex:1; min-width:220px; }
+.production-voice-list small { display:block; margin-top:6px; color:var(--muted); }
+.production-voice-list audio { width:280px; max-width:100%; }
+.production-review { display:flex; flex-direction:column; gap:12px; padding:22px; border:1px solid var(--line); border-radius:12px; margin-top:24px; }
+.production-review input { margin-right:8px; }
+.production-review button { align-self:flex-start; }
+@media(max-width:720px){ .production-row-grid { grid-template-columns:1fr; } }
+#productionScriptContent .production-field { display:grid; grid-template-columns:1fr; gap:7px; font-size:13px; }
+#productionScriptContent .production-field select { max-width:none; }
+#studioContent .production-field { white-space:nowrap; font-size:13px; }
+#studioContent .production-script-summary .production-field { margin:0; }
+.production-editor-actions button { width:auto; margin:0; padding:11px 16px; }
+.production-editor-actions select { min-width:190px; }
+.production-preview h3, .production-review h3 { margin:0 0 12px; font-size:16px; }
+.production-preview p, .production-voice-list p { font-size:13px; line-height:1.65; }
+.production-preview { padding-top:10px; }
+.production-preview video { width:220px; }
+#studioContent details.production-audio-details { padding:15px 0; }
+#studioContent details.production-audio-details summary { cursor:pointer; font-size:14px; }
+#studioContent .production-script-summary { padding-top:0; }
+@media(max-width:720px){ .production-editor-actions button { flex:1 1 100%; } }
+
+.production-preview a:not(.secondary-button) { color:var(--accent); font-size:13px; }
+.production-flow-footer button { width:auto; min-width:120px; flex:0 0 auto; margin:0; }
+.production-flow-footer span { flex:1; min-width:0; text-align:center; }
+@media(max-width:600px){ .production-flow-footer button { min-width:80px; } .production-flow-footer span { font-size:11px; } }

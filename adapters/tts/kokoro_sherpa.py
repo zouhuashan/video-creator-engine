@@ -108,6 +108,17 @@ def resolve_kokoro_voice(
         ) from error
 
 
+def prepare_kokoro_text(text: str) -> str:
+    """Keep a short opening clause with its context instead of a silent batch.
+
+    The installed int8 model can return zeros for a two-character utterance.
+    Removing only this pause retains every spoken character; display text stays
+    unchanged. Standalone short lines need another local provider.
+    """
+    text = normalize_chinese_punctuation(text)
+    return re.sub(r"^([\u3400-\u9fff]{1,2})，(?=[\u3400-\u9fff])", r"\1", text)
+
+
 class KokoroSherpaTTS(TTSProvider):
     """Non-billable local Kokoro v1.1 Chinese speech synthesis."""
 
@@ -173,7 +184,7 @@ class KokoroSherpaTTS(TTSProvider):
         text, voice, speed, emotion = validate_synthesis_request(text, voice, speed, emotion)
         if emotion is not None:
             raise TTSProviderError("Kokoro local TTS does not support emotion controls")
-        normalized_text = normalize_chinese_punctuation(text)
+        normalized_text = prepare_kokoro_text(text)
         if not normalized_text:
             raise TTSProviderError("text became empty after Chinese punctuation normalization")
         canonical_voice, sid = resolve_kokoro_voice(voice)

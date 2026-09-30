@@ -78,6 +78,17 @@ providers:
       voice: Tingting
   image: {}
   video:
+    wavespeed_wan:
+      adapter: wavespeed_wan
+      enabled: true
+      mode: remote
+      credentials_required: true
+      api_key_env: WAVESPEED_API_KEY
+      workflow: reference_video_to_video
+      default_resolution: 480p
+      default_mode: video_edit
+      max_cost_cny: 2.0
+      billable_confirmation_required: true
     local_micro_motion:
       adapter: local_micro_motion
       enabled: true

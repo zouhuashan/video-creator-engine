@@ -1,4 +1,7 @@
-const state = { projects: [], animeProjects: [], project: null, providers: [], integrations: [], studio: null, readiness: null, backups: null, activeNovelProjectId: null, studioProjectId: null, imageStudio: null, imageStudioProjectId: null, imageStudioSelected: null, imageStudioProviderPreference: 'AUTO', imageStudioStylePreset: 'CINEMATIC_3D_DONGHUA', graybox: null, grayboxProjectId: null, grayboxPollTimer: null, gptKeyframes: null, gptKeyframePollTimer: null, gptCodexLogs: null, gptCodexLogsLoading: false, costFirstPlan: null, costFirstProjectId: null, modernAssets: null, modernTimeline: null, modernContract: null, screenMGPreviews: {}, pipeline: null, pipelineProjectId: null, voiceTimeline: null, voiceTimelineProjectId: null, finalAudio: null, finalAudioProjectId: null, novelImportResult: null, selectedProvider: 'local_ken_burns', selectedImage: null, currentView: 'modern', currentWorkspace: 'overview' };
+let shotWorkflowData = null;
+let shotWorkflowPollTimer = null;
+let lowCostPollTimer = null;
+const state = { projects: [], animeProjects: [], project: null, providers: [], integrations: [], studio: null, readiness: null, backups: null, activeNovelProjectId: null, studioProjectId: null, imageStudio: null, imageStudioProjectId: null, imageStudioSelected: null, imageStudioProviderPreference: 'AUTO', imageStudioStylePreset: 'CINEMATIC_3D_DONGHUA', graybox: null, grayboxProjectId: null, grayboxPollTimer: null, gptKeyframes: null, gptKeyframePollTimer: null, gptCodexLogs: null, gptCodexLogsLoading: false, costFirstPlan: null, costFirstProjectId: null, modernAssets: null, modernTimeline: null, modernContract: null, screenMGPreviews: {}, pipeline: null, pipelineProjectId: null, voiceTimeline: null, voiceTimelineProjectId: null, finalAudio: null, finalAudioProjectId: null, novelImportResult: null, selectedProvider: 'local_ken_burns', selectedImage: null, currentView: 'anime', currentWorkspace: 'overview' };
 const ACTIVE_NOVEL_PROJECT_KEY = 'videocreator.activeNovelProjectId.v1';
 const IMAGE_STYLE_PROJECT_KEY_PREFIX = 'videocreator.imageStylePreset.v2.';
 
@@ -63,9 +66,12 @@ function resolveActiveNovelProject(preferred = '') {
   const explicit = valid(preferred) || valid(state.novelImportResult?.directory_id) || valid(state.activeNovelProjectId);
   if (explicit) return explicit;
 
-  // On a fresh page load, the newest imported novel is the default across the
-  // whole product. This prevents an old browser-local selection from silently
-  // sending new Image Studio assets into the wrong project.
+  // An import/navigation is explicit above; otherwise refresh keeps the user's
+  // project selection across all six steps.
+  const remembered = valid(storedActiveNovelProjectId());
+  if (remembered) return remembered;
+
+  // A new browser with no saved selection starts with the latest novel.
   const newest = [...projects].sort((a, b) =>
     String(b.created_at || b.updated_at || '').localeCompare(String(a.created_at || a.updated_at || ''))
   )[0];
@@ -92,7 +98,7 @@ function setActiveNovelProject(projectId, { persist = true } = {}) {
   state.voiceTimelineProjectId = value;
   state.finalAudioProjectId = value;
   if (persist) rememberActiveNovelProject(value);
-  const selectors = ['#studioProjectSelect', '#pipelineProjectSelect', '#imageStudioProject', '#modernProjectSelect'];
+  const selectors = ['#studioProjectSelect', '#pipelineProjectSelect', '#imageStudioProject', '#modernProjectSelect', '#shotWorkflowProject'];
   selectors.forEach((selector) => {
     const element = $(selector);
     if (element && [...element.options].some((option) => option.value === value)) element.value = value;
@@ -111,6 +117,7 @@ function log(message, isError = false) {
   row.className = `log-entry${isError ? ' error' : ''}`;
   row.innerHTML = `<span class="log-time">${now()}</span><span>${escapeHtml(message)}</span>`;
   $('#logList').prepend(row);
+  if (isError && $('#workflowNotice')) { $('#workflowNotice').textContent = message; $('#workflowNotice').classList.remove('hidden'); }
 }
 
 async function api(path, options = {}) {
@@ -1411,6 +1418,8 @@ async function interpolateGptKeyframes() {
   finally { button.textContent = '④ 本地插帧 → 24fps'; renderGptKeyframes(); }
 }
 function renderGraybox() {
+  if (state.graybox?.project_id === lowCostProject()) renderLowCostVideo(state.graybox?.low_cost_video);
+  if (state.graybox?.shot_workflow?.project_id === lowCostProject()) renderShotWorkflow(state.graybox.shot_workflow);
   const data = state.graybox || {};
   const render = data.render || {};
   const spec = data.spec || {};
@@ -1421,6 +1430,7 @@ function renderGraybox() {
   const characterReference = binding.character_reference || null;
   const sceneReference = binding.scene_reference || null;
   const installed = Boolean(data.blender_installed);
+  $('.production-pilot-panel')?.classList.toggle('hidden', !state.graybox?.production_pilot?.ready || Boolean(state.graybox?.shot_workflow?.selected?.definitions_confirmed));
   const productionPilot = data.production_pilot || {};
   const pilotVideo = $('#productionPilotPreview');
   const pilotEmpty = $('#productionPilotEmpty');
@@ -1446,7 +1456,7 @@ function renderGraybox() {
     : (pilotReviewStatus === 'APPROVED' ? '已通过' : (pilotReviewStatus === 'CHANGES_REQUESTED' ? '需要调整' : '待人工验收'));
   pilotStatus.classList.toggle('off', pilotReviewStatus !== 'APPROVED');
   $('#productionPilotMeta').textContent = `${productionPilot.version || 'P43 CONTROL'} · ${Number(productionPilot.duration_seconds || 5).toFixed(2)} 秒 · ${productionPilot.width || 480} × ${productionPilot.height || 854} · 本地零费用`;
-  $('#productionPilotVoiceText').textContent = productionPilot.voice_text ? `台词：${productionPilot.voice_text}` : '本镜头无对白；声音、字幕和混音在 H3 结果通过后本地合成。';
+  $('#productionPilotVoiceText').textContent = productionPilot.voice_text ? `台词：${productionPilot.voice_text}` : '本镜头无对白；视觉验收通过后，声音、字幕和混音继续在本地合成。';
 
   const pilotAudio = $('#productionPilotAudio');
   if (productionPilot.audio_url) {
@@ -2087,14 +2097,11 @@ async function saveGrayboxSmokeReview() {
 }
 
 function renderStats() {
-  $('#statProject').textContent = state.project?.name || state.project?.id || '—';
-  $('#statProjectHint').textContent = state.project ? '本地试制项目' : '等待载入';
-  $('#statAssets').textContent = state.project ? state.project.files.filter((file) => file.kind === 'image').length : '—';
-  $('#statProviders').textContent = state.providers.filter((provider) => provider.configured).length + ' / ' + state.providers.length;
+  renderProductionProjectSelector();
 }
 
 function renderProviders() {
-  $('#providerGrid').innerHTML = state.providers.map((provider) => {
+  $('#providerGrid').innerHTML = state.providers.filter((provider) => !provider.video_input_only).map((provider) => {
     const selected = provider.id === state.selectedProvider ? ' selected' : '';
     const status = provider.remote ? (provider.configured ? '已配置密钥' : `待配置 ${provider.env}`) : '无需密钥';
     return `<button class="provider-card${selected}" data-provider="${escapeHtml(provider.id)}"><strong>${escapeHtml(provider.label)}</strong><small>${provider.remote ? '远程图生视频' : '本地推镜与转场'}</small><span class="provider-status${provider.configured ? '' : ' off'}">● ${escapeHtml(status)}</span></button>`;
@@ -2170,98 +2177,7 @@ function renderProjectTable() {
 }
 
 function renderAnimeProjects() {
-  if (!state.animeProjects.length) {
-    $('#animeProjects').innerHTML = '<div class="empty-state">还没有 P18 小说国漫项目。</div>';
-    return;
-  }
-  $('#animeProjects').innerHTML = state.animeProjects.map((project) => {
-    const repository = project.repository;
-    const repositoryText = repository ? `${repository.entities} 实体 · ${repository.dependencies} 依赖 · ${repository.asset_versions} 资产版本 · ${repository.snapshots} 快照` : '数据仓库待初始化';
-    const runtime = project.runtime;
-    const runtimeText = runtime ? `任务：${runtime.succeeded} 成功 / ${runtime.queued} 排队 / ${runtime.running} 运行 · ${runtime.locks} 锁 · ${runtime.migrations} 迁移` : '运行时待初始化';
-    const sources = project.source_catalog;
-    const bible = project.story_bible;
-    const sourceText = sources ? `底本 ${sources.edition_count} · 章节 ${sources.chapter_count} · 导入 ${sources.import_count} · 事件候选 ${sources.event_candidates} · ${sources.status}` : '来源与权利目录待创建';
-    const bibleText = bible ? `故事圣经 ${bible.world_status} · 角色 ${bible.character_count} · 地点 ${bible.location_count} · 时间线 ${bible.timeline_event_count} · 连续性快照 ${bible.continuity_snapshot_count}` : '故事圣经待创建';
-    const plan = project.series_plan;
-    const planText = plan ? `全剧规划 ${plan.status} · 季计划 ${plan.season_plan_count} · 角色弧 ${plan.character_arc_count} · 转折 ${plan.major_turn_count}` : '全剧与季度规划待创建';
-    const episodePlan = project.episode_planning;
-    const episodePlanText = episodePlan ? `故事弧 ${episodePlan.story_arc_count} · 单集卡 ${episodePlan.episode_card_count} · 已就绪 ${episodePlan.ready_card_count} · 节拍 ${episodePlan.beat_count}` : '故事弧与单集卡待创建';
-    const scripts = project.episode_scripts;
-    const scriptText = scripts ? `剧本 ${scripts.script_count} · 场 ${scripts.scene_count} · 表演单元 ${scripts.unit_count} · 连续性输入 ${scripts.available_input_count}/${scripts.script_count}` : '场景剧本待创建';
-    const review = project.story_review;
-    const reviewText = review ? `剧情审核 ${review.overall_status} · 阻断 ${review.blocker_count} · 警告 ${review.warning_count} · 人工审核 ${review.human_review_status}` : '剧情审核待执行';
-    const visual = project.visual_bible;
-    const visualText = visual ? `视觉圣经 ${visual.status} · 色板 ${visual.swatch_count} · 五集配色 ${visual.episode_palette_count} · 构图规则 ${visual.composition_rule_count} · 负面约束 ${visual.negative_constraint_count}` : '视觉圣经待创建';
-    const characters = project.character_designs;
-    const characterText = characters ? `角色设定 ${characters.ready_character_count}/${characters.character_count} · 已选转面 ${characters.selected_turnaround_count} · 表情 ${characters.selected_expression_count} · 服装 ${characters.costume_count}` : '角色设定待创建';
-    const environment = project.environment_assets;
-    const environmentText = environment ? `场景 ${environment.ready_location_count}/${environment.location_count} · 变体 ${environment.location_variant_count} · 道具 ${environment.ready_prop_count}/${environment.prop_count} · 状态 ${environment.prop_state_count} · 绑定 ${environment.scene_assignment_count}` : '场景与道具资产待创建';
-    const assetReview = project.asset_review;
-    const assetReviewText = assetReview ? `参考包 ${assetReview.reference_package_count} · 参考 ${assetReview.reference_count} · 已选 ${assetReview.selected_reference_count} · 美术审核 ${assetReview.approved_review_count} · ${assetReview.ready ? '可用' : `阻断 ${assetReview.blocker_count}`}` : '参考包与美术审核待创建';
-    const shotBreakdown = project.shot_breakdown;
-    const shotText = shotBreakdown ? `分镜 ${shotBreakdown.scene_count} 场 / ${shotBreakdown.shot_count} 镜 · 已审 ${shotBreakdown.reviewed_shot_count}` : 'Scene/Shot 分镜待创建';
-    const storyboard = project.storyboard;
-    const storyboardText = storyboard ? `首尾帧 ${storyboard.frame_count} · 已选 ${storyboard.selected_frame_count} · 已审镜头 ${storyboard.approved_shot_count}` : '静态 storyboard 待创建';
-    const animatic = project.animatic;
-    const animaticText = animatic ? `Animatic ${animatic.ready_episode_count}/${animatic.episode_count} 集 · 镜头 ${animatic.shot_count} · 临时音频 ${animatic.audio_ready_count} · 字幕 ${animatic.subtitle_ready_count}` : '本地 Animatic 待创建';
-    const animaticReview = project.animatic_review;
-    const animaticReviewText = animaticReview ? `Animatic 审核 ${animaticReview.overall_status} · 发现 ${animaticReview.finding_count} · 阻断 ${animaticReview.blocker_count}` : 'Animatic 审核待执行';
-    const voices = project.voice_profiles;
-    const voiceText = voices ? `配音角色 ${voices.ready_profile_count}/${voices.profile_count} · 台词 ${voices.ready_line_count}/${voices.line_count}` : '配音角色与逐句台词待创建';
-    const audio = project.audio_assets;
-    const audioText = audio ? `音频轨 ${audio.ready_track_count}/${audio.track_count} · Cue ${audio.cue_count} · 已清权 ${audio.cleared_track_count} · ${audio.target_lufs} LUFS` : '音乐/环境声/音效待创建';
-    const audioMix = project.audio_mix;
-    const audioMixText = audioMix ? `混音 ${audioMix.ready_episode_count}/${audioMix.episode_count} 集 · 输出 ${audioMix.mix_output_count} · 最大同步偏移 ${audioMix.max_sync_offset_ms} ms` : '混音与声画同步待创建';
-    const dynamic = project.dynamic_shots;
-    const dynamicText = dynamic ? `动态镜头 ${dynamic.ready_route_count}/${dynamic.shot_count} · 队列 ${dynamic.queued_job_count}/${dynamic.job_count} · 已审 ${dynamic.approved_review_count} · 预算 ${dynamic.budget_spent}/${dynamic.budget_limit} USD` : '动态镜头路由待创建';
-    const edit = project.edit_timelines;
-    const editText = edit ? `剪辑 ${edit.ready_episode_count}/${edit.episode_count} 集 · Clip ${edit.clip_count} · 局部重渲染 ${edit.rerender_job_count}` : '集级时间线待创建';
-    const qc = project.qc;
-    const qcText = qc ? `QC ${qc.overall_status} · 阻断 ${qc.open_blocker_count} · 问题单 ${qc.open_issue_count} · 批注 ${qc.annotation_count}` : '六类 QC 待执行';
-    const acceptance = project.acceptance;
-    const acceptanceText = acceptance ? `正式验收 ${acceptance.decision} · 五集 ${acceptance.ready_episode_count}/${acceptance.episode_count} · 动作测试 ${acceptance.motion_tests_run}/${acceptance.motion_test_count}` : '正式五集验收待执行';
-    const readiness = project.readiness;
-    const readinessText = readiness ? `阶段门 ${readiness.ready_count}/${readiness.gate_count} · ${readiness.decision}` : '阶段门待计算';
-    return `<article class="anime-project-card"><div class="anime-project-head"><div><span class="section-kicker">${escapeHtml(project.ip_id)} · ${escapeHtml(project.series_id)}</span><h3>${escapeHtml(project.title)}</h3></div><span class="result-chip">${escapeHtml(project.status)}</span></div><div class="hierarchy-row"><span>剧集 1</span><span>${project.season_count} 季</span><span>${project.episode_count} 集</span></div><div class="episode-token-row">${project.episode_ids.map((id) => `<span>${escapeHtml(id)}</span>`).join('')}</div><div class="source-row"><span>${escapeHtml(sourceText)}</span><strong class="${sources?.publication_allowed ? 'allowed' : 'blocked'}">${sources?.publication_allowed ? '可发布' : '禁止发布'}</strong></div><div class="runtime-row readiness-summary">${escapeHtml(readinessText)}</div><div class="runtime-row">${escapeHtml(bibleText)}</div><div class="runtime-row">${escapeHtml(planText)}</div><div class="runtime-row">${escapeHtml(episodePlanText)}</div><div class="runtime-row">${escapeHtml(scriptText)}</div><div class="runtime-row">${escapeHtml(reviewText)}</div><div class="runtime-row">${escapeHtml(visualText)}</div><div class="runtime-row">${escapeHtml(characterText)}</div><div class="runtime-row">${escapeHtml(environmentText)}</div><div class="runtime-row">${escapeHtml(assetReviewText)}</div><div class="runtime-row">${escapeHtml(shotText)}</div><div class="runtime-row">${escapeHtml(storyboardText)}</div><div class="runtime-row">${escapeHtml(animaticText)}</div><div class="runtime-row">${escapeHtml(animaticReviewText)}</div><div class="runtime-row">${escapeHtml(voiceText)}</div><div class="runtime-row">${escapeHtml(audioText)}</div><div class="runtime-row">${escapeHtml(audioMixText)}</div><div class="runtime-row">${escapeHtml(dynamicText)}</div><div class="runtime-row">${escapeHtml(editText)}</div><div class="runtime-row">${escapeHtml(qcText)}</div><div class="runtime-row">${escapeHtml(acceptanceText)}</div><div class="repository-row"><small>${escapeHtml(repositoryText)}</small><button data-open-anime-project="${escapeHtml(project.directory_id)}">进入制作台</button><button data-impact-project="${escapeHtml(project.directory_id)}" data-impact-root="${escapeHtml(project.ip_id)}" ${repository ? '' : 'disabled'}>分析 IP 影响</button><button class="danger-action" data-delete-anime-project="${escapeHtml(project.directory_id)}" data-delete-anime-title="${escapeHtml(project.title)}">删除项目</button></div><div class="runtime-row">${escapeHtml(runtimeText)}</div><div class="impact-result" data-impact-result="${escapeHtml(project.directory_id)}"></div><small class="manifest-note">${escapeHtml(project.project_id)} · novel-anime-project.json</small></article>`;
-  }).join('');
-  document.querySelectorAll('[data-open-anime-project]').forEach((button) => button.addEventListener('click', async () => {
-    try { await loadStudio(button.dataset.openAnimeProject); setView('studio', 'overview'); log(`已打开国漫制作台：${button.dataset.openAnimeProject}`); } catch (error) { log(error.message, true); }
-  }));
-  document.querySelectorAll('[data-impact-project]').forEach((button) => button.addEventListener('click', async () => {
-    const target = document.querySelector(`[data-impact-result="${button.dataset.impactProject}"]`);
-    button.disabled = true;
-    try {
-      const result = await api(`/api/novel-anime/projects/${encodeURIComponent(button.dataset.impactProject)}/impact/${encodeURIComponent(button.dataset.impactRoot)}`);
-      target.textContent = `影响范围：${result.impact.map((item) => item.entity_id).join(' → ')}`;
-    } catch (error) { target.textContent = error.message; }
-    finally { button.disabled = false; }
-  }));
-  document.querySelectorAll('[data-delete-anime-project]').forEach((button) => button.addEventListener('click', async () => {
-    const projectId = button.dataset.deleteAnimeProject;
-    const title = button.dataset.deleteAnimeTitle || projectId;
-    if (!window.confirm(`确认删除《${title}》？\n\n该项目目录、生成素材和项目数据库都会从本地 VideoCreator 中删除，此操作不可撤销。`)) return;
-    button.disabled = true;
-    button.textContent = '删除中…';
-    try {
-      const result = await api('/api/novel-anime/delete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ project_id: projectId, confirm_delete: true }),
-      });
-      if (state.activeNovelProjectId === projectId || state.imageStudioProjectId === projectId || state.studioProjectId === projectId) {
-        clearActiveNovelProject();
-      }
-      if (state.novelImportResult?.directory_id === projectId) state.novelImportResult = null;
-      await load(result.default_project_id || '');
-      setView('anime');
-      log(`已删除项目：《${result.title || title}》`);
-    } catch (error) {
-      log(error.message, true);
-      button.disabled = false;
-      button.textContent = '删除项目';
-    }
-  }));
+  renderProductionProjects();
 }
 
 const RESOURCE_ENDPOINTS = {
@@ -2801,13 +2717,12 @@ async function loadEpisodeMasterGallery() {
     ['PENDING', '待审核'], ['PASS', '通过'], ['CHANGES_REQUESTED', '需修改'],
   ].map(([status, label]) => `<option value="${status}" ${status === value ? 'selected' : ''}>${label}</option>`).join('');
   try {
-    const [result, providerTests] = await Promise.all([
-      api(`/api/novel-anime/projects/${encodeURIComponent(projectId)}/episode-masters`),
-      api(`/api/novel-anime/projects/${encodeURIComponent(projectId)}/provider-motion-tests`),
-    ]);
-    if (!result.episodes?.length) { target.innerHTML = '<div class="empty-state">尚未生成集级母版。</div>'; return; }
+    const result = await api(`/api/novel-anime/projects/${encodeURIComponent(projectId)}/episode-masters`);
+    if (projectId !== resolveActiveNovelProject()) return;
+    const providerTests = {tests:[]};
+    if (!result.episodes?.length) { target.innerHTML = '<div class="empty-state">当前项目还没有成片。请先完成正式镜头、配音和混音，再制作首集母版。</div>'; return; }
     const providerSection = providerTests.tests?.length ? `<div class="provider-test-section"><div class="provider-test-heading"><div><span class="section-kicker">MOTION PROVIDER TESTS</span><strong>第一集 3 个动作模型对比输入包已准备</strong><small>${escapeHtml(providerTests.remote_execution)} · 尚未上传素材或产生费用</small></div></div><div class="provider-test-grid">${providerTests.tests.map((test) => `<article class="provider-test-card"><img src="${escapeHtml(test.start_frame_url || '')}" alt="${escapeHtml(test.label)}"><div><span>${escapeHtml(test.provider)}</span><strong>${escapeHtml(test.label)}</strong><small>${escapeHtml(test.motion_goal)} · ${test.target_duration_seconds} 秒</small><p>${escapeHtml(test.prompt)}</p><em>${escapeHtml(test.status)}</em></div></article>`).join('')}</div></div>` : '';
-    target.innerHTML = `<div class="episode-master-summary"><div><span class="section-kicker">FIVE EPISODE MASTERS</span><strong>${result.episode_count} 集已生成 · ${escapeHtml(result.status)} · 技术 QC ${escapeHtml(result.technical_qc?.status || 'NOT_RUN')}</strong><small>技术检查 ${result.technical_qc?.passed_episode_count || 0}/${result.technical_qc?.episode_count || result.episode_count} 集通过；整体人审：${escapeHtml(result.human_review?.status || 'PENDING')}。每集四项检查全部通过后，系统才会标记该集已批准。</small></div><button class="secondary-button small-button" data-open-episode-qc>查看技术报告</button></div>${providerSection}<div class="episode-master-grid">${result.episodes.map((episode) => {
+    target.innerHTML = `<div class="episode-master-summary"><div><span class="section-kicker">当前项目成片</span><strong>${result.episode_count} 集已生成 · ${escapeHtml(result.status)} · 技术 QC ${escapeHtml(result.technical_qc?.status || 'NOT_RUN')}</strong><small>技术检查 ${result.technical_qc?.passed_episode_count || 0}/${result.technical_qc?.episode_count || result.episode_count} 集通过；整体人审：${escapeHtml(result.human_review?.status || 'PENDING')}。每集四项检查全部通过后，系统才会标记该集已批准。</small></div><button class="secondary-button small-button" data-open-episode-qc>查看技术报告</button></div>${providerSection}<div class="episode-master-grid">${result.episodes.map((episode) => {
       const review = episode.human_review || {};
       const checks = review.checks || {};
       return `<article class="episode-master-card" data-episode-card="${escapeHtml(episode.episode_id)}"><video controls playsinline preload="metadata" poster="${escapeHtml(episode.qc_frame_url || '')}" src="${escapeHtml(episode.media_url || '')}"></video><div class="episode-master-copy"><div class="episode-master-head"><strong>${escapeHtml(episode.episode_id)}</strong><span class="review-status ${review.status === 'APPROVED' ? 'approved' : review.status === 'CHANGES_REQUESTED' ? 'changes' : ''}">${escapeHtml(review.status || 'PENDING')}</span></div><small>${Number(episode.duration_seconds || 0).toFixed(1)} 秒 · ${episode.segment_count || 0} 个镜头单元 · 已烧录字幕</small><div class="episode-check-grid"><label>剧情连贯<select class="compact-select" data-episode-check="story">${options(checks.story || 'PENDING')}</select></label><label>画面<select class="compact-select" data-episode-check="picture">${options(checks.picture || 'PENDING')}</select></label><label>声音<select class="compact-select" data-episode-check="audio">${options(checks.audio || 'PENDING')}</select></label><label>字幕<select class="compact-select" data-episode-check="subtitles">${options(checks.subtitles || 'PENDING')}</select></label></div><input class="text-field" data-episode-reviewer placeholder="审核人（记录结果时必填）" value="${escapeHtml(review.reviewed_by || '')}"><input class="text-field" data-episode-note placeholder="修改意见或备注" value="${escapeHtml(review.note || '')}"><div class="episode-master-actions"><button class="secondary-button small-button" data-save-episode-review="${escapeHtml(episode.episode_id)}">保存本集审片</button><a href="${escapeHtml(episode.subtitle_url || '#')}" target="_blank" rel="noopener noreferrer">查看字幕文件</a></div></div></article>`;
@@ -2815,7 +2730,7 @@ async function loadEpisodeMasterGallery() {
     target.querySelector('[data-open-episode-qc]')?.addEventListener('click', async () => {
       try {
         const qc = await api(`/api/novel-anime/projects/${encodeURIComponent(projectId)}/episode-masters/qc`);
-        showStudioDetail('五集母版技术 QC', qc, `/api/novel-anime/projects/${encodeURIComponent(projectId)}/episode-masters/qc`);
+        showStudioDetail('成片技术检查', qc, `/api/novel-anime/projects/${encodeURIComponent(projectId)}/episode-masters/qc`);
       } catch (error) { log(error.message, true); }
     });
     target.querySelectorAll('[data-save-episode-review]').forEach((button) => button.addEventListener('click', async () => {
@@ -2922,23 +2837,23 @@ function renderFinalAudioSection(episodeId) {
   const mix = episode.final_mix || {};
   return '<section class="final-audio-section">' +
     '<datalist id="gptSovitsProfiles">' + gptProfileOptions + '</datalist>' +
-    '<div class="final-audio-head"><div><span class="section-kicker">P34 / FINAL VOICE + FINAL MIX</span>' +
-    '<strong>正式角色配音 · 声线锁 · BGM 自动 Ducking</strong>' +
-    '<small>Timing Voice 仍先锁定时长。正式声线可选 Fish Audio 或本机 GPT-SoVITS；换 Provider 后仍自动对齐 P33 时长，不重新打乱镜头。</small></div>' +
+    '<div class="final-audio-head"><div><span class="section-kicker">正式配音与混音</span>' +
+    '<strong>固定角色音色，制作正式声音</strong>' +
+    '<small>正式声线可选 Fish Audio 或本机 GPT-SoVITS；声音仍对齐已锁定时间轴，不重新打乱镜头。</small></div>' +
     '<span class="status-dot ' + ((fish.configured || gpt.configured) ? '' : 'off') + '">' + escapeHtml(fishStatus + ' · ' + gptStatus) + '</span></div>' +
     '<div class="final-audio-key-row"><input class="text-field" id="finalAudioKey" type="password" autocomplete="off" placeholder="Fish Audio API Key（仅 Fish 路线需要；仅当前 Web 进程）">' +
     '<button class="secondary-button small-button" id="finalAudioSaveKey">保存 Fish Key</button><small>' + escapeHtml(fish.source || 'none') + ' · GPT-SoVITS endpoint ' + escapeHtml(gpt.endpoint || 'http://127.0.0.1:9880') + ' · Key 不写盘</small></div>' +
-    '<div class="voice-lock-grid">' + (lockCards || '<div class="empty-state">当前没有需要锁定的角色声线。</div>') + '</div>' +
+    '<details class="production-audio-details"><summary>设置角色音色</summary><div class="voice-lock-grid">' + (lockCards || '<div class="empty-state">当前没有需要锁定的角色声线。</div>') + '</div></details>' +
     '<div class="final-voice-gate">' + fishGate +
     '<button class="primary-button small-button" id="generateFinalVoiceEpisode" ' + (allLocksReady && episode.timing_status === 'READY' ? '' : 'disabled') + '>生成本集正式配音</button>' +
     '<span>' + escapeHtml(episode.final_voice_status || 'NOT_RUN') + ' · ' + Number(episode.ready_line_count || 0) + '/' + Number(episode.line_count || 0) + ' 句</span></div>' +
-    '<div class="final-voice-line-list">' + (finalLines || '<div class="empty-state">先完成本集 P33 Timing Voice。</div>') + '</div>' +
-    '<div class="final-mix-card"><div><strong>Final Mix</strong><small>对白/旁白优先；有 BGM 时自动 sidechain ducking；最终 -16 LUFS / -1 dBTP。</small></div>' +
+    '<details class="production-audio-details" open><summary>试听与重做正式配音</summary><div class="final-voice-line-list">' + (finalLines || '<div class="empty-state">先生成本集临时配音并确认时长。</div>') + '</div></details>' +
+    '<div class="final-mix-card"><div><strong>配音、背景音乐与音效混音</strong><small>突出人声；说话时自动降低背景音乐，统一响度。</small></div>' +
     '<div class="final-audio-upload"><select class="select-field" id="finalAudioAssetKind"><option value="bgm">BGM</option><option value="ambience">环境音</option><option value="sfx">SFX</option></select><input class="text-field" id="finalAudioAssetFile" type="file" accept="audio/*,.wav,.mp3,.m4a,.aac,.aiff,.aif,.flac"><button class="secondary-button small-button" id="uploadFinalAudioAsset">上传音频素材</button></div>' +
     '<label>BGM<select class="select-field" id="finalMixBgm">' + finalAudioOptionList(candidates.bgm) + '</select></label>' +
     '<label>环境音<select class="select-field" id="finalMixAmbience">' + finalAudioOptionList(candidates.ambience) + '</select></label>' +
     '<label>SFX<select class="select-field" id="finalMixSfx">' + finalAudioOptionList(candidates.sfx) + '</select></label>' +
-    '<button class="secondary-button small-button" id="generateFinalMix" ' + (episode.final_voice_status === 'READY' ? '' : 'disabled') + '>生成 Final Mix</button>' +
+    '<button class="secondary-button small-button" id="generateFinalMix" ' + (episode.final_voice_status === 'READY' ? '' : 'disabled') + '>生成本集混音</button>' +
     '<div class="final-mix-result"><span>' + escapeHtml(mix.status || 'NOT_RUN') + (mix.dialogue_ducking ? ' · BGM DUCKING ON' : '') + '</span>' +
     (mix.m4a_url ? '<audio controls preload="metadata" src="' + escapeHtml(mix.m4a_url) + '"></audio>' : '') +
     (mix.wav_url ? '<a href="' + escapeHtml(mix.wav_url) + '" target="_blank" rel="noopener noreferrer">WAV</a>' : '') +
@@ -3122,15 +3037,15 @@ function renderVoiceTimeline() {
   target.innerHTML = `
     <div class="voice-timeline-head">
       <div>
-        <span class="section-kicker">VOICE FIRST / ZERO-COST TIMING</span>
-        <strong>先定声音时长，再决定 Blender / H3 镜头时长</strong>
-        <small>临时配音使用本机 macOS say，只用于 Timing，不调用付费 TTS；字幕直接来自剧本文本，不走 Whisper / ASR。</small>
+        <span class="section-kicker">04 / 配音与字幕</span>
+        <strong>先试听声音，再固定镜头时长</strong>
+        <small>本地临时配音免费，用于检查节奏；正式声音在下方试听与生成。字幕直接使用台本。</small>
       </div>
       <span class="status-dot ${readyCount ? '' : 'off'}">${readyCount}/${episodes.length} READY</span>
     </div>
     <div class="voice-timeline-toolbar">
       <label><span>集数</span><select class="select-field" id="voiceTimelineEpisode">${episodes.map((episode) => `<option value="${escapeHtml(episode.episode_id)}" ${episode.episode_id === active.episode_id ? 'selected' : ''}>${escapeHtml(episode.episode_id)} · ${episode.line_count || 0} 句 · ${Number(episode.duration_seconds || 0).toFixed(1)}s</option>`).join('')}</select></label>
-      <label><span>Timing Voice</span><input class="text-field" id="voiceTimelineVoice" value="${escapeHtml(voice)}" placeholder="Tingting"></label>
+      <label><span>临时音色</span><input class="text-field" id="voiceTimelineVoice" value="${escapeHtml(voice)}" placeholder="Tingting"></label>
       <button class="primary-button small-button" id="voiceTimelineGenerate">生成本集临时配音 + 字幕</button>
       <button class="secondary-button small-button" id="voiceTimelineApplyTiming" ${active.status === 'READY' ? '' : 'disabled'}>应用到镜头时长</button>
     </div>
@@ -3141,8 +3056,8 @@ function renderVoiceTimeline() {
       <span>付费：0</span>
       ${subtitleLinks ? `<span class="voice-subtitle-links">${subtitleLinks}</span>` : '<span>字幕：待生成</span>'}
     </div>
-    <div class="voice-line-list">${lineCards}</div>
-    <div class="voice-timeline-note">生成完成后，系统会同时写入 <code>audio/voice-timeline.json</code>、<code>audio/shot-timing.json</code>、SRT 和 ASS。点击“应用到镜头时长”后，只写回当前集的 ACTUAL_TTS 时长，并明确要求下游 Storyboard / Animatic 重建。</div>
+    <details class="production-audio-details"><summary>查看逐句台词与临时声音</summary><div class="voice-line-list">${lineCards}</div></details>
+    <div class="voice-timeline-note">生成后可下载字幕。确认节奏，再点击“应用到镜头时长”；已经制作的动作控制视频可能需要重做。</div>
     ${renderFinalAudioSection(active.episode_id)}
   `;
 
@@ -3193,6 +3108,7 @@ async function loadVoiceTimeline(projectId = state.studio?.directory_id || state
       api(`/api/novel-anime/projects/${encodeURIComponent(projectId)}/voice-timeline`),
       api(`/api/novel-anime/projects/${encodeURIComponent(projectId)}/final-audio`),
     ]);
+    if (projectId !== resolveActiveNovelProject()) return;
     state.voiceTimeline = timeline;
     state.finalAudio = finalAudio;
     state.finalAudioProjectId = projectId;
@@ -3232,86 +3148,41 @@ async function generateVoiceTimelinePreview() {
 }
 
 function renderStudio() {
-  if (!state.studio) {
-    $('#studioContent').innerHTML = '<div class="empty-state">请选择一个国漫项目后再进入制作台。</div>';
-    $('#studioReadiness').innerHTML = '';
-    return;
-  }
-  const workspaces = state.studio.workspaces || [];
-  const primaryWorkspaceIds = ['overview', 'script', 'assets', 'audio', 'render'];
-  const workspaceLabels = {
-    source_catalog: '小说来源', story_bible: '故事设定', series_plan: '季度规划', episode_planning: '分集规划',
-    episode_scripts: '剧本台本', story_review: '剧情检查', visual_bible: '视觉设定', character_designs: '角色设计',
-    environment_assets: '场景资产', asset_review: '美术检查', shot_breakdown: '镜头拆分', storyboard: '分镜脚本',
-    animatic: '动态预览', animatic_review: '分镜检查', voice_profiles: '角色音色', audio_assets: '配音素材',
-    audio_mix: '音频混音', dynamic_shots: '动态镜头', edit_timelines: '剪辑时间线', episode_masters: '成片母版',
-    provider_motion_tests: '动作路线测试', runtime: '运行状态', qc: '质量检查', acceptance: '人工验收', repository: '项目文件'
-  };
-  const active = workspaces.find((item) => item.id === state.currentWorkspace) || workspaces[0];
-  state.currentWorkspace = active.id;
-  $('#studioTitle').textContent = active.title;
-  $('#studioSubtitle').textContent = active.description;
-  const select = $('#studioProjectSelect');
-  select.innerHTML = state.animeProjects.map((item) => `<option value="${escapeHtml(item.directory_id)}">${escapeHtml(novelProjectOptionLabel(item))}</option>`).join('');
-  select.value = state.studio.directory_id;
-  const primaryTabs = workspaces.filter((item) => primaryWorkspaceIds.includes(item.id));
-  const advancedTabs = workspaces.filter((item) => !primaryWorkspaceIds.includes(item.id));
-  $('#studioTabs').innerHTML = primaryTabs.map((item) => `<button class="studio-tab${item.id === active.id ? ' active' : ''}" data-studio-workspace="${escapeHtml(item.id)}">${escapeHtml(item.title)}</button>`).join('') +
-    (advancedTabs.length ? `<details class="studio-advanced-tabs"${advancedTabs.some((item) => item.id === active.id) ? ' open' : ''}><summary>更多栏目</summary><div>${advancedTabs.map((item) => `<button class="studio-tab${item.id === active.id ? ' active' : ''}" data-studio-workspace="${escapeHtml(item.id)}">${escapeHtml(item.title)}</button>`).join('')}</div></details>` : '');
-  document.querySelectorAll('[data-studio-workspace]').forEach((button) => button.addEventListener('click', () => { state.currentWorkspace = button.dataset.studioWorkspace; $('#studioDetail').classList.add('hidden'); renderStudio(); }));
-  renderReadiness();
-  const entries = Object.entries(active.data || {}).filter(([key]) => key !== 'project' && key !== 'readiness');
-  const cards = entries.map(([key, value]) => `<button class="studio-data-card" data-studio-resource="${escapeHtml(key)}"><strong>${escapeHtml(workspaceLabels[key] || key)}</strong><small>${escapeHtml(compactValue(value))}</small><span class="card-link">查看详情 →</span></button>`).join('');
-  const action = active.id === 'review' ? `<div class="review-action"><strong>记录审片问题</strong><div class="form-row"><input id="issueTitle" class="text-field" placeholder="问题标题"><input id="issueRefs" class="text-field" placeholder="关联 ID（逗号分隔）"><button class="secondary-button small-button" id="issueButton">创建问题单</button></div><small>问题会写入项目 QC，仍需人工处理后才能通过发布门。</small></div>` : '';
-  const characterGallery = active.id === 'assets' ? '<div class="native-asset-section"><div class="panel-heading"><div><span class="section-kicker">LOCAL CHARACTER ASSETS</span><h3>角色转面与零成本动作预览</h3><p class="panel-subtitle">直接使用本地透明角色图和程序化镜头，不上传素材，不调用外部模型。</p></div></div><div class="character-asset-gallery" id="characterAssetGallery"><div class="empty-state">正在载入角色资产…</div></div></div>' : '';
-  const episodeMasterGallery = active.id === 'render' ? '<div class="native-asset-section"><div class="panel-heading"><div><span class="section-kicker">LOCAL EPISODE REVIEW</span><h3>《镜花缘》前五集本地母版</h3><p class="panel-subtitle">在线播放、检查剧情/画面/声音/字幕，并逐集保存人工审核。这里不会自动发布。</p></div></div><div id="episodeMasterGallery"><div class="empty-state">正在载入五集母版…</div></div></div>' : '';
-  const voiceTimelinePanel = active.id === 'audio' ? '<div class="native-asset-section"><div id="voiceTimelinePanel"><div class="empty-state">正在载入 Voice Timeline…</div></div></div>' : '';
-  $('#studioContent').innerHTML = `<div class="studio-hero"><div><span class="section-kicker">${escapeHtml(state.studio.project_id)}</span><h3>${escapeHtml(state.studio.title)} · ${escapeHtml(active.title)}</h3><p>${escapeHtml(active.description)}。页面直接读取项目 Schema、状态机和 QC 结果，不维护 Web 独立数据。</p></div><span class="studio-status">${escapeHtml(active.status)}</span></div><div class="studio-data-grid">${cards || '<div class="empty-state">当前工作区暂无数据。</div>'}</div>${characterGallery}${voiceTimelinePanel}${episodeMasterGallery}${action}<div class="studio-api">工作区 API：/api/novel-anime/projects/${encodeURIComponent(state.studio.directory_id)}/workspaces</div>`;
-  if (active.id === 'assets') loadCharacterAssetGallery();
-  if (active.id === 'audio') loadVoiceTimeline(state.studio.directory_id);
-  if (active.id === 'render') loadEpisodeMasterGallery();
-  document.querySelectorAll('[data-studio-resource]').forEach((button) => button.addEventListener('click', () => {
-    const key = button.dataset.studioResource;
-    openStudioResource(active.id, key, active.data[key]);
-  }));
-  $('#issueButton')?.addEventListener('click', submitIssue);
+  renderProductionStudio();
 }
 
 function setView(view, workspace = state.currentWorkspace) {
+  if (state.currentView === 'story' && productionDirty) {
+    $('#productionEditorStatus').textContent = '请先保存台本修改，再进入下一步。';
+    return;
+  }
+  // Retired entry points cannot reopen the old workbenches via import/refresh.
+  if (view === 'imageStudio') view = 'characters';
+  if (view === 'modern' || (view === 'studio' && !['audio', 'render'].includes(workspace))) view = 'story';
+  if (!['anime', 'novelImport', 'story', 'characters', 'shots', 'studio', 'settings'].includes(view)) view = 'anime';
   state.currentView = view;
   if (view === 'studio') state.currentWorkspace = workspace;
-  document.querySelectorAll('.nav-item').forEach((nav) => nav.classList.toggle('active', nav.dataset.view === view && (view !== 'studio' || nav.dataset.workspace === state.currentWorkspace)));
-  const advancedNavigation = $('#advancedNavigation');
-  if (advancedNavigation) {
-    const advancedItemActive = Boolean(advancedNavigation.querySelector('.nav-item.active'));
-    const primaryItemMatches = [...document.querySelectorAll('.nav > .nav-item')].some((nav) =>
-      nav.dataset.view === view && (view !== 'studio' || nav.dataset.workspace === state.currentWorkspace)
-    );
-    advancedNavigation.open = advancedItemActive && !primaryItemMatches;
-  }
-  ['workspace', 'novelImport', 'anime', 'modern', 'studio', 'imageStudio', 'projects', 'providers'].forEach((name) => $(`#${name}View`).classList.toggle('hidden', name !== view));
-  $('#outputPanel').classList.toggle('hidden', view !== 'workspace');
-  $('#logPanel')?.classList.toggle('hidden', view !== 'workspace');
-  if (view === 'projects') renderProjectTable();
+  document.querySelectorAll('.nav-item').forEach(nav => nav.classList.toggle('active', nav.dataset.view === view &&
+    (view !== 'studio' || nav.dataset.workspace === workspace)));
+  ['workspace', 'novelImport', 'anime', 'modern', 'studio', 'imageStudio', 'projects', 'providers', 'story', 'characters', 'shots', 'settings']
+    .forEach(name => $(`#${name}View`).classList.toggle('hidden', name !== view));
+  $('#outputPanel').classList.add('hidden');
+  $('#logPanel').classList.add('hidden');
+  configureProductionView();
+  const project = resolveActiveNovelProject();
   if (view === 'anime') renderAnimeProjects();
-  if (view === 'modern') {
-    const target = resolveActiveNovelProject(state.costFirstProjectId);
-    if (target) {
-      setActiveNovelProject(target);
-      $('#modernProjectSelect').value = target;
-      loadCostFirstPlan(target).catch((error) => log(error.message, true));
-    }
+  if (view === 'story') loadProductionStory();
+  if (view === 'studio') {
+    renderStudio();
+    if (!project) $('#studioContent').innerHTML = '<div class="empty-state">请先导入或选择小说项目。</div>';
   }
-  if (view === 'studio') renderStudio();
-  if (view === 'imageStudio') {
-    const target = resolveActiveNovelProject(state.imageStudioProjectId);
-    if (target) {
-      setActiveNovelProject(target);
-      loadImageStudio(target).catch((error) => log(error.message, true));
-    }
+  if (view === 'characters' || view === 'shots') {
+    if (project !== shotWorkflowData?.project_id) clearProductionShotDisplay();
+    $('#shotWorkflowStatus').textContent = project ? '正在载入当前项目…' : '请先导入或选择小说项目。';
+    if (project) loadShotWorkflow(project).catch(error => { $('#shotWorkflowStatus').textContent = error.message; });
   }
-  if (view === 'providers') renderProviderSettings();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  if (view === 'settings') loadProductionSettings();
+  window.scrollTo({top:0, behavior:'smooth'});
 }
 
 function updateNovelImportRightsUI() {
@@ -3340,6 +3211,7 @@ async function importNovelProject() {
   const episodeCount = Number($('#novelImportEpisodes').value || 5);
   const rightsMode = $('#novelImportRights').value;
   const rightsConfirmed = $('#novelImportRightsConfirm').checked;
+  const importMode=$('#novelImportMode').value;
 
   if (!title) { log('请输入小说名称', true); return; }
   if (!Number.isInteger(episodeCount) || episodeCount < 1 || episodeCount > 999) { log('首季集数必须是 1–999', true); return; }
@@ -3354,10 +3226,10 @@ async function importNovelProject() {
     const result = await api('/api/novel-anime/import', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, author, episode_count: episodeCount, rights_mode: rightsMode, rights_confirmed: rightsConfirmed, source_name: file.name, source_text: sourceText }),
+      body: JSON.stringify({ title, author, episode_count: episodeCount, rights_mode: rightsMode, rights_confirmed: rightsConfirmed, source_name: file.name, source_text: sourceText, import_mode:importMode }),
     });
     state.novelImportResult = result;
-    $('#novelImportStatus').textContent = 'PASS';
+    $('#novelImportStatus').textContent = result.character_status === 'NEEDS_REVIEW' ? '角色待核对' : 'PASS';
     $('#novelImportResultTitle').textContent = result.reused_existing
       ? (result.scene_backfill?.status === 'READY'
           ? `《${result.title}》已复用原项目，并完成 scenes 回填`
@@ -3367,20 +3239,24 @@ async function importNovelProject() {
     const backfillMeta = backfill.scene_count ? ' · 已生成 ' + backfill.scene_count + ' 个 scene / ' + (backfill.shot_count || 0) + ' 个 Shot' : '';
     $('#novelImportResultMeta').textContent = (result.import?.chapter_count || 0) + ' 章 · ' + (result.character_count || result.import?.character_candidates || 0) + ' 个角色 · 首季 ' + result.episode_count + ' 集 · ' + (result.script_adaptation_allowed ? '可进入本地改编' : '仅技术测试') + ' · 原始 TXT 不落库，仅保留 Scene Seed / 改编脚本' + backfillMeta;
     $('#novelImportResult').classList.remove('hidden');
+    if(result.notice)$('#novelImportResultMeta').textContent += ' · ' + result.notice;
     state.activeNovelProjectId = result.directory_id;
     state.studioProjectId = result.directory_id;
     state.pipelineProjectId = result.directory_id;
     state.imageStudioProjectId = result.directory_id;
     rememberActiveNovelProject(result.directory_id);
     await load(result.directory_id);
-    setView('novelImport');
+    setView(importMode==='SCRIPT'?'story':'novelImport');
     log((result.reused_existing ? '已识别相同 TXT 并复用原项目' : '小说导入完成') + '：' + result.title + ' · ' + (result.import?.chapter_count || 0) + ' 章 · ' + (result.character_count || result.import?.character_candidates || 0) + ' 个角色' + (backfill.scene_count ? ' · scenes ' + backfill.scene_count + ' · Shots ' + (backfill.shot_count || 0) : ''));
   } catch (error) {
     $('#novelImportStatus').textContent = 'FAIL';
+    $('#novelImportResultTitle').textContent = '导入未完成';
+    $('#novelImportResultMeta').textContent = error.message;
+    $('#novelImportResult').classList.remove('hidden');
     log(error.message, true);
   } finally {
     button.disabled = false;
-    button.innerHTML = '<span>＋</span>创建项目并导入小说';
+    button.innerHTML = '<span>＋</span>创建项目并导入'+(importMode==='SCRIPT'?'剧本':'小说');
   }
 }
 
@@ -4257,17 +4133,12 @@ async function generateImageStudio(kind) {
   }
 }
 
-async function loadStudio(projectId = state.studioProjectId || state.animeProjects[0]?.directory_id) {
+async function loadStudio(projectId = resolveActiveNovelProject()) {
   if (!projectId) return;
   state.studioProjectId = projectId;
-  const [studio, readiness, backups] = await Promise.all([
-    api(`/api/novel-anime/projects/${encodeURIComponent(projectId)}/workspaces`),
-    api(`/api/novel-anime/projects/${encodeURIComponent(projectId)}/readiness`),
-    api(`/api/novel-anime/projects/${encodeURIComponent(projectId)}/backups`),
-  ]);
+  const studio = await api(`/api/novel-anime/projects/${encodeURIComponent(projectId)}/workspaces`);
+  if (projectId !== resolveActiveNovelProject()) return;
   state.studio = studio;
-  state.readiness = readiness;
-  state.backups = backups;
   renderStudio();
 }
 
@@ -4349,37 +4220,14 @@ async function loadProject(projectId) {
 
 async function load(preferredProjectId = '') {
   try {
-    const [projects, animeProjects, health] = await Promise.all([api('/api/projects'), api('/api/novel-anime/projects'), api('/api/health')]);
-    state.projects = projects.projects;
-    state.animeProjects = animeProjects.projects;
-    $('#modernProjectSelect').innerHTML = state.animeProjects.map((item) => '<option value="' + escapeHtml(item.directory_id) + '">' + escapeHtml(novelProjectOptionLabel(item)) + '</option>').join('');
+    const [projects, health] = await Promise.all([api('/api/novel-anime/projects'), api('/api/health')]);
+    state.animeProjects = projects.projects;
     state.providers = health.providers;
     state.integrations = health.integrations || [];
-
-    const activeNovelProjectId = resolveActiveNovelProject(preferredProjectId);
-    if (activeNovelProjectId) setActiveNovelProject(activeNovelProjectId);
-
-    $('#projectSelect').innerHTML = state.projects.map((project) => `<option value="${escapeHtml(project.id)}">${escapeHtml(project.name)}</option>`).join('');
-    renderProviders();
-    renderProviderSettings();
-    renderProjectTable();
-    renderAnimeProjects();
-
-    if (activeNovelProjectId) {
-      await loadStudio(activeNovelProjectId);
-      await loadPipeline(activeNovelProjectId);
-      await loadImageStudio(activeNovelProjectId);
-      await loadGraybox(activeNovelProjectId);
-    }
-
-    if (state.projects.length) {
-      const workspaceProjectId = state.projects.some((project) => project.id === activeNovelProjectId)
-        ? activeNovelProjectId
-        : state.projects[0].id;
-      await loadProject(workspaceProjectId);
-    }
+    const project = resolveActiveNovelProject(preferredProjectId);
+    if (project) setActiveNovelProject(project);
+    renderStats();
     setView(state.currentView || 'anime');
-    log(`已载入 ${state.projects.length} 个项目和 ${state.providers.length} 条 Provider 路线${activeNovelProjectId ? ` · 当前小说项目 ${activeNovelProjectId}` : ''}`);
   } catch (error) { log(error.message, true); }
 }
 
@@ -4530,14 +4378,219 @@ $('#billableConfirm').addEventListener('change', updateGenerateButton);
 $('#generateButton').addEventListener('click', generate);
 $('#storyboardButton').addEventListener('click', generateStoryboard);
 $('#refreshButton').addEventListener('click', () => load());
-$('#studioRefreshButton').addEventListener('click', () => loadStudio().catch((error) => log(error.message, true)));
+$('#studioRefreshButton').addEventListener('click', () => loadProductionWorkbench().catch((error) => log(error.message, true)));
 $('#snapshotButton').addEventListener('click', createSnapshot);
 $('#studioProjectSelect').addEventListener('change', (event) => {
   const projectId = setActiveNovelProject(event.target.value);
   if (projectId) loadStudio(projectId).catch((error) => log(error.message, true));
 });
 $('#clearLog').addEventListener('click', () => { $('#logList').innerHTML = ''; });
-document.querySelectorAll('.nav-item').forEach((item) => item.addEventListener('click', () => setView(item.dataset.view, item.dataset.workspace || state.currentWorkspace)));
-$('#animeImportButton').addEventListener('click', () => setView('novelImport'));
+document.querySelectorAll('.nav-item').forEach((item) => item.addEventListener('click', () => { setView(item.dataset.view, item.dataset.workspace || state.currentWorkspace); document.querySelectorAll('.nav-item').forEach(nav => nav.classList.toggle('active', nav === item)); if (item.dataset.scrollTarget) document.getElementById(item.dataset.scrollTarget)?.scrollIntoView({behavior:'smooth'}); }));
+function selectImportMode(mode) {
+  $('#novelImportMode').value=mode;
+  const direct=mode==='SCRIPT';
+  $('#importModeHeading').textContent=direct?'导入剧本，直接制作':'导入小说，建立项目';
+  $('#importModeSubtitle').textContent=direct?'上传已经写好的单集剧本，直接进入剧本与分镜制作页。':'上传小说 TXT，填写名称和集数。导入会建立剧情草稿；下一步要核对剧本和分镜。';
+  $('#importTitleLabel').textContent=direct?'项目名称':'小说名称';
+  $('#importFileLabel').textContent=direct?'剧本 TXT':'小说 TXT';
+  if(!$('#novelImportFile').files?.length)$('#novelImportFileHint').textContent=direct?'最大20 MB；支持【场景1｜地点｜时间】及“角色名：”对白。':'最大20 MB；支持章节标题自动切分。';
+  $('#importModeHint').textContent=direct?'识别【场景1｜公司办公室｜白天】；保留对白、旁白、动作和屏幕字，不二次改写。当前每个文件导入一集。':'小说会生成剧情草稿，请核对后制作。';
+  $('#novelImportEpisodes').disabled=direct;if(direct)$('#novelImportEpisodes').value=1;
+  $('#novelImportButton').innerHTML='<span>＋</span>创建项目并导入'+(direct?'剧本':'小说');
+}
+$('#novelImportMode').addEventListener('change',e=>selectImportMode(e.target.value));
+$('#animeImportButton').addEventListener('click', () => {selectImportMode('NOVEL');setView('novelImport');});
+$('#scriptImportButton').addEventListener('click', () => {selectImportMode('SCRIPT');setView('novelImport');});
 $('#modernPanelHost').appendChild($('#costFirstPanel'));
 load();
+
+
+
+function lowCostProject() { return resolveActiveNovelProject(state.activeNovelProjectId); }
+function lowCostEndpoint(suffix = '') {
+  const project = lowCostProject();
+  if (!project) throw new Error('请先选择小说项目');
+  return `/api/novel-anime/projects/${encodeURIComponent(project)}/low-cost-video${suffix}`;
+}
+function renderLowCostVideo(data = {}) {
+  if (data?.project_id && data.project_id !== lowCostProject()) return;
+  if (data?.shot_id && shotWorkflowData?.selected_shot_id && data.shot_id !== shotWorkflowData.selected_shot_id) return;
+  const status = data?.status || 'NOT_STARTED';
+  $('#lowCostStatus').textContent = `${data?.configured ? '密钥已配置' : '请在服务设置配置 WaveSpeed 密钥'} · ${({NOT_STARTED:'尚未生成',QUEUED:'排队中',RUNNING:'生成中',COMPLETED:'已生成',FAILED:'生成失败',ERROR:'生成失败'})[status] || status}${data?.error ? ' · ' + data.error : ''}${data?.ready ? ' · 视觉验收 ' + (data.review_status || 'PENDING') : ''}`;
+  $('#lowCostStart').disabled = Boolean(data?.active) || !data.configured || !shotWorkflowData?.control?.ready;
+  $('#lowCostResume').disabled = Boolean(data?.active) || status === 'NOT_STARTED' || status === 'COMPLETED';
+  $('#lowCostReviewPanel').classList.toggle('hidden', !data?.ready);
+  const video = $('#lowCostResult');
+  video.classList.toggle('hidden', !data?.ready);
+  if (data?.ready && video.getAttribute('src') !== data.media_url) video.src = data.media_url;
+  if (!data?.ready) { video.removeAttribute('src'); }
+  clearTimeout(lowCostPollTimer);
+  if (data?.active) {
+    const project = lowCostProject();
+    lowCostPollTimer = setTimeout(async () => {
+      if (project !== lowCostProject()) return;
+      try { renderLowCostVideo(await api(lowCostEndpoint())); }
+      catch (error) { $('#lowCostStatus').textContent = error.message; }
+    }, 5000);
+  }
+}
+$('#lowCostSaveKey').addEventListener('click', async () => {
+  try {
+    await api('/api/settings/keys', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({provider:'wavespeed_wan', key:$('#lowCostKey').value.trim()})});
+    $('#lowCostKey').value = '';
+    renderLowCostVideo(await api(lowCostEndpoint()));
+    await loadProductionSettings();
+  } catch (error) { $('#lowCostStatus').textContent = error.message; log(error.message, true); }
+});
+$('#lowCostMode').addEventListener('change', () => {
+  $('#lowCostModeHint').textContent = $('#lowCostMode').value === 'video_edit'
+    ? '仅上传控制视频并使用提示词，不上传人物或场景图；角色身份与场景一致性需要实测。'
+    : '上传控制视频和已绑定人物图，不上传场景图；不能同时重绘背景。';
+});
+$('#lowCostQuote').addEventListener('click', async () => {
+  try {
+    const quote = await api(lowCostEndpoint('/quote'), {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({resolution:$('#lowCostResolution').value})});
+    $('#lowCostQuoteText').textContent = `实际 ${quote.duration_seconds.toFixed(2)} 秒 · 按 ${quote.billable_seconds} 秒计费 · 预估 ¥${quote.estimated_cny.toFixed(2)}（$${quote.estimated_usd.toFixed(2)}），仅生成费。`;
+  } catch (error) { $('#lowCostQuoteText').textContent = error.message; }
+});
+async function startLowCostVideo(resume) {
+  if (!$('#lowCostConsent').checked || !$('#lowCostReviewed').checked) {
+    $('#lowCostStatus').textContent = '请先检查控制视频，并确认上传和付费调用。'; return;
+  }
+  $('#lowCostStart').disabled = true;
+  $('#lowCostResume').disabled = true;
+  try {
+    const data = await api(lowCostEndpoint('/start'), {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      mode:$('#lowCostMode').value, resolution:$('#lowCostResolution').value, max_cost_cny:Number($('#lowCostBudget').value),
+      prompt:$('#lowCostPrompt').value.trim(), confirm_billable:true, upload_authorized:true, control_reviewed:true,
+      shot_id:shotWorkflowData?.selected_shot_id || '', resume, new_attempt:$('#lowCostNewAttempt').checked
+    })});
+    $('#lowCostNewAttempt').checked = false;
+    renderLowCostVideo(await api(lowCostEndpoint()));
+  } catch (error) {
+    $('#lowCostStatus').textContent = error.message;
+    $('#lowCostStart').disabled = false; $('#lowCostResume').disabled = false;
+  }
+}
+$('#lowCostStart').addEventListener('click', () => startLowCostVideo(false));
+$('#lowCostResume').addEventListener('click', () => startLowCostVideo(true));
+
+$('#lowCostReviewSave').addEventListener('click', async () => {
+  try {
+    await api(lowCostEndpoint('/review'), {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({shot_id:shotWorkflowData?.selected_shot_id || '', review_status:$('#lowCostReviewChoice').value, note:$('#lowCostReviewNote').value.trim()})});
+    renderLowCostVideo(await api(lowCostEndpoint()));
+  } catch (error) { $('#lowCostStatus').textContent = error.message; }
+});
+
+
+function shotWorkflowEndpoint(operation = '') {
+  return `/api/novel-anime/projects/${encodeURIComponent(lowCostProject())}/shot-workflow${operation ? '/' + operation : ''}`;
+}
+function renderShotWorkflow(data, form = true) {
+  if (!data || data.project_id !== lowCostProject()) return;
+  shotWorkflowData = data;
+  const binding = data.selected || {};
+  const selectedShot = (data.shots || []).find(item => item.id === data.selected_shot_id);
+  const summary = $('#shotWorkflowSavedSummary');
+  summary.classList.toggle('hidden', state.currentView !== 'shots');
+  summary.textContent = binding.definitions_confirmed ? `已保存角色：${binding.character_definition}；场景：${binding.scene_name}。要改外观请回第 03 步。` : '还没有保存角色和场景。请先回第 03 步填写并确认设定。';
+  if (form) {
+    $('#shotWorkflowProject').innerHTML = state.animeProjects.map(p => `<option value="${escapeHtml(p.directory_id)}">${escapeHtml(p.title || p.directory_id)}</option>`).join('');
+    $('#shotWorkflowProject').value = data.project_id;
+    const episodes = [...new Set((data.shots || []).map(shot => shot.episode_id))];
+    const episode = selectedShot?.episode_id || episodes[0];
+    $('#shotWorkflowEpisode').innerHTML = episodes.map(id => `<option value="${escapeHtml(id)}">第 ${Number(id.match(/E(\d+)$/)?.[1] || 1)} 集</option>`).join('');
+    $('#shotWorkflowEpisode').value = episode || '';
+    $('#shotWorkflowShot').innerHTML = (data.shots || []).filter(shot => shot.episode_id === episode).map((s, index) => `<option value="${escapeHtml(s.id)}">镜头 ${index + 1} · ${s.duration_seconds.toFixed(2)} 秒 · ${escapeHtml(s.excerpt || s.scene_id)}</option>`).join('');
+    $('#shotWorkflowShot').value = data.selected_shot_id || data.shots?.[0]?.id || '';
+    $('#shotWorkflowCharacter').innerHTML = (data.characters || []).map(c => `<option value="${escapeHtml(c.id)}">${escapeHtml(c.name)} · ${escapeHtml(({PENDING:'待核对', APPROVED:'已确认', CHANGES_REQUESTED:'需修改'})[c.review_status] || c.review_status)}</option>`).join('');
+    $('#shotWorkflowCharacter').value = binding.character_id || selectedShot?.character_ids?.[0] || data.characters?.[0]?.id || '';
+    $('#shotWorkflowCharacterDefinition').value = binding.character_definition || '';
+    $('#shotWorkflowSceneName').value = binding.scene_name || '';
+    $('#shotWorkflowSceneDefinition').value = binding.scene_definition || '';
+    $('#shotWorkflowEnvironment').value = binding.environment || selectedShot?.environment || 'modern_room';
+    $('#shotWorkflowAction').value = binding.action || selectedShot?.action || (/手机/.test(selectedShot?.excerpt || '') ? 'look_phone' : 'walk_stop_look');
+    $('#shotWorkflowConfirmed').checked = Boolean(binding.definitions_confirmed);
+    $('#lowCostReviewed').checked = false; $('#lowCostConsent').checked = false;
+    $('#lowCostQuoteText').textContent = '请先准备并核对当前镜头，再查询费用。';
+    $('#lowCostPrompt').value = data.suggested_prompt || '请先保存当前项目的角色与场景设定。';
+  }
+  $('#shotWorkflowExcerpt').textContent = selectedShot ? `剧情依据：${selectedShot.excerpt || '当前分镜未提供原文片段，请先核对剧情'}；分镜时长 ${selectedShot.duration_seconds.toFixed(2)} 秒。` : '先选择分镜，再填写角色与场景。';
+  const control = data.control || {};
+  $('#shotWorkflowStatus').textContent = `${data.title} · ${({'RENDERING':'动作控制视频生成中', 'COMPLETED':'动作控制视频已生成', 'ERROR':'生成失败', 'STALE':'设定或时长已变更，请重做'})[control.status] || '待准备动作控制'}${control.error ? ' · ' + control.error : ''}`;
+  $('#shotWorkflowRender').disabled = data.active || !binding.definitions_confirmed;
+  $('#shotWorkflowSave').disabled = Boolean(data.active) || (state.currentView === 'shots' && !binding.definitions_confirmed);
+  for (const id of ['shotWorkflowCharacterFile','shotWorkflowSceneFile','shotWorkflowControlFile']) $('#' + id).disabled = Boolean(data.active) || !binding.definitions_confirmed;
+  const video = $('#shotWorkflowControlVideo');video.classList.toggle('hidden', !control.ready);
+  if (control.ready && video.getAttribute('src') !== control.media_url) video.src = control.media_url;
+  if (!control.ready) video.removeAttribute('src');
+  for (const [id,key] of [['shotWorkflowCharacterImage','character_reference_url'],['shotWorkflowSceneImage','scene_reference_url']]) {
+    const image = $('#' + id);image.classList.toggle('hidden', !data[key]);
+    if (data[key]) image.src = data[key]; else image.removeAttribute('src');
+  }
+  $('#shotWorkflowPromptLinks').innerHTML = Object.entries(data.prompt_urls || {}).map(([name,url]) => `<a class="ghost-button small-button" href="${escapeHtml(url)}" download>${escapeHtml(name === 'character-prompt.txt' ? '下载角色定妆提示词' : name === 'scene-prompt.txt' ? '下载场景提示词' : '下载 Scene JSON')}</a>`).join('');
+  const blend = $('#shotWorkflowBlendDownload');blend.classList.toggle('hidden', !control.blend_url);
+  if (control.blend_url) blend.href = control.blend_url;
+  clearTimeout(shotWorkflowPollTimer);
+  if (data.active) {
+    const project = data.project_id;
+    shotWorkflowPollTimer = setTimeout(async () => {
+      if (project !== lowCostProject()) return;
+      try { renderShotWorkflow(await api(shotWorkflowEndpoint()), false); } catch (e) { $('#shotWorkflowStatus').textContent = e.message; }
+    }, 4000);
+  }
+}
+async function loadShotWorkflow(project = lowCostProject()) {
+  if (!project) return;
+  const data = await api(`/api/novel-anime/projects/${encodeURIComponent(project)}/shot-workflow`);
+  if (project !== lowCostProject()) return;
+  renderShotWorkflow(data);
+  renderLowCostVideo(await api(lowCostEndpoint()));
+}
+async function shotWorkflowAction(operation, payload = {}) {
+  const project = lowCostProject();
+  const data = await api(shotWorkflowEndpoint(operation), {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  if (project !== lowCostProject()) return;
+  renderShotWorkflow(data);
+  renderLowCostVideo(await api(lowCostEndpoint()));
+}
+$('#shotWorkflowProject').addEventListener('change', async event => {
+  setActiveNovelProject(event.target.value);
+  state.grayboxProjectId = lowCostProject();
+  $('.production-pilot-panel')?.classList.add('hidden');
+  $('#lowCostKey').value = '';
+  try { await loadShotWorkflow(); } catch (e) { $('#shotWorkflowStatus').textContent = e.message; }
+});
+$('#shotWorkflowEpisode').addEventListener('change', async event => {
+  const episode = event.target.value;
+  const shots = (shotWorkflowData?.shots || []).filter(shot => shot.episode_id === episode);
+  const selected = shots.find(shot => /手机/.test(shot.excerpt)) || shots[0];
+  if (!selected) return;
+  try { await shotWorkflowAction('select', {shot_id:selected.id}); } catch (e) { $('#shotWorkflowStatus').textContent = e.message; }
+});
+$('#shotWorkflowShot').addEventListener('change', async event => {
+  try { await shotWorkflowAction('select', {shot_id:event.target.value}); } catch (e) { $('#shotWorkflowStatus').textContent = e.message; }
+});
+$('#shotWorkflowSave').addEventListener('click', async () => {
+  try { await shotWorkflowAction('save', {
+    shot_id:$('#shotWorkflowShot').value, character_id:$('#shotWorkflowCharacter').value,
+    character_definition:$('#shotWorkflowCharacterDefinition').value.trim(), scene_name:$('#shotWorkflowSceneName').value.trim(),
+    scene_definition:$('#shotWorkflowSceneDefinition').value.trim(), environment:$('#shotWorkflowEnvironment').value,
+    action:$('#shotWorkflowAction').value, definitions_confirmed:$('#shotWorkflowConfirmed').checked
+  }); } catch (e) { $('#shotWorkflowStatus').textContent = e.message; }
+});
+$('#shotWorkflowRender').addEventListener('click', async () => {
+  try { await shotWorkflowAction('render'); } catch (e) { $('#shotWorkflowStatus').textContent = e.message; }
+});
+async function uploadShotWorkflow(file, kind) {
+  if (!file) return;
+  const limit = kind === 'control' ? 40 : 12;
+  if (file.size > limit*1024*1024) throw new Error(`文件超过 ${limit}MB`);
+  const project = lowCostProject(); const shot = shotWorkflowData?.selected_shot_id;
+  const content = await new Promise((resolve,reject) => {const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(',')[1]);reader.onerror=reject;reader.readAsDataURL(file);});
+  if (project !== lowCostProject() || shot !== shotWorkflowData?.selected_shot_id) throw new Error('项目或镜头已切换，请重新上传');
+  await shotWorkflowAction(kind === 'control' ? 'import-control' : 'upload', {kind, shot_id:shot, content_base64:content});
+}
+for (const [id,kind] of [['shotWorkflowCharacterFile','character'],['shotWorkflowSceneFile','scene'],['shotWorkflowControlFile','control']]) {
+  $('#' + id).addEventListener('change', async event => {try {await uploadShotWorkflow(event.target.files[0],kind);} catch(e) {$('#shotWorkflowStatus').textContent=e.message;} finally {event.target.value='';}});
+}

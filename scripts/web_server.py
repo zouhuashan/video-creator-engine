@@ -122,6 +122,7 @@ PROVIDER_TYPES = {
     "wan": WanImageToVideo,
 }
 KEY_ENV = {
+    "wavespeed_wan": "WAVESPEED_API_KEY",
     "minimax_h3": "MINIMAX_API_KEY",
     "openai_sora": "OPENAI_API_KEY",
     "openai_image": "OPENAI_API_KEY",
@@ -143,8 +144,9 @@ def _safe_project(project_id: str) -> Path:
     project_id = unquote(str(project_id or "")).strip()
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,120}", project_id):
         raise ValueError("invalid project id")
-    path = (PROJECTS_ROOT / project_id).resolve()
-    if PROJECTS_ROOT.resolve() not in path.parents or not path.is_dir():
+    path = PROJECTS_ROOT / project_id
+    resolved_path = path.resolve()
+    if PROJECTS_ROOT.resolve() not in resolved_path.parents or not resolved_path.is_dir():
         raise ValueError("project not found")
     return path
 
@@ -1294,7 +1296,7 @@ def _provider_status() -> list[dict[str, object]]:
         {"id": "local_two_cut", "label": "P36 两图硬切", "remote": False, "configured": True},
         {"id": "local_ken_burns", "label": "本地动态分镜", "remote": False, "configured": True},
     ]
-    for provider_id, label in (("minimax_h3", "MiniMax H3 · 白模转成片"), ("openai_sora", "OpenAI Sora"), ("runway", "Runway"), ("wan", "Wan 2.1")):
+    for provider_id, label in (("wavespeed_wan", "WaveSpeed Wan 2.2 · 低价动作视频"), ("minimax_h3", "MiniMax H3 · 白模转成片"), ("openai_sora", "OpenAI Sora"), ("runway", "Runway"), ("wan", "Wan 2.1")):
         env_name = KEY_ENV[provider_id]
         status.append({
             "id": provider_id,
@@ -1302,6 +1304,7 @@ def _provider_status() -> list[dict[str, object]]:
             "remote": True,
             "configured": bool(RUNTIME_KEYS.get(provider_id) or os.environ.get(env_name)),
             "env": env_name,
+            "video_input_only": provider_id == "wavespeed_wan",
             "source": "session" if RUNTIME_KEYS.get(provider_id) else ("environment" if os.environ.get(env_name) else "none"),
         })
     return status
@@ -1669,6 +1672,8 @@ def _graybox_web_status(project: Path) -> dict[str, object]:
         "recut_preview": recut_preview,
         "rig_preview": rig_preview,
         "production_pilot": _production_pilot_web_status(project),
+        "low_cost_video": _low_cost_web_status(project),
+        "shot_workflow": _project_shot_web_status(project),
         "h3_package": _h3_shot_package_web_status(project),
         "smoke_review": _load_graybox_smoke_review(
             project,
@@ -1676,6 +1681,70 @@ def _graybox_web_status(project: Path) -> dict[str, object]:
             final_items[0] if final_items else None,
         ),
     }
+
+
+
+def _low_cost_web_status(project: Path) -> dict:
+    from scripts.low_cost_video import status
+    from scripts.project_shot_workflow import selected_id, status as workflow_status
+    shot_id = selected_id(project) or workflow_status(project).get("selected_shot_id", "")
+    data = status(project, shot_id)
+    data["shot_id"] = shot_id
+    if data.get("ready"):
+        data["media_url"] = _media_url(project, data["output"])
+    data["project_id"] = project.name
+    data["configured"] = bool(RUNTIME_KEYS.get("wavespeed_wan") or os.environ.get("WAVESPEED_API_KEY"))
+    return data
+
+
+def _low_cost_context(project: Path) -> tuple[str, str]:
+    from scripts.project_shot_workflow import context
+    return context(project)
+
+
+def _episode_workbench_web_status(project: Path, episode: str) -> dict:
+    from scripts.episode_workbench import inventory
+    data = inventory(project, episode)
+    for line in data['audio'].get('lines', []):
+        line['media_url'] = _media_url(project, line['path'])
+    if data.get('visual_direction'):data['visual_direction']['media_url']=_media_url(project,data['visual_direction']['image'])
+    performance = data.get('character_performance', {})
+    if performance.get('ready'):
+        performance['media_url'] = _media_url(project, performance['output'])
+        performance['poster_url'] = _media_url(project, performance['poster'])
+        performance['report_url'] = _media_url(project, performance['report'])
+        performance['blend_url'] = _media_url(project, performance['blend'])
+        performance['asset_manifest_url'] = _media_url(project, performance['asset_manifest'])
+    job = data['job']
+    if job.get('ready'):
+        job['media_url'] = _media_url(project, job['output'])
+        if job.get('poster') and (project/job['poster']).is_file():job['poster_url'] = _media_url(project,job['poster'])
+        job['subtitles_url'] = _media_url(project, job['subtitles'])
+        job['srt_url'] = _media_url(project, str(Path(job['subtitles']).with_suffix('.srt')))
+        job['qc_url'] = _media_url(project, job['qc'])
+    return data
+
+
+def _project_shot_web_status(project: Path) -> dict:
+    from scripts.project_shot_workflow import status, prompt
+    data = status(project)
+    control = data.get("control", {})
+    if control.get("ready"):
+        control["media_url"] = _media_url(project, control["output"])
+    if control.get("blend") and (project / control["blend"]).is_file():
+        control["blend_url"] = _media_url(project, control["blend"])
+    for key in ("character_reference", "scene_reference"):
+        relative = data.get("selected", {}).get(key, "")
+        data[key + "_url"] = _media_url(project, relative) if relative else ""
+    data["suggested_prompt"] = prompt(data.get("selected", {})) if data.get("selected") else ""
+    shot_id = data.get("selected_shot_id", "")
+    pack = project / "production/shot-packs" / shot_id
+    data["prompt_urls"] = {
+        name: _media_url(project, _relative(project, pack / name))
+        for name in ("character-prompt.txt", "scene-prompt.txt", "scene.json")
+        if (pack / name).is_file()
+    }
+    return data
 
 
 def _generate_graybox_final(project: Path, payload: dict[str, object]) -> dict[str, object]:
@@ -2125,7 +2194,14 @@ def _delete_novel_project(project_id: str, *, confirmed: bool) -> dict[str, obje
     manifest = load_novel_anime_project(manifest_path)
     title = str(manifest.get("title") or project.name)
 
-    shutil.rmtree(project)
+    from scripts import episode_workbench, project_shot_workflow, low_cost_video
+    # Use the same locks as generation starts so deletion cannot race a worker.
+    with episode_workbench._LOCK, project_shot_workflow._LOCK, low_cost_video._LOCK:
+        if (any(episode_workbench._active(project,e) for e in episode_workbench.saved_episodes(project))
+            or str(project.resolve()) in project_shot_workflow._RUNNING
+            or any(key.startswith(str(project.resolve())+':') for key in low_cost_video._ACTIVE)):
+            raise ValueError('本项目正在生成，请等待任务完成后再删除。可以先切换到其他项目。')
+        shutil.rmtree(project)
     if project.exists():
         raise OSError(f"project directory still exists after deletion: {project.name}")
     _NOVEL_PROJECT_CACHE.clear()
@@ -2150,10 +2226,30 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/episode-workbench/(S\d{2}E\d{3})", parsed.path)
+        if match:
+            try:
+                return self._json(_episode_workbench_web_status(_safe_project(match.group(1)), match.group(2)))
+            except (ValueError, OSError, KeyError, TypeError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/shot-workflow", parsed.path)
+        if match:
+            try:
+                return self._json(_project_shot_web_status(_safe_project(match.group(1))))
+            except (ValueError, OSError, KeyError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/low-cost-video", parsed.path)
+        if match:
+            try:
+                return self._json(_low_cost_web_status(_safe_project(match.group(1))))
+            except (ValueError, OSError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
         if parsed.path in {"/", "/index.html"}:
             return self._serve_file(WEB_ROOT / "index.html", "text/html; charset=utf-8")
         if parsed.path == "/app.js":
             return self._serve_file(WEB_ROOT / "app.js", "text/javascript; charset=utf-8")
+        if parsed.path == "/production-flow.js":
+            return self._serve_file(WEB_ROOT / "production-flow.js", "text/javascript; charset=utf-8")
         if parsed.path == "/styles.css":
             return self._serve_file(WEB_ROOT / "styles.css", "text/css; charset=utf-8")
         if parsed.path == "/api/health":
@@ -2654,6 +2750,66 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802
         route = urlparse(self.path).path
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/episode-workbench/(S\d{2}E\d{3})/(save|start|review|actions|adopt-director|character-sample|character-review)", route)
+        if match:
+            try:
+                from scripts import episode_workbench as workbench
+                project = _safe_project(match.group(1))
+                payload = self._read_json(max_bytes=128 * 1024)
+                operation = match.group(3)
+                if operation == 'save': workbench.save_script(project, match.group(2), payload)
+                elif operation == 'start': workbench.start(project, match.group(2), payload)
+                elif operation == 'adopt-director':
+                    from scripts.episode_director_draft import adopt_draft
+                    adopt_draft(project, match.group(2), payload)
+                elif operation == 'actions':
+                    from scripts.script_action_plan import apply_plan
+                    apply_plan(project, match.group(2), payload)
+                elif operation == 'character-sample':
+                    from scripts.humanoid_performance import build
+                    build(project)
+                elif operation == 'character-review':
+                    from scripts.humanoid_performance import review
+                    review(project, payload)
+                else: workbench.review_preview(project, match.group(2), payload)
+                return self._json(_episode_workbench_web_status(project, match.group(2)), HTTPStatus.ACCEPTED if operation == 'start' else HTTPStatus.CREATED)
+            except (ValueError, OSError, KeyError, TypeError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/shot-workflow/(save|select|render|upload|import-control)", route)
+        if match:
+            try:
+                from scripts import project_shot_workflow as workflow
+                project = _safe_project(match.group(1))
+                payload = self._read_json(max_bytes=56 * 1024 * 1024)
+                operation = match.group(2)
+                if operation == "save": workflow.save(project, payload)
+                elif operation == "select": workflow.select(project, str(payload.get("shot_id", "")))
+                elif operation == "render": workflow.render(project)
+                elif operation == "upload": workflow.upload(project, payload)
+                else: workflow.import_control(project, payload)
+                return self._json(_project_shot_web_status(project), HTTPStatus.CREATED)
+            except (ValueError, VideoGenerationError, OSError, KeyError, TypeError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
+        match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/low-cost-video/(quote|start|review)", route)
+        if match:
+            try:
+                from scripts.low_cost_video import preview, start, review
+                from scripts.project_shot_workflow import selected_id
+                project = _safe_project(match.group(1))
+                payload = self._read_json(max_bytes=16384)
+                current_shot_id = selected_id(project)
+                if payload.get("shot_id") and payload["shot_id"] != current_shot_id:
+                    raise ValueError("镜头已切换，请刷新后重试")
+                payload["shot_id"] = current_shot_id
+                if match.group(2) == "review":
+                    return self._json(review(project, payload))
+                control, character = _low_cost_context(project)
+                if match.group(2) == "quote":
+                    return self._json(preview(project, control, str(payload.get("resolution", "480p"))))
+                key = RUNTIME_KEYS.get("wavespeed_wan") or os.environ.get("WAVESPEED_API_KEY", "")
+                return self._json(start(project, payload, control, character, key), HTTPStatus.ACCEPTED)
+            except (ValueError, VideoGenerationError, OSError, TypeError, json.JSONDecodeError) as error:
+                return self._error(HTTPStatus.BAD_REQUEST, str(error))
         match = re.fullmatch(r"/api/novel-anime/projects/([^/]+)/graybox/h3-package/import", route)
         if match:
             try:
@@ -2701,6 +2857,7 @@ class VideoCreatorHandler(BaseHTTPRequestHandler):
                     rights_confirmed=payload.get("rights_confirmed") is True,
                     source_name=str(payload.get("source_name") or "novel.txt"),
                     source_text=str(payload.get("source_text") or ""),
+                    import_mode=str(payload.get("import_mode") or "NOVEL"),
                 )
                 _NOVEL_PROJECT_CACHE.clear()
                 return self._json(result, HTTPStatus.CREATED)

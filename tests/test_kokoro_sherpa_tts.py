@@ -10,6 +10,8 @@ from adapters.tts import (
     normalize_chinese_punctuation,
     resolve_kokoro_voice,
 )
+from adapters.tts.kokoro_sherpa import prepare_kokoro_text
+from adapters.tts._kokoro_worker import validate_speech_samples
 
 
 class KokoroSherpaTTSTests(unittest.TestCase):
@@ -44,6 +46,17 @@ class KokoroSherpaTTSTests(unittest.TestCase):
         self.assertEqual(resolve_kokoro_voice("男旁白"), ("zm_010", 59))
         with self.assertRaisesRegex(TTSProviderError, "unsupported Kokoro voice_id"):
             resolve_kokoro_voice("zm_001")
+
+    def test_short_vocative_keeps_all_characters_in_context(self):
+        self.assertEqual(prepare_kokoro_text('爸爸，你怎么了？'), '爸爸你怎么了？')
+        self.assertEqual(prepare_kokoro_text('陈念每天早上，都去奶奶家。'), '陈念每天早上，都去奶奶家。')
+
+    def test_rejects_silent_short_line_and_silent_opening(self):
+        with self.assertRaisesRegex(ValueError, 'silent'):
+            validate_speech_samples([0.0]*100, 100)
+        with self.assertRaisesRegex(ValueError, 'omitted'):
+            validate_speech_samples([0.0]*110+[.1]*90, 100)
+        validate_speech_samples([0.0]*5+[.1]*95, 100)
 
     def test_local_kokoro_has_priority_when_it_is_available(self):
         self.assertEqual(

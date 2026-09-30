@@ -7,6 +7,15 @@ import sys
 from pathlib import Path
 
 
+def validate_speech_samples(samples, sample_rate):
+    """Reject silent or missing openings; this is not a transcription check."""
+    first = next((i for i, value in enumerate(samples) if abs(value) > .003), None)
+    if first is None:
+        raise ValueError("generated speech is silent")
+    if first / sample_rate > .75:
+        raise ValueError("generated speech has a silent opening; check for omitted words")
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--model-dir", type=Path, required=True)
@@ -67,6 +76,7 @@ def main() -> int:
         if len(audio.samples) == 0 or audio.sample_rate <= 0:
             print("sherpa-onnx generated empty audio", file=sys.stderr)
             return 2
+        validate_speech_samples(audio.samples, audio.sample_rate)
         if not sherpa_onnx.write_wave(str(args.output), audio.samples, audio.sample_rate):
             print("sherpa-onnx could not write the WAV output", file=sys.stderr)
             return 2
