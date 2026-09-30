@@ -11,13 +11,15 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import re
 import shutil
 import subprocess
 from pathlib import Path
 from typing import Any
 
-from adapters.tts import FishAudioTTS, TTSProviderError
+from adapters.tts import FishAudioTTS, GPTSoVITSLocalTTS, TTSProviderError
+from adapters.tts.gpt_sovits_local import load_voice_profiles as load_gpt_sovits_profiles
 from scripts.novel_story_bible import load_bible
 from scripts.novel_voice_profiles import load_voice_profiles
 
@@ -27,6 +29,9 @@ TIMELINE_PATH = Path("audio/voice-timeline.json")
 FINAL_VOICE_ROOT = Path("audio/final-voice")
 FINAL_MIX_ROOT = Path("audio/final-mix")
 AUDIO_EXTENSIONS = {".wav", ".mp3", ".m4a", ".aac", ".aif", ".aiff", ".flac"}
+GPT_SOVITS_PROFILE_CONFIG = Path(__file__).resolve().parents[1] / "config" / "gpt-sovits-voices.json"
+GPT_SOVITS_ENDPOINT_ENV = "GPT_SOVITS_ENDPOINT"
+SUPPORTED_FINAL_VOICE_PROVIDERS = {"fish_audio", "gpt_sovits_local"}
 
 
 class FinalAudioError(RuntimeError):
@@ -169,12 +174,14 @@ def save_voice_lock(
     character_id = str(character_id or "").strip()
     voice_id = str(voice_id or "").strip()
     provider = str(provider or "fish_audio").strip().lower()
-    if provider != "fish_audio":
-        raise FinalAudioError("当前 Final Voice 首个正式 Provider 固定为 fish_audio")
+    if provider not in SUPPORTED_FINAL_VOICE_PROVIDERS:
+        raise FinalAudioError("Final Voice Provider 仅支持 fish_audio 或 gpt_sovits_local")
     if not character_id:
         raise FinalAudioError("character_id is required")
     if len(voice_id) > 256 or any(char in voice_id for char in "\r\n/\\"):
-        raise FinalAudioError("Fish Audio voice_id 无效")
+        raise FinalAudioError("voice_id 无效")
+    if provider == "gpt_sovits_local" and voice_id and not re.fullmatch(r"[A-Za-z0-9._-]{1,128}", voice_id):
+        raise FinalAudioError("GPT-SoVITS voice_id 必须是本地 profile 名称")
     if isinstance(speed, bool) or not 0.5 <= float(speed) <= 2.0:
         raise FinalAudioError("speed must be between 0.5 and 2.0")
     emotion_default = str(emotion_default or "").strip()
@@ -278,23 +285,66 @@ def _load_manifest(project: Path, episode_id: str) -> dict[str, Any]:
     return payload if isinstance(payload, dict) else {"schema_version": 1, "episode_id": episode_id, "lines": [], "status": "INVALID"}
 
 
+def _gpt_sovits_profiles() -> dict[str, dict[str, Any]]:
+    try:
+        return load_gpt_sovits_profiles(GPT_SOVITS_PROFILE_CONFIG)
+    except TTSProviderError as error:
+        raise FinalAudioError(str(error)) from error
+
+
+def _synthesize_final_line(
+    *,
+    text: str,
+    lock: dict[str, Any],
+    emotion: str | None,
+    api_key: str,
+    confirm_billable: bool,
+    text_upload_authorized: bool,
+):
+    provider_id = str(lock.get("provider") or "fish_audio").strip().lower()
+    voice_id = str(lock.get("voice_id") or "").strip()
+    if not voice_id:
+        raise FinalAudioError(f"{lock.get('character_name') or lock.get('character_id')} 尚未锁定 voice_id")
+
+    try:
+        if provider_id == "fish_audio":
+            if not confirm_billable:
+                raise FinalAudioError("正式 Fish Audio 配音是计费调用，必须勾选付费确认")
+            if not text_upload_authorized:
+                raise FinalAudioError("必须确认允许将本句文本发送给 Fish Audio")
+            if not str(api_key or "").strip():
+                raise FinalAudioError("Fish Audio API Key 尚未配置")
+            provider = FishAudioTTS(api_key=api_key)
+        elif provider_id == "gpt_sovits_local":
+            profiles = _gpt_sovits_profiles()
+            if voice_id not in profiles:
+                raise FinalAudioError(f"GPT-SoVITS voice profile 未配置：{voice_id}")
+            provider = GPTSoVITSLocalTTS(
+                endpoint=os.environ.get(GPT_SOVITS_ENDPOINT_ENV, "http://127.0.0.1:9880"),
+                voice_profiles=profiles,
+            )
+        else:
+            raise FinalAudioError(f"不支持的 Final Voice Provider：{provider_id}")
+        return provider.synthesize(
+            text,
+            voice=voice_id,
+            speed=float(lock.get("speed") or 1.0),
+            emotion=emotion,
+        )
+    except TTSProviderError as error:
+        raise FinalAudioError(str(error)) from error
+
+
 def generate_final_voice_line(
     project: Path,
     episode_id: str,
     unit_id: str,
     *,
-    api_key: str,
-    confirm_billable: bool,
-    text_upload_authorized: bool,
+    api_key: str = "",
+    confirm_billable: bool = False,
+    text_upload_authorized: bool = False,
 ) -> dict[str, Any]:
     project = Path(project).resolve()
-    if not confirm_billable:
-        raise FinalAudioError("正式 Fish Audio 配音是计费调用，必须勾选付费确认")
-    if not text_upload_authorized:
-        raise FinalAudioError("必须确认允许将本句文本发送给 Fish Audio")
-    if not str(api_key or "").strip():
-        raise FinalAudioError("Fish Audio API Key 尚未配置")
-
     _, episode = _episode(project, episode_id)
     unit_id = str(unit_id or "").strip()
     line = next((item for item in episode.get("lines", []) if str(item.get("unit_id")) == unit_id), None)
@@ -305,19 +355,17 @@ def generate_final_voice_line(
     lock = _line_lock(locks, line)
     voice_id = str(lock.get("voice_id") or "").strip()
     if not voice_id:
-        raise FinalAudioError(f"{lock.get('character_name') or lock.get('character_id')} 尚未锁定 Fish Audio voice_id")
+        raise FinalAudioError(f"{lock.get('character_name') or lock.get('character_id')} 尚未锁定 voice_id")
 
     emotion = str(line.get("emotion") or lock.get("emotion_default") or "").strip() or None
-    provider = FishAudioTTS(api_key=api_key)
-    try:
-        synthesized = provider.synthesize(
-            str(line.get("text") or ""),
-            voice=voice_id,
-            speed=float(lock.get("speed") or 1.0),
-            emotion=emotion,
-        )
-    except TTSProviderError as error:
-        raise FinalAudioError(str(error)) from error
+    synthesized = _synthesize_final_line(
+        text=str(line.get("text") or ""),
+        lock=lock,
+        emotion=emotion,
+        api_key=api_key,
+        confirm_billable=confirm_billable,
+        text_upload_authorized=text_upload_authorized,
+    )
 
     directory = project / FINAL_VOICE_ROOT / str(episode["episode_id"]).lower()
     directory.mkdir(parents=True, exist_ok=True)
@@ -350,15 +398,17 @@ def generate_final_voice_line(
         "audio_path": aligned.relative_to(project).as_posix(),
         **timing,
         "status": "READY",
-        "billable_generation": True,
+        "billable_generation": bool(synthesized.billable_generation),
     }
     previous[unit_id] = item
     ordered = [previous[str(source_line["unit_id"])] for source_line in episode["lines"] if str(source_line["unit_id"]) in previous]
     complete = len(ordered) == len(episode["lines"]) and all(entry.get("status") == "READY" for entry in ordered)
+    providers = sorted({str(entry.get("provider") or "") for entry in ordered if entry.get("provider")})
     manifest = {
         "schema_version": 1,
         "episode_id": str(episode["episode_id"]),
-        "provider": "fish_audio",
+        "provider": providers[0] if len(providers) == 1 else ("mixed" if providers else ""),
+        "providers": providers,
         "timing_policy": "CONFORM_TO_P33_VOICE_TIMELINE",
         "line_count": len(episode["lines"]),
         "ready_line_count": len(ordered),
@@ -684,6 +734,25 @@ def inventory(project: Path) -> dict[str, Any]:
             "billable": True,
             "key_env": "FISH_AUDIO_API_KEY",
             "key_persistence": "PROCESS_ONLY",
+        },
+        "providers": {
+            "fish_audio": {
+                "id": "fish_audio",
+                "label": "Fish Audio S2-Pro",
+                "remote": True,
+                "billable": True,
+                "key_env": "FISH_AUDIO_API_KEY",
+                "key_persistence": "PROCESS_ONLY",
+            },
+            "gpt_sovits_local": {
+                "id": "gpt_sovits_local",
+                "label": "GPT-SoVITS Local",
+                "remote": False,
+                "billable": False,
+                "endpoint": os.environ.get(GPT_SOVITS_ENDPOINT_ENV, "http://127.0.0.1:9880"),
+                "voice_profiles": sorted(_gpt_sovits_profiles().keys()),
+                "profile_registry": GPT_SOVITS_PROFILE_CONFIG.as_posix(),
+            },
         },
         "locks": locks,
         "audio_candidates": _audio_candidates(project),
