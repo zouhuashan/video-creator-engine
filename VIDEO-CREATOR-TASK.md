@@ -5344,7 +5344,7 @@ NEXT 仍为 P44-06 首个现代短剧试播；本任务只减少返工和工具�
 
 
 ### P44-06C Asset Approval + GPT-SoVITS Final Voice（2026-09-30）
-Status: BACKEND + WEB IMPLEMENTED / CI PENDING
+Status: MERGED / CI PASS
 
 继续 P44-06B，不引入第二套编排器：
 
@@ -5356,6 +5356,7 @@ Status: BACKEND + WEB IMPLEMENTED / CI PENDING
 - Final Voice 声线锁可逐角色选择 `fish_audio` 或 `gpt_sovits_local`。Fish 保持显式计费确认和文本上传授权；GPT-SoVITS Local 不需要 API 付费确认。
 - 无论 Fish 还是 GPT-SoVITS，最终语音都继续 conform 到 P33 已锁定 Timing Voice 时长，禁止换声线后静默重排镜头。
 - GPT-SoVITS 本地声线通过 `config/gpt-sovits-voices.json` 的 profile 名称引用；默认 registry 为空，不自动下载模型或创建声线。
-- CI 已扩展到 Asset Gate、Production Contract、H3 gate、GPT-SoVITS Adapter、Final Audio 与 Web JavaScript 语法。
+- CI 已扩展到 Asset Gate、Production Contract、H3 gate、GPT-SoVITS Adapter、Final Audio 与 Web JavaScript 语法；GitHub Actions `P44 Open Source Fusion` run #8 全绿。
+- PR #4 已 squash merge 到 `main`，merge commit `0edc06f496f70d89b511107ae46e6436b46790ed`。
 
-NEXT：CI 全绿后合并；随后用 30～45 秒现代样片（2 人 / 2 场景 / 8～12 Shot）真实走一遍“素材审核 → 分镜审批 → 本地声线/正式配音 → 本地镜头优先 → 必要 AI_VIDEO”闭环，再决定是否安装 GPT-SoVITS 模型与接 Wan 2.2 GPU Provider。
+NEXT：用 30～45 秒现代样片（2 人 / 2 场景 / 8～12 Shot）真实走一遍“素材审核 → 分镜审批 → 本地声线/正式配音 → 本地镜头优先 → 必要 AI_VIDEO”闭环，再决定是否安装 GPT-SoVITS 模型与接 Wan 2.2 GPU Provider。
